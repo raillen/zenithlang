@@ -204,6 +204,58 @@ fn pick_save_path(default_name: Option<String>) -> Result<Option<String>, String
         .map(|path| path.to_string_lossy().to_string()))
 }
 
+#[derive(serde::Serialize, Debug, Clone)]
+struct Diagnostic {
+    line: u32,
+    col: u32,
+    message: String,
+    severity: String,
+    code: String,
+}
+
+#[tauri::command]
+fn run_diagnostics(path: String, content: String) -> Result<Vec<Diagnostic>, String> {
+    use std::process::Command;
+    use regex::Regex;
+    use std::fs;
+
+    // Create a temporary file for checking (to support as-you-type without saving)
+    let temp_path = workspace_root().join(".check.zt");
+    fs::write(&temp_path, content).map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    let output = Command::new("lua")
+        .arg("ztc.lua")
+        .arg(&temp_path)
+        .current_dir(workspace_root())
+        .output()
+        .map_err(|e| format!("Failed to execute ztc.lua: {}", e))?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{}{}", stdout, stderr);
+
+    let mut diagnostics = Vec::new();
+    
+    // Regex for: ÔØî Erro [ZT-P002]: express├úo esperada, encontrado RPAREN
+    // and --> test_error.zt:1:13
+    let error_re = Regex::new(r"Erro \[(?P<code>[^\]]+)\]:\s+(?P<msg>.+?)\r?\n\s+-->\s+.+:(?P<line>\d+):(?P<col>\d+)").unwrap();
+    
+    // Clean-up temp file
+    let _ = fs::remove_file(&temp_path);
+
+    for cap in error_re.captures_iter(&combined) {
+        diagnostics.push(Diagnostic {
+            line: cap["line"].parse().unwrap_or(1),
+            col: cap["col"].parse().unwrap_or(1),
+            message: cap["msg"].to_string(),
+            severity: "error".to_string(),
+            code: cap["code"].to_string(),
+        });
+    }
+
+    Ok(diagnostics)
+}
+
 #[tauri::command]
 fn get_git_status() -> Result<HashMap<String, String>, String> {
     use std::process::Command;
@@ -513,6 +565,20 @@ fn spawn_terminal_waiter(app_handle: AppHandle, session_id: PtyHandler, session:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(
+                    "sqlite:zenith.db",
+                    vec![tauri_plugin_sql::Migration {
+                        version: 1,
+                        description: "create initial tables",
+                        sql: "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                              CREATE TABLE IF NOT EXISTS extension_data (ext_id TEXT, key TEXT, value TEXT, PRIMARY KEY(ext_id, key));",
+                        kind: tauri_plugin_sql::MigrationKind::Up,
+                    }],
+                )
+                .build(),
+        )
         .manage(TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -520,6 +586,7 @@ pub fn run() {
             read_file,
             write_file,
             get_git_status,
+            run_diagnostics,
             run_compiler,
             pick_file,
             pick_folder,

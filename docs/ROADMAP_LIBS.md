@@ -13,25 +13,36 @@ Este documento define a estratégia, a filosofia e o cronograma de implementaç�
 ## 🚀 Fase 1: Fundação (v0.6.0) - *Em Aberto*
 *Foco: Permitir que o Zenith interaja com o mundo real e manipule dados básicos.*
 
-### [ ] `std.fs` (File System)
+### [x] `std.fs` (File System)
 - **Descrição**: Manipulação de arquivos e pastas no disco.
-- **Funcionalidades**: 
-    - `fs.read_text_file(path: text) -> Outcome<text, text>`
-    - `fs.write_text_file(path: text, content: text) -> Outcome<void, text>`
-    - `fs.exists(path: text) -> bool`
-    - `fs.create_folder(path: text) -> Outcome<void, text>`
-    - `fs.list_folder_content(path: text) -> list<text>`
+- **Nível Atômico**: 
+    - [x] `fs.read_text_file(path: text) -> Outcome<text, text>`
+    - [x] `fs.write_text_file(path: text, content: text) -> Outcome<void, text>`
+    - [x] `fs.append_text(path: text, content: text) -> Outcome<void, text>`
+    - [x] `fs.prepend_text(path: text, content: text) -> Outcome<void, text>`
+    - [x] `fs.exists(path: text) -> bool`
+    - [x] `fs.remove_file(path: text) -> Outcome<void, text>`
+    - [x] `fs.remove_folder(path: text, recursive: bool) -> Outcome<void, text>`
+- **Nível de Fluxo (Streams)**:
+    - [x] `fs.open_file(path: text, mode: FileMode) -> Outcome<FileHandle, text>`
+    - [x] `struct FileHandle`: `read_line()`, `write(text)`, `close()`.
+- **Submódulo `std.fs.path`**:
+    - [x] `path.join(parts: list<text>) -> text`
+    - [x] `path.extension(p: text) -> text`
+    - [x] `path.basename(p: text) -> text`
+    - [x] `path.dirname(p: text) -> text`
+    - [x] `path.is_absolute(p: text) -> bool`
 
-### [ ] `std.os` (Operating System)
+### [x] `std.os` (Operating System)
 - **Descrição**: Interface com o ambiente e o hardware.
 - **Funcionalidades**: 
-    - `os.get_env_variable(name: text) -> Optional<text>`
-    - `os.get_all_env_variables() -> map<text, text>` (Lista tudo)
-    - `os.run_command(cmd: text) -> int`
-    - `os.get_system_info() -> SystemInfo` (SO, User, Arq)
-    - `os.get_hardware_info() -> HardwareInfo` (RAM, CPU, Bateria)
-    - `os.get_special_path(kind: SystemPath) -> Optional<text>`
-    - **Variáveis Padrão**: `ZENITH_PROJECT_ROOT`, `ZENITH_VERSION`, etc.
+    - [x] `os.get_env_variable(name: text) -> Optional<text>`
+    - [x] `os.get_all_env_variables() -> map<text, text>`
+    - [x] `os.run_command(cmd: text) -> int`
+    - [x] `os.get_system_info() -> SystemInfo`
+    - [x] `os.get_hardware_info() -> HardwareInfo`
+    - [x] `os.get_special_path(kind: SpecialPath) -> text`
+    - **Variáveis Padrão**: `version`, `platform`, `arch`, `project_root`.
 
 ### [ ] `std.json` (Dados)
 - **Descrição**: Serialização e desserialização de dados.

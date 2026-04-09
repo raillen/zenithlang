@@ -1,0 +1,62 @@
+-- tests/stdlib/test_fs.zt
+import std.fs
+import std.fs.path
+
+pub func main() -> int
+    print("--- Testando Módulo std.fs ---")
+
+    var arq = "teste_zenith.txt"
+    
+    -- 1. Nível Atômico
+    print("Criando arquivo...")
+    fs.write_text_file(arq, "Linha 2\nLinha 3")
+    
+    print("Testando Prepend (Linha 1)...")
+    fs.prepend_text(arq, "Linha 1\n")
+    
+    print("Testando Append (Linha 4)...")
+    fs.append_text(arq, "\nLinha 4")
+    
+    -- Usando match simples
+    var res_read = fs.read_text_file(arq)
+    match res_read
+        case Success(txt): 
+            print("Conteúdo final:\n" + txt)
+        case Failure(e): 
+            print("Erro ao ler")
+    end
+
+    -- 2. Nível de Fluxo (Streams)
+    print("\nLendo linha por linha (Stream):")
+    var res_open = fs.open_file(arq, mode: fs.FileMode.Read)
+    
+    -- Aqui o Binder deve aceitar o match com Success
+    match res_open
+        case Success(h):
+            var handle: any = h
+            -- Processamento síncrono simples para evitar aninhamento complexo
+            var l1_opt = handle.read_line()
+            match l1_opt
+                case Present(t): 
+                    var txt: any = t
+                    print("Linha 1: " + txt)
+                case Empty: print("Vazio")
+            end
+            handle.close()
+        case Failure(err):
+            print("Falha ao abrir")
+    end
+
+    -- 3. Submódulo Path
+    print("\n--- Testando std.fs.path ---")
+    var full = path.join(["C:", "Projetos", "Zenith", "main.zt"])
+    print("Path join: " + full)
+    print("Extensão: " + path.extension(full))
+    print("Basename: " + path.basename(full))
+    print("Dirname:  " + path.dirname(full))
+
+    -- Limpeza
+    fs.remove_file(arq)
+    print("\n--- Fim dos testes de FS ---")
+    return 0
+end

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Play, Square, Hammer, ChevronRight, Layout, Settings } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
+import { ZenithMenu } from "./ZenithMenu";
 
 export function Toolbar() {
   const { dirtyFiles, activeFile, setBottomPanelOpen, isBottomPanelOpen } = useWorkspaceStore();
@@ -28,9 +29,9 @@ export function Toolbar() {
 
   return (
     <header className="xcode-toolbar justify-between select-none">
-      {/* Left Area (Clean) */}
+      {/* Left Area (Zenith Hub) */}
       <div className="flex items-center gap-2 w-1/4 px-4">
-        <h1 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Retina</h1>
+        <ZenithMenu />
       </div>
 
       {/* Project Status & Actions (Center-Right weighted) */}

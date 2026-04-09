@@ -1,0 +1,40 @@
+-- tests/stdlib/test_os.zt
+import std.os
+
+pub func main() -> int
+    print("--- Testando Módulo std.os ---")
+    
+    print("Versão do Zenith: " + os.version)
+    print("Plataforma: " + os.platform)
+    print("Arquitetura: " + os.arch)
+    
+    print("--- Testando Variáveis de Ambiente ---")
+    var user: text = os.get_env_variable("USERNAME") or "desconhecido"
+    print("Usuário atual: " + user)
+    
+    var envs = os.get_all_env_variables()
+    print("Total de variáveis de ambiente: " + #envs)
+
+    print("--- Testando Informações de Hardware ---")
+    var hw = os.get_hardware_info()
+    print("Processador: " + hw.cpu)
+    print("RAM: " + hw.ram_gb + " GB")
+
+    print("--- Testando Caminhos ---")
+    print("Trabalhando em: " + os.get_working_dir())
+    print("Área de Trabalho: " + os.get_special_path(os.SpecialPath.Desktop))
+
+    print("--- Testando Comandos ---")
+    var code = os.run_command("echo Hello from Zenith Command!")
+    print("Código de saída do echo: " + code)
+
+    print("--- Testando Privilégios ---")
+    if os.is_admin()
+        print("Rodando como Administrador")
+    else
+        print("Rodando como Usuário Normal")
+    end
+
+    print("--- Fim dos testes de OS ---")
+    return 0
+end

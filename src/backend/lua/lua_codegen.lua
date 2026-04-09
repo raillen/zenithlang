@@ -163,11 +163,17 @@ function LuaCodegen:_emit_compilation_unit(node)
 
     -- Entry Point
     local main_found = false
-    for _, name in ipairs(self.pub_members) do if name == "main" then main_found = true end end
+    for _, decl in ipairs(node.declarations) do
+        if (decl.kind == SK.FUNC_DECL or decl.kind == SK.ASYNC_FUNC_DECL) and decl.name == "main" then
+            main_found = true
+            break
+        end
+    end
+
     if main_found then
         self:emit("")
         self:emit("-- Auto-run main if not in a namespace")
-        self:emit("if not _zt_has_namespace then")
+        self:emit(string.format("if not %s then", self.has_namespace and "true" or "false"))
         self:indent()
         self:emit("local status = main()")
         self:emit("if type(status) == 'number' then os.exit(status) end")
@@ -524,8 +530,13 @@ end
 function LuaCodegen:_eval(node)
     if not node then return "nil" end
     
+    -- Caso especial: Tabela de argumento nomeado (gerada pelo parser)
+    if type(node) == "table" and node.kind == "NAMED" then
+        return self:_eval(node.value)
+    end
+    
     if node.kind == SK.LITERAL_EXPR then
-        if type(node.value) == "string" then return "\"" .. node.value .. "\"" end
+        if type(node.value) == "string" then return string.format("%q", node.value) end
         return tostring(node.value)
     
     elseif node.kind == SK.IDENTIFIER_EXPR then
@@ -547,6 +558,9 @@ function LuaCodegen:_eval(node)
         if op == "+" then
             -- Heurística simples: se um dos lados for literal string, usa ..
             return string.format("(%s .. %s)", self:_eval(node.left), self:_eval(node.right))
+        elseif op == "or" then
+            -- Suporte a unwrap de Optional/Outcome
+            return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right))
         end
         return string.format("(%s %s %s)", self:_eval(node.left), op_map[op] or op, self:_eval(node.right))
     
@@ -554,16 +568,27 @@ function LuaCodegen:_eval(node)
         local op = node.operator.lexeme == "not" and "not " or "-"
         return string.format("%s%s", op, self:_eval(node.operand))
 
+    elseif node.kind == SK.NAMED_ARG_EXPR then
+        return self:_eval(node.value)
+
     elseif node.kind == SK.CALL_EXPR then
         local args = {}
         for _, arg in ipairs(node.arguments) do table.insert(args, self:_eval(arg)) end
         return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", "))
     
     elseif node.kind == SK.MEMBER_EXPR then
-        return string.format("%s.%s", self:_eval(node.expression), node.member_name)
+        return string.format("%s.%s", self:_eval(node.object), node.member_name)
+    
+    elseif node.kind == SK.LEN_EXPR then
+        return string.format("#(%s)", self:_eval(node.expression))
+    
+    elseif node.kind == SK.LIST_EXPR then
+        local elements = {}
+        for _, el in ipairs(node.elements) do table.insert(elements, self:_eval(el)) end
+        return "{" .. table.concat(elements, ", ") .. "}"
     
     elseif node.kind == SK.INDEX_EXPR then
-        return string.format("%s[%s]", self:_eval(node.expression), self:_eval(node.index_expr))
+        return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
 
     elseif node.kind == SK.BANG_EXPR then
         -- Desaçucarado: result! -> error propagation

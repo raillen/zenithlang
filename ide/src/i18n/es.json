@@ -1,0 +1,45 @@
+{
+  "hub": {
+    "title": "ZENITH HUB",
+    "version": "Versión 0.2.0-Alpha",
+    "categories": {
+      "file": "Archivo",
+      "zenith": "Zenith",
+      "system": "Sistema"
+    },
+    "actions": {
+      "new_script": "Nuevo Script (.zt)",
+      "open_folder": "Abrir Carpeta...",
+      "open_file": "Abrir Archivo...",
+      "save_as": "Guardar como...",
+      "compile": "Compilar (Hammer)",
+      "run": "Ejecutar en Zenith",
+      "check": "Verificar Diagnósticos",
+      "preferences": "Preferencias",
+      "docs": "Documentación",
+      "about": "Sobre Zenith"
+    }
+  },
+  "toolbar": {
+    "compiling": "Compilando...",
+    "ready": "Listo",
+    "run_tooltip": "Ejecutar Proyecto (⌘R)",
+    "build_tooltip": "Compilar Todo (⌘B)",
+    "settings_tooltip": "Configuraciones",
+    "no_file": "Ningún archivo seleccionado"
+  },
+  "settings": {
+    "title": "Preferencias de Retina",
+    "tabs": {
+        "general": "General",
+        "editor": "Editor",
+        "zenith": "Zenith"
+    },
+    "labels": {
+        "language": "Idioma de la Interfaz",
+        "theme": "Tema",
+        "compiler_path": "Ruta del Compilador (ztc.lua)"
+    },
+    "save": "Guardar Cambios"
+  }
+}

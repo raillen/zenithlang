@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
+import { useWorkspaceStore, FileEntry, Diagnostic } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
 import { TabManager } from "./TabManager";
 import { registerZenithLanguage } from "../utils/zenithLang";
 
 export function EditorPanel() {
-  const { activeFile, setFileDirty } = useWorkspaceStore();
+  const { activeFile, setFileDirty, setDiagnostics, diagnosticsMap } = useWorkspaceStore();
   const [content, setContent] = useState("");
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
 
   useEffect(() => {
     async function loadFile() {
@@ -26,7 +28,51 @@ export function EditorPanel() {
     loadFile();
   }, [activeFile, setFileDirty]);
 
+  // Diagnostics Debounce Effect
+  useEffect(() => {
+    if (!activeFile || !content || activeFile.is_directory) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await invoke<Diagnostic[]>("run_diagnostics", { 
+          path: activeFile.path, 
+          content 
+        });
+        setDiagnostics(activeFile.path, results);
+      } catch (err) {
+        console.error("Diagnostics error:", err);
+      }
+    }, 800); // 800ms debounce
+
+    return () => clearTimeout(timer);
+  }, [content, activeFile?.path, setDiagnostics]);
+
+  // Update Monaco Markers when diagnostics for this file change
+  useEffect(() => {
+    if (editorRef.current && monacoRef.current && activeFile) {
+      const markers = (diagnosticsMap[activeFile.path] || []).map(d => ({
+        message: `${d.code}: ${d.message}`,
+        severity: d.severity === 'error' 
+          ? monacoRef.current.MarkerSeverity.Error 
+          : d.severity === 'warning' 
+            ? monacoRef.current.MarkerSeverity.Warning 
+            : monacoRef.current.MarkerSeverity.Info,
+        startLineNumber: d.line,
+        startColumn: d.col,
+        endLineNumber: d.line,
+        endColumn: d.col + 1
+      }));
+
+      const model = editorRef.current.getModel();
+      if (model) {
+        monacoRef.current.editor.setModelMarkers(model, "zenith", markers);
+      }
+    }
+  }, [diagnosticsMap, activeFile?.path]);
+
   const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
     registerZenithLanguage(monaco);
 
     // Save Shortcut

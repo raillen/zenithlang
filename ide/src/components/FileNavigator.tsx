@@ -4,13 +4,13 @@ import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
 
 export function FileNavigator() {
-  const { fileTree, setFileTree, openFile, activeFile } = useWorkspaceStore();
+  const { fileTree, setFileTree, openFile, activeFile, currentProjectRoot } = useWorkspaceStore();
   const [gitStatus, setGitStatus] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const tree = await invoke<FileEntry[]>("get_file_tree", { rootPath: "." });
+        const tree = await invoke<FileEntry[]>("get_file_tree", { rootPath: currentProjectRoot });
         setFileTree(tree);
         
         const git = await invoke<Record<string, string>>("get_git_status");
@@ -23,7 +23,7 @@ export function FileNavigator() {
     // Refresh git status every 10 seconds
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [setFileTree]);
+  }, [setFileTree, currentProjectRoot]);
 
   return (
     <div className="py-2 select-none overflow-x-hidden">

@@ -1,0 +1,69 @@
+--- Biblioteca Padrão Zenith — Módulo OS (Operating System)
+--- Interface com o ambiente, hardware e processos.
+
+namespace std.os
+
+-- 📦 DADOS E ESTRUTURAS
+
+pub struct SystemInfo
+    pub name: text          -- "windows", "linux", "macos"
+    pub arch: text          -- "x64", "arm64", "x86"
+    pub username: text
+    pub home_dir: text
+end
+
+pub struct HardwareInfo
+    pub cpu: text           -- Nome do modelo
+    pub ram_gb: float       -- RAM total em GB
+    pub battery: float?     -- 0.0 a 1.0 (ou null se desktop)
+    pub is_charging: bool
+end
+
+pub enum SpecialPath
+    Config, Temp, Desktop, Documents
+end
+
+-- 💎 PROPRIEDADES (Constantes de Inicialização)
+
+pub const version: text = "0.2.0"
+pub const platform: text = "windows" -- Detectado no boot
+pub const arch: text = "x64"         -- Detectado no boot
+pub const project_root: text = "."   -- Caminho base do projeto
+
+-- 🏗️ FUNÇÕES DO SISTEMA
+
+--- Busca o valor de uma variável de ambiente.
+pub func get_env_variable(name: text) -> Optional<text>
+end
+
+--- Retorna um mapa com todas as variáveis de ambiente disponíveis.
+pub func get_all_env_variables() -> map<text, text>
+end
+
+--- Coleta informações detalhadas sobre o sistema operacional.
+pub func get_system_info() -> SystemInfo
+end
+
+--- Coleta informações de hardware (CPU, RAM, Bateria).
+pub func get_hardware_info() -> HardwareInfo
+end
+
+--- Executa um comando no shell do sistema e retorna o código de saída.
+pub func run_command(cmd: text) -> int
+end
+
+--- Retorna o caminho absoluto para pastas especiais do usuário.
+pub func get_special_path(kind: SpecialPath) -> text
+end
+
+--- Retorna o diretório de trabalho atual (CWD).
+pub func get_working_dir() -> text
+end
+
+--- Verifica se o script está rodando com privilégios de administrador/root.
+pub func is_admin() -> bool
+end
+
+--- Encerra o programa imediatamente com o código de saída fornecido.
+pub func exit(code: int)
+end

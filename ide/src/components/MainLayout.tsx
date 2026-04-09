@@ -2,15 +2,27 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import { Toolbar } from "./Toolbar";
 import { FileNavigator } from "./FileNavigator";
 import { TerminalPanel } from "./TerminalPanel";
+import { ProblemsPanel } from "./ProblemsPanel";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
-import { Files, Search, GitBranch, Bug } from "lucide-react";
+import { Files, Search, GitBranch, Bug, AlertCircle } from "lucide-react";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { isBottomPanelOpen, activeSidebarTab, setSidebarTab } = useWorkspaceStore();
+  const { 
+    isBottomPanelOpen, 
+    activeSidebarTab, 
+    setSidebarTab,
+    activeBottomTab,
+    setBottomTab,
+    diagnosticsMap
+  } = useWorkspaceStore();
+
+  const problemCount = Object.values(diagnosticsMap).reduce((acc, curr) => acc + curr.length, 0);
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
-      <Toolbar />
+    <div className="flex flex-col h-full w-full overflow-hidden bg-white">
+      <div className="relative z-50">
+        <Toolbar />
+      </div>
       
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
@@ -45,12 +57,26 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 <>
                   <Separator className="h-[1px] bg-ide-border hover:bg-primary/30 transition-colors" />
                   <Panel defaultSize={25} minSize={10} className="bg-white/40 backdrop-blur-lg flex flex-col">
-                    <div className="h-8 border-b border-ide-border flex items-center px-4 gap-4">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary border-b-2 border-primary h-full flex items-center">Console</span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 h-full flex items-center hover:text-zinc-600 transition-colors">Terminal</span>
+                    <div className="h-8 border-b border-ide-border flex items-center px-4 gap-6">
+                        <BottomTab 
+                          label="Console" 
+                          active={activeBottomTab === 'console'} 
+                          onClick={() => setBottomTab('console')} 
+                        />
+                        <BottomTab 
+                          label="Terminal" 
+                          active={activeBottomTab === 'terminal'} 
+                          onClick={() => setBottomTab('terminal')} 
+                        />
+                        <BottomTab 
+                          label={`Problems ${problemCount > 0 ? `(${problemCount})` : ''}`} 
+                          active={activeBottomTab === 'problems'} 
+                          onClick={() => setBottomTab('problems')} 
+                          icon={problemCount > 0 ? <AlertCircle size={10} className="ml-1 text-red-500" /> : null}
+                        />
                     </div>
                     <div className="flex-1 min-h-0">
-                       <TerminalPanel />
+                       {activeBottomTab === 'problems' ? <ProblemsPanel /> : <TerminalPanel />}
                     </div>
                   </Panel>
                 </>
@@ -91,4 +117,16 @@ function StatusBar() {
       </div>
     </footer>
   )
+}
+
+function BottomTab({ label, active, onClick, icon }: { label: string, active: boolean, onClick: () => void, icon?: React.ReactNode }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`text-[10px] font-bold uppercase tracking-widest h-full flex items-center transition-colors border-b-2 ${active ? 'text-primary border-primary' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}
+    >
+      {label}
+      {icon}
+    </button>
+  );
 }

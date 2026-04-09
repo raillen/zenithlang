@@ -7,21 +7,35 @@ export interface FileEntry {
   children?: FileEntry[];
 }
 
+export interface Diagnostic {
+  line: number;
+  col: number;
+  message: string;
+  severity: 'error' | 'warning' | 'hint';
+  code: string;
+}
+
 interface WorkspaceState {
   fileTree: FileEntry[];
   openFiles: FileEntry[];     // Files currently pinned/fixed as tabs
   activeFile: FileEntry | null;
   previewFile: FileEntry | null; // The temporary "single-click" file
   dirtyFiles: Set<string>;      // Set of paths that are unsaved
+  diagnosticsMap: Record<string, Diagnostic[]>; // Errors/Warnings per file
   isBottomPanelOpen: boolean;
   activeSidebarTab: string;
+  activeBottomTab: 'console' | 'terminal' | 'problems';
+  currentProjectRoot: string;
   
   setFileTree: (tree: FileEntry[]) => void;
   openFile: (file: FileEntry, isFixed?: boolean) => void;
   closeFile: (path: string) => void;
   setFileDirty: (path: string, dirty: boolean) => void;
+  setDiagnostics: (path: string, diagnostics: Diagnostic[]) => void;
   setBottomPanelOpen: (open: boolean) => void;
   setSidebarTab: (tab: string) => void;
+  setBottomTab: (tab: 'console' | 'terminal' | 'problems') => void;
+  setProjectRoot: (path: string) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
@@ -30,10 +44,28 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   activeFile: null,
   previewFile: null,
   dirtyFiles: new Set(),
+  diagnosticsMap: {},
   isBottomPanelOpen: false,
   activeSidebarTab: 'navigator',
+  activeBottomTab: 'console',
+  currentProjectRoot: '.',
 
   setFileTree: (tree) => set({ fileTree: tree }),
+  
+  setDiagnostics: (path, diagnostics) => set((state) => ({
+    diagnosticsMap: { ...state.diagnosticsMap, [path]: diagnostics }
+  })),
+  
+  setBottomTab: (tab) => set({ activeBottomTab: tab }),
+
+  setProjectRoot: (path) => set({ 
+    currentProjectRoot: path,
+    openFiles: [],
+    activeFile: null,
+    previewFile: null,
+    dirtyFiles: new Set(),
+    diagnosticsMap: {}
+  }),
   
   openFile: (file, isFixed = false) => set((state) => {
     // If it's a folder, do nothing

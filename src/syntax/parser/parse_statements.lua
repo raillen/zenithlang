@@ -10,6 +10,25 @@ local ParseExpressions = require("src.syntax.parser.parse_expressions")
 
 local ParseStatements = {}
 
+-- Lista de tokens que abrem blocos que OBRIGATORIAMENTE terminam com KW_END
+local block_openers = {
+    [TokenKind.KW_IF] = true,
+    [TokenKind.KW_WHILE] = true,
+    [TokenKind.KW_FOR] = true,
+    [TokenKind.KW_REPEAT] = true,
+    [TokenKind.KW_MATCH] = true,
+    [TokenKind.KW_ATTEMPT] = true,
+    [TokenKind.KW_WATCH] = true,
+    [TokenKind.KW_GROUP] = true,
+    [TokenKind.KW_TEST] = true,
+    [TokenKind.KW_STRUCT] = true,
+    [TokenKind.KW_ENUM] = true,
+    [TokenKind.KW_TRAIT] = true,
+    [TokenKind.KW_APPLY] = true,
+    [TokenKind.KW_FUNC] = true,
+    [TokenKind.KW_ASYNC] = true,
+}
+
 function ParseStatements.parse_statement(ctx)
     local k = ctx:peek().kind
     
@@ -19,6 +38,8 @@ function ParseStatements.parse_statement(ctx)
         return ParseStatements._parse_while(ctx)
     elseif k == TokenKind.KW_FOR then
         return ParseStatements._parse_for(ctx)
+    elseif k == TokenKind.KW_REPEAT then
+        return ParseStatements._parse_repeat(ctx)
     elseif k == TokenKind.KW_RETURN then
         return ParseStatements._parse_return(ctx)
     elseif k == TokenKind.KW_BREAK then
@@ -103,7 +124,7 @@ end
 
 function ParseStatements.parse_block(ctx, end_kind)
     local statements = {}
-    
+
     local function is_end(k)
         if type(end_kind) == "table" then
             for _, ek in ipairs(end_kind) do
@@ -115,10 +136,11 @@ function ParseStatements.parse_block(ctx, end_kind)
         end
     end
 
-    while not is_end(ctx:peek().kind) and not ctx:is_at_end() do
+    while not ctx:is_at_end() do
         ctx:skip_newlines()
-        if is_end(ctx:peek().kind) then break end
-        
+        local k = ctx:peek().kind
+        if is_end(k) then break end
+
         local ParseDeclarations = require("src.syntax.parser.parse_declarations")
         local stmt = ParseDeclarations.parse_declaration_or_statement(ctx)
         if stmt then table.insert(statements, stmt) end
@@ -132,21 +154,21 @@ function ParseStatements._parse_if(ctx)
     local condition = ParseExpressions.parse_expression(ctx)
     ctx:skip_newlines()
     
-    local body = ParseStatements.parse_block(ctx, {TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END})
+    local body = ParseStatements.parse_block(ctx, { TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END })
     
     local elif_clauses = {}
     while ctx:match(TokenKind.KW_ELIF) do
         local elif_cond = ParseExpressions.parse_expression(ctx)
         ctx:skip_newlines()
-        local elif_body = ParseStatements.parse_block(ctx, {TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END})
-        table.insert(elif_clauses, StmtSyntax.elif_clause(elif_cond, elif_body, elif_cond.span))
+        local elif_body = ParseStatements.parse_block(ctx, { TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END })
+        table.insert(elif_clauses, { condition = elif_cond, body = elif_body })
     end
     
     local else_clause = nil
     if ctx:match(TokenKind.KW_ELSE) then
         ctx:skip_newlines()
         local else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
-        else_clause = StmtSyntax.else_clause(else_body, ctx:peek(-1).span)
+        else_clause = { body = else_body }
     end
     
     local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' após if")
@@ -250,11 +272,12 @@ function ParseStatements._parse_check(ctx)
     local start = ctx:advance() -- 'check'
     local condition = ParseExpressions.parse_expression(ctx)
     
-    ctx:expect(TokenKind.KW_ELSE, "esperado 'else' após 'check condition'")
-    ctx:skip_newlines()
+    local else_body = {}
+    if ctx:match(TokenKind.KW_ELSE) then
+        ctx:skip_newlines()
+        else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    end
     
-    -- O 'else' do check pode ser um bloco ou um único statement que termina no end
-    local else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
     local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' para fechar check")
     
     return StmtSyntax.check_stmt(condition, else_body, start.span:merge(end_t.span))

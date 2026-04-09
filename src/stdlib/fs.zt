@@ -1,0 +1,56 @@
+--- Biblioteca Padrão Zenith — Módulo FS (File System)
+--- Manipulação atômica e de fluxo de arquivos e pastas.
+
+namespace std.fs
+
+-- 📦 ESTRUTURAS
+
+pub enum FileMode
+    Read, Write, Append
+end
+
+pub struct FileHandle
+    -- Métodos do Handle serão implementados em Lua
+    pub func read_line() -> Optional<text>
+    end
+    pub func write(content: text) -> Outcome<void, text>
+    end
+    pub func close()
+    end
+end
+
+-- 🏗️ NÍVEL ATÔMICO (Simples)
+
+--- Lê todo o conteúdo de um arquivo de texto.
+pub func read_text_file(path: text) -> Outcome<text, text>
+end
+
+--- Escreve um texto em um arquivo, sobrescrevendo o anterior.
+pub func write_text_file(path: text, content: text) -> Outcome<void, text>
+end
+
+--- Adiciona texto ao final de um arquivo.
+pub func append_text(path: text, content: text) -> Outcome<void, text>
+end
+
+--- Adiciona texto ao início de um arquivo (otimizado via arquivo temporário).
+pub func prepend_text(path: text, content: text) -> Outcome<void, text>
+end
+
+--- Verifica se um arquivo ou pasta existe.
+pub func exists(path: text) -> bool
+end
+
+--- Remove um arquivo do disco.
+pub func remove_file(path: text) -> Outcome<void, text>
+end
+
+--- Remove uma pasta (opcionalmente de forma recursiva).
+pub func remove_folder(path: text, recursive: bool) -> Outcome<void, text>
+end
+
+-- 🚀 NÍVEL DE FLUXO (Avançado)
+
+--- Abre um arquivo para operações manuais de leitura/escrita.
+pub func open_file(path: text, mode: FileMode) -> Outcome<FileHandle, text>
+end
