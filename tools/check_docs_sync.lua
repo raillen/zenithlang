@@ -28,7 +28,7 @@ end
 local function check_sync()
     print(colors.cyan .. "🔍 Iniciando auditoria de sincronização Zenith..." .. colors.reset)
     
-    local docs_path = "docs/language-spec/syntax.md"
+    local docs_path = "docs/handbook/syntax.md"
     local docs_content = read_file(docs_path)
     
     if not docs_content then

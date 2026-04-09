@@ -15,12 +15,11 @@ local colors = {
 
 local function run_test_file(path)
     print(colors.blue .. "🚀 Rodando: " .. path .. colors.reset)
-    -- Executa o arquivo via comando lua
-    local handle = io.popen("lua " .. path)
-    local result = handle:read("*a")
-    local success = handle:close()
+    -- Em Lua 5.1 no Windows, os.execute retorna o código de saída diretamente
+    local exit_code = os.execute("lua " .. path)
     
-    print(result)
+    -- No Lua 5.1 (Windows), 0 é sucesso, qualquer outro valor é falha
+    local success = (exit_code == 0)
     return success
 end
 

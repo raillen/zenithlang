@@ -82,6 +82,7 @@ local TokenKind = {
     KW_GROUP            = "KW_GROUP",
     KW_TEST             = "KW_TEST",
     KW_ASSERT           = "KW_ASSERT",
+    KW_NATIVE           = "KW_NATIVE",
 
     -- Operadores aritméticos
     PLUS                = "PLUS",           -- +

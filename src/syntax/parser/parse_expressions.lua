@@ -314,9 +314,12 @@ function ParseExpressions._parse_primary(ctx)
         local id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo após '@'")
         return ExprSyntax.self_field(id.lexeme, start.span:merge(id.span))
     
-    elseif k == TokenKind.KW_MATCH then
+    elseif k == TokenKind.KW_CHECK then
         local ParseStatements = require("src.syntax.parser.parse_statements")
-        return ParseStatements._parse_match(ctx)
+        return ParseStatements._parse_check(ctx)
+    elseif k == TokenKind.KW_NATIVE then
+        local ParseStatements = require("src.syntax.parser.parse_statements")
+        return ParseStatements._parse_native_lua(ctx, false)
     end
 
     return nil

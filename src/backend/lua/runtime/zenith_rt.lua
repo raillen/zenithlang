@@ -246,6 +246,29 @@ function zt.range(start, finish)
     end
 end
 
+--- Converte um objeto Iterable do Zenith para um iterador Lua.
+--- Se o objeto tiver :iterator(), usa-o. Se for função, usa diretamente.
+--- Se for lista, usa ipairs.
+function zt.iter(obj)
+    if type(obj) == "function" then return obj end
+    
+    if type(obj) == "table" then
+        if obj.iterator then
+            local it = obj:iterator()
+            return function()
+                local res = it()
+                if res and res._tag == "Present" then
+                    return res.value
+                end
+                return nil
+            end
+        end
+        return ipairs(obj)
+    end
+    
+    return function() return nil end
+end
+
 -- ----------------------------------------------------------------------------
 -- Standard Library Support
 -- ----------------------------------------------------------------------------

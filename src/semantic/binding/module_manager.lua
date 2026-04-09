@@ -53,6 +53,7 @@ function ModuleManager:get_or_load_ast(module_name)
     
     self.cache[module_name] = {
         ast = unit,
+        source = source,
         path = path,
         name = module_name
     }
@@ -93,7 +94,8 @@ function ModuleManager:get_prelude_scope()
     
     local core_scope, b_diags = core_binder:bind(ast, prelude_name)
     if dummy_diags:has_errors() then
-        error("FALHA CRÍTICA: Erros semânticos na Prelude (std.core):\n" .. dummy_diags:format({ text = "", filename = "core.zt" }))
+        local core_source = self.cache[prelude_name] and self.cache[prelude_name].source
+        error("FALHA CRÍTICA: Erros semânticos na Prelude (std.core):\n" .. dummy_diags:format(core_source))
     end
 
     -- APLICAR LOWERING NA PRELUDE TAMBÉM

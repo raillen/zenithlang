@@ -36,6 +36,7 @@ local SyntaxKind = {
     IS_EXPR                 = "IS_EXPR",               -- expr is Type
     AS_EXPR                 = "AS_EXPR",               -- expr as Type
     TRY_EXPR                = "TRY_EXPR",              -- expr?
+    NATIVE_LUA_EXPR         = "NATIVE_LUA_EXPR",       -- native lua ... end
 
     -- ================================================================
     -- Statements
@@ -58,6 +59,7 @@ local SyntaxKind = {
     MATCH_STMT              = "MATCH_STMT",            -- match expr: ... end
     THROW_STMT              = "THROW_STMT",            -- throw expr
     CHECK_STMT              = "CHECK_STMT",            -- check expr else ... end
+    NATIVE_LUA_STMT         = "NATIVE_LUA_STMT",       -- native lua ... end
 
     -- ================================================================
     -- Declarações

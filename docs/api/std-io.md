@@ -4,18 +4,17 @@ O módulo `io` fornece funções para entrada e saída de dados, interação com
 
 ## Saída de Dados
 
-### `print(val: any)`
-Imprime um valor no console seguido de uma nova linha.
-- **Exemplo**: `print("Olá Mundo")`
-
 ### `write(val: any)`
 Imprime um valor no console sem adicionar uma nova linha.
 
+### `write_line(val: any)`
+Imprime um valor no console seguido de uma nova linha. Equivalente ao `print` do Core, mas localizado no namespace `io`.
+
 ## Entrada de Dados
 
-### `input(prompt: text) -> text`
-Exibe um prompt e aguarda a entrada do usuário no teclado.
-- **Exemplo**: `var nome = input("Qual seu nome? ")`
+### `read_line() -> text`
+Aguarda e lê uma linha de entrada do usuário no terminal.
+- **Exemplo**: `var nome = io.read_line()`
 
 ## Manipulação de Arquivos
 

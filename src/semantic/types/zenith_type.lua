@@ -67,6 +67,11 @@ function ZenithType:is_assignable_to(other)
         return true -- Evita cascata de erros
     end
 
+    -- Se um dos lados for ANY, aceitamos (pragmatismo)
+    if self.name == "any" or other.name == "any" then
+        return true
+    end
+
     if self == other then return true end
 
     -- Parâmetros genéricos ainda não instanciados são tratados como placeholders.
@@ -123,6 +128,30 @@ function ZenithType:is_assignable_to(other)
         return true
     end
 
+    -- Lógica de Funções: () => T -> () => T
+    if self.kind == ZenithType.Kind.FUNC and other.kind == ZenithType.Kind.FUNC then
+        -- Se um deles for ANY (sentinela), aceitamos
+        if self.name == "any" or other.name == "any" then return true end
+
+        -- Checar retorno (Covariante)
+        local s_ret = self.return_type or BuiltinTypes.VOID
+        local o_ret = other.return_type or BuiltinTypes.VOID
+        
+        if not s_ret:is_assignable_to(o_ret) then
+            return false
+        end
+        -- Checar parâmetros (Contravariante)
+        local s_params = self.params or {}
+        local o_params = other.params or {}
+        if #s_params ~= #o_params then return false end
+        for i = 1, #s_params do
+            local sp = s_params[i].type_info or s_params[i]
+            local op = o_params[i].type_info or o_params[i]
+            if not op:is_assignable_to(sp) then return false end
+        end
+        return true
+    end
+
     -- Promoção automática: int -> float (Zenith é pragmático)
     local BuiltinTypes = require("src.semantic.types.builtin_types")
     if self == BuiltinTypes.INT and other == BuiltinTypes.FLOAT then
@@ -130,6 +159,11 @@ function ZenithType:is_assignable_to(other)
     end
 
     -- Fallback por nome para tipos primários e structs simples
+    -- Se forem funções, a lógica estrutural acima já decidiu.
+    if self.kind == ZenithType.Kind.FUNC and other.kind == ZenithType.Kind.FUNC then
+        return false -- Se chegou aqui, falhou na lógica estrutural acima
+    end
+
     return self.name == other.name and self.kind == other.kind
 end
 

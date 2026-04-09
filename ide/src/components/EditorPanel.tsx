@@ -1,155 +1,117 @@
-import { useEffect, useMemo } from 'react';
-import { useProjectStore } from '../store/useProjectStore';
-import { getEditorFontStack, getEditorLineHeight } from '../utils/editorPreferences';
-import { useDocumentFile } from '../hooks/useDocumentFile';
-import { uiMarker } from '../utils/debugSelectors';
-import { CodeEditorSurface } from './CodeEditorSurface';
-import { getEditorLanguage } from '../utils/editorLanguage';
+import { useEffect, useState } from "react";
+import Editor from "@monaco-editor/react";
+import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
+import { invoke } from "../utils/tauri";
+import { TabManager } from "./TabManager";
+import { registerZenithLanguage } from "../utils/zenithLang";
 
-interface EditorPanelProps {
-  path: string;
-}
-
-export function EditorPanel({ path }: EditorPanelProps) {
-  const { theme, editorFontFamily, editorFontSize, setEditorStatus } = useProjectStore();
-
-  const language = useMemo(() => getEditorLanguage(path), [path]);
-  const editorFontStack = useMemo(() => getEditorFontStack(editorFontFamily), [editorFontFamily]);
-  const lineHeight = useMemo(() => getEditorLineHeight(editorFontSize), [editorFontSize]);
-  const fileName = useMemo(() => path.split(/[/\\]/).pop() || 'untitled.zt', [path]);
-  const {
-    content,
-    setContent,
-    isLoading,
-    saveDocument,
-    saveDocumentAs,
-    error,
-  } = useDocumentFile({
-    path,
-    language,
-    defaultSaveName: fileName,
-  });
+export function EditorPanel() {
+  const { activeFile, setFileDirty } = useWorkspaceStore();
+  const [content, setContent] = useState("");
 
   useEffect(() => {
-    const handleSave = (event: KeyboardEvent | Event) => {
-      if (
-        event instanceof KeyboardEvent &&
-        (event.ctrlKey || event.metaKey) &&
-        event.key.toLowerCase() === 's'
-      ) {
-        event.preventDefault();
-        void saveDocument();
-        return;
+    async function loadFile() {
+      if (activeFile) {
+        const file = activeFile as FileEntry;
+        try {
+          const fileContent = await invoke<string>("read_file", { path: file.path });
+          setContent(fileContent);
+          setFileDirty(file.path, false);
+        } catch (err) {
+          console.error("Failed to read file:", err);
+          setContent(`// Error loading file: ${err}`);
+        }
       }
+    }
+    loadFile();
+  }, [activeFile, setFileDirty]);
 
-      if (!(event instanceof KeyboardEvent)) {
-        void saveDocument();
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    registerZenithLanguage(monaco);
+
+    // Save Shortcut
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+      const value = editor.getValue();
+      const file = activeFile as FileEntry;
+      if (file) {
+        try {
+          await invoke("write_file", { path: file.path, content: value });
+          setFileDirty(file.path, false);
+        } catch (err) {
+          console.error("[Zenith IDE] Save Error:", err);
+        }
       }
-    };
+    });
+  };
 
-    const handleSaveAs = () => {
-      void saveDocumentAs();
-    };
+  const handleEditorChange = (value: string | undefined) => {
+    if (activeFile) {
+      setFileDirty(activeFile.path, true);
+    }
+    setContent(value || "");
+  };
 
-    window.addEventListener('keydown', handleSave);
-    window.addEventListener('ide:save-active-document', handleSave);
-    window.addEventListener('ide:save-active-document-as', handleSaveAs);
-    return () => {
-      window.removeEventListener('keydown', handleSave);
-      window.removeEventListener('ide:save-active-document', handleSave);
-      window.removeEventListener('ide:save-active-document-as', handleSaveAs);
-    };
-  }, [saveDocument, saveDocumentAs]);
-
-  if (isLoading) {
+  if (!activeFile) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center"
-        style={{ background: 'color-mix(in srgb, var(--ide-editor) 78%, white 22%)' }}
-        {...uiMarker('editor-panel-loading', { filePath: path })}
-      >
-        <div
-          className="animate-pulse text-sm"
-          style={{ color: 'var(--text-tertiary)' }}
-          {...uiMarker('editor-panel-loading-label')}
-        >
-          Loading {path.split(/[/\\]/).pop()}...
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <TabManager />
+        <div className="flex-1 flex flex-col items-center justify-center text-zinc-300 select-none">
+          <div className="w-20 h-20 rounded-3xl bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-6">
+              <span className="text-5xl opacity-20 italic font-serif">Z</span>
+          </div>
+          <h2 className="text-lg font-bold tracking-tight text-zinc-400">Zenith IDE Retina</h2>
+          <p className="text-[11px] mt-2 opacity-50 uppercase tracking-widest font-medium">Select a file to begin crafting</p>
         </div>
       </div>
     );
   }
 
-  if (error && !content) {
-    return (
-      <div
-        className="flex h-full items-center justify-center px-6"
-        {...uiMarker('editor-panel-error-state', { filePath: path })}
-      >
-        <div
-          className="max-w-xl rounded-[28px] border p-6 text-left"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--danger) 20%, var(--border))',
-            background: 'color-mix(in srgb, var(--danger) 10%, white 90%)',
-          }}
-          {...uiMarker('editor-panel-error-card')}
-        >
-          <div
-            className="text-sm font-medium"
-            style={{ color: 'color-mix(in srgb, var(--danger) 80%, black 20%)' }}
-            {...uiMarker('editor-panel-error-title')}
-          >
-            Unable to open document
-          </div>
-          <div
-            className="mt-2 text-sm leading-6"
-            style={{ color: 'color-mix(in srgb, var(--danger) 68%, black 32%)' }}
-            {...uiMarker('editor-panel-error-message')}
-          >
-            {error}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const file = activeFile as FileEntry;
 
   return (
-    <div
-      className="relative isolate z-20 h-full flex-1 overflow-hidden"
-      style={{ background: 'color-mix(in srgb, var(--ide-editor) 78%, white 22%)' }}
-      {...uiMarker('editor-panel', { filePath: path, language })}
-    >
-      {error ? (
-        <div
-          className="border-b px-4 py-2 text-xs"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--danger) 18%, var(--border))',
-            background: 'color-mix(in srgb, var(--danger) 10%, white 90%)',
-            color: 'color-mix(in srgb, var(--danger) 74%, black 26%)',
-          }}
-          {...uiMarker('editor-panel-inline-error', { filePath: path })}
-        >
-          {error}
-        </div>
-      ) : null}
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+      <TabManager />
+      
+      {/* Breadcrumbs */}
+      <div className="h-7 px-4 flex items-center bg-zinc-50 border-b border-black/[0.03] text-[10px] text-zinc-400 font-medium">
+        <span className="opacity-50 hover:text-zinc-600 cursor-default">Project</span>
+        <span className="mx-1.5 opacity-20">/</span>
+        <span className="opacity-50 hover:text-zinc-600 cursor-default">src</span>
+        <span className="mx-1.5 opacity-20">/</span>
+        <span className="text-zinc-600">{file.name}</span>
+      </div>
 
-      <CodeEditorSurface
-        path={path}
-        language={language}
-        value={content}
-        onChange={setContent}
-        onCursorChange={(line, column) => {
-          setEditorStatus({
-            language,
-            line,
-            column,
-            selection: `Ln ${line}, Col ${column}`,
-          });
-        }}
-        theme={theme}
-        fontFamily={editorFontStack}
-        fontSize={editorFontSize}
-        lineHeight={lineHeight}
-      />
+      <div className="flex-1 overflow-hidden relative">
+        <Editor
+          height="100%"
+          defaultLanguage="zenith"
+          theme="vs-light" 
+          value={content}
+          onMount={handleEditorDidMount}
+          onChange={handleEditorChange}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 13,
+            fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
+            lineNumbers: "on",
+            roundedSelection: true,
+            scrollBeyondLastLine: false,
+            readOnly: false,
+            automaticLayout: true,
+            padding: { top: 12 },
+            glyphMargin: false,
+            folding: true,
+            renderLineHighlight: "all",
+            scrollbar: {
+              vertical: 'visible',
+              horizontal: 'visible',
+              useShadows: false,
+              verticalSliderSize: 8,
+              horizontalSliderSize: 8,
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }

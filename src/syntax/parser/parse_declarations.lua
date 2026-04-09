@@ -419,6 +419,7 @@ end
 function ParseDeclarations._parse_trait(ctx, is_pub)
     local start = ctx:advance()
     local id = ctx:expect(TokenKind.IDENTIFIER)
+    local generic_params = ParseDeclarations._parse_generic_params(ctx)
     local methods = {}
     while not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() do
         ctx:skip_newlines()
@@ -433,12 +434,21 @@ function ParseDeclarations._parse_trait(ctx, is_pub)
         ctx:skip_newlines()
     end
     local end_t = ctx:expect(TokenKind.KW_END)
-    return DeclSyntax.trait_decl(id.lexeme, methods, is_pub, start.span:merge(end_t.span))
+    return DeclSyntax.trait_decl(id.lexeme, methods, is_pub, start.span:merge(end_t.span), generic_params)
 end
 
 function ParseDeclarations._parse_apply(ctx)
     local start = ctx:advance() -- 'apply'
     local trait_id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome da trait")
+    
+    local generic_args = {}
+    if ctx:match(TokenKind.LESS) then
+        repeat
+            table.insert(generic_args, ParseTypes.parse_type(ctx))
+        until not ctx:match(TokenKind.COMMA)
+        ctx:expect(TokenKind.GREATER, "esperado '>' após argumentos genéricos")
+    end
+
     ctx:expect(TokenKind.KW_TO, "esperado 'to' após o nome da trait")
     local struct_id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome da struct")
     
@@ -460,7 +470,7 @@ function ParseDeclarations._parse_apply(ctx)
     end
     
     local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' ao final do bloco 'apply'")
-    return DeclSyntax.apply_decl(trait_id.lexeme, struct_id.lexeme, methods, start.span:merge(end_t.span))
+    return DeclSyntax.apply_decl(trait_id.lexeme, struct_id.lexeme, methods, start.span:merge(end_t.span), generic_args)
 end
 function ParseDeclarations._parse_type_alias(ctx, is_pub)
     local start = ctx:expect(TokenKind.KW_TYPE, "esperado 'type'")
@@ -488,13 +498,13 @@ end
 
 function ParseDeclarations._parse_generic_params(ctx)
     if not ctx:match(TokenKind.LESS) then return nil end
-    
+
     local params = {}
     repeat
         ctx:skip_newlines()
         local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do parâmetro genérico")
         local constraint = nil
-        
+
         -- Suporte a restrição: T where T is Trait
         if ctx:match(TokenKind.KW_WHERE) then
             local t_id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do parâmetro genérico após 'where'")
@@ -504,14 +514,13 @@ function ParseDeclarations._parse_generic_params(ctx)
             ctx:expect(TokenKind.KW_IS, "esperado 'is' após o nome do parâmetro no 'where'")
             constraint = ParseTypes.parse_type(ctx)
         end
-        
+
         table.insert(params, { name = name_t.lexeme, constraint = constraint, span = name_t.span })
     until not ctx:match(TokenKind.COMMA)
-    
+
     ctx:expect(TokenKind.GREATER, "esperado '>' após parâmetros genéricos")
     return params
 end
-
 function ParseDeclarations._parse_redo(ctx)
     local start = ctx:advance()
     ctx:expect(TokenKind.KW_FUNC)

@@ -51,15 +51,13 @@ Os "tijolos" básicos da linguagem:
 | `any` | Qualquer tipo | `any` |
 
 ### Uniões de Tipos (`|`)
-Às vezes uma variável pode ser mais de uma coisa. Use o `|` para unir tipos. Você pode usar o operador `is` para verificar o tipo atual.
+Às vezes uma variável pode ser mais de uma coisa. Use o `|` para unir tipos. Você pode usar o operador `is` para verificar o tipo atual. O Zenith permite definir apelidos de tipos usando `type` e uniões usando `union`.
 
 ```zt
-var id: int | text = 10      -- Pode ser um número...
-if id is int
-    print("É um número!")
-end
+type ID = int | text
+union Resultado = Success | Error
 
-id = "zenith_01"             -- ...ou um texto!
+var id: ID = 10
 ```
 
 > [!TIP]
@@ -123,6 +121,19 @@ func processar(n: int)
     end
     -- Continua o processamento com segurança...
 end
+```
+
+### Blocos `native lua`
+Para interoperabilidade direta com Lua, o Zenith permite blocos `native lua`. O conteúdo dentro do bloco é transpilado sem alterações.
+
+```zt
+var x: int = 0
+native lua
+    x = 10 -- Código Lua puro
+end
+
+-- Também pode ser usado como expressão:
+var y = native lua 20 + 22 end
 ```
 
 
@@ -245,6 +256,17 @@ configurar("Menu")                   -- Usa os padrões (80, 100)
 configurar("Jogo", brilho: 50)       -- Muda apenas o brilho
 ```
 
+### Tipos de Função (Lambdas)
+Às vezes você quer passar uma função como se fosse uma variável. Zenith usa o símbolo `=>` para definir esses tipos.
+
+```zt
+-- Uma função que recebe um 'int' e devolve um 'text':
+var formatador: (int) => text
+
+-- Uma função que não recebe nada e devolve um Optional:
+var proximo: () => Optional<int>
+```
+
 ### Namespaces e Imports
 Seu código fica em gavetas chamadas `namespace`. Use `import` para pegar algo de outra gaveta e `pub` para deixar suas gavetas abertas para outros.
 
@@ -287,6 +309,15 @@ trait Greetable
     
     pub func identify() -- Obrigatório implementar
 end
+
+### Traits com Tipos Genéricos
+Assim como structs, traits podem trabalhar com tipos desconhecidos (`<T>`).
+
+```zt
+trait Comparavel<T>
+    func e_igual_a(outro: T) -> bool
+end
+```
 ```
 
 ### Genéricos com Restrições (`where`)

@@ -25,7 +25,11 @@ local function transpile(code)
     unit = lowerer:lower(unit)
 
     local codegen = LuaCodegen.new()
-    return codegen:generate_body(unit)
+    local lua = codegen:generate_body(unit)
+    print("--- DEBUG: LUA GENERATED ---")
+    print(lua)
+    print("----------------------------")
+    return lua
 end
 
 local function run_lua(lua_code)

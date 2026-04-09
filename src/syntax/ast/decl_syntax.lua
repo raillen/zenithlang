@@ -163,20 +163,22 @@ function DeclSyntax.enum_member(name, value, params, span)
 end
 
 --- trait Name ... end
-function DeclSyntax.trait_decl(name, methods, is_pub, span)
+function DeclSyntax.trait_decl(name, methods, is_pub, span, generic_params)
     return SyntaxNode.new(SK.TRAIT_DECL, {
         name = name,
         methods = methods,
         is_pub = is_pub or false,
+        generic_params = generic_params or {},
     }, span)
 end
 
 --- apply Trait to Struct ... end
-function DeclSyntax.apply_decl(trait_name, struct_name, methods, span)
+function DeclSyntax.apply_decl(trait_name, struct_name, methods, span, generic_args)
     return SyntaxNode.new(SK.APPLY_DECL, {
         trait_name = trait_name,
         struct_name = struct_name,
         methods = methods, -- lista de FUNC_DECL
+        generic_args = generic_args or {},
     }, span)
 end
 

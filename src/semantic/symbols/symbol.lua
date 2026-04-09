@@ -150,10 +150,11 @@ function Symbol.enum_member(name, parent_enum, params, span)
 end
 
 --- Cria símbolo de trait.
-function Symbol.trait(name, methods, span)
+function Symbol.trait(name, methods, span, generic_params)
     return Symbol.new(Symbol.Kind.TRAIT, name, {
         methods = methods,
         span = span,
+        generic_params = generic_params or {},
     })
 end
 
@@ -215,6 +216,11 @@ function Symbol:get_member(name)
 
     if self.kind ~= Symbol.Kind.STRUCT and self.kind ~= Symbol.Kind.TRAIT then return nil end
     
+    if self.members_scope then
+        local sym = self.members_scope:lookup_local(name)
+        if sym then return sym end
+    end
+
     if self.fields then
         for _, f in ipairs(self.fields) do
             if f.name == name then return f end

@@ -1,0 +1,26 @@
+identifier = "default"
+description = "Capacidade base para a Zenith IDE Retina (Windows Optimized)"
+windows = ["*"]
+platforms = ["windows"]
+permissions = [
+  "core:default",
+  "core:app:default",
+  "core:window:default",
+  "core:resources:default",
+  "core:menu:default",
+  "core:path:default",
+  "core:event:default",
+  "core:window:allow-theme",
+  "core:window:allow-title",
+  "core:window:allow-maximize",
+  "core:window:allow-unmaximize",
+  "core:window:allow-minimize",
+  "core:window:allow-unminimize",
+  "core:window:allow-show",
+  "core:window:allow-hide",
+  "core:window:allow-close",
+  "core:window:allow-resizable",
+  "core:window:allow-toggle-maximize",
+  "core:app:allow-set-app-theme",
+  "zenith:allow-all"
+]

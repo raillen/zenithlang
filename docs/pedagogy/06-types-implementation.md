@@ -15,6 +15,8 @@ O Zenith suporta diversos tipos de estruturas:
 * `NULLABLE`: O tipo `T?` que permite `null`.
 * `UNION`: O tipo `A | B`.
 * `GENERIC`: Coleções como `list<int>`.
+* `FUNC`: Tipos de função (lambdas) como `(int) => text`.
+* `TYPE_PARAM`: Placeholders para tipos genéricos em traits e structs.
 
 ### 2. O Algoritmo de Compatibilidade (`is_assignable_to`)
 Esta é a função mais importante do sistema de tipos. Ela decide se o valor `A` pode ser guardado na variável `B`.
@@ -33,7 +35,14 @@ function ZenithType:is_assignable_to(other)
 end
 ```
 
-### 3. Implementação de Traits no Binder
+### 3. Variância em Funções (`Kind.FUNC`)
+O Zenith implementa regras clássicas de variância para funções:
+- **Retorno**: É **Covariante** (um `() => int` pode ser atribuído a um `() => any`).
+- **Parâmetros**: É **Contravariante** (um `(any) => void` pode ser atribuído a um `(int) => void`).
+
+Isso garante segurança matemática: você pode passar uma função que aceita "qualquer coisa" para alguém que prometeu passar apenas um "inteiro".
+
+### 4. Implementação de Traits no Binder
 Quando você escreve um bloco `apply`, o Binder faz o seguinte:
 1. Localiza o símbolo da `Trait` e da `Struct`.
 2. Verifica se todos os métodos exigidos na `Trait` estão presentes no `apply`.

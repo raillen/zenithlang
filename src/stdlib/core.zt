@@ -24,3 +24,7 @@ pub enum Outcome<T, E>
     Success(value: T)
     Failure(error: E)
 end
+
+pub trait Iterable<T>
+    func iterator() -> () => Optional<T>
+end

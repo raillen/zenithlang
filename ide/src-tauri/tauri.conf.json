@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "label": "primary",
+        "label": "main",
         "title": "Zenith-Retina",
         "width": 1200,
         "height": 800,
@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

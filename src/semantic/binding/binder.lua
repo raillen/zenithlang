@@ -137,7 +137,7 @@ function Binder:_declare(node)
         symbol.generic_params = node.generic_params or {}
 
     elseif node.kind == SK.TRAIT_DECL then
-        symbol = Symbol.trait(node.name, node.methods, node.span)
+        symbol = Symbol.trait(node.name, node.methods, node.span, node.generic_params)
         symbol.type_info = ZenithType.new(ZenithType.Kind.TRAIT, node.name, { symbol = symbol })
 
     elseif node.kind == SK.TYPE_ALIAS_DECL or node.kind == SK.UNION_DECL then
@@ -290,8 +290,10 @@ function Binder:_bind_func_decl(node)
     -- 2. Resolver tipo de retorno e parâmetros reais (agora T é conhecido)
     symbol.return_type = self:_resolve_type(node.return_type)
 
+    local resolved_params = {}
     for i, param in ipairs(node.params) do
         local type_info = self:_resolve_type(param.type_node)
+        table.insert(resolved_params, { name = param.name, type_info = type_info })
         
         -- Se não tem nome, é destruturação: func f(Player { x })
         if not param.name and param.pattern then
@@ -307,6 +309,20 @@ function Binder:_bind_func_decl(node)
         end
     end
     
+    -- Atualizar type_info com a assinatura resolvida
+    symbol.type_info = ZenithType.new(ZenithType.Kind.FUNC, symbol.name, {
+        params = resolved_params,
+        return_type = symbol.return_type,
+        is_async = symbol.is_async
+    })
+
+    -- Se estamos apenas vinculando assinaturas (Passagem 1.2), paramos aqui
+    if self.only_signatures then
+        self.scope = prev_scope
+        self.current_func = prev_func
+        return symbol.type_info
+    end
+
     -- 3. Corpo
     for _, stmt in ipairs(node.body) do
         self:_bind_node(stmt)
@@ -393,23 +409,45 @@ end
 function Binder:_bind_trait_decl(node)
     local symbol = self.scope:lookup_local(node.name)
     if not symbol then return BuiltinTypes.ERROR end
-    
+
     local prev_scope = self.scope
-    self.scope = Scope.new(Scope.Kind.STRUCT, self.scope)
+    local trait_scope = symbol.members_scope
     
-    local resolved_methods = {}
-    for _, method in ipairs(node.methods) do
-        local return_type = self:_resolve_type(method.return_type)
-        local method_sym = Symbol.func(method.name, method.params, return_type, method.span)
-        method_sym.declaration = method
-        table.insert(resolved_methods, method_sym)
+    if not trait_scope then
+        trait_scope = Scope.new(Scope.Kind.STRUCT, self.scope)
+        symbol.members_scope = trait_scope
+        self.scope = trait_scope
+
+        -- Resolver parâmetros genéricos da Trait
+        local resolved_generic_params = {}
+        for _, p in ipairs(node.generic_params or {}) do
+            local constraint = p.constraint and self:_resolve_type(p.constraint) or nil
+            local param_sym = Symbol.generic_param(p.name, constraint, p.span)
+            if not self.scope:define(param_sym) then
+                self.diagnostics:report_error("ZT-S001", string.format("parâmetro genérico '%s' já declarado", p.name), p.span)
+            end
+            table.insert(resolved_generic_params, param_sym)
+        end
+        symbol.generic_params = resolved_generic_params
+        
+        local resolved_methods = {}
+        for _, method in ipairs(node.methods) do
+            local return_type = self:_resolve_type(method.return_type)
+            local method_sym = Symbol.func(method.name, method.params, return_type, method.span)
+            method_sym.declaration = method
+            table.insert(resolved_methods, method_sym)
+        end
+        symbol.methods = resolved_methods
     end
-    symbol.methods = resolved_methods
-    
+
+    if self.only_signatures then
+        self.scope = prev_scope
+        return BuiltinTypes.VOID
+    end
+
     self.scope = prev_scope
     return BuiltinTypes.VOID
 end
-
 function Binder:_bind_apply_decl(node)
     local trait_sym = self.scope:lookup(node.trait_name)
     local struct_sym = self.scope:lookup(node.struct_name)
@@ -431,16 +469,37 @@ function Binder:_bind_apply_decl(node)
     local struct_scope = Scope.new(Scope.Kind.STRUCT, struct_sym.members_scope or self.scope)
     local prev_scope = self.scope
     self.scope = struct_scope
-    
+
+    -- Se a trait for genérica e houver argumentos, injetamos os parâmetros genéricos no escopo
+    if trait_sym.generic_params and #trait_sym.generic_params > 0 and node.generic_args and #node.generic_args > 0 then
+        for i, param_sym in ipairs(trait_sym.generic_params) do
+            local arg_node = node.generic_args[i]
+            if arg_node then
+                local arg_type = self:_resolve_type(arg_node)
+                -- Injeta o nome do parâmetro (ex: T) mapeado para o tipo real (ex: int)
+                local concrete_sym = Symbol.alias(param_sym.name, arg_type, false, arg_node.span)
+                self.scope:define(concrete_sym)
+            end
+        end
+    end
+
     local implemented_methods = {}
     for _, method in ipairs(node.methods or {}) do
+        -- Forçamos que NÃO seja apenas assinatura aqui, para vincular o corpo
+        local old_only = self.only_signatures
+        self.only_signatures = false
         self:_bind_node(method)
+        self.only_signatures = old_only
+
         if method.symbol then
             implemented_methods[method.name] = method.symbol
-            -- Adiciona ao símbolo da struct se não existir (evita duplicatas se já declarado no struct)
+            -- Adiciona ao símbolo da struct se não existir
             local existing = struct_sym:get_member(method.name)
             if not existing then
                 table.insert(struct_sym.methods, method.symbol)
+                if struct_sym.members_scope then
+                    struct_sym.members_scope:define(method.symbol)
+                end
             end
         end
     end
@@ -1218,10 +1277,30 @@ function Binder:_bind_for_in_stmt(node)
     local old_scope = self.scope
     self.scope = for_scope
     
-    -- Descobrir tipo dos itens (v1.0-alpha assume ANY se não for Range)
+    -- Descobrir tipo dos itens
     local item_type = BuiltinTypes.ANY
+    
     if iterable_type.kind == ZenithType.Kind.GENERIC and iterable_type.base_name == "list" then
         item_type = iterable_type.type_args[1] or BuiltinTypes.ANY
+    elseif iterable_type == BuiltinTypes.TEXT then
+        item_type = BuiltinTypes.TEXT
+    else
+        -- Tentar buscar Trait Iterable no tipo
+        local sym = iterable_type.symbol
+        if sym then
+            local it_method = sym:get_member("iterator")
+            if it_method then
+                if it_method.type_info and it_method.type_info.kind == ZenithType.Kind.FUNC and it_method.type_info.return_type then
+                    local ret = it_method.type_info.return_type
+                    if ret.kind == ZenithType.Kind.FUNC and ret.return_type then
+                        local opt = ret.return_type
+                        if opt.kind == ZenithType.Kind.GENERIC and opt.base_name == "Optional" then
+                            item_type = opt.type_args[1] or BuiltinTypes.ANY
+                        end
+                    end
+                end
+            end
+        end
     end
 
     for _, v in ipairs(node.variables) do
@@ -1705,8 +1784,8 @@ function Binder:_resolve_type(type_node)
             table.insert(params, self:_resolve_type(p_node))
         end
         local ret = self:_resolve_type(type_node.return_type)
-        return ZenithType.new(ZenithType.Kind.FUNCTION, "func", {
-            param_types = params,
+        return ZenithType.new(ZenithType.Kind.FUNC, "func", {
+            params = params,
             return_type = ret
         })
     end
@@ -1768,10 +1847,12 @@ function Binder:_bind_lambda_expr(node)
     self.scope = old_scope
     self.current_func = old_func
     
-    return ZenithType.new(ZenithType.Kind.FUNC, "lambda", {
+    local res = ZenithType.new(ZenithType.Kind.FUNC, "lambda", {
         params = params,
         return_type = return_type
     })
+    -- print("LAMBDA TYPE: " .. tostring(res.kind) .. " " .. tostring(res))
+    return res
 end
 
 function Binder:_bind_is_expr(node)
@@ -1815,6 +1896,12 @@ end
 function Binder:_bind_throw_stmt(node)
     self:_bind_node(node.expression)
     return BuiltinTypes.VOID
+end
+
+function Binder:_bind_native_lua(node)
+    -- Blocos native são tratados como transparentes (any)
+    node.type_info = BuiltinTypes.ANY
+    return BuiltinTypes.ANY
 end
 
 function Binder:_bind_try_expr(node)

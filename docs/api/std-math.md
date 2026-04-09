@@ -30,9 +30,18 @@ Arredonda um número para baixo.
 ### `ceil(n: float) -> int`
 Arredonda um número para cima.
 
-## Trigonometria
+### `random() -> float`
+Retorna um número pseudo-aleatório entre 0.0 e 1.0.
+
+## Trigonometria e Conversão
 
 Inclui `sin`, `cos`, `tan`, `asin`, `acos`, `atan`.
+
+### `rad(deg: float) -> float`
+Converte graus para radianos.
+
+### `deg(rad: float) -> float`
+Converte radianos para graus.
 
 ```zt
 import std.math

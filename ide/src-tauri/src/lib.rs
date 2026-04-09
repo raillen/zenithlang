@@ -205,6 +205,33 @@ fn pick_save_path(default_name: Option<String>) -> Result<Option<String>, String
 }
 
 #[tauri::command]
+fn get_git_status() -> Result<HashMap<String, String>, String> {
+    use std::process::Command;
+    
+    let output = Command::new("git")
+        .arg("status")
+        .arg("--porcelain")
+        .current_dir(workspace_root())
+        .output()
+        .map_err(|e| format!("Failed to execute git: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut status_map = HashMap::new();
+
+    for line in stdout.lines() {
+        if line.len() > 3 {
+            let status = line[..2].trim().to_string();
+            let path = line[3..].trim().to_string();
+            // Resolve relative path to absolute to match file tree
+            let abs_path = workspace_root().join(path).to_string_lossy().to_string();
+            status_map.insert(abs_path, status);
+        }
+    }
+
+    Ok(status_map)
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Zenith App!", name)
 }
@@ -492,6 +519,7 @@ pub fn run() {
             get_file_tree,
             read_file,
             write_file,
+            get_git_status,
             run_compiler,
             pick_file,
             pick_folder,

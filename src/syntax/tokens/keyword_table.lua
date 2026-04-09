@@ -83,6 +83,7 @@ KeywordTable.keywords = {
 
     -- Conversão
     ["to"]        = TokenKind.KW_TO,
+    ["native"]    = TokenKind.KW_NATIVE,
 }
 
 --- Verifica se uma string é keyword e retorna o TokenKind correspondente.

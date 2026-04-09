@@ -18,8 +18,8 @@ function TypeChecker.is_assignable(source, target)
         return true
     end
     
-    -- "any" no alvo aceita tudo
-    if target.name == "any" or target == BuiltinTypes.ANY then
+    -- "any" no alvo ou na origem aceita tudo (pragmatismo para interoperabilidade e blocos native)
+    if target.name == "any" or target == BuiltinTypes.ANY or source.name == "any" or source == BuiltinTypes.ANY then
         return true
     end
     

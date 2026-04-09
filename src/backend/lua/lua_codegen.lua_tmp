@@ -1,0 +1,16 @@
+            if primitives[type_str] then
+                type_str = "\"" .. type_str .. "\""
+            end
+        end
+        
+        local call = string.format("zt.is(%s, %s)", self:_eval(node.expression), type_str)
+        return node.is_not and ("not " .. call) or call
+
+    elseif node.kind == SK.AS_EXPR then
+        return self:_eval(node.expression)
+    end
+    
+    return "-- [[Expr:" .. node.kind .. "]]"
+end
+
+return LuaCodegen

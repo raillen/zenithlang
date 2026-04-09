@@ -188,4 +188,10 @@ function ExprSyntax.try(expression, span)
     }, span)
 end
 
+function ExprSyntax.native_lua(lua_code, span)
+    return SyntaxNode.new(SK.NATIVE_LUA_EXPR, {
+        lua_code = lua_code,
+    }, span)
+end
+
 return ExprSyntax
