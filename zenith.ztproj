@@ -1,0 +1,17 @@
+-- Projeto de Exemplo Zenith
+project meu_projeto
+    version: 0.2.0
+    author:  "Rafael"
+end
+
+build
+    main: tests/core/test_v02_refinement.zt
+    out:  dist/bundle.lua
+    
+    @optimize(true)
+    @target(lua_5_1)
+end
+
+dependencies
+    std: official
+end

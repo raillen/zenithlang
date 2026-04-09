@@ -1,0 +1,46 @@
+--- Biblioteca Padrão Zenith — Módulo Math
+--- Fornece constantes e funções matemáticas essenciais.
+
+namespace std.math
+
+pub const PI: float = 3.141592653589793
+
+pub func abs(x: float) : float
+    return x -- Mapeado nativamente
+end
+
+pub func floor(x: float) : int
+    return 0 -- Mapeado nativamente
+end
+
+pub func ceil(x: float) : int
+    return 0 -- Mapeado nativamente
+end
+
+pub func sin(x: float) : float
+    return 0.0 -- Mapeado nativamente
+end
+
+pub func cos(x: float) : float
+    return 0.0 -- Mapeado nativamente
+end
+
+pub func tan(x: float) : float
+    return 0.0 -- Mapeado nativamente
+end
+
+pub func sqrt(x: float) : float
+    return 0.0 -- Mapeado nativamente
+end
+
+pub func random() : float
+    return 0.0 -- Mapeado nativamente
+end
+
+pub func rad(deg: float) : float
+    return deg * (PI / 180.0)
+end
+
+pub func deg(rad: float) : float
+    return rad * (180.0 / PI)
+end

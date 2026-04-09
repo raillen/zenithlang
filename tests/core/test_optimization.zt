@@ -1,0 +1,20 @@
+-- tests/core/test_optimization.zt
+-- Teste de Constant Folding (Lowering)
+
+pub func main() -> int
+    -- Estas expressões devem ser simplificadas no Codegen
+    var soma: int = 10 + 20
+    var texto: text = "Zenith" + " Lang"
+    var complexa: int = (2 * 5) + (100 / 2)
+    
+    print("Soma: " + soma)
+    print("Texto: " + texto)
+    print("Complexa: " + complexa)
+    
+    check soma == 30 else error("Folding falhou na soma") end
+    check texto == "Zenith Lang" else error("Folding falhou no texto") end
+    check complexa == 60 else error("Folding falhou na complexa") end
+    
+    print("Optimization Tests Passed!")
+    return 0
+end

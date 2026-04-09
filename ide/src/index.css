@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-sidebar: #212121;
+    --bg-editor: #1e1e1e;
+    --accent: #007AFF;
+    --text-primary: #FFFFFF;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --border: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Nord Theme */
+  [data-theme='nord'] {
+    --bg-sidebar: #2e3440;
+    --bg-editor: #3b4252;
+    --accent: #88c0d0;
+    --text-primary: #eceff4;
+    --text-secondary: #d8dee9;
+    --border: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Neon Theme */
+  [data-theme='neon'] {
+    --bg-sidebar: #0d0221;
+    --bg-editor: #0f0817;
+    --accent: #ff00ff;
+    --text-primary: #00ffff;
+    --text-secondary: #ff00ff;
+    --border: rgba(255, 0, 255, 0.2);
+  }
+
+  /* Dracula Theme */
+  [data-theme='dracula'] {
+    --bg-sidebar: #282a36;
+    --bg-editor: #282a36;
+    --accent: #bd93f9;
+    --text-primary: #f8f8f2;
+    --text-secondary: #6272a4;
+    --border: rgba(189, 147, 249, 0.1);
+  }
+
+  /* Neuro Theme */
+  [data-theme='neuro'] {
+    --bg-sidebar: #f5f5dc; /* Beige cream */
+    --bg-editor: #fdfdfd;
+    --accent: #2e8b57; /* Sea Green */
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --border: rgba(0, 0, 0, 0.1);
+  }
+
+  body {
+    background-color: transparent;
+    color: var(--text-primary);
+    @apply antialiased overflow-hidden;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  [data-font='OpenDyslexic'] {
+    font-family: 'OpenDyslexic', sans-serif !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Xcode Specific Glasses */
+.xcode-sidebar-glass {
+  background-color: var(--bg-sidebar);
+  backdrop-filter: blur(40px);
+}
+
+.xcode-editor-glass {
+  background-color: var(--bg-editor);
+  backdrop-filter: blur(20px);
+}
+
+/* Text helpers */
+.text-xcode-accent {
+  color: var(--accent);
+}

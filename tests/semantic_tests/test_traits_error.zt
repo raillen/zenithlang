@@ -1,0 +1,17 @@
+
+trait Walker
+    func walk()
+end
+
+struct Stone
+    weight: int
+end
+
+-- Erro esperado: Stone não implementa 'walk'
+apply Walker to Stone
+    -- Ops, esqueci o método
+end
+
+pub func main()
+    print("This should not compile!")
+end

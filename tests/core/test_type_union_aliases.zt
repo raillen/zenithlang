@@ -1,0 +1,43 @@
+-- tests/core/test_type_union_aliases.zt
+-- Teste robusto de keywords 'type' (Alias) e 'union' (Soma) Genéricos
+
+pub type Preco = float
+pub union ID = int | text
+
+-- 1. Alias Genérico
+pub type Caixa<T> = list<T>
+
+-- 2. União Genérica
+pub union Resultado<T> = T | text
+
+struct Jogador
+    pub id: ID
+    pub inventario: Caixa<text>
+end
+
+pub func processar_resultado<T>(r: Resultado<T>)
+    match (r)
+        case text:
+            print("Erro: " + r)
+        case _:
+            print("Sucesso!")
+    end
+end
+
+pub func main() -> int
+    print("--- Teste Type e Union Genéricos v0.3 ---")
+    
+    -- Usando Alias Genérico
+    var inv: Caixa<text> = ["Espada", "Escudo"]
+    check #inv == 2 else panic("Erro no alias genérico") end
+    
+    -- Usando União Genérica
+    var res1: Resultado<int> = 100
+    var res2: Resultado<int> = "Falha crítica"
+    
+    processar_resultado<int>(res1)
+    processar_resultado<int>(res2)
+    
+    print("Generic Type and Union Tests Passed!")
+    return 0
+end

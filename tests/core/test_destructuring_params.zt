@@ -1,0 +1,45 @@
+-- tests/core/test_destructuring_params.zt
+-- Teste de Destruturação em Parâmetros de Funções e Lambdas
+
+struct Vec2
+    pub x: int
+    pub y: int
+end
+
+-- 1. Destruturação em Função Nomeada
+pub func somar_vetor(Vec2 { x, y }) -> int
+    return x + y
+end
+
+-- 2. Destruturação com Lista
+pub func primeiro_e_segundo([a, b, ..resto]: list<int>) -> int
+    return a + b
+end
+
+pub func main() -> int
+    print("--- Teste Destruturação em Parâmetros ---")
+    
+    -- Teste Struct Destructuring
+    var v: Vec2 = Vec2 { x: 10, y: 20 }
+    var s: int = somar_vetor(v)
+    print("Soma vetor: {s}")
+    check s == 30 else panic("Erro na destruturação de struct em parâmetro") end
+    
+    -- Teste List Destructuring
+    var nums = [1, 2, 3, 4, 5]
+    var s2: int = primeiro_e_segundo(nums)
+    print("Soma lista: {s2}")
+    check s2 == 3 else panic("Erro na lista") end
+    
+    -- 3. Destruturação em Lambdas
+    var extrair_x = (Vec2 { x }) => x
+    print("X do vetor: {extrair_x(v)}")
+    check extrair_x(v) == 10 else panic("Erro lambda struct") end
+    
+    var soma_lambda = ([a, b]: list<int>) => a + b
+    print("Soma lambda: {soma_lambda([5, 5])}")
+    check soma_lambda([5, 5]) == 10 else panic("Erro lambda lista") end
+
+    print("Destructuring Params Test Passed!")
+    return 0
+end

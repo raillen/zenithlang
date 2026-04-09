@@ -1,0 +1,21 @@
+
+pub func main()
+    print("--- Teste de Ranges ---")
+    for i in 1..3
+        print("Range " + i)
+    end
+    
+    print("--- Teste de Reatividade ---")
+    state counter: int = 10
+    computed doubled: int = counter * 2
+    
+    watch
+        print("Doubled is: " + doubled)
+    end
+    
+    counter = 15
+    counter = 20
+    
+    print("Final doubled: " + doubled)
+    print("Reactivity test passed!")
+end

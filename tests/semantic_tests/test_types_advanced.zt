@@ -1,0 +1,63 @@
+-- tests/semantic_tests/test_types_advanced.zt
+
+struct Point
+    pub x: int
+    pub y: int
+
+    pub func move(dx: int, dy: int)
+        self.x = self.x + dx
+        self.y = self.y + dy
+    end
+end
+
+-- Função Global para teste de UFCS e Shadowing
+pub func move(p: Point, dx: int, dy: int)
+    print("UFCS move called")
+    p.x = p.x + dx * 2
+    p.y = p.y + dy * 2
+end
+
+-- Função com valores padrão e tipos
+pub func greet(name: text, prefix: text = "Hello", count: int = 1)
+    var i: int = 0
+    while i < count
+        print(prefix + ", " + name + "!")
+        i = i + 1
+    end
+end
+
+pub func main() -> int
+    var p: Point = Point { x: 10, y: 20 }
+    
+    print("--- Teste de Metodos e Shadowing ---")
+    -- Deve chamar o método Point.move e emitir aviso de shadowing no Binder
+    p.move(5, 5) 
+    assert(p.x == 15, "x deve ser 15")
+    
+    print("--- Teste de Argumentos Nomeados e Defaults ---")
+    -- Chamada com todos os argumentos, fora de ordem
+    greet(count: 2, name: "Zenith", prefix: "Welcome")
+    
+    -- Chamada com defaults
+    greet("World")
+    
+    -- Chamada mista
+    greet("Alice", count: 3)
+
+    print("--- Teste de Validacao de Aridade (Esperado Erro se descomentar) ---")
+    -- greet() -- Erro: falta 'name'
+    -- greet(name: "Err", unknown: 1) -- Erro: 'unknown' não existe
+
+    print("--- Teste de UFCS Fallback ---")
+    func scale(p: Point, s: int)
+        p.x = p.x * s
+        p.y = p.y * s
+    end
+    
+    -- scale não está no struct Point, deve usar UFCS
+    p.scale(2)
+    assert(p.x == 30, "x deve ser 30 (15 * 2)")
+
+    print("Advanced types tests passed!")
+    return 0
+end

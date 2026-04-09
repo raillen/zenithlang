@@ -1,0 +1,43 @@
+-- tests/core/test_pattern_matching.zt
+-- Teste de Pattern Matching Avançado e Destruturação
+
+struct Player
+    pub nome: text
+    pub vida: int
+end
+
+pub func test_list_matching()
+    print("--- Teste Match Listas ---")
+    var lista: any = [10, 20, 30, 40]
+    
+    match lista
+        case [1, 2]: print("Não deve casar (tamanho errado ou valores)")
+        case [10, a, ..resto]:
+            print("Casou! a=" + a)
+            print("Resto tamanho: " + #resto)
+            check a == 20 else error("a deveria ser 20") end
+        else:
+            error("Deveria ter casado com o segundo case")
+    end
+end
+
+pub func test_struct_matching()
+    print("--- Teste Match Structs ---")
+    var p: Player = Player { nome: "Zenith", vida: 100 }
+    
+    match p
+        case Player { nome: "Outro" }: print("Não casou")
+        case Player { nome, vida: 100 }:
+            print("Casou Player! nome=" + nome)
+            check nome == "Zenith" else error("nome deveria ser Zenith") end
+        else:
+            error("Deveria ter casado com Player")
+    end
+end
+
+pub func main() -> int
+    test_list_matching()
+    test_struct_matching()
+    print("Pattern Matching Tests Passed!")
+    return 0
+end

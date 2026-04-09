@@ -1,0 +1,16 @@
+trait Greetable
+    func greet()
+end
+
+struct Person
+    name: text
+end
+
+apply Greetable to Person
+    func greet()
+        print("Ola, eu sou " + @name)
+    end
+end
+
+var p = Person { name: "Zenith" }
+p.greet()

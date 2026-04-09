@@ -1,0 +1,31 @@
+-- tests/core/test_spread_calls.zt
+-- Teste de Spread Operator (..) em Chamadas de Função
+
+pub func somar_tres(a: int, b: int, c: int) -> int
+    return a + b + c
+end
+
+pub func main() -> int
+    print("--- Teste Spread em Chamadas ---")
+    
+    -- 1. Spread simples
+    var nums = [10, 20, 30]
+    var s: int = somar_tres(..nums)
+    print("Soma spread: {s}")
+    check s == 60 else panic("Erro no spread simples") end
+    
+    -- 2. Mix de argumentos fixos e spread
+    -- (Nota: Em Lua, unpack deve ser o último para pegar tudo, 
+    -- mas o Zenith tentará suportar mix no futuro)
+    var resto = [20, 30]
+    var s2: int = somar_tres(10, ..resto)
+    print("Soma mix: {s2}")
+    check s2 == 60 else panic("Erro no spread mix") end
+    
+    -- 3. Spread em Built-ins (print)
+    var msg = ["Olá", "Mundo", 2026]
+    print(..msg)
+
+    print("Spread Calls Test Passed!")
+    return 0
+end

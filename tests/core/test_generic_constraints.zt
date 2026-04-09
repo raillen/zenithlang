@@ -1,0 +1,48 @@
+-- tests/core/test_generic_constraints.zt
+-- Teste de Parâmetros Genéricos com Restrições (Generic Constraints)
+
+trait Greetable
+    pub func greet()
+end
+
+struct Human
+    pub nome: text
+end
+
+apply Greetable to Human
+    pub func greet()
+        print("Olá, eu sou " + @nome)
+    end
+end
+
+struct Dog
+    pub raca: text
+end
+
+-- 1. Struct com restrição genérica
+struct Box<T where T is Greetable>
+    pub item: T
+end
+
+-- 2. Função com restrição genérica
+pub func saudar_item<T where T is Greetable>(item: T)
+    item.greet()
+end
+
+pub func main() -> int
+    print("--- Teste Generic Constraints ---")
+    
+    var h: Human = Human { nome: "Rafael" }
+    var d: Dog = Dog { raca: "Labrador" }
+    
+    -- Válido: Human implementa Greetable
+    var box: Box<Human> = Box<Human> { item: h }
+    saudar_item<Human>(h)
+    
+    -- Inválido: Dog NÃO implementa Greetable
+    var box_erro: Box<Dog> = Box<Dog> { item: d }
+    saudar_item<Dog>(d)
+
+    print("Generic Constraints Test Passed!")
+    return 0
+end

@@ -1,0 +1,77 @@
+-- ============================================================================
+-- Zenith v1.0 Features Test
+-- Verificação de todas as funcionalidades heróicas do Sprint 13.
+-- ============================================================================
+
+struct Player
+    name: text
+    score: int
+end
+
+func main()
+    print("--- Zenith v1.0: Manobra de Verificação ---")
+    
+    -- 1. Match com múltiplos valores
+    var fruta: text = "banana"
+    match fruta
+        case "maçã", "banana", "uva":
+            print("Sucesso: fruta favorita detectada!")
+        case "limão":
+            print("Erro: limão não deveria estar aqui!")
+        else:
+            print("Erro: fruta ignorada!")
+    end
+
+    -- 2. Range Expressions
+    print("Contagem tática:")
+    for i in 1..3
+        print(i)
+    end
+
+    -- 3. Modern Error Handling
+    attempt
+        print("Atacando...")
+        throw "Erro de Invasão"
+    rescue e: text
+        print("Defesa: " + e)
+    end
+
+    -- 4. Computed e Reatividade
+    state nivel: int = 5
+    computed buffer: int = nivel * 10
+    print("Computed inicial (50): " + buffer)
+    nivel.set = 10
+    print("Computed atualizado (100): " + buffer)
+
+    -- 7. Check Statement
+    var n: int = 20
+    check n > 10 else
+        print("Erro: n deveria ser maior que 10")
+    end
+    print("Sucesso: check passou!")
+
+    -- 5. Union e Is/As
+    var valor: int | text = 42
+    if valor is int
+        print("Sucesso: 42 é int!")
+    end
+    
+    if valor is not text
+        print("Sucesso: 42 não é text!")
+    end
+
+    -- 6. Async Await
+    test_async_flow()
+    
+    print("--- Fim da Manobra: Sucesso Total ---")
+end
+
+async func get_data(): text
+    return "Reforços Assíncronos"
+end
+
+async func test_async_flow()
+    print("Pedindo reforços...")
+    var d: text = await get_data()
+    print("Recebido: " + d)
+end

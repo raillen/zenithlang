@@ -1,0 +1,49 @@
+-- tests/core/test_traits_v02.zt
+-- Teste de Traits: Satisfatibilidade e Implementações Padrão
+
+trait Greetable
+    pub func greet()
+        print("Olá, eu sou um Zenith!")
+    end
+    
+    pub func identify() -- Obrigatório
+end
+
+struct Robot
+    pub model: text
+end
+
+apply Greetable to Robot
+    pub func identify()
+        print("Modelo: " + @model)
+    end
+end
+
+struct Human
+    pub nome: text
+end
+
+apply Greetable to Human
+    pub func greet()
+        print("Oi! Meu nome é " + @nome)
+    end
+    
+    pub func identify()
+        print("Humano: " + @nome)
+    end
+end
+
+pub func main() -> int
+    print("--- Teste Traits v0.2 ---")
+    
+    var r: Robot = Robot { model: "RX-78" }
+    r.greet()    -- Deve usar o padrão da trait
+    r.identify() -- Deve usar a implementação da struct
+    
+    var h: Human = Human { nome: "Rafael" }
+    h.greet()    -- Deve usar a implementação customizada
+    h.identify()
+    
+    print("Trait tests passed!")
+    return 0
+end

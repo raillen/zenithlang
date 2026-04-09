@@ -1,0 +1,38 @@
+
+trait Drawable
+    func draw()
+end
+
+struct Player
+    name: text
+end
+
+apply Drawable to Player
+    func draw()
+        print("Drawing Player: " + self.name)
+    end
+end
+
+struct NPC
+    id: int
+end
+
+-- NPC não implementa Drawable (ainda)
+
+func render(d: Drawable)
+    d.draw()
+end
+
+pub func main()
+    var p: Player = Player { name: "Zenith Hero" }
+    
+    print("--- Teste de Traits ---")
+    
+    -- Chamada direta do método via apply
+    p.draw()
+    
+    -- Polimorfismo: passando Player como Drawable
+    render(p)
+    
+    print("Traits test passed!")
+end

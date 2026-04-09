@@ -1,0 +1,11 @@
+struct Point
+    x: int
+    y: int
+    
+    func sum() -> int
+        return @x + @y
+    end
+end
+
+var p: Point = Point.new(10, 20)
+print(p.sum())

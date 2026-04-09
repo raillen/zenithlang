@@ -1,0 +1,16 @@
+--- Biblioteca Padrão Zenith — Módulo Core (Prelude)
+--- Contém funções fundamentais disponíveis globalmente.
+
+namespace std.core
+
+pub func print(value: any) -> text
+end
+
+pub func error(message: text)
+end
+
+pub func assert(condition: bool, message: text)
+end
+
+pub func panic(message: text)
+end

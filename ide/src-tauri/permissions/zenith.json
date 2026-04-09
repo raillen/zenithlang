@@ -1,0 +1,12 @@
+{
+  "identifier": "allow-all",
+  "description": "Permite todos os comandos do plugin Zenith",
+  "commands": {
+    "allow": [
+      "get_file_tree",
+      "read_file",
+      "run_compiler",
+      "greet"
+    ]
+  }
+}

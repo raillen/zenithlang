@@ -1,0 +1,27 @@
+
+pub func main()
+    print("--- Teste de Match Multi-valor ---")
+    
+    var fruit: text = "banana"
+    
+    match fruit
+        case "maçã", "banana", "uva":
+            print("É uma das minhas frutas favoritas!")
+        case "limão":
+            print("É azedo!")
+        else:
+            print("Fruta desconhecida")
+    end
+    
+    print("--- Teste de Loops ---")
+    var items: list<int> = [10, 20, 30]
+    for i, val in items
+        print("Item " + i + ": " + val)
+    end
+    
+    repeat 2 times
+        print("Repetindo...")
+    end
+    
+    print("Core test passed!")
+end

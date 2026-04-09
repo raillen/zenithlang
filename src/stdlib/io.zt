@@ -1,0 +1,16 @@
+--- Biblioteca Padrão Zenith — Módulo IO
+--- Entrada e saída básica via terminal.
+
+namespace std.io
+
+pub func write(value: any)
+    -- Mapeado nativamente para io.write
+end
+
+pub func read_line(): text
+    return "" -- Mapeado nativamente para io.read("*l")
+end
+
+pub func write_line(value: any)
+    -- Mapeado nativamente para print ou io.write(v, "\n")
+end

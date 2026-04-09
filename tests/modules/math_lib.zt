@@ -1,0 +1,9 @@
+namespace math_lib
+
+pub func add(a: int, b: int) -> int
+    return a + b
+end
+
+func private_helper()
+    -- Este não deve ser visível fora
+end

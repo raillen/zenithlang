@@ -1,0 +1,24 @@
+-- tests/core/test_slicing.zt
+-- Teste de Slicing em Listas e Strings
+
+pub func main() -> int
+    print("--- Teste Slicing ---")
+    
+    -- 1. Lista Slicing
+    var lista: any = [10, 20, 30, 40, 50]
+    var sub_lista: any = lista[0..1] -- Pega os dois primeiros (índices 0 e 1 no Zenith)
+    
+    print("Sub-lista: " + sub_lista)
+    check #sub_lista == 2 else error("Tamanho da sub-lista errado") end
+    check sub_lista[1] == 10 and sub_lista[2] == 20 else error("Valores da sub-lista errados") end
+    
+    -- 2. String Slicing
+    var nome: text = "Zenith"
+    var prefixo: text = nome[0..2] -- "Zen"
+    
+    print("Prefixo: " + prefixo)
+    check prefixo == "Zen" else error("Slicing de texto falhou") end
+    
+    print("Slicing Tests Passed!")
+    return 0
+end

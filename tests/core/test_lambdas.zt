@@ -1,0 +1,39 @@
+-- tests/core/test_lambdas.zt
+-- Teste de Funções Anônimas (Lambdas)
+
+pub func apply_twice(val: int, f: (int) => int) -> int
+    return f(f(val))
+end
+
+pub func main() -> int
+    print("--- Teste Lambdas ---")
+    
+    -- 1. Lambda de expressão única
+    var dobro = (n: int) => n * 2
+    print("Dobro de 5: {dobro(5)}")
+    check dobro(5) == 10 else panic("Lambda simples falhou") end
+    
+    -- 2. Lambda como argumento (Higher-order function)
+    var resultado = apply_twice(10, (x: int) => x + 5)
+    print("Resultado apply_twice: {resultado}")
+    check resultado == 20 else panic("Higher-order lambda falhou") end
+    
+    -- 3. Lambda com bloco do...end (múltiplas linhas)
+    var log_and_sum = (a: int, b: int) => do
+        var s: int = a + b
+        print("Somando {a} + {b} = {s}")
+        return s
+    end
+    
+    var s: int = log_and_sum(10, 20) as int
+    check s == 30 else panic("Lambda com bloco falhou") end
+    
+    -- 4. Closure (captura de variáveis externas)
+    var fator: int = 3
+    var multiplicador = (n: int) => n * fator
+    print("3 * 10 = {multiplicador(10)}")
+    check multiplicador(10) == 30 else panic("Closure falhou") end
+
+    print("Lambdas Test Passed!")
+    return 0
+end

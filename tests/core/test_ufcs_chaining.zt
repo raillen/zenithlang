@@ -1,0 +1,29 @@
+-- tests/core/test_ufcs_chaining.zt
+-- Teste de encadeamento vertical via UFCS (Uniform Function Call Syntax)
+
+pub func step1(val: int, extra: int) -> int
+    print("Passo 1: " + val + " + " + extra)
+    return val + extra
+end
+
+pub func step2(val: int) -> int
+    print("Passo 2: " + val + " * 2")
+    return val * 2
+end
+
+pub func main() -> int
+    var inicial: int = 10
+    
+    -- Encadeamento Vertical
+    var resultado: int = inicial
+        .step1(5)
+        .step2()
+        
+    print("Resultado Final: " + resultado)
+    check resultado == 30 else
+        error("UFCS Chaining Falhou!")
+    end
+    
+    print("UFCS Chaining Test Passed!")
+    return 0
+end

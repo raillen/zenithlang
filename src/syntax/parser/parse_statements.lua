@@ -1,0 +1,260 @@
+-- ============================================================================
+-- Zenith Compiler — Parse Statements
+-- Parsing de comandos: if, while, for, repeat, return, etc.
+-- ============================================================================
+
+local TokenKind     = require("src.syntax.tokens.token_kind")
+local StmtSyntax    = require("src.syntax.ast.stmt_syntax")
+local ParseExpressions = require("src.syntax.parser.parse_expressions")
+
+local ParseStatements = {}
+
+function ParseStatements.parse_statement(ctx)
+    local k = ctx:peek().kind
+
+    if k == TokenKind.KW_IF then
+        return ParseStatements._parse_if(ctx)
+    elseif k == TokenKind.KW_WHILE then
+        return ParseStatements._parse_while(ctx)
+    elseif k == TokenKind.KW_FOR then
+        return ParseStatements._parse_for(ctx)
+    elseif k == TokenKind.KW_REPEAT then
+        return ParseStatements._parse_repeat(ctx)
+    elseif k == TokenKind.KW_RETURN then
+        return ParseStatements._parse_return(ctx)
+    elseif k == TokenKind.KW_BREAK then
+        local t = ctx:advance()
+        return StmtSyntax.break_stmt(t.span)
+    elseif k == TokenKind.KW_CONTINUE then
+        local t = ctx:advance()
+        return StmtSyntax.continue_stmt(t.span)
+    elseif k == TokenKind.KW_MATCH then
+        return ParseStatements._parse_match(ctx)
+    elseif k == TokenKind.KW_ATTEMPT then
+        return ParseStatements._parse_attempt(ctx)
+    elseif k == TokenKind.KW_WATCH then
+        return ParseStatements._parse_watch(ctx)
+    elseif k == TokenKind.KW_THROW then
+        return ParseStatements._parse_throw(ctx)
+    elseif k == TokenKind.KW_CHECK then
+        return ParseStatements._parse_check(ctx)
+    end
+
+    -- Expression Statement ou Atribuição
+    local expr = ParseExpressions.parse_expression(ctx)
+    
+    -- Atribuição composta
+    if ctx:match(TokenKind.PLUS_EQUAL) or ctx:match(TokenKind.MINUS_EQUAL) or
+       ctx:match(TokenKind.STAR_EQUAL) or ctx:match(TokenKind.SLASH_EQUAL) then
+        local op = ctx:peek(-1)
+        local value = ParseExpressions.parse_expression(ctx)
+        return StmtSyntax.compound_assign(expr, op, value, expr.span:merge(value.span))
+    end
+    
+    -- Atribuição simples
+    if ctx:match(TokenKind.EQUAL) then
+        local value = ParseExpressions.parse_expression(ctx)
+        return StmtSyntax.assign(expr, value, expr.span:merge(value.span))
+    end
+
+    return StmtSyntax.expr_stmt(expr, expr.span)
+end
+
+function ParseStatements._parse_attempt(ctx)
+    local start = ctx:advance() -- 'attempt'
+    ctx:skip_newlines()
+    local body = ParseStatements.parse_block(ctx, {TokenKind.KW_RESCUE, TokenKind.KW_END})
+    
+    local rescue_clause = nil
+    if ctx:match(TokenKind.KW_RESCUE) then
+        local err_name = "e"
+        if ctx:check(TokenKind.IDENTIFIER) then
+            err_name = ctx:advance().lexeme
+        end
+        
+        local err_type = nil
+        if ctx:match(TokenKind.COLON) then
+            local ParseTypes = require("src.syntax.parser.parse_types")
+            err_type = ParseTypes.parse_type(ctx)
+        end
+        
+        ctx:skip_newlines()
+        local rescue_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+        rescue_clause = StmtSyntax.rescue_clause(err_name, err_type, rescue_body, start.span)
+    end
+    
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end' após attempt")
+    return StmtSyntax.attempt_stmt(body, rescue_clause, start.span:merge(end_token.span))
+end
+
+function ParseStatements._parse_watch(ctx)
+    local start = ctx:advance() -- 'watch'
+    
+    local target = nil
+    -- Se o próximo token não for uma nova linha nem o início de um bloco, tenta parsear expressão
+    if not ctx:check(TokenKind.NEWLINE) and not ctx:check(TokenKind.KW_END) then
+        target = ParseExpressions.parse_expression(ctx)
+    end
+    
+    ctx:skip_newlines()
+    local body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end' após watch")
+    return StmtSyntax.watch_stmt(target, body, start.span:merge(end_token.span))
+end
+
+function ParseStatements.parse_block(ctx, end_kind)
+    local statements = {}
+    
+    local function is_end(k)
+        if type(end_kind) == "table" then
+            for _, ek in ipairs(end_kind) do
+                if k == ek then return true end
+            end
+            return false
+        else
+            return k == end_kind
+        end
+    end
+
+    while not is_end(ctx:peek().kind) and not ctx:is_at_end() do
+        ctx:skip_newlines()
+        if is_end(ctx:peek().kind) then break end
+        
+        local ParseDeclarations = require("src.syntax.parser.parse_declarations")
+        local stmt = ParseDeclarations.parse_declaration_or_statement(ctx)
+        if stmt then table.insert(statements, stmt) end
+        ctx:skip_newlines()
+    end
+    return statements
+end
+
+function ParseStatements._parse_if(ctx)
+    local start = ctx:advance() -- 'if'
+    local condition = ParseExpressions.parse_expression(ctx)
+    ctx:skip_newlines()
+    
+    local body = ParseStatements.parse_block(ctx, {TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END})
+    
+    local elif_clauses = {}
+    while ctx:match(TokenKind.KW_ELIF) do
+        local elif_cond = ParseExpressions.parse_expression(ctx)
+        ctx:skip_newlines()
+        local elif_body = ParseStatements.parse_block(ctx, {TokenKind.KW_ELIF, TokenKind.KW_ELSE, TokenKind.KW_END})
+        table.insert(elif_clauses, StmtSyntax.elif_clause(elif_cond, elif_body, elif_cond.span))
+    end
+    
+    local else_clause = nil
+    if ctx:match(TokenKind.KW_ELSE) then
+        ctx:skip_newlines()
+        local else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+        else_clause = StmtSyntax.else_clause(else_body, ctx:peek(-1).span)
+    end
+    
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end' para fechar 'if'")
+    return StmtSyntax.if_stmt(condition, body, elif_clauses, else_clause, start.span:merge(end_token.span))
+end
+
+function ParseStatements._parse_while(ctx)
+    local start = ctx:advance() -- 'while'
+    local condition = ParseExpressions.parse_expression(ctx)
+    ctx:skip_newlines()
+    local body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end'")
+    return StmtSyntax.while_stmt(condition, body, start.span:merge(end_token.span))
+end
+
+function ParseStatements._parse_for(ctx)
+    local start = ctx:advance() -- 'for'
+    local vars = {}
+    repeat
+        local id = ctx:expect(TokenKind.IDENTIFIER, "esperado identificador no for")
+        table.insert(vars, { name = id.lexeme, span = id.span })
+    until not ctx:match(TokenKind.COMMA)
+    
+    ctx:expect(TokenKind.KW_IN, "esperado 'in' no for")
+    local iterable = ParseExpressions.parse_expression(ctx)
+    ctx:skip_newlines()
+    local body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end'")
+    
+    return StmtSyntax.for_in(vars, iterable, body, start.span:merge(end_token.span))
+end
+
+function ParseStatements._parse_repeat(ctx)
+    local start = ctx:advance() -- 'repeat'
+    local count = ParseExpressions.parse_expression(ctx)
+    ctx:expect(TokenKind.KW_TIMES, "esperado 'times' após expressão")
+    ctx:skip_newlines()
+    local body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    local end_token = ctx:expect(TokenKind.KW_END, "esperado 'end'")
+    return StmtSyntax.repeat_times(count, body, start.span:merge(end_token.span))
+end
+
+function ParseStatements._parse_return(ctx)
+    local start = ctx:advance() -- 'return'
+    local value = nil
+    -- Melhor verificação de fim de linha/bloco
+    if not ctx:check(TokenKind.NEWLINE) and not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() then
+        value = ParseExpressions.parse_expression(ctx)
+    end
+    return StmtSyntax.return_stmt(value, start.span:merge(value and value.span or start.span))
+end
+
+function ParseStatements._parse_match(ctx)
+    local start = ctx:advance() -- 'match'
+    local expr = ParseExpressions.parse_expression(ctx)
+    ctx:skip_newlines()
+    
+    local cases = {}
+    local else_clause = nil
+    
+    while not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() do
+        ctx:skip_newlines()
+        if ctx:match(TokenKind.KW_CASE) then
+            local patterns = {}
+            repeat
+                table.insert(patterns, ParseExpressions.parse_expression(ctx))
+            until not ctx:match(TokenKind.COMMA)
+            
+            ctx:expect(TokenKind.COLON, "esperado ':' após padrão do case")
+            ctx:skip_newlines()
+            
+            local body = ParseStatements.parse_block(ctx, { TokenKind.KW_CASE, TokenKind.KW_ELSE, TokenKind.KW_END })
+            table.insert(cases, StmtSyntax.match_case(patterns, body, patterns[1].span:merge(ctx:peek(-1).span)))
+        elseif ctx:match(TokenKind.KW_ELSE) then
+            ctx:match(TokenKind.COLON) -- Opcional no else
+            ctx:skip_newlines()
+            local else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+            else_clause = StmtSyntax.else_clause(else_body, ctx:peek(-1).span)
+            break
+        else
+            if not ctx:check(TokenKind.KW_END) then ctx:advance() else break end
+        end
+        ctx:skip_newlines()
+    end
+    
+    local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' para fechar match")
+    return StmtSyntax.match_stmt(expr, cases, else_clause, start.span:merge(end_t.span))
+end
+
+function ParseStatements._parse_throw(ctx)
+    local start = ctx:advance() -- 'throw'
+    local expr = ParseExpressions.parse_expression(ctx)
+    return StmtSyntax.throw_stmt(expr, start.span:merge(expr.span))
+end
+
+function ParseStatements._parse_check(ctx)
+    local start = ctx:advance() -- 'check'
+    local condition = ParseExpressions.parse_expression(ctx)
+    
+    ctx:expect(TokenKind.KW_ELSE, "esperado 'else' após 'check condition'")
+    ctx:skip_newlines()
+    
+    -- O 'else' do check pode ser um bloco ou um único statement que termina no end
+    local else_body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+    local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' para fechar check")
+    
+    return StmtSyntax.check_stmt(condition, else_body, start.span:merge(end_t.span))
+end
+
+return ParseStatements

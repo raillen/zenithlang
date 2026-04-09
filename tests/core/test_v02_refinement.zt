@@ -1,0 +1,85 @@
+-- tests/core/test_v02_refinement.zt
+-- Teste de refinamento das features do Sprint 4 v0.2
+
+pub func test_check(n: int)
+    check n > 0 else
+        print("n deve ser positivo")
+        return
+    end
+    print("n ok")
+end
+
+pub func test_named_defaults(x: int, y: int = 10, z: int = 20)
+    print("x=" + x + ", y=" + y + ", z=" + z)
+end
+
+pub func test_unions(val: int | text | bool)
+    if val is int
+        print("int: " + val)
+    elif val is text
+        print("text: " + val)
+    else
+        print("bool: " + val)
+    end
+end
+
+struct Item
+    pub nome: text
+    pub quantidade: int where it >= 0
+end
+
+pub func test_where()
+    print("--- Teste Where (Contratos) ---")
+    var i1: Item = Item { nome: "Espada", quantidade: 10 }
+    print("Item 1 ok: " + i1.nome)
+    
+    attempt
+        var i2: Item = Item { nome: "Erro", quantidade: -5 }
+    rescue e
+        print("Sucesso: Capturou violação de contrato: " + e.message)
+    end
+end
+
+pub func test_interpolation()
+    print("--- Teste Interpolação Avançada ---")
+    var a: int = 10
+    var b: int = 20
+    var msg: text = "A soma de {a} e {b} é {a + b}"
+    print(msg)
+    
+    check msg == "A soma de 10 e 20 é 30" else
+        error("Interpolação falhou!")
+    end
+end
+
+pub func test_panic()
+    print("--- Teste Panic (Prelude) ---")
+    attempt
+        panic("Erro fatal de teste")
+    rescue e
+        print("Capturou panic: " + e.message)
+    end
+end
+
+pub func main() -> int
+    test_panic()
+    test_where()
+    test_interpolation()
+    
+    print("--- Teste Check ---")
+    test_check(1)
+    test_check(-1)
+
+    print("--- Teste Named/Defaults ---")
+    test_named_defaults(1)
+    test_named_defaults(1, 2)
+    test_named_defaults(x: 5, z: 100)
+
+    print("--- Teste Unions ---")
+    test_unions(42)
+    test_unions("hello")
+    test_unions(true)
+
+    print("Refinement tests passed!")
+    return 0
+end

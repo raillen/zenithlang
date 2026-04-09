@@ -1,0 +1,87 @@
+/* Zenith Documentation Styles - Minimalist Refinement */
+
+@theme {
+  --color-primary: #3b82f6; 
+  --color-secondary: #0ea5e9;
+}
+
+/* Tipografia e espaçamento */
+.prose {
+    --tw-prose-body: var(--bc);
+    --tw-prose-headings: var(--bc);
+    --tw-prose-links: var(--p);
+    --tw-prose-bold: var(--bc);
+    --tw-prose-counters: var(--bc);
+    --tw-prose-bullets: var(--bc);
+    --tw-prose-hr: var(--b3);
+}
+
+article.prose {
+    line-height: 1.75;
+    letter-spacing: 0.005em;
+    font-size: 1.05rem;
+}
+
+article.prose h2 {
+    margin-top: 4.5rem !important;
+    margin-bottom: 1rem !important;
+}
+
+article.prose h3 {
+    margin-top: 2.5rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Reduz o espaço se um h3 vier logo após um h2 */
+article.prose h2 + h3 {
+    margin-top: 1rem !important;
+}
+
+/* Alinhamento de ícones em cabeçalhos */
+#doc-content h2 span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#doc-content h2 svg {
+    flex-shrink: 0;
+}
+
+/* Sidebar Menu Tweaks */
+.menu details summary svg {
+    opacity: 0.8;
+}
+
+.menu details[open] summary svg {
+    opacity: 1;
+    color: var(--p);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--b3);
+    border-radius: 20px;
+}
+
+/* Custom Alert Styles (Heroicons compatibility) */
+.alert {
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+[data-theme='dark'] .alert {
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Active TOC State Hint */
+#toc-right li a:hover {
+    background: var(--b2);
+    border-left-color: var(--p);
+}

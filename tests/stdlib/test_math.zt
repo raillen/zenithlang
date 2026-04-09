@@ -1,0 +1,16 @@
+import std.math as m
+
+func main()
+    print("Testando std.math")
+    
+    local x: float = m.PI
+    assert(x > 3.0 and x < 4.0, "PI deve estar entre 3 e 4")
+    
+    local s: float = m.sin(0.0)
+    assert(s == 0.0, "sin(0) deve ser 0")
+    
+    local r: float = m.rad(180.0)
+    assert(r == m.PI, "rad(180) deve ser PI")
+    
+    print("Sucesso: std.math validado!")
+end

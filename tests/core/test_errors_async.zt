@@ -1,0 +1,28 @@
+pub func main()
+    -- Teste de Erro (Throw)
+    try()
+    
+    -- Teste de Async/Await
+    print("Iniciando teste async...")
+    test_async_flow()
+    print("Fim dos testes.")
+end
+
+func try()
+    print("Tentando...")
+    attempt
+        throw "Erro proposital"
+    rescue e: text
+        print("Capturado erro: " + e)
+    end
+end
+
+async func get_data(): text
+    return "Dados assíncronos"
+end
+
+async func test_async_flow()
+    print("Aguardando dados...")
+    var d: text = await get_data()
+    print("Recebido: " + d)
+end

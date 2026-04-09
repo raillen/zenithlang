@@ -1,0 +1,5 @@
+import std.math
+
+func main()
+    var s: float = math.sin(1.0)
+end

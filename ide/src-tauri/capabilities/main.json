@@ -1,0 +1,12 @@
+{
+  "identifier": "main",
+  "description": "Capability para a janela principal da Zenith IDE",
+  "windows": ["primary"],
+  "permissions": [
+    "core:default",
+    "tauri-app:allow-get-file-tree",
+    "tauri-app:allow-read-file",
+    "tauri-app:allow-run-compiler",
+    "tauri-app:allow-greet"
+  ]
+}

@@ -1,0 +1,21 @@
+import std.math as m
+import std.io as io
+
+pub func main()
+    print("--- Zenith Stdlib Integration Test ---")
+    
+    -- Teste Math
+    var pi: float = m.PI
+    print("PI: " + pi)
+    assert(pi > 3.14, "PI deve ser > 3.14")
+    
+    var s: float = m.sin(m.PI / 2.0)
+    print("sin(PI/2): " + s)
+    assert(s > 0.99 and s < 1.01, "sin(PI/2) deve ser prox a 1")
+    
+    -- Teste IO (Write)
+    io.write("Saída via std.io.write: ")
+    io.write_line("OK")
+    
+    print("--- Teste Concluído com Sucesso ---")
+end

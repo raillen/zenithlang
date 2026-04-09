@@ -1,0 +1,7 @@
+func main()
+    -- print deve estar disponível via Prelude (std.core)
+    print("Testando Prelude")
+    
+    -- assert também
+    assert(true, "Isso deve passar")
+end

@@ -1,0 +1,9 @@
+import tests.modules.math_lib
+import tests.modules.math_lib.add as fast_add
+
+func main()
+    var x: int = math_lib.add(10, 20)
+    var y: int = fast_add(5, 5)
+    
+    -- tests.modules.math_lib.private_helper() -- Deve dar erro se descomentado
+end

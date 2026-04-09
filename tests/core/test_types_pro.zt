@@ -1,0 +1,50 @@
+
+struct Person
+    name: text
+end
+
+func check_it(val: int | text)
+    if val is int
+        print("Got an int: " + val)
+    else
+        print("Got a text: " + val)
+    end
+end
+
+pub func main()
+    print("--- Teste Is/As ---")
+    var x: any = 10
+    if x is int
+        print("x is int")
+    end
+    
+    if x is not text
+        print("x is not text")
+    end
+    
+    var y: int = x as int
+    print("Cast as int: " + y)
+    
+    print("--- Teste Union Types ---")
+    check_it(100)
+    check_it("Zenith")
+    
+    print("--- Teste Struct Is ---")
+    var p: Person = Person { name: "Raillen" }
+    if p is Person
+        print("p is Person")
+    end
+    
+    print("--- Teste Match Multiple ---")
+    var fruit: text = "banana"
+    match fruit
+        case "maçã", "banana", "uva":
+            print("Favorita: " + fruit)
+        case "limão":
+            print("Azedo!")
+        else:
+            print("Outra fruta")
+    end
+    
+    print("Types Pro test passed!")
+end

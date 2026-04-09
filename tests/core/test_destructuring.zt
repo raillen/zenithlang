@@ -1,0 +1,31 @@
+-- tests/core/test_destructuring.zt
+-- Teste de Destruturação em Variáveis
+
+struct Point
+    pub x: int
+    pub y: int
+end
+
+pub func main() -> int
+    print("--- Teste Destruturação Variáveis ---")
+    
+    -- 1. Lista
+    var [a, b] = [100, 200]
+    print("a={a}, b={b}")
+    check a == 100 else error("a falhou") end
+    check b == 200 else error("b falhou") end
+    
+    -- 2. Struct
+    var p: Point = Point { x: 10, y: 20 }
+    var Point { x, y } = p
+    print("x={x}, y={y}")
+    check x == 10 else error("x falhou") end
+    check y == 20 else error("y falhou") end
+    
+    -- 3. Destruturação com tipos explícitos
+    var [n: int, m: int] = [1, 2]
+    check n == 1 and m == 2 else error("n/m falhou") end
+
+    print("Destructuring Variables Test Passed!")
+    return 0
+end

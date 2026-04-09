@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith Language - Documentação</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- daisyUI v5 (Tailwind v4 compatible) -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-lua.min.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .prose pre { background: #1a1a1a !important; }
+        .sidebar-active { color: var(--p); font-weight: 600; border-left: 2px solid var(--p); }
+        .glass-header {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        [data-theme='dark'] .glass-header {
+            background: rgba(18, 18, 18, 0.7);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-base-100 min-h-screen">
+
+    <!-- Header (Wiki.js style navbar) -->
+    <header class="sticky top-0 z-40 w-full glass-header">
+        <div class="navbar max-w-[1600px] mx-auto px-4">
+            <div class="flex-1 gap-2">
+                <label for="main-drawer" class="btn btn-ghost drawer-button lg:hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="4 6h16M4 12h16M4 18h16"></path></svg>
+                </label>
+                <div class="flex items-center gap-3">
+                    <div class="bg-primary text-primary-content p-2 rounded-lg shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                            <path fill-rule="evenodd" d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262L13.702 1.777a.75.75 0 01.913-.182z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold tracking-tight">Zenith <span class="text-primary">Docs</span></span>
+                </div>
+            </div>
+            <div class="flex-none gap-4">
+                <div class="form-control hidden md:flex">
+                    <div class="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-2.5 h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" placeholder="Buscar..." class="input input-bordered input-sm pl-10 w-64 focus:outline-primary" />
+                    </div>
+                </div>
+                <button id="theme-toggle" class="btn btn-ghost btn-circle">
+                    <!-- Light Icon -->
+                    <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 hidden">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                    </svg>
+                    <!-- Dark Icon -->
+                    <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="drawer lg:drawer-open">
+        <input id="main-drawer" type="checkbox" class="drawer-toggle" />
+        
+        <main class="drawer-content flex flex-col p-6 lg:p-10 max-w-[1600px] mx-auto w-full">
+            <div class="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-10">
+                
+                <!-- Center Content area -->
+                <article class="prose prose-md md:prose-lg max-w-none prose-headings:scroll-mt-24 prose-primary" id="doc-content">
+                    <div class="flex justify-center p-20">
+                        <span class="loading loading-spinner loading-lg text-primary"></span>
+                    </div>
+                </article>
+
+                <!-- Right Sidebar (On this section) -->
+                <aside class="hidden xl:block">
+                    <div class="sticky top-24">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-4 ml-4">Nesta Sessão</h4>
+                        <ul class="menu menu-sm bg-base-200/50 rounded-box p-2 border border-base-content/5" id="toc-right">
+                            <!-- TOC generated dynamically -->
+                        </ul>
+                    </div>
+                </aside>
+
+            </div>
+            
+            <!-- Footer -->
+            <footer class="mt-20 py-10 border-t border-base-300 text-center text-sm opacity-50">
+                Zenith Language &copy; 2026 - Desenvolvido com Antigravity
+            </footer>
+        </main>
+
+        <!-- Left Sidebar (Navigation) -->
+        <aside class="drawer-side z-50">
+            <label for="main-drawer" class="drawer-overlay"></label>
+            <div class="bg-base-100 min-h-full w-80 p-4 border-r border-base-300 shadow-xl lg:shadow-none">
+                <div class="flex items-center gap-3 mb-8 px-4 lg:hidden">
+                    <span class="text-xl font-bold">Zenith Docs</span>
+                </div>
+                
+                <ul class="menu menu-md w-full gap-1" id="sidebar-menu">
+                    <!-- Menu generated dynamically based on Markdown sections -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Script imports -->
+    <script src="script.js"></script>
+</body>
+</html>
