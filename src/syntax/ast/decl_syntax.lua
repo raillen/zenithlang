@@ -84,11 +84,12 @@ function DeclSyntax.async_func_decl(name, params, return_type, body, is_pub, spa
 end
 
 --- Declaração de Type Alias: type Name = Type
-function DeclSyntax.type_alias_decl(name, target_type, is_pub, span)
+function DeclSyntax.type_alias_decl(name, target_type, is_pub, span, generic_params)
     return SyntaxNode.new(SK.TYPE_ALIAS_DECL, {
         name = name,
-        target_type = target_type,
+        target = target_type,
         is_pub = is_pub or false,
+        generic_params = generic_params or {},
     }, span)
 end
 
@@ -151,10 +152,11 @@ function DeclSyntax.enum_decl(name, members, is_pub, span)
 end
 
 --- Membro de enum
-function DeclSyntax.enum_member(name, value, span)
+function DeclSyntax.enum_member(name, value, params, span)
     return SyntaxNode.new(SK.ENUM_MEMBER_NODE, {
         name = name,
         value = value,  -- expressão ou nil
+        params = params, -- Parâmetros para Sum Types
     }, span)
 end
 

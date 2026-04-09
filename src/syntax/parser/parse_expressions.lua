@@ -40,6 +40,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
     if not left then
         local t = ctx:peek()
         ctx.diagnostics:report_error("ZT-P002", "expressão esperada, encontrado " .. t.kind, t.span)
+        ctx:advance() -- Garante progresso!
         return ExprSyntax.literal(nil, "error", t.span)
     end
 
@@ -50,7 +51,11 @@ function ParseExpressions.parse_expression(ctx, precedence)
         -- 1. Operadores Pós-fixos (ex: !)
         if OperatorTable.is_unary_postfix(kind) then
             local operator = ctx:advance()
-            left = ExprSyntax.bang(left, left.span:merge(operator.span))
+            if operator.kind == TokenKind.BANG then
+                left = ExprSyntax.bang(left, left.span:merge(operator.span))
+            elseif operator.kind == TokenKind.QUESTION then
+                left = ExprSyntax.try(left, left.span:merge(operator.span))
+            end
             -- Continua para checar mais pós-fixos ou binários
         
         -- 2. Operadores Binários
@@ -141,7 +146,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
             elseif kind == TokenKind.LBRACKET then
                 local index = ParseExpressions.parse_expression(ctx)
                 local end_token = ctx:expect(TokenKind.RBRACKET, "esperado ']'")
-                left = ExprSyntax.member(left, index, left.span:merge(end_token.span))
+                left = ExprSyntax.index(left, index, left.span:merge(end_token.span))
 
             elseif kind == TokenKind.LBRACE then
                 -- Struct Init padrão
@@ -163,10 +168,16 @@ function ParseExpressions.parse_expression(ctx, precedence)
                 local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
                 left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span))
 
-            elseif kind == TokenKind.KW_AS then
+            elseif operator.kind == TokenKind.KW_AS then
                 local ParseTypes = require("src.syntax.parser.parse_types")
                 local type_node = ParseTypes.parse_type(ctx)
                 left = ExprSyntax.as_expr(left, type_node, left.span:merge(type_node.span))
+            
+            elseif operator.kind == TokenKind.KW_IS then
+                local is_not = ctx:match(TokenKind.KW_NOT)
+                local ParseTypes = require("src.syntax.parser.parse_types")
+                local type_node = ParseTypes.parse_type(ctx)
+                left = ExprSyntax.is_expr(left, type_node, is_not, left.span:merge(type_node.span))
             
             else
                 -- Operadores Binários Comuns (+, -, *, / etc)
@@ -190,8 +201,13 @@ function ParseExpressions.parse_expression(ctx, precedence)
     return left
 end
 
-function ParseExpressions._parse_lambda(ctx)
-    local start = ctx:expect(TokenKind.LPAREN, "esperado '(' na lambda")
+function ParseExpressions._parse_lambda(ctx, is_async)
+    local start = ctx:peek()
+    if not is_async then
+        is_async = ctx:match(TokenKind.KW_ASYNC)
+    end
+    
+    ctx:expect(TokenKind.LPAREN, "esperado '(' na lambda")
     local ParseDeclarations = require("src.syntax.parser.parse_declarations")
     local params = ParseDeclarations._parse_params(ctx)
     ctx:expect(TokenKind.RPAREN, "esperado ')' na lambda")
@@ -208,7 +224,7 @@ function ParseExpressions._parse_lambda(ctx)
         body = ParseExpressions.parse_expression(ctx, OperatorTable.Precedence.ASSIGNMENT)
         span_end = body.span
     end
-    return ExprSyntax.lambda(params, body, start.span:merge(span_end))
+    return ExprSyntax.lambda(params, body, is_async, start.span:merge(span_end))
 end
 
 function ParseExpressions._parse_primary(ctx)
@@ -224,28 +240,34 @@ function ParseExpressions._parse_primary(ctx)
         return ExprSyntax.it_ref(ctx:advance().span)
     elseif k == TokenKind.INTEGER_LITERAL or k == TokenKind.FLOAT_LITERAL or 
            k == TokenKind.STRING_LITERAL or k == TokenKind.KW_TRUE or 
-           k == TokenKind.KW_FALSE or k == TokenKind.KW_NULL then
+           k == TokenKind.KW_FALSE then
         local t = ctx:advance()
         local ltype = "any"
         if t.kind == TokenKind.INTEGER_LITERAL then ltype = "int"
         elseif t.kind == TokenKind.FLOAT_LITERAL then ltype = "float"
         elseif t.kind == TokenKind.STRING_LITERAL then ltype = "text"
-        elseif t.kind == TokenKind.KW_TRUE or t.kind == TokenKind.KW_FALSE then ltype = "bool"
-        elseif t.kind == TokenKind.KW_NULL then ltype = "null" end
+        elseif t.kind == TokenKind.KW_TRUE or t.kind == TokenKind.KW_FALSE then ltype = "bool" 
+        end
         return ExprSyntax.literal(t.value, ltype, t.span)
     
-    elseif k == TokenKind.LPAREN then
+    elseif k == TokenKind.LPAREN or k == TokenKind.KW_ASYNC then
         local start = ctx:peek()
+        local is_async = ctx:match(TokenKind.KW_ASYNC)
+        
         local is_lambda = false
-        local i = 1
-        if ctx:peek(i).kind == TokenKind.RPAREN and ctx:peek(i+1).kind == TokenKind.FAT_ARROW then
-            is_lambda = true
-        elseif ctx:peek(i).kind == TokenKind.IDENTIFIER then
-            local next_k = ctx:peek(i+1).kind
-            if next_k == TokenKind.COLON or next_k == TokenKind.COMMA or next_k == TokenKind.LBRACE then is_lambda = true end
-        elseif ctx:peek(i).kind == TokenKind.LBRACKET then is_lambda = true end
+        if ctx:check(TokenKind.LPAREN) then
+            local i = 1
+            if ctx:peek(i).kind == TokenKind.RPAREN and ctx:peek(i+1).kind == TokenKind.FAT_ARROW then
+                is_lambda = true
+            elseif ctx:peek(i).kind == TokenKind.IDENTIFIER then
+                local next_k = ctx:peek(i+1).kind
+                if next_k == TokenKind.COLON or next_k == TokenKind.COMMA or next_k == TokenKind.LBRACE then is_lambda = true end
+            elseif ctx:peek(i).kind == TokenKind.LBRACKET then is_lambda = true end
+        end
 
-        if is_lambda then return ParseExpressions._parse_lambda(ctx) end
+        if is_lambda or is_async then 
+            return ParseExpressions._parse_lambda(ctx, is_async) 
+        end
 
         ctx:advance() -- (
         local expr = ParseExpressions.parse_expression(ctx)
@@ -287,6 +309,10 @@ function ParseExpressions._parse_primary(ctx)
         local start = ctx:advance()
         local id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo após '@'")
         return ExprSyntax.self_field(id.lexeme, start.span:merge(id.span))
+    
+    elseif k == TokenKind.KW_MATCH then
+        local ParseStatements = require("src.syntax.parser.parse_statements")
+        return ParseStatements._parse_match(ctx)
     end
 
     return nil

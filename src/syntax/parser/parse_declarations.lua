@@ -87,14 +87,23 @@ function ParseDeclarations._parse_pattern(ctx)
         local fields = {}
         if not ctx:check(TokenKind.RBRACE) then
             repeat
-                local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+                ctx:skip_newlines()
+                local name
                 local val
-                if ctx:match(TokenKind.COLON) then
-                    val = ParseDeclarations._parse_pattern(ctx)
+                if ctx:match(TokenKind.AT) then
+                    local id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo após '@'")
+                    name = id.lexeme
+                    val = ExprSyntax.self_field(id.lexeme, id.span)
                 else
-                    val = ExprSyntax.identifier(name_t.lexeme, name_t.span)
+                    local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+                    name = name_t.lexeme
+                    if ctx:match(TokenKind.COLON) then
+                        val = ParseDeclarations._parse_pattern(ctx)
+                    else
+                        val = ExprSyntax.identifier(name, name_t.span)
+                    end
                 end
-                table.insert(fields, { name = name_t.lexeme, value = val })
+                table.insert(fields, { name = name, value = val })
             until not ctx:match(TokenKind.COMMA)
         end
         local end_t = ctx:expect(TokenKind.RBRACE, "esperado '}'")
@@ -106,8 +115,21 @@ function ParseDeclarations._parse_pattern(ctx)
 
     elseif k == TokenKind.IDENTIFIER then
         local id = ctx:advance()
-        local node = ExprSyntax.identifier(id.lexeme, id.span)
         
+        -- Caso especial: Variant Pattern Variant(a, b)
+        if ctx:match(TokenKind.LPAREN) then
+            local sub_patterns = {}
+            if not ctx:check(TokenKind.RPAREN) then
+                repeat
+                    table.insert(sub_patterns, ParseDeclarations._parse_pattern(ctx))
+                until not ctx:match(TokenKind.COMMA)
+            end
+            local end_t = ctx:expect(TokenKind.RPAREN, "esperado ')'")
+            local node = ExprSyntax.call(ExprSyntax.identifier(id.lexeme, id.span), sub_patterns, id.span:merge(end_t.span))
+            node.kind = SK.VARIANT_PATTERN
+            return node
+        end
+
         -- Caso especial: identificador seguido de { é um Struct Pattern
         if ctx:check(TokenKind.LBRACE) then
             local fields_node = ParseDeclarations._parse_pattern(ctx)
@@ -116,6 +138,7 @@ function ParseDeclarations._parse_pattern(ctx)
             return fields_node
         end
         
+        local node = ExprSyntax.identifier(id.lexeme, id.span)
         -- Suporte a anotação de tipo no padrão: n: int
         if ctx:match(TokenKind.COLON) then
             local type_node = ParseTypes.parse_type(ctx)
@@ -198,6 +221,7 @@ function ParseDeclarations._parse_func(ctx, is_pub, is_prototype)
     
     -- Se for protótipo, o corpo é opcional. Se não for, é obrigatório.
     if not is_prototype then
+        ctx:match(TokenKind.KW_DO) -- Opcional por enquanto para compatibilidade
         body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
         end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' após corpo da função")
     else
@@ -352,10 +376,35 @@ function ParseDeclarations._parse_enum(ctx, is_pub)
     while not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() do
         ctx:skip_newlines()
         if ctx:check(TokenKind.KW_END) then break end
+        
         local m_id = ctx:expect(TokenKind.IDENTIFIER)
         local val = nil
-        if ctx:match(TokenKind.EQUAL) then val = ParseExpressions.parse_expression(ctx) end
-        table.insert(members, DeclSyntax.enum_member(m_id.lexeme, val, m_id.span))
+        local params = nil
+        
+        -- Sum Type: Member(T, U) ou Member(name: T)
+        if ctx:match(TokenKind.LPAREN) then
+            params = {}
+            if not ctx:check(TokenKind.RPAREN) then
+                repeat
+                    local p_name = nil
+                    local p_type = nil
+                    -- Suporta nome opcional: Success(value: T) ou Success(T)
+                    if ctx:check(TokenKind.IDENTIFIER) and ctx:peek(1).kind == TokenKind.COLON then
+                        p_name = ctx:advance().lexeme
+                        ctx:advance() -- consume ':'
+                        p_type = ParseTypes.parse_type(ctx)
+                    else
+                        p_type = ParseTypes.parse_type(ctx)
+                    end
+                    table.insert(params, { name = p_name, type = p_type })
+                until not ctx:match(TokenKind.COMMA)
+            end
+            ctx:expect(TokenKind.RPAREN, "esperado ')' após parâmetros do membro de enum")
+        elseif ctx:match(TokenKind.EQUAL) then 
+            val = ParseExpressions.parse_expression(ctx) 
+        end
+        
+        table.insert(members, DeclSyntax.enum_member(m_id.lexeme, val, params, m_id.span))
         ctx:skip_newlines()
     end
     local end_t = ctx:expect(TokenKind.KW_END)

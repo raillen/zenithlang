@@ -142,10 +142,11 @@ end
 
 
 --- Lambdas: (params) => body
-function ExprSyntax.lambda(params, body, span)
+function ExprSyntax.lambda(params, body, is_async, span)
     return SyntaxNode.new(SK.LAMBDA_EXPR, {
-        params = params, -- lista de PARAM_NODE
-        body = body,     -- expressão ou lista de statements (se usar do...end)
+        params = params,   -- lista de PARAM_NODE
+        body = body,       -- expressão ou lista de statements (se usar do...end)
+        is_async = is_async or false,
     }, span)
 end
 
@@ -170,6 +171,20 @@ function ExprSyntax.as_expr(expression, type_node, span)
     return SyntaxNode.new(SK.AS_EXPR, {
         expression = expression,
         type_node = type_node,
+    }, span)
+end
+
+--- Check: check expr
+function ExprSyntax.check_expr(expression, span)
+    return SyntaxNode.new(SK.CHECK_EXPR, {
+        expression = expression,
+    }, span)
+end
+
+--- Try: expr?
+function ExprSyntax.try(expression, span)
+    return SyntaxNode.new(SK.TRY_EXPR, {
+        expression = expression,
     }, span)
 end
 

@@ -25,28 +25,40 @@ function ParseTypes.parse_type(ctx)
         type_node = TypeSyntax.union(types, type_node.span:merge(other.span))
     end
 
-    -- Nullable: type?
+    -- Nullable: type? -> Optional<type>
     if ctx:match(TokenKind.QUESTION) then
-        type_node = TypeSyntax.nullable(type_node, type_node.span:merge(ctx:peek(-1).span))
+        type_node = TypeSyntax.generic("Optional", { type_node }, type_node.span:merge(ctx:peek(-1).span))
     end
 
     return type_node
 end
 
 function ParseTypes._parse_primary_type(ctx)
-    -- Tipo de Função: (int, int) => bool
+    -- Tipos Parentizados ou de Função: (A) ou (A, B) => C
     if ctx:match(TokenKind.LPAREN) then
         local start = ctx:peek(-1)
-        local params = {}
+        local types = {}
         if not ctx:check(TokenKind.RPAREN) then
             repeat
-                table.insert(params, ParseTypes.parse_type(ctx))
+                table.insert(types, ParseTypes.parse_type(ctx))
             until not ctx:match(TokenKind.COMMA)
         end
-        ctx:expect(TokenKind.RPAREN, "esperado ')' após tipos dos parâmetros")
-        ctx:expect(TokenKind.FAT_ARROW, "esperado '=>' para definir tipo de retorno da função")
-        local ret = ParseTypes.parse_type(ctx)
-        return TypeSyntax.func(params, ret, start.span:merge(ret.span))
+        ctx:expect(TokenKind.RPAREN, "esperado ')'")
+        
+        -- Se houver '=>', é uma função
+        if ctx:match(TokenKind.FAT_ARROW) then
+            local ret = ParseTypes.parse_type(ctx)
+            return TypeSyntax.func(types, ret, start.span:merge(ret.span))
+        end
+        
+        -- Caso contrário, deve ser apenas um tipo parentizado (A)
+        if #types == 1 then
+            return types[1]
+        end
+        
+        -- Erro: múltiplos tipos sem =>
+        ctx.diagnostics:report_error("ZT-P001", "esperado '=>' após lista de tipos em parênteses", start.span)
+        return types[1] or TypeSyntax.named("error", start.span)
     end
 
     -- it como tipo
@@ -67,6 +79,23 @@ function ParseTypes._parse_primary_type(ctx)
             span = span:merge(end_token.span)
         end
         return TypeSyntax.generic("grid", args, span)
+    end
+
+    -- Struct: struct { fields }
+    if ctx:match(TokenKind.KW_STRUCT) then
+        local start = ctx:peek(-1)
+        ctx:expect(TokenKind.LBRACE, "esperado '{' após 'struct'")
+        local fields = {}
+        if not ctx:check(TokenKind.RBRACE) then
+            repeat
+                local f_name = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+                ctx:expect(TokenKind.COLON, "esperado ':' após nome do campo")
+                local f_type = ParseTypes.parse_type(ctx)
+                table.insert(fields, { name = f_name.lexeme, type_node = f_type })
+            until not ctx:match(TokenKind.COMMA)
+        end
+        local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
+        return TypeSyntax.struct(fields, start.span:merge(end_token.span))
     end
 
     local id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do tipo")

@@ -1,0 +1,32 @@
+// Teste de Async/Await Completo (v0.3.0)
+
+async func buscar_dados(id: int) do
+    print("Iniciando busca para id: " + id)
+    // Simula uma espera assíncrona
+    return "Resultado para " + id
+end
+
+func main() do
+    // 1. Função Nomeada Async
+    async func processar() do
+        print("Antes do await...")
+        let res = await buscar_dados(42)
+        print("Recebido: " + res)
+    end
+
+    processar()
+
+    // 2. Lambda Async
+    let lambda_async = async (msg: text) => do
+        print("Lambda iniciando: " + msg)
+        let r = await buscar_dados(100)
+        return "Lambda finalizada: " + r
+    end
+
+    let p = lambda_async("Olá Zenith")
+    print("Retorno imediato da lambda (async handle): " + p)
+    
+    // Como a runtime zt.async resolve sincronamente na ausência de event loop real,
+    // o valor retornado por p() será o resultado final.
+    print("Resultado resolvido: " + p())
+}

@@ -1,6 +1,12 @@
-use serde::{Serialize, Deserialize};
+use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileEntry {
@@ -10,18 +16,76 @@ pub struct FileEntry {
     children: Option<Vec<FileEntry>>,
 }
 
+type PtyHandler = u32;
+
+const TERMINAL_DATA_EVENT: &str = "zenith://terminal-data";
+const TERMINAL_EXIT_EVENT: &str = "zenith://terminal-exit";
+
+struct TerminalSession {
+    master: Mutex<Box<dyn MasterPty + Send>>,
+    child: Mutex<Box<dyn Child + Send + Sync>>,
+    child_killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
+    writer: Mutex<Box<dyn Write + Send>>,
+    reader: Mutex<Box<dyn Read + Send>>,
+}
+
+#[derive(Default)]
+struct TerminalState {
+    next_session_id: AtomicU32,
+    sessions: Mutex<HashMap<PtyHandler, Arc<TerminalSession>>>,
+}
+
+impl TerminalState {
+    fn allocate_session_id(&self) -> PtyHandler {
+        self.next_session_id.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    fn get_session(&self, session_id: PtyHandler) -> Result<Arc<TerminalSession>, String> {
+        self.sessions
+            .lock()
+            .map_err(|_| "Unable to access terminal sessions".to_string())?
+            .get(&session_id)
+            .cloned()
+            .ok_or_else(|| format!("Terminal session {} is not available", session_id))
+    }
+
+    fn remove_session(&self, session_id: PtyHandler) {
+        if let Ok(mut sessions) = self.sessions.lock() {
+            sessions.remove(&session_id);
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalSessionInfo {
+    session_id: PtyHandler,
+    cwd: String,
+    shell: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TerminalDataPayload {
+    session_id: PtyHandler,
+    data: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TerminalExitPayload {
+    session_id: PtyHandler,
+    exit_code: Option<u32>,
+}
+
 #[tauri::command]
 fn get_file_tree(root_path: String) -> Result<Vec<FileEntry>, String> {
-    let base_path = if root_path.is_empty() || root_path == "." {
-        std::env::current_dir().map_err(|e| e.to_string())?
-    } else {
-        Path::new(&root_path).to_path_buf()
-    };
+    let base_path = resolve_path(&root_path)?;
 
     if !base_path.exists() {
         return Err(format!("Path does not exist: {}", base_path.display()));
     }
-    
+
     scan_dir(&base_path)
 }
 
@@ -33,7 +97,12 @@ fn scan_dir(path: &Path) -> Result<Vec<FileEntry>, String> {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
 
-            if name == ".git" || name == "node_modules" || name == "target" || name == "dist" || name == ".tauri" {
+            if name == ".git"
+                || name == "node_modules"
+                || name == "target"
+                || name == "dist"
+                || name == ".tauri"
+            {
                 continue;
             }
 
@@ -66,16 +135,36 @@ fn scan_dir(path: &Path) -> Result<Vec<FileEntry>, String> {
 
 #[tauri::command]
 fn read_file(path: String) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+    let resolved_path = resolve_path(&path)?;
+    let bytes = fs::read(&resolved_path).map_err(|e| format!("{} ({})", e, resolved_path.display()))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+#[tauri::command]
+fn write_file(path: String, content: String) -> Result<(), String> {
+    let resolved_path = resolve_path(&path)?;
+    fs::write(&resolved_path, content).map_err(|e| format!("{} ({})", e, resolved_path.display()))
 }
 
 #[tauri::command]
 fn run_compiler(input_path: String) -> Result<String, String> {
     use std::process::Command;
-    
+
+    let resolved_input_path = resolve_path(&input_path)?;
+    let project_root = workspace_root();
+    let compiler_path = project_root.join("ztc.lua");
+
+    if !compiler_path.exists() {
+        return Err(format!(
+            "Compiler script not found at {}",
+            compiler_path.display()
+        ));
+    }
+
     let output = Command::new("lua")
-        .arg("../ztc.lua")
-        .arg(input_path)
+        .arg(&compiler_path)
+        .arg(&resolved_input_path)
+        .current_dir(&project_root)
         .output()
         .map_err(|e| format!("Failed to execute lua: {}", e))?;
 
@@ -90,18 +179,327 @@ fn run_compiler(input_path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn pick_file() -> Result<Option<String>, String> {
+    Ok(rfd::FileDialog::new()
+        .pick_file()
+        .map(|path| path.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+fn pick_folder() -> Result<Option<String>, String> {
+    Ok(rfd::FileDialog::new()
+        .pick_folder()
+        .map(|path| path.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+fn pick_save_path(default_name: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(name) = default_name {
+        dialog = dialog.set_file_name(&name);
+    }
+
+    Ok(dialog
+        .save_file()
+        .map(|path| path.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Zenith App!", name)
+}
+
+#[tauri::command]
+fn terminal_create(
+    app_handle: AppHandle,
+    state: tauri::State<'_, TerminalState>,
+    cwd: Option<String>,
+    shell: Option<String>,
+    cols: Option<u16>,
+    rows: Option<u16>,
+) -> Result<TerminalSessionInfo, String> {
+    let resolved_cwd = cwd
+        .as_deref()
+        .map(resolve_path)
+        .transpose()?
+        .unwrap_or_else(workspace_root);
+    let shell_path = resolve_shell(shell);
+    let size = PtySize {
+        rows: rows.unwrap_or(32).max(1),
+        cols: cols.unwrap_or(120).max(20),
+        pixel_width: 0,
+        pixel_height: 0,
+    };
+
+    let pty_system = native_pty_system();
+    let portable_pty::PtyPair { master, slave } = pty_system
+        .openpty(size)
+        .map_err(|error| format!("Unable to open pty: {error}"))?;
+
+    let command = build_shell_command(&shell_path, &resolved_cwd);
+    let child = slave
+        .spawn_command(command)
+        .map_err(|error| format!("Unable to spawn shell: {error}"))?;
+    let child_killer = child.clone_killer();
+    let reader = master
+        .try_clone_reader()
+        .map_err(|error| format!("Unable to attach terminal reader: {error}"))?;
+    let writer = master
+        .take_writer()
+        .map_err(|error| format!("Unable to attach terminal writer: {error}"))?;
+
+    let session_id = state.allocate_session_id();
+    let session = Arc::new(TerminalSession {
+        master: Mutex::new(master),
+        child: Mutex::new(child),
+        child_killer: Mutex::new(child_killer),
+        writer: Mutex::new(writer),
+        reader: Mutex::new(reader),
+    });
+
+    state
+        .sessions
+        .lock()
+        .map_err(|_| "Unable to register terminal session".to_string())?
+        .insert(session_id, session.clone());
+
+    spawn_terminal_reader(app_handle.clone(), session_id, session.clone());
+    spawn_terminal_waiter(app_handle, session_id, session);
+
+    Ok(TerminalSessionInfo {
+        session_id,
+        cwd: resolved_cwd.to_string_lossy().to_string(),
+        shell: shell_path,
+    })
+}
+
+#[tauri::command]
+fn terminal_write(
+    session_id: PtyHandler,
+    data: String,
+    state: tauri::State<'_, TerminalState>,
+) -> Result<(), String> {
+    let session = state.get_session(session_id)?;
+    let mut writer = session
+        .writer
+        .lock()
+        .map_err(|_| "Unable to write to the terminal session".to_string())?;
+
+    writer
+        .write_all(data.as_bytes())
+        .map_err(|error| format!("Unable to write to the shell: {error}"))?;
+    writer
+        .flush()
+        .map_err(|error| format!("Unable to flush terminal input: {error}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_resize(
+    session_id: PtyHandler,
+    cols: u16,
+    rows: u16,
+    state: tauri::State<'_, TerminalState>,
+) -> Result<(), String> {
+    let session = state.get_session(session_id)?;
+    let master = session
+        .master
+        .lock()
+        .map_err(|_| "Unable to resize the terminal session".to_string())?;
+
+    master
+        .resize(PtySize {
+            rows: rows.max(1),
+            cols: cols.max(20),
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| format!("Unable to apply terminal size: {error}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn terminal_kill(
+    session_id: PtyHandler,
+    state: tauri::State<'_, TerminalState>,
+) -> Result<(), String> {
+    let session = state.get_session(session_id)?;
+    let mut killer = session
+        .child_killer
+        .lock()
+        .map_err(|_| "Unable to stop the terminal session".to_string())?;
+
+    killer
+        .kill()
+        .map_err(|error| format!("Unable to stop the shell process: {error}"))?;
+
+    state.remove_session(session_id);
+    Ok(())
+}
+
+fn ide_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
+}
+
+fn workspace_root() -> PathBuf {
+    let ide_root = ide_root();
+    ide_root.parent().map(Path::to_path_buf).unwrap_or(ide_root)
+}
+
+fn resolve_shell(shell: Option<String>) -> String {
+    if let Some(shell) = shell.filter(|value| !value.trim().is_empty()) {
+        return shell;
+    }
+
+    #[cfg(windows)]
+    {
+        if let Ok(system_root) = std::env::var("SystemRoot") {
+            let powershell = PathBuf::from(system_root)
+                .join("System32")
+                .join("WindowsPowerShell")
+                .join("v1.0")
+                .join("powershell.exe");
+
+            if powershell.exists() {
+                return powershell.to_string_lossy().to_string();
+            }
+        }
+
+        return std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+    }
+
+    #[cfg(not(windows))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+    }
+}
+
+fn build_shell_command(shell: &str, cwd: &Path) -> CommandBuilder {
+    let mut command = CommandBuilder::new(shell);
+    let shell_lower = shell.to_ascii_lowercase();
+
+    if shell_lower.ends_with("powershell.exe") || shell_lower.ends_with("pwsh.exe") {
+        command.arg("-NoLogo");
+    } else if shell_lower.ends_with("/bash")
+        || shell_lower.ends_with("/zsh")
+        || shell_lower.ends_with("/fish")
+    {
+        command.arg("-l");
+    }
+
+    command.cwd(cwd);
+    command.env("TERM", "xterm-256color");
+    command.env("COLORTERM", "truecolor");
+    command
+}
+
+fn resolve_path(raw_path: &str) -> Result<PathBuf, String> {
+    if raw_path.is_empty() {
+        return std::env::current_dir().map_err(|e| e.to_string());
+    }
+
+    let requested = PathBuf::from(raw_path);
+    if requested.is_absolute() {
+        return Ok(requested);
+    }
+
+    let current_dir = std::env::current_dir().unwrap_or_else(|_| ide_root());
+    let current_candidate = current_dir.join(&requested);
+    if current_candidate.exists() {
+        return Ok(current_candidate);
+    }
+
+    let workspace_candidate = workspace_root().join(&requested);
+    if workspace_candidate.exists() {
+        return Ok(workspace_candidate);
+    }
+
+    match raw_path {
+        "." => Ok(current_dir),
+        ".." => Ok(workspace_root()),
+        _ => Ok(current_candidate),
+    }
+}
+
+fn spawn_terminal_reader(app_handle: AppHandle, session_id: PtyHandler, session: Arc<TerminalSession>) {
+    std::thread::spawn(move || {
+        let mut buffer = [0u8; 8192];
+
+        loop {
+            let bytes_read = {
+                let mut reader = match session.reader.lock() {
+                    Ok(reader) => reader,
+                    Err(_) => break,
+                };
+
+                match reader.read(&mut buffer) {
+                    Ok(bytes_read) => bytes_read,
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => break,
+                }
+            };
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            let payload = TerminalDataPayload {
+                session_id,
+                data: String::from_utf8_lossy(&buffer[..bytes_read]).into_owned(),
+            };
+
+            let _ = app_handle.emit(TERMINAL_DATA_EVENT, payload);
+        }
+    });
+}
+
+fn spawn_terminal_waiter(app_handle: AppHandle, session_id: PtyHandler, session: Arc<TerminalSession>) {
+    std::thread::spawn(move || {
+        let exit_code = {
+            let mut child = match session.child.lock() {
+                Ok(child) => child,
+                Err(_) => return,
+            };
+
+            child.wait().ok().map(|status| status.exit_code())
+        };
+
+        if let Some(terminal_state) = app_handle.try_state::<TerminalState>() {
+            terminal_state.remove_session(session_id);
+        }
+
+        let _ = app_handle.emit(
+            TERMINAL_EXIT_EVENT,
+            TerminalExitPayload {
+                session_id,
+                exit_code,
+            },
+        );
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(TerminalState::default())
         .invoke_handler(tauri::generate_handler![
-            greet, 
-            get_file_tree, 
-            read_file, 
-            run_compiler
+            greet,
+            get_file_tree,
+            read_file,
+            write_file,
+            run_compiler,
+            pick_file,
+            pick_folder,
+            pick_save_path,
+            terminal_create,
+            terminal_write,
+            terminal_resize,
+            terminal_kill
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

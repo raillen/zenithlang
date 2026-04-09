@@ -213,10 +213,13 @@ function ParseStatements._parse_match(ctx)
         if ctx:match(TokenKind.KW_CASE) then
             local patterns = {}
             repeat
-                table.insert(patterns, ParseExpressions.parse_expression(ctx))
+                local ParseDeclarations = require("src.syntax.parser.parse_declarations")
+                table.insert(patterns, ParseDeclarations._parse_pattern(ctx))
             until not ctx:match(TokenKind.COMMA)
             
-            ctx:expect(TokenKind.COLON, "esperado ':' após padrão do case")
+            if not ctx:match(TokenKind.COLON) and not ctx:match(TokenKind.FAT_ARROW) then
+                ctx:expect(TokenKind.COLON, "esperado ':' ou '=>' após padrão do case")
+            end
             ctx:skip_newlines()
             
             local body = ParseStatements.parse_block(ctx, { TokenKind.KW_CASE, TokenKind.KW_ELSE, TokenKind.KW_END })

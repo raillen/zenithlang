@@ -1,0 +1,63 @@
+-- ============================================================================
+-- Zenith Test: Error Handling & Lambdas
+-- ============================================================================
+
+pub func test_lambdas()
+    print("--- Testando Lambdas ---")
+    
+    -- Lambda simples (expressão)
+    var dobrar = (x: int) => x * 2
+    print("Dobrar 21: " + dobrar(21))
+    
+    -- Lambda com múltiplos param e inferência básica
+    var soma = (a, b) => a + b
+    print("Soma 10 + 20: " + soma(10, 20))
+    
+    -- Lambda com bloco (do ... end)
+    var complexa = (n: int) => do
+        if n % 2 == 0
+            return "par"
+        else
+            return "ímpar"
+        end
+    end
+    print("O número 7 é: " + complexa(7))
+    print("O número 8 é: " + complexa(8))
+end
+
+pub func test_errors()
+    print("\n--- Testando Error Handling ---")
+    
+    -- 1. Attempt / Rescue
+    attempt
+        print("Tentando algo perigoso...")
+        throw "Erro Proposital"
+        print("Isto não deve aparecer")
+    rescue erro
+        print("Capturado erro: " + erro.message)
+    end
+    
+    -- 2. Check Statement
+    var idade = 15
+    check idade >= 18 else
+        print("Acesso negado: idade insuficiente (" + idade + ")")
+    end
+    
+    -- 3. Check Expression
+    var nome: text? = "Zenith"
+    var n = check nome!
+    print("Check expr result: " + n)
+    
+    nome = null
+    attempt
+        var falha = check nome!
+    rescue e
+        print("Check expr falhou como esperado em valor nulo")
+    end
+end
+
+pub func main()
+    test_lambdas()
+    test_errors()
+    print("\n--- Todos os testes concluídos ---")
+end

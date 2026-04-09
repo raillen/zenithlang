@@ -140,6 +140,15 @@ function Symbol.enum(name, members, span)
     })
 end
 
+--- Cria símbolo de membro de enum.
+function Symbol.enum_member(name, parent_enum, params, span)
+    return Symbol.new(Symbol.Kind.ENUM_MEMBER, name, {
+        parent_enum = parent_enum, -- símbolo do Enum pai
+        params = params,           -- lista de { name, type_info } (para Sum Types)
+        span = span,
+    })
+end
+
 --- Cria símbolo de trait.
 function Symbol.trait(name, methods, span)
     return Symbol.new(Symbol.Kind.TRAIT, name, {
@@ -195,7 +204,16 @@ end
 
 --- Busca um membro (campo ou método) neste símbolo (se for STRUCT).
 function Symbol:get_member(name)
-    if self.kind ~= Symbol.Kind.STRUCT then return nil end
+    if self.kind == Symbol.Kind.ENUM then
+        if self.member_symbols then
+            for _, m in ipairs(self.member_symbols) do
+                if m.name == name then return m end
+            end
+        end
+        return nil
+    end
+
+    if self.kind ~= Symbol.Kind.STRUCT and self.kind ~= Symbol.Kind.TRAIT then return nil end
     
     if self.fields then
         for _, f in ipairs(self.fields) do
@@ -203,8 +221,9 @@ function Symbol:get_member(name)
         end
     end
     
-    if self.methods then
-        for _, m in ipairs(self.methods) do
+    if self.methods or self.members then
+        local members = self.methods or self.members
+        for _, m in ipairs(members) do
             if m.name == name then return m end
         end
     end
@@ -223,6 +242,23 @@ end
 function Symbol:__tostring()
     local t = self.type_info and tostring(self.type_info) or "?"
     return string.format("Symbol(%s, %s: %s)", self.kind, self.name, t)
+end
+
+--- Cria símbolo de alias (type Name = T).
+function Symbol.alias(name, target_node, is_pub, span)
+    return Symbol.new(Symbol.Kind.ALIAS, name, {
+        target_node = target_node,
+        is_pub = is_pub or false,
+        span = span,
+    })
+end
+
+--- Cria símbolo de parâmetro genérico (<T>).
+function Symbol.generic_param(name, constraint, span)
+    return Symbol.new(Symbol.Kind.GENERIC_PARAM, name, {
+        constraint = constraint,
+        span = span,
+    })
 end
 
 return Symbol

@@ -9,13 +9,19 @@ interface ContextMenuWrapperProps {
 export function ContextMenuWrapper({ children, onAction }: ContextMenuWrapperProps) {
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger>
+      <ContextMenu.Trigger asChild>
         {children}
       </ContextMenu.Trigger>
       
       <ContextMenu.Portal>
         <ContextMenu.Content 
-          className="min-w-[200px] bg-[#1E1E1E]/95 backdrop-blur-xl border border-white/10 rounded-lg p-1 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-100"
+          className="z-[100] min-w-[200px] rounded-[1.1rem] border p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          style={{
+            background: 'color-mix(in srgb, var(--ide-panel) 88%, white 12%)',
+            borderColor: 'var(--border)',
+            backdropFilter: 'blur(24px)',
+            boxShadow: 'var(--panel-shadow-strong)',
+          }}
         >
           <ContextMenuItem 
             icon={<FilePlus size={14} />} 
@@ -29,7 +35,7 @@ export function ContextMenuWrapper({ children, onAction }: ContextMenuWrapperPro
             onClick={() => onAction?.('new-folder')} 
           />
           
-          <ContextMenu.Separator className="h-[1px] bg-white/5 my-1" />
+          <ContextMenu.Separator className="my-1 h-[1px]" style={{ background: 'var(--border)' }} />
           
           <ContextMenuItem 
             icon={<Copy size={14} />} 
@@ -43,7 +49,7 @@ export function ContextMenuWrapper({ children, onAction }: ContextMenuWrapperPro
             onClick={() => onAction?.('rename')} 
           />
           
-          <ContextMenu.Separator className="h-[1px] bg-white/5 my-1" />
+          <ContextMenu.Separator className="my-1 h-[1px]" style={{ background: 'var(--border)' }} />
           
           <ContextMenuItem 
             icon={<Share size={14} />} 
@@ -51,7 +57,7 @@ export function ContextMenuWrapper({ children, onAction }: ContextMenuWrapperPro
             onClick={() => onAction?.('share')} 
           />
           
-          <ContextMenu.Separator className="h-[1px] bg-white/5 my-1" />
+          <ContextMenu.Separator className="my-1 h-[1px]" style={{ background: 'var(--border)' }} />
           
           <ContextMenuItem 
             icon={<Trash2 size={14} />} 
@@ -78,12 +84,15 @@ function ContextMenuItem({ icon, label, shortcut, onClick, danger }: {
       onClick={onClick}
       className={`
         flex items-center gap-3 px-2 py-1.5 text-xs rounded-md outline-none cursor-default select-none transition-colors
-        ${danger ? 'text-red-400 hover:bg-red-500/20' : 'text-white/80 hover:bg-xcode-accent/80 hover:text-white'}
+        ${danger ? 'hover:bg-red-500/12' : 'hover:bg-xcode-accent/10'}
       `}
+      style={{
+        color: danger ? 'var(--danger)' : 'var(--text-primary)',
+      }}
     >
       <span className="opacity-70">{icon}</span>
       <span className="flex-1">{label}</span>
-      {shortcut && <span className="opacity-30 text-[10px] ml-4">{shortcut}</span>}
+      {shortcut && <span className="ml-4 text-[10px] opacity-50">{shortcut}</span>}
     </ContextMenu.Item>
   );
 }

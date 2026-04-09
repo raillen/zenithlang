@@ -14,3 +14,13 @@ end
 
 pub func panic(message: text)
 end
+
+pub enum Optional<T>
+    Present(value: T)
+    Empty
+end
+
+pub enum Outcome<T, E>
+    Success(value: T)
+    Failure(error: E)
+end

@@ -53,4 +53,11 @@ function TypeSyntax.modified(modifier, base_type, span)
     }, span)
 end
 
+--- Tipo struct (anônimo ou inline): struct { name: text }
+function TypeSyntax.struct(fields, span)
+    return SyntaxNode.new(SK.STRUCT_TYPE, {
+        fields = fields, -- lista de { name, type_node }
+    }, span)
+end
+
 return TypeSyntax

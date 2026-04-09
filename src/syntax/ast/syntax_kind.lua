@@ -35,7 +35,7 @@ local SyntaxKind = {
     AWAIT_EXPR              = "AWAIT_EXPR",            -- await expr
     IS_EXPR                 = "IS_EXPR",               -- expr is Type
     AS_EXPR                 = "AS_EXPR",               -- expr as Type
-    CHECK_EXPR              = "CHECK_EXPR",            -- check expr
+    TRY_EXPR                = "TRY_EXPR",              -- expr?
 
     -- ================================================================
     -- Statements
@@ -86,6 +86,7 @@ local SyntaxKind = {
     FIELD_NODE              = "FIELD_NODE",             -- pub? name: Type = default
     ATTRIBUTE_NODE          = "ATTRIBUTE_NODE",         -- @name(args)
     ENUM_MEMBER_NODE        = "ENUM_MEMBER_NODE",
+    VARIANT_PATTERN         = "VARIANT_PATTERN",        -- Variant(a, b) em match
 
     -- ================================================================
     -- Tipos
@@ -96,6 +97,7 @@ local SyntaxKind = {
     GENERIC_TYPE            = "GENERIC_TYPE",           -- list<int>, map<text, int>
     MODIFIED_TYPE           = "MODIFIED_TYPE",          -- uniq list<int>
     FUNC_TYPE               = "FUNC_TYPE",              -- func(int, text) -> bool
+    STRUCT_TYPE             = "STRUCT_TYPE",            -- struct { fields }
 
     -- ================================================================
     -- Match

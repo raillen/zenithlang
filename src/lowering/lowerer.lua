@@ -14,6 +14,7 @@ Lowerer.__index = Lowerer
 function Lowerer.new(diagnostics)
     local self = setmetatable({}, Lowerer)
     self.diagnostics = diagnostics
+    self.tmp_count = 0
     return self
 end
 
@@ -31,10 +32,25 @@ function Lowerer:_lower_node(node)
     if self[method_name] then
         lowered = self[method_name](self, node)
     else
-        -- Fallback seguro: clona o nó preservando campos básicos
-        lowered = { kind = node.kind, span = node.span }
+        -- Fallback recursivo: clona o nó e desce nos filhos que são nós ou listas de nós
+        lowered = {}
         for k, v in pairs(node) do
-            if k ~= "kind" and k ~= "span" and type(v) ~= "table" then
+            if type(v) == "table" then
+                if v.kind then
+                    lowered[k] = self:_lower_node(v)
+                else
+                    -- Provavelmente uma lista de nós (como stmts, params, etc)
+                    local list = {}
+                    for i, item in ipairs(v) do
+                        if type(item) == "table" and item.kind then
+                            table.insert(list, self:_lower_node(item))
+                        else
+                            table.insert(list, item)
+                        end
+                    end
+                    lowered[k] = list
+                end
+            else
                 lowered[k] = v
             end
         end
@@ -91,7 +107,9 @@ function Lowerer:_lower_func_decl(node)
     for _, p in ipairs(node.params or {}) do
         if p.pattern and p.pattern.kind ~= SK.IDENTIFIER_EXPR then
             local _, bindings = self:_gen_pattern_logic(p.pattern, p.name)
-            for _, b in ipairs(bindings) do table.insert(initial_stmts, b) end
+            for _, b in ipairs(bindings) do 
+                table.insert(initial_stmts, b) 
+            end
         end
     end
 
@@ -110,7 +128,7 @@ function Lowerer:_lower_func_decl(node)
         table.insert(params, self:_lower_node(p))
     end
 
-    return {
+    local lowered = {
         kind = node.kind,
         name = node.name,
         params = params,
@@ -118,8 +136,16 @@ function Lowerer:_lower_func_decl(node)
         body = body,
         is_async = node.is_async,
         is_pub = node.is_pub,
-        span = node.span
+        span = node.span,
+        symbol = node.symbol
     }
+
+    -- Sincroniza a declaração no símbolo para que passes subsequentes usem a versão lowered
+    if node.symbol then
+        node.symbol.declaration = lowered
+    end
+
+    return lowered
 end
 
 function Lowerer:_lower_param_node(node)
@@ -133,12 +159,59 @@ function Lowerer:_lower_param_node(node)
 end
 
 function Lowerer:_lower_var_decl(node)
+    local lowered_init = self:_lower_node(node.initializer)
+    
+    -- Lifting do operador '?'
+    if lowered_init and lowered_init.kind == SK.TRY_EXPR then
+        local tmp_name = "_try_tmp_" .. self.tmp_count
+        self.tmp_count = self.tmp_count + 1
+        
+        -- local _try_tmp = expr
+        local tmp_decl = {
+            kind = SK.VAR_DECL,
+            name = tmp_name,
+            initializer = lowered_init.expression,
+            span = node.span
+        }
+        
+        -- if _try_tmp._tag == "Empty" or _try_tmp._tag == "Failure" then return _try_tmp end
+        local check_stmt = {
+            kind = SK.IF_STMT,
+            condition = {
+                kind = SK.BINARY_EXPR,
+                left = { kind = SK.BINARY_EXPR, left = { kind = SK.MEMBER_EXPR, object = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, name = "_tag" }, operator = "==", right = { kind = SK.LITERAL_EXPR, value = "Empty", literal_type = "text" } },
+                operator = "or",
+                right = { kind = SK.BINARY_EXPR, left = { kind = SK.MEMBER_EXPR, object = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, name = "_tag" }, operator = "==", right = { kind = SK.LITERAL_EXPR, value = "Failure", literal_type = "text" } }
+            },
+            body = {
+                { kind = SK.RETURN_STMT, expression = { kind = SK.IDENTIFIER_EXPR, name = tmp_name } }
+            },
+            span = node.span
+        }
+        
+        -- var x = _try_tmp._1
+        local final_decl = {
+            kind = node.kind,
+            name = node.name,
+            pattern = self:_lower_node(node.pattern),
+            type_node = node.type_node,
+            initializer = { kind = SK.MEMBER_EXPR, object = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, name = "_1" },
+            is_pub = node.is_pub,
+            span = node.span
+        }
+        
+        return {
+            kind = "BLOCK",
+            statements = { tmp_decl, check_stmt, final_decl }
+        }
+    end
+
     return {
         kind = node.kind,
         name = node.name,
         pattern = self:_lower_node(node.pattern),
         type_node = node.type_node,
-        initializer = self:_lower_node(node.initializer),
+        initializer = lowered_init,
         is_pub = node.is_pub,
         span = node.span
     }
@@ -328,10 +401,25 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
             return ExprSyntax.literal(true, "bool", pattern.span), {}
         elseif pattern.is_capture then
             -- local x = access_path
-            local b = StmtSyntax.assign(ExprSyntax.identifier(pattern.name, pattern.span), access_path_node, pattern.span)
+            local b = {
+                kind = SK.VAR_DECL,
+                name = pattern.name,
+                initializer = access_path_node,
+                span = pattern.span
+            }
             return ExprSyntax.literal(true, "bool", pattern.span), { b }
         else
-            -- Enum member ou valor fixo: access_path == pattern
+            -- Se for um Enum Member conhecido (sem parâmetros no padrão), checamos a tag
+            local Symbol = require("src.semantic.symbols.symbol")
+            if pattern.symbol and pattern.symbol.kind == Symbol.Kind.ENUM_MEMBER then
+                 return self:_lower_binary(
+                    ExprSyntax.member(access_path_node, "_tag", pattern.span),
+                    "==",
+                    ExprSyntax.literal(pattern.name, "text", pattern.span)
+                ), {}
+            end
+            
+            -- Fallback: Enum member genérico ou valor fixo
             return self:_lower_binary(access_path_node, "==", pattern), {}
         end
 
@@ -353,21 +441,27 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
             if el.kind == SK.REST_EXPR then
                 -- ..resto
                 if el.expression.kind == SK.IDENTIFIER_EXPR then
-                    -- local resto = zt.slice(access_path, i-1, #access_path)
+                    -- local resto = zt.slice(access_path, i, #access_path)
+                    -- O Lua usa base 1, i é o índice atual do spread
                     local slice_call = ExprSyntax.call(
                         ExprSyntax.identifier("zt.slice", el.span),
                         { 
                             access_path_node, 
-                            ExprSyntax.literal(i - 1, "int", el.span),
-                            ExprSyntax.len(access_path_node, el.span)
+                            ExprSyntax.literal(i, "int", el.span),
                         },
                         el.span
                     )
-                    table.insert(bindings, StmtSyntax.assign(el.expression, slice_call, el.span))
+                    -- Injeta como declaração local
+                    table.insert(bindings, {
+                        kind = SK.VAR_DECL,
+                        name = el.expression.name,
+                        initializer = slice_call,
+                        span = el.span
+                    })
                 end
             else
                 -- access_path[i]
-                local sub_path = ExprSyntax.member(access_path_node, ExprSyntax.literal(i, "int", el.span), el.span)
+                local sub_path = ExprSyntax.index(access_path_node, ExprSyntax.literal(i, "int", el.span), el.span)
                 local sub_cond, sub_bindings = self:_gen_pattern_logic(el, sub_path)
                 cond = self:_lower_binary(cond, "and", sub_cond)
                 for _, b in ipairs(sub_bindings) do table.insert(bindings, b) end
@@ -394,9 +488,106 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
         end
         
         return cond, bindings
+    elseif pattern.kind == SK.VARIANT_PATTERN then
+        -- Variant(a, b)
+        -- 1. Checar tag: access_path._tag == "VariantName"
+        local tag_cond = self:_lower_binary(
+            ExprSyntax.member(access_path_node, "_tag", pattern.span),
+            "==",
+            ExprSyntax.literal(pattern.callee.name, "text", pattern.span)
+        )
+        
+        local cond = tag_cond
+        local bindings = {}
+        
+        for i, sub_p in ipairs(pattern.arguments) do
+            -- access_path._1, access_path._2, etc. (posicional para o match)
+            local sub_path = ExprSyntax.member(access_path_node, "_" .. i, sub_p.span)
+            local sub_cond, sub_bindings = self:_gen_pattern_logic(sub_p, sub_path)
+            cond = self:_lower_binary(cond, "and", sub_cond)
+            for _, b in ipairs(sub_bindings) do table.insert(bindings, b) end
+        end
+        
+        return cond, bindings
+    elseif pattern.kind == SK.SELF_FIELD_EXPR then
+        -- local @x = access_path  =>  assign(self_field("x"), access_path)
+        local b = StmtSyntax.assign(ExprSyntax.self_field(pattern.field_name, pattern.span), access_path_node, pattern.span)
+        return ExprSyntax.literal(true, "bool", pattern.span), { b }
     end
 
     return ExprSyntax.literal(true, "bool", pattern.span), {}
+end
+
+function Lowerer:_lower_var_decl(node)
+    return {
+        kind = SK.VAR_DECL,
+        name = node.name,
+        type_node = node.type_node, -- Tipos geralmente não precisam de lowering em v0.2
+        initializer = self:_lower_node(node.initializer),
+        is_pub = node.is_pub,
+        is_const = node.is_const,
+        is_static = node.is_static,
+        symbol = node.symbol,
+        span = node.span
+    }
+end
+
+function Lowerer:_lower_assign_stmt(node)
+    return {
+        kind = SK.ASSIGN_STMT,
+        target = self:_lower_node(node.target or node.left),
+        value = self:_lower_node(node.value or node.right),
+        span = node.span
+    }
+end
+
+function Lowerer:_lower_return_stmt(node)
+    return {
+        kind = SK.RETURN_STMT,
+        expression = self:_lower_node(node.expression),
+        span = node.span
+    }
+end
+
+function Lowerer:_lower_expr_stmt(node)
+    local lowered_expr = self:_lower_node(node.expression)
+    
+    if lowered_expr and lowered_expr.kind == SK.TRY_EXPR then
+        local tmp_name = "_try_tmp_stmt_" .. self.tmp_count
+        self.tmp_count = self.tmp_count + 1
+        
+        local tmp_decl = {
+            kind = SK.VAR_DECL,
+            name = tmp_name,
+            initializer = lowered_expr.expression,
+            span = node.span
+        }
+        
+        local check_stmt = {
+            kind = SK.IF_STMT,
+            condition = {
+                kind = SK.BINARY_EXPR,
+                left = { kind = SK.BINARY_EXPR, left = { kind = SK.MEMBER_EXPR, object = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, name = "_tag" }, operator = "==", right = { kind = SK.LITERAL_EXPR, value = "Empty", literal_type = "text" } },
+                operator = "or",
+                right = { kind = SK.BINARY_EXPR, left = { kind = SK.MEMBER_EXPR, object = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, name = "_tag" }, operator = "==", right = { kind = SK.LITERAL_EXPR, value = "Failure", literal_type = "text" } }
+            },
+            body = {
+                { kind = SK.RETURN_STMT, expression = { kind = SK.IDENTIFIER_EXPR, name = tmp_name } }
+            },
+            span = node.span
+        }
+        
+        return {
+            kind = "BLOCK",
+            statements = { tmp_decl, check_stmt, { kind = SK.EXPR_STMT, expression = { kind = SK.IDENTIFIER_EXPR, name = tmp_name }, span = node.span } }
+        }
+    end
+
+    return {
+        kind = SK.EXPR_STMT,
+        expression = lowered_expr,
+        span = node.span
+    }
 end
 
 function Lowerer:_lower_check_stmt(node)
@@ -628,6 +819,34 @@ function Lowerer:_lower_struct_init_expr(node)
     }
 end
 
+function Lowerer:_lower_index_expr(node)
+    return {
+        kind = SK.INDEX_EXPR,
+        object = self:_lower_node(node.object),
+        index_expr = self:_lower_node(node.index_expr),
+        span = node.span
+    }
+end
+
+function Lowerer:_lower_range_expr(node)
+    return {
+        kind = SK.RANGE_EXPR,
+        start_expr = self:_lower_node(node.start_expr),
+        end_expr = self:_lower_node(node.end_expr),
+        span = node.span
+    }
+end
+
+function Lowerer:_lower_try_expr(node)
+    local expr = self:_lower_node(node.expression)
+    return {
+        kind = SK.TRY_EXPR,
+        expression = expr,
+        type_info = node.type_info,
+        span = node.span
+    }
+end
+
 function Lowerer:_lower_map_expr(node)
     local pairs = {}
     for _, p in ipairs(node.pairs or {}) do
@@ -691,7 +910,10 @@ function Lowerer:_lower_lambda_expr(node)
         kind = SK.LAMBDA_EXPR,
         params = params,
         body = body,
-        span = node.span
+        is_async = node.is_async, -- Preserva is_async
+        is_pub = node.is_pub,
+        span = node.span,
+        symbol = node.symbol
     }
 end
 

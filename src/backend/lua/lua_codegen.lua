@@ -124,21 +124,10 @@ function LuaCodegen:_emit_compilation_unit(node)
         local struct_sym = struct_node.symbol
         if struct_sym and struct_sym.methods then
             local seen_methods = {}
-            for _, method_sym in ipairs(struct_sym.methods) do
-                if not seen_methods[method_sym.name] then
-                    local m_node = method_sym.declaration
-                    if m_node and m_node.body then
-                        local params = {}
-                        for _, p in ipairs(m_node.params or {}) do table.insert(params, p.name) end
-                        
-                        self:emit(string.format("function %s:%s(%s)", struct_node.name, m_node.name, table.concat(params, ", ")))
-                        self:indent()
-                        for _, stmt in ipairs(m_node.body) do self:_emit_node(stmt) end
-                        self:dedent()
-                        self:emit("end")
-                        self:emit("")
-                        seen_methods[method_sym.name] = true
-                    end
+            for _, m_node in ipairs(struct_node.methods) do
+                if m_node.body then
+                    -- Usa a lógica centralizada de emissão de função
+                    self:_emit_func_decl(m_node, struct_node.name)
                 end
             end
         end
@@ -154,6 +143,14 @@ function LuaCodegen:_emit_compilation_unit(node)
         end
     end
 
+    -- Entry Point
+    local main_found = false
+    for _, name in ipairs(self.pub_members) do if name == "main" then main_found = true end end
+    if main_found then
+        self:emit("-- Entry Point")
+        self:emit("if main then main() end")
+    end
+
     -- Exports
     if not self.skip_exports and (#self.pub_members > 0 or self.has_namespace) then
         self:emit("-- Exports")
@@ -163,8 +160,6 @@ function LuaCodegen:_emit_compilation_unit(node)
             self:emit(string.format("%s = %s,", name, name))
         end
         -- Sempre exportamos o main para o ztc.lua
-        local main_found = false
-        for _, name in ipairs(self.pub_members) do if name == "main" then main_found = true end end
         if not main_found then
             self:emit("main = main,")
         end
@@ -185,11 +180,38 @@ function LuaCodegen:_emit_var_decl(node)
         -- Caso Destruturação: var [x, y] = lista
         local init_val = self:_eval(node.initializer)
         self:emit(string.format("local _tmp = %s", init_val))
-        local _, bindings = self:_gen_destructure_logic(node.pattern, "_tmp", false)
+        local _, bindings = self:_gen_destructure_logic(node.pattern, "_tmp", true)
         for _, b in ipairs(bindings) do
             self:emit(b)
         end
     end
+end
+
+function LuaCodegen:_gen_destructure_logic(pattern, source, is_local)
+    local bindings = {}
+    
+    if pattern.kind == SK.IDENTIFIER_EXPR then
+        if pattern.name ~= "_" then
+            local prefix = is_local and "local " or ""
+            table.insert(bindings, string.format("%s%s = %s", prefix, pattern.name, source))
+        end
+    elseif pattern.kind == SK.SELF_FIELD_EXPR then
+        table.insert(bindings, string.format("self.%s = %s", pattern.field_name, source))
+    elseif pattern.kind == SK.LIST_EXPR then
+        for i, el in ipairs(pattern.elements) do
+            local sub_source = string.format("%s[%d]", source, i)
+            local _, sub_bindings = self:_gen_destructure_logic(el, sub_source, is_local)
+            for _, b in ipairs(sub_bindings) do table.insert(bindings, b) end
+        end
+    elseif pattern.kind == SK.STRUCT_INIT_EXPR then
+        for _, f in ipairs(pattern.fields) do
+            local sub_source = string.format("%s.%s", source, f.name)
+            local _, sub_bindings = self:_gen_destructure_logic(f.value, sub_source, is_local)
+            for _, b in ipairs(sub_bindings) do table.insert(bindings, b) end
+        end
+    end
+    
+    return nil, bindings
 end
 
 function LuaCodegen:_emit_const_decl(node)
@@ -295,18 +317,23 @@ function LuaCodegen:_emit_struct_decl(node)
     self:emit("")
 end
 
-function LuaCodegen:_emit_func_decl(node)
+function LuaCodegen:_emit_func_decl(node, struct_name)
     if not node.params then
         print("CODEGEN ERROR: node.params is nil for " .. (node.name or "???") .. " (kind: " .. node.kind .. ")")
     end
-    if node.is_pub then table.insert(self.pub_members, node.name) end
+    if not struct_name and node.is_pub then table.insert(self.pub_members, node.name) end
     local params = {}
     for _, p in ipairs(node.params) do table.insert(params, p.name) end
     
+    local full_name = node.name
+    if struct_name then
+        full_name = string.format("%s:%s", struct_name, node.name)
+    end
+
     if node.is_async then
-        self:emit(string.format("%s = zt.async(function(%s)", node.name, table.concat(params, ", ")))
+        self:emit(string.format("%s = zt.async(function(%s)", full_name, table.concat(params, ", ")))
     else
-        self:emit(string.format("function %s(%s)", node.name, table.concat(params, ", ")))
+        self:emit(string.format("function %s(%s)", full_name, table.concat(params, ", ")))
     end
     
     self:indent()
@@ -333,6 +360,7 @@ function LuaCodegen:_emit_func_decl(node)
         self:dedent()
         self:emit("end")
     end
+
 
     -- Inicialização de Valores Padrão
     for _, p in ipairs(node.params) do
@@ -362,8 +390,31 @@ function LuaCodegen:_emit_enum_decl(node)
     self:emit(string.format("local %s = {", node.name))
     self:indent()
     for _, m in ipairs(node.members) do
-        local val = m.value and self:_eval(m.value) or string.format("\"%s\"", m.name)
-        self:emit(string.format("%s = %s,", m.name, val))
+        if m.params then
+            -- Variante com dados: emitir uma fábrica
+            local params_list = {}
+            for i=1, #m.params do table.insert(params_list, "p" .. i) end
+            local params_str = table.concat(params_list, ", ")
+            
+            self:emit(string.format("%s = function(%s)", m.name, params_str))
+            self:indent()
+            self:emit(string.format("return { _tag = \"%s\",", m.name))
+            self:indent()
+            for i, p in ipairs(m.params) do
+                -- Armazena tanto por nome (se houver) quanto por posição (_1, _2)
+                if p.name then
+                    self:emit(string.format("%s = p%d,", p.name, i))
+                end
+                self:emit(string.format("_%d = p%d,", i, i))
+            end
+            self:dedent()
+            self:emit("}")
+            self:dedent()
+            self:emit("end,")
+        else
+            -- Variante simples
+            self:emit(string.format("%s = { _tag = \"%s\" },", m.name, m.name))
+        end
     end
     self:dedent()
     self:emit("}")
@@ -416,20 +467,42 @@ function LuaCodegen:_emit_compound_assign_stmt(node)
     end
 end
 
-function LuaCodegen:_emit_check_stmt(node)
-    self:emit(string.format("if not (%s) then", self:_eval(node.condition)))
-    self:indent()
-    for _, stmt in ipairs(node.else_body) do
-        self:_emit_node(stmt)
-    end
-    self:dedent()
-    self:emit("end")
-end
 
 function LuaCodegen:_emit_while_stmt(node)
     self:emit(string.format("while %s do", self:_eval(node.condition)))
     self:indent()
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
+    self:dedent()
+    self:emit("end")
+end
+
+function LuaCodegen:_emit_attempt_stmt(node)
+    self:emit("local _ok, _err = pcall(function()")
+    self:indent()
+    for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
+    self:dedent()
+    self:emit("end)")
+    
+    if node.rescue_clause then
+        self:emit("if not _ok then")
+        self:indent()
+        
+        local rescue = node.rescue_clause
+        if rescue.error_name then
+            self:emit(string.format("local %s = _err", rescue.error_name))
+        end
+        
+        for _, stmt in ipairs(rescue.body) do self:_emit_node(stmt) end
+        self:dedent()
+        self:emit("end")
+    end
+end
+
+function LuaCodegen:_emit_check_stmt(node)
+    local cond = self:_eval(node.condition)
+    self:emit(string.format("if not (%s) then", cond))
+    self:indent()
+    for _, stmt in ipairs(node.else_body) do self:_emit_node(stmt) end
     self:dedent()
     self:emit("end")
 end
@@ -469,7 +542,9 @@ function LuaCodegen:_emit_match_stmt(node)
 end
 
 function LuaCodegen:_emit_throw_stmt(node)
-    self:emit(string.format("error(%s)", self:_eval(node.expression)))
+    local sub = node.expression or node.expr or node.operand
+    local expr = sub and self:_eval(sub) or "\"error\""
+    self:emit(string.format("zt.error(%s)", expr))
 end
 
 function LuaCodegen:_emit_assert_stmt(node)
@@ -488,6 +563,7 @@ function LuaCodegen:_emit_return_stmt(node)
     local val = node.expression and (" " .. self:_eval(node.expression)) or ""
     self:emit(string.format("return%s", val))
 end
+
 
 function LuaCodegen:_emit_if_stmt(node)
     self:emit(string.format("if %s then", self:_eval(node.condition)))
@@ -539,7 +615,9 @@ function LuaCodegen:_eval(node)
             return "nil"
         end
         if type(node.value) == "string" then
-            return string.format("\"%s\"", node.value)
+            -- Escapar caracteres especiais para Lua
+            local escaped = node.value:gsub("\\", "\\\\"):gsub("\"", "\\\""):gsub("\n", "\\n"):gsub("\r", "\\r")
+            return string.format("\"%s\"", escaped)
         end
         return tostring(node.value)
     
@@ -547,7 +625,7 @@ function LuaCodegen:_eval(node)
         return string.format("zt.range(%s, %s)", self:_eval(node.start_expr), self:_eval(node.end_expr))
         
     elseif node.kind == SK.IDENTIFIER_EXPR then
-        local name = node.name
+        local name = node.name or node.lexeme or "unknown"
         if node.is_reactive then
             return name .. ".get"
         end
@@ -556,20 +634,34 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.IS_EXPR then
         local expr = self:_eval(node.expression)
         local t = node.target_type
-        local t_arg = "any"
         
-        if t then
-            -- Se for tipo primitivo, passamos string. Se for struct, passamos o nome
-            t_arg = t.base_name or t.name or tostring(t)
-            if (t.kind == ZenithType.Kind.NAMED or t.kind == ZenithType.Kind.STRUCT) and not t.is_builtin then
-                t_arg = t.base_name or t.name
+        local function get_type_arg(zt_type)
+            if not zt_type then return "\"any\"" end
+            
+            if zt_type.kind == ZenithType.Kind.UNION then
+                local parts = {}
+                for _, sub in ipairs(zt_type.types) do
+                    table.insert(parts, get_type_arg(sub))
+                end
+                return "{ " .. table.concat(parts, ", ") .. " }"
+            elseif zt_type.kind == ZenithType.Kind.NULLABLE then
+                return "{ " .. get_type_arg(zt_type.base_type) .. ", \"null\" }"
             else
-                t_arg = "\"" .. t_arg .. "\""
+                local name = zt_type.base_name or zt_type.name or tostring(zt_type)
+                -- Se for primordial ou builtin, passa como string. Se for struct, passa o símbolo (tabela).
+                local is_builtin = (zt_type.kind == ZenithType.Kind.PRIMITIVE) or 
+                                (zt_type.kind == ZenithType.Kind.NULL) or
+                                (zt_type.kind == ZenithType.Kind.GENERIC and (name == "list" or name == "map" or name == "grid"))
+                
+                if is_builtin then
+                    return "\"" .. name .. "\""
+                else
+                    return name
+                end
             end
-        elseif node.type_node then
-            t_arg = "\"" .. (node.type_node.name or "any") .. "\""
         end
-        
+
+        local t_arg = get_type_arg(t)
         local res = string.format("zt.is(%s, %s)", expr, t_arg)
         if node.is_not then return "(not (" .. res .. "))" end
         return res
@@ -579,7 +671,9 @@ function LuaCodegen:_eval(node)
         return self:_eval(node.expression)
 
     elseif node.kind == SK.CHECK_EXPR then
-        return string.format("zt.check(%s)", self:_eval(node.expression))
+        local sub = node.expression or node.expr or node.operand
+        local expr = sub and self:_eval(sub) or "false"
+        return string.format("zt.check(%s)", expr)
 
     elseif node.kind == SK.AWAIT_EXPR then
         return string.format("coroutine.yield(%s)", self:_eval(node.expression))
@@ -673,6 +767,20 @@ function LuaCodegen:_eval(node)
         
         return string.format("%s(%s)", self:_eval(node.callee), args_str)
 
+    elseif node.kind == SK.INDEX_EXPR then
+        local obj = self:_eval(node.object)
+        local index = node.index_expr
+        if not index then
+             print("CODEGEN ERROR: index_expr is nil for INDEX_EXPR on " .. obj)
+             return obj .. "[0] -- Fallback"
+        end
+        
+        if index.kind == SK.RANGE_EXPR then
+            -- Slicing: obj[start..finish] -> zt.slice(obj, start, finish)
+            return string.format("zt.slice(%s, %s, %s)", obj, self:_eval(index.start_expr), self:_eval(index.end_expr))
+        end
+        return string.format("%s[%s]", obj, self:_eval(index))
+
     elseif node.kind == SK.MEMBER_EXPR then
         if node.is_ufcs then
             local func_name = node.member_name
@@ -683,17 +791,6 @@ function LuaCodegen:_eval(node)
         local obj = self:_eval(node.object)
         local member = node.member_name
         
-        -- Se for um nó (INDEX_EXPR mapeado para MEMBER_EXPR no parser)
-        if type(member) == "table" and member.kind then
-            if member.kind == SK.RANGE_EXPR then
-                -- Slicing: obj[start..finish] -> zt.slice(obj, start, finish)
-                local start_v = self:_eval(member.start_expr)
-                local end_v = self:_eval(member.end_expr)
-                return string.format("zt.slice(%s, %s, %s)", obj, start_v, end_v)
-            end
-            return string.format("%s[%s]", obj, self:_eval(member))
-        end
-
         -- Se for acesso a .set ou .get de um reativo, removemos o .get automático
         if (member == "set" or member == "get") and node.object.is_reactive then
             obj = obj:gsub("%.get$", "")
@@ -722,19 +819,23 @@ function LuaCodegen:_eval(node)
 
     elseif node.kind == SK.LAMBDA_EXPR then
         local params = {}
-        for _, p in ipairs(node.params or {}) do table.insert(params, p.name) end
+        local has_destructure = false
+        for _, p in ipairs(node.params or {}) do 
+            table.insert(params, p.name) 
+            if p.pattern then has_destructure = true end
+        end
         local params_str = table.concat(params, ", ")
         
+        local template
         if type(node.body) == "table" and node.body.kind then
-            -- Expressão única: function(x) return x * 2 end
-            return string.format("function(%s) return %s end", params_str, self:_eval(node.body))
+            -- Expressão única limpa: function(x) return x * 2 end
+            template = string.format("function(%s) return %s end", params_str, self:_eval(node.body))
         else
-            -- Bloco de statements: function(x) ... end
-            -- Precisamos capturar o output atual para gerar o bloco interno isoladamente
+            -- Bloco de statements
             local old_output = self.output
             self.output = {}
             local old_indent = self.indent_level
-            self.indent_level = 0 -- Reset relativo para o bloco interno
+            self.indent_level = 0
             
             self:indent()
             for _, stmt in ipairs(node.body or {}) do
@@ -746,7 +847,13 @@ function LuaCodegen:_eval(node)
             self.output = old_output
             self.indent_level = old_indent
             
-            return string.format("function(%s)\n%s\nend", params_str, body_code)
+            template = string.format("function(%s)\n%s\nend", params_str, body_code)
+        end
+
+        if node.is_async then
+            return string.format("zt.async(%s)", template)
+        else
+            return template
         end
 
     elseif node.kind == SK.LIST_EXPR then

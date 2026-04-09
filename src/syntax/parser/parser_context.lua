@@ -73,11 +73,10 @@ end
 --- Avança e retorna o token anterior.
 --- @return table Token (o token consumido)
 function ParserContext:advance()
-    local token = self:current()
-    if self.pos <= #self.tokens then
+    if not self:is_at_end() then
         self.pos = self.pos + 1
     end
-    return token
+    return self:peek(-1)
 end
 
 --- Retrocede o cursor do parser.
@@ -107,7 +106,8 @@ function ParserContext:expect(kind, error_msg)
         current.span,
         string.format("token encontrado: '%s'", current.lexeme)
     )
-
+    self:advance() -- Garante progresso!
+    
     -- Retorna um token "fantasma" para continuar parsing
     return {
         kind = kind,

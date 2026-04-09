@@ -1,0 +1,20 @@
+pub func divide(a: int, b: int) -> Optional<int> do
+    if b == 0 do
+        return Empty
+    end
+    return Present(a / b)
+end
+
+pub func calculate() -> Optional<int> do
+    var x = divide(10, 2)?
+    var y = divide(x, 0)? -- Isso deve retornar Empty precocemente
+    return Present(y + 5)
+end
+
+pub func main() do
+    var res = calculate()
+    match res
+        case Present(v) => print("Sucesso: " .. v as text)
+        case Empty => print("Falha: Divisao por zero ou vazio")
+    end
+end

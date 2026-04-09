@@ -110,6 +110,14 @@ end
 
 --- Verificação de tipo 'is'
 function zt.is(val, target_type)
+    -- Suporte a União de tipos (passada como array de strings ou structs)
+    if type(target_type) == "table" and not getmetatable(target_type) and #target_type > 0 then
+        for i = 1, #target_type do
+            if zt.is(val, target_type[i]) then return true end
+        end
+        return false
+    end
+
     if val == nil then return target_type == "null" or target_type == "any" end
     if target_type == "any" then return true end
 
@@ -117,7 +125,6 @@ function zt.is(val, target_type)
     if target_type == "table" then return t == "table" end
 
     if target_type == "int" or target_type == "float" or target_type == "number" then
-
         return t == "number"
     elseif target_type == "text" or target_type == "string" then
         return t == "string"
@@ -235,31 +242,28 @@ end
 function zt.async(fn)
     return function(...)
         local co = coroutine.create(fn)
-        local function execute(...)
+        local function resume_step(...)
             local args = {...}
-            while coroutine.status(co) ~= "dead" do
-                local ok, res = coroutine.resume(co, unpack(args))
-                if not ok then
-                    error(res, 0)
-                end
-                
-                if coroutine.status(co) == "dead" then
-                    return res
-                end
-                
-                -- Se yieldou uma função (ex: resultado de outro zt.async), 
-                -- precisamos esperar que ela termine para continuar este step.
-                -- No Zenith v1.0-alpha, resolvemos imediatamente se não houver loop de eventos.
-                if type(res) == "function" then
-                    -- Simula o await resolvendo a função e pegando seu resultado
-                    args = { res(function(val) return val end) }
-                else
-                    -- Se yieldou um valor puro, devolvemos pra coroutine no próximo loop
-                    args = { res }
-                end
+            if coroutine.status(co) == "dead" then return unpack(args) end
+            
+            local ok, res = coroutine.resume(co, unpack(args))
+            if not ok then
+                error(res, 0)
+            end
+            
+            if coroutine.status(co) == "dead" then
+                return res
+            end
+            
+            -- Se yieldou uma função (resultado de outro zt.async), resolvemos
+            if type(res) == "function" then
+                return resume_step(res())
+            else
+                -- Valor puro, devolve para a coroutine
+                return resume_step(res)
             end
         end
-        return execute(...)
+        return resume_step(...)
     end
 end
 

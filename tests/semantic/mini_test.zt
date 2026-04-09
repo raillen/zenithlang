@@ -1,0 +1,6 @@
+type Result<T> = T | text
+
+func main()
+    var x: int | text = 10
+    print("x is int: " + (x is int))
+end

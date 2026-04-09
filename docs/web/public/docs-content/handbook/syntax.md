@@ -9,9 +9,15 @@
 Programar pode ser cansativo para o cérebro. Aqui estão algumas dicas para ler esta documentação e o código Zenith:
 
 *   **Pule para os Exemplos:** Se as definições técnicas parecerem confusas, olhe primeiro o código. Nossos exemplos são "autoexplicativos".
-*   **Âncoras Visuais:** Use os emojis nas seções para se localizar rapidamente.
+*   **Âncoras Textuais:** Use os títulos numerados, subtítulos e caixas de destaque `Dica`, `Importante` e `Exemplo` para se localizar rapidamente.
 *   **Carga Cognitiva:** Zenith evita "sintaxes mágicas". Se você entende o básico, o resto segue a mesma lógica.
 *   **Pausa Ativa:** Se sentir que as palavras estão "dançando", faça uma pausa. O Zenith foi feito para que você possa voltar de onde parou sem perder o fio da meada.
+
+> [!NOTE]
+> **Leitura em camadas:** primeiro entenda o nome da construção, depois observe o exemplo mínimo e só então mergulhe nos detalhes.
+
+> [!IMPORTANT]
+> **Se perder o fio:** volte para o último título numerado que fez sentido. O guia foi organizado para permitir retomada sem reler tudo.
 
 ---
 

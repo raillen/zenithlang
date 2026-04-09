@@ -1,0 +1,4 @@
+async func f() do print("ok async") end
+func main() do
+    f()
+end

@@ -3,10 +3,18 @@
   "description": "Capability para a janela principal da Zenith IDE",
   "windows": ["primary"],
   "permissions": [
-    "core:default",
-    "tauri-app:allow-get-file-tree",
-    "tauri-app:allow-read-file",
-    "tauri-app:allow-run-compiler",
-    "tauri-app:allow-greet"
+    "core:event:default",
+    "allow-get-file-tree",
+    "allow-read-file",
+    "allow-write-file",
+    "allow-run-compiler",
+    "allow-pick-file",
+    "allow-pick-folder",
+    "allow-pick-save-path",
+    "allow-terminal-create",
+    "allow-terminal-write",
+    "allow-terminal-resize",
+    "allow-terminal-kill",
+    "allow-greet"
   ]
 }

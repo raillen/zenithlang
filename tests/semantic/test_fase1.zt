@@ -1,0 +1,49 @@
+struct Posicao
+    pub x: int
+    pub y: int
+end
+
+struct Jogador
+    pub x: int
+    pub y: int
+    
+    pub func mover(Posicao { @x, @y }) do
+        print("Jogador movido para: " + @x + ", " + @y)
+    end
+end
+
+func log_pos(Posicao { x, y }) do
+    print("X: " + x + ", Y: " + y)
+end
+
+func somar_lista([a, b, c]) -> any do
+    return a + b + c
+end
+
+func test_spread([p1, p2, ..resto]) do
+    print("P1: " + p1 + ", P2: " + p2)
+    print("Resto: " + #resto + " itens")
+end
+
+func main() do
+    -- Teste 1: Destruturação de Struct em parâmetro (função regular)
+    var p = Posicao { x: 10, y: 20 }
+    log_pos(p)
+    
+    -- Teste 2: Destruturação de Struct em parâmetro (método com @ field)
+    var j = Jogador { x: 0, y: 0 }
+    j.mover(p)
+    print("Jogador agora está em: " + j.x + ", " + j.y)
+
+    -- Teste 3: Destruturação de Lista em parâmetro
+    var lista = [1, 2, 3]
+    print("Soma: " + somar_lista(lista))
+
+    -- Teste 4: Spread operator
+    test_spread([10, 20, 30, 40, 50])
+
+    -- Teste 5: Async Lambda
+    var async_lambda = async (x, y) => x + y
+    
+    print("Fim do teste Fase 1")
+end

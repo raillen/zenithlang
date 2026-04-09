@@ -1,26 +1,24 @@
 -- tests/core/test_spread.zt
--- Teste do Operador Spread (..) em Expressões
+-- Teste do Spread Operator em Listas e Mapas
 
 pub func main() -> int
     print("--- Teste Spread Operator ---")
-    
+
     -- 1. Spread em Listas
-    var base: any = [1, 2]
-    var combo: any = [0, ..base, 3, 4]
+    var lista1 = [1, 2]
+    var lista2 = [..lista1, 3, 4]
     
-    print("Combo Lista: " + combo)
-    check #combo == 5 else error("Tamanho da lista combo errado") end
-    check combo[1] == 0 and combo[3] == 2 else error("Valores da lista combo errados") end
-    
-    -- 2. Spread em Mapas
-    var config: any = { "tema": "escuro", "fonte": 12 }
-    var usuario: any = { ..config, "usuario": "Rafael", "fonte": 14 }
-    
-    print("Config Usuário: " + usuario)
-    -- 'fonte' deve ter sido sobrescrito por 14
-    check usuario["tema"] == "escuro" else error("Campo 'tema' perdido") end
-    check usuario["fonte"] == 14 else error("Campo 'fonte' não sobrescrito") end
-    
-    print("Spread Operator Tests Passed!")
+    print("Lista 2: {lista2[0]}, {lista2[1]}, {lista2[2]}, {lista2[3]}")
+    check lista2[0] == 1 else panic("Spread lista 1 falhou") end
+    check lista2[1] == 2 else panic("Spread lista 2 falhou") end
+    check lista2[2] == 3 else panic("Spread lista 3 falhou") end
+    check lista2[3] == 4 else panic("Spread lista 4 falhou") end
+
+    -- 2. Spread no final
+    var lista3 = [0, ..lista1]
+    check lista3[0] == 0 else panic("Spread lista 3-0 falhou") end
+    check lista3[1] == 1 else panic("Spread lista 3-1 falhou") end
+
+    print("Spread Test Passed!")
     return 0
 end

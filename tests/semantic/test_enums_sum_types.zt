@@ -1,0 +1,23 @@
+enum AppStatus
+    Success(value: int)
+    Error(msg: text)
+    Loading
+end
+
+func test_enum(status: AppStatus) do
+    match status
+        case Success(v) => print("Sucesso: " + v)
+        case Error(m)   => print("Erro: " + m)
+        case Loading    => print("Carregando...")
+    end
+end
+
+pub func main() do
+    var s1 = AppStatus.Success(100)
+    var s2 = AppStatus.Error("Falha critica")
+    var s3 = AppStatus.Loading
+    
+    test_enum(s1)
+    test_enum(s2)
+    test_enum(s3)
+end

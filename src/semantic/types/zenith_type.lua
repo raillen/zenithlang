@@ -35,6 +35,32 @@ function ZenithType.new(kind, name, data)
     return self
 end
 
+--- Cria uma união de tipos, achatando uniões aninhadas.
+function ZenithType.create_union(types)
+    local flattened = {}
+    local seen = {}
+    
+    local function collect(t)
+        if not t then return end
+        if t.kind == ZenithType.Kind.UNION then
+            for _, sub in ipairs(t.types) do collect(sub) end
+        else
+            local key = tostring(t)
+            if not seen[key] then
+                table.insert(flattened, t)
+                seen[key] = true
+            end
+        end
+    end
+    
+    for _, t in ipairs(types) do collect(t) end
+    
+    if #flattened == 0 then return ZenithType.new(ZenithType.Kind.ERROR, "<error>") end
+    if #flattened == 1 then return flattened[1] end
+    
+    return ZenithType.new(ZenithType.Kind.UNION, "union", { types = flattened })
+end
+
 --- Verifica se este tipo é compatível com outro.
 function ZenithType:is_assignable_to(other)
     if self.kind == ZenithType.Kind.ERROR or other.kind == ZenithType.Kind.ERROR then

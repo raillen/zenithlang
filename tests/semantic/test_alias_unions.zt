@@ -1,0 +1,46 @@
+-- Test Generic Type Aliases & Unions
+-- Zenith v0.2.0
+
+type Result<T> = T | text
+type StringList = list<text>
+type Box<T> = list<T>
+type Wrapped<U> = Box<U>
+
+struct Player
+    name: text
+end
+
+func main()
+    -- 1. Test basic union
+    var x: int | text = 10
+    print("x is int: " + (x is int))
+    
+    x = "hello"
+    print("x is text: " + (x is text))
+    print("x is int | text: " + (x is int | text))
+
+    -- 2. Test generic alias
+    var res: Result<int> = 42
+    print("res is int: " + (res is int))
+    res = "error"
+    print("res is text: " + (res is text))
+
+    -- 3. Test nested generic alias
+    var box: Wrapped<int> = [100]
+    print("box[1]: " + box[1])
+
+    -- 4. Test nullable (which is a union T | null in Zenith)
+    var n: int? = 10
+    print("n is int: " + (n is int))
+    n = null
+    print("n is null: " + (n is null))
+    print("n is int?: " + (n is int?))
+
+    -- 5. Test composite union
+    var p: Player | text = Player { name: "Zenith" }
+    print("p is Player: " + (p is Player))
+    p = "Zenith"
+    print("p is text: " + (p is text))
+
+    print("--- Testes Finalizados ---")
+end
