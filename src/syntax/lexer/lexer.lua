@@ -220,8 +220,12 @@ function Lexer:_read_identifier()
     local value = nil
     if kind == TokenKind.KW_TRUE then value = true
     elseif kind == TokenKind.KW_FALSE then value = false end
-    
-    return Token.new(kind, lexeme, value ~= nil and value or lexeme, Span.new(start, #lexeme))
+
+    if kind ~= TokenKind.IDENTIFIER then
+        return Token.new(kind, lexeme, value, Span.new(start, #lexeme))
+    end
+
+    return Token.new(kind, lexeme, lexeme, Span.new(start, #lexeme))
 end
 
 function Lexer:_read_operator()

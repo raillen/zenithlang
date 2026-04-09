@@ -69,6 +69,11 @@ function ZenithType:is_assignable_to(other)
 
     if self == other then return true end
 
+    -- Parâmetros genéricos ainda não instanciados são tratados como placeholders.
+    if self.kind == ZenithType.Kind.TYPE_PARAM or other.kind == ZenithType.Kind.TYPE_PARAM then
+        return true
+    end
+
     -- Lógica de Traits: Struct S -> Trait T
     if other.kind == ZenithType.Kind.TRAIT then
         if self.kind == ZenithType.Kind.STRUCT then

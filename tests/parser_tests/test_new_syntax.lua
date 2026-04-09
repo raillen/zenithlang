@@ -39,6 +39,11 @@ t:group("Coleções e Modificadores", function()
         a.equal(decls[1].type_node.base_type.base_name, "list")
     end)
 
+    t:test("nullable declaration keeps nullable node", function()
+        local decls = parse("var maybe: int? = null")
+        a.equal(decls[1].type_node.kind, SK.NULLABLE_TYPE)
+    end)
+
 end)
 
 t:group("Structs Avançadas", function()
@@ -86,6 +91,38 @@ end
         a.equal(decls[1].kind, SK.MATCH_STMT)
         a.equal(#decls[1].cases, 2)
         a.is_not_nil(decls[1].else_clause)
+    end)
+
+    t:test("match type pattern", function()
+        local code = [[
+match value
+    case text: print("text")
+    else: print("other")
+end
+]]
+        local decls = parse(code)
+        a.equal(decls[1].kind, SK.MATCH_STMT)
+        a.equal(decls[1].cases[1].patterns[1].kind, SK.IDENTIFIER_EXPR)
+        a.equal(decls[1].cases[1].patterns[1].name, "text")
+    end)
+
+end)
+
+t:group("Enums Genéricos", function()
+
+    t:test("generic enum header", function()
+        local code = [[
+enum Optional<T>
+    Present(value: T)
+    Empty
+end
+]]
+        local decls, diags = parse(code)
+        a.is_false(diags:has_errors())
+        a.equal(decls[1].kind, SK.ENUM_DECL)
+        a.length(decls[1].generic_params, 1)
+        a.equal(decls[1].generic_params[1].name, "T")
+        a.equal(decls[1].members[1].params[1].type.name, "T")
     end)
 
 end)

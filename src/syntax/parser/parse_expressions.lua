@@ -240,15 +240,19 @@ function ParseExpressions._parse_primary(ctx)
         return ExprSyntax.it_ref(ctx:advance().span)
     elseif k == TokenKind.INTEGER_LITERAL or k == TokenKind.FLOAT_LITERAL or 
            k == TokenKind.STRING_LITERAL or k == TokenKind.KW_TRUE or 
-           k == TokenKind.KW_FALSE then
+           k == TokenKind.KW_FALSE or k == TokenKind.KW_NULL then
         local t = ctx:advance()
         local ltype = "any"
+        local value = t.value
         if t.kind == TokenKind.INTEGER_LITERAL then ltype = "int"
         elseif t.kind == TokenKind.FLOAT_LITERAL then ltype = "float"
         elseif t.kind == TokenKind.STRING_LITERAL then ltype = "text"
         elseif t.kind == TokenKind.KW_TRUE or t.kind == TokenKind.KW_FALSE then ltype = "bool" 
+        elseif t.kind == TokenKind.KW_NULL then
+            ltype = "null"
+            value = nil
         end
-        return ExprSyntax.literal(t.value, ltype, t.span)
+        return ExprSyntax.literal(value, ltype, t.span)
     
     elseif k == TokenKind.LPAREN or k == TokenKind.KW_ASYNC then
         local start = ctx:peek()

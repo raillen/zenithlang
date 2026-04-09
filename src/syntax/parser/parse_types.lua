@@ -25,9 +25,9 @@ function ParseTypes.parse_type(ctx)
         type_node = TypeSyntax.union(types, type_node.span:merge(other.span))
     end
 
-    -- Nullable: type? -> Optional<type>
+    -- Nullable: type? -> T | null (mantido como tipo nulável clássico)
     if ctx:match(TokenKind.QUESTION) then
-        type_node = TypeSyntax.generic("Optional", { type_node }, type_node.span:merge(ctx:peek(-1).span))
+        type_node = TypeSyntax.nullable(type_node, type_node.span:merge(ctx:peek(-1).span))
     end
 
     return type_node

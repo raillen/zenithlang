@@ -144,6 +144,22 @@ end
 -- Utilitários
 -- ----------------------------------------------------------------------------
 
+zt.Optional = {
+    Present = function(value)
+        return { _tag = "Present", value = value, _1 = value }
+    end,
+    Empty = { _tag = "Empty" },
+}
+
+zt.Outcome = {
+    Success = function(value)
+        return { _tag = "Success", value = value, _1 = value }
+    end,
+    Failure = function(err)
+        return { _tag = "Failure", error = err, _1 = err }
+    end,
+}
+
 --- Operador Bang (!): Garante que um valor não é nulo.
 function zt.bang(val, msg)
     if val == nil then
@@ -201,9 +217,15 @@ end
 --- Retorna uma subparte de uma lista ou string (Slicing)
 function zt.slice(obj, start, finish)
     if type(obj) == "string" then
-        -- Lua strings são 1-based, mas no Zenith tentamos abstrair
+        if finish == nil then
+            finish = #obj - 1
+        end
+        -- Zenith expõe fatias zero-based e inclusivas.
         return obj:sub(start + 1, finish + 1)
     elseif type(obj) == "table" then
+        if finish == nil then
+            finish = #obj - 1
+        end
         local res = {}
         for i = start + 1, finish + 1 do
             table.insert(res, obj[i])

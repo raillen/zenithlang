@@ -214,7 +214,7 @@ function ParseStatements._parse_match(ctx)
             local patterns = {}
             repeat
                 local ParseDeclarations = require("src.syntax.parser.parse_declarations")
-                table.insert(patterns, ParseDeclarations._parse_pattern(ctx))
+                table.insert(patterns, ParseDeclarations._parse_pattern(ctx, false))
             until not ctx:match(TokenKind.COMMA)
             
             if not ctx:match(TokenKind.COLON) and not ctx:match(TokenKind.FAT_ARROW) then

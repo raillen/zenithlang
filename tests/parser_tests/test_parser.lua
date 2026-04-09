@@ -208,8 +208,10 @@ t:group("Expressões de Acesso", function()
     t:test("acesso por índice: list[0]", function()
         local decls = parse("list[0]")
         local expr = decls[1].expression
-        a.equal(expr.kind, SK.MEMBER_EXPR)
+        a.equal(expr.kind, SK.INDEX_EXPR)
         a.equal(expr.object.name, "list")
+        a.equal(expr.index_expr.kind, SK.LITERAL_EXPR)
+        a.equal(expr.index_expr.value, 0)
     end)
 
     t:test("chain: obj.method(x).field", function()

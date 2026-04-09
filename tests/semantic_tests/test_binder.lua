@@ -108,5 +108,72 @@ var x: int = 2
 ]])
 assert_has_error(d9, "ZT-S001")
 
+-- 8. Enum Genérico + Optional/Outcome
+local _, d10 = run_bind([[
+enum Optional<T>
+    Present(value: T)
+    Empty
+end
+
+func divide(a: int, b: int) -> Optional<int>
+    if b == 0
+        return Empty
+    end
+    return Present(a / b)
+end
+
+func calculate() -> Optional<int>
+    var x = divide(10, 2)?
+    return Present(x + 5)
+end
+]])
+assert_no_errors(d10)
+
+-- 9. Slicing e operador de tamanho
+local _, d11 = run_bind([[
+var xs: list<int> = [1, 2, 3]
+var tail: list<int> = xs[1..2]
+var size: int = #tail
+var prefix: text = "Zenith"[0..2]
+]])
+assert_no_errors(d11)
+
+-- 10. Generic constraints profundas em acesso a membros
+local _, d12 = run_bind([[
+trait Greetable
+    pub func greet() -> text
+end
+
+struct Human
+    pub nome: text
+end
+
+apply Greetable to Human
+    pub func greet() -> text
+        return @nome
+    end
+end
+
+func saudar<T where T is Greetable>(item: T) -> text
+    return item.greet()
+end
+]])
+assert_no_errors(d12)
+
+-- 11. Match com padrão de tipo em union alias
+local _, d13 = run_bind([[
+union Resultado<T> = T | text
+
+func processar(r: Resultado<int>)
+    match r
+        case text:
+            var status: int = 0
+        case _:
+            var status: int = 1
+    end
+end
+]])
+assert_no_errors(d13)
+
 print(string.format("\nResultado Binder: %d/%d passaram", test.passed, test.total))
 if test.failed > 0 then os.exit(1) end

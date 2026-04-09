@@ -9,6 +9,8 @@ local SourceText  = require("src.source.source_text")
 local Parser      = require("src.syntax.parser.parser")
 local Binder      = require("src.semantic.binding.binder")
 local LuaCodegen  = require("src.backend.lua.lua_codegen")
+local Lowerer     = require("src.lowering.lowerer")
+local ModuleManager = require("src.semantic.binding.module_manager")
 
 --- Imprime a ajuda do CLI.
 local function print_help()
@@ -83,18 +85,24 @@ local function main(args)
         end
 
         -- 2. Binding
-        local binder = Binder.new()
-        local _, binder_diags = binder:bind(unit)
+        local project_root = filename:match("^(.*)[/\\][^/\\]+$") or "."
+        local module_manager = ModuleManager.new(project_root)
+        local binder = Binder.new(diagnostics, module_manager)
+        local _, binder_diags = binder:bind(unit, filename)
         if binder_diags:has_errors() then
             print(binder_diags:format(source))
             return 1
         end
 
-        -- 3. Codegen
+        -- 3. Lowering
+        local lowerer = Lowerer.new(diagnostics)
+        unit = lowerer:lower(unit)
+
+        -- 4. Codegen
         local codegen = LuaCodegen.new()
         local lua_code = codegen:generate(unit)
 
-        -- 4. Gravar Output
+        -- 5. Gravar Output
         local out_name = filename:gsub("%.zt$", "") .. ".lua"
         if out_name == filename then out_name = filename .. ".lua" end
         

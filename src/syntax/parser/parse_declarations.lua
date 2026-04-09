@@ -68,7 +68,11 @@ function ParseDeclarations.parse_declaration_or_statement(ctx)
     return ParseStatements.parse_statement(ctx)
 end
 
-function ParseDeclarations._parse_pattern(ctx)
+function ParseDeclarations._parse_pattern(ctx, allow_type_annotation)
+    if allow_type_annotation == nil then
+        allow_type_annotation = true
+    end
+
     local k = ctx:peek().kind
     
     if k == TokenKind.LBRACKET then
@@ -76,7 +80,7 @@ function ParseDeclarations._parse_pattern(ctx)
         local elements = {}
         if not ctx:check(TokenKind.RBRACKET) then
             repeat
-                table.insert(elements, ParseDeclarations._parse_pattern(ctx))
+                table.insert(elements, ParseDeclarations._parse_pattern(ctx, allow_type_annotation))
             until not ctx:match(TokenKind.COMMA)
         end
         local end_t = ctx:expect(TokenKind.RBRACKET, "esperado ']'")
@@ -98,7 +102,7 @@ function ParseDeclarations._parse_pattern(ctx)
                     local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
                     name = name_t.lexeme
                     if ctx:match(TokenKind.COLON) then
-                        val = ParseDeclarations._parse_pattern(ctx)
+                        val = ParseDeclarations._parse_pattern(ctx, allow_type_annotation)
                     else
                         val = ExprSyntax.identifier(name, name_t.span)
                     end
@@ -121,7 +125,7 @@ function ParseDeclarations._parse_pattern(ctx)
             local sub_patterns = {}
             if not ctx:check(TokenKind.RPAREN) then
                 repeat
-                    table.insert(sub_patterns, ParseDeclarations._parse_pattern(ctx))
+                    table.insert(sub_patterns, ParseDeclarations._parse_pattern(ctx, allow_type_annotation))
                 until not ctx:match(TokenKind.COMMA)
             end
             local end_t = ctx:expect(TokenKind.RPAREN, "esperado ')'")
@@ -140,7 +144,7 @@ function ParseDeclarations._parse_pattern(ctx)
         
         local node = ExprSyntax.identifier(id.lexeme, id.span)
         -- Suporte a anotação de tipo no padrão: n: int
-        if ctx:match(TokenKind.COLON) then
+        if allow_type_annotation and ctx:match(TokenKind.COLON) then
             local type_node = ParseTypes.parse_type(ctx)
             node.type_annotation = type_node
             node.span = node.span:merge(type_node.span)
@@ -372,6 +376,7 @@ end
 function ParseDeclarations._parse_enum(ctx, is_pub)
     local start = ctx:advance()
     local id = ctx:expect(TokenKind.IDENTIFIER)
+    local generic_params = ParseDeclarations._parse_generic_params(ctx)
     local members = {}
     while not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() do
         ctx:skip_newlines()
@@ -408,7 +413,7 @@ function ParseDeclarations._parse_enum(ctx, is_pub)
         ctx:skip_newlines()
     end
     local end_t = ctx:expect(TokenKind.KW_END)
-    return DeclSyntax.enum_decl(id.lexeme, members, is_pub, start.span:merge(end_t.span))
+    return DeclSyntax.enum_decl(id.lexeme, members, is_pub, start.span:merge(end_t.span), generic_params)
 end
 
 function ParseDeclarations._parse_trait(ctx, is_pub)

@@ -94,11 +94,12 @@ function DeclSyntax.type_alias_decl(name, target_type, is_pub, span, generic_par
 end
 
 --- Declaração de Union: union Name = A | B
-function DeclSyntax.union_decl(name, union_type, is_pub, span)
+function DeclSyntax.union_decl(name, union_type, is_pub, span, generic_params)
     return SyntaxNode.new(SK.UNION_DECL, {
         name = name,
         union_type = union_type,
         is_pub = is_pub or false,
+        generic_params = generic_params or {},
     }, span)
 end
 
@@ -143,11 +144,12 @@ function DeclSyntax.attribute_node(name, arguments, span)
 end
 
 --- enum Name ... end
-function DeclSyntax.enum_decl(name, members, is_pub, span)
+function DeclSyntax.enum_decl(name, members, is_pub, span, generic_params)
     return SyntaxNode.new(SK.ENUM_DECL, {
         name = name,
         members = members,  -- lista de ENUM_MEMBER_NODE
         is_pub = is_pub or false,
+        generic_params = generic_params or {},
     }, span)
 end
 

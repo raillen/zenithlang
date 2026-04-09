@@ -134,6 +134,7 @@ function Binder:_declare(node)
     elseif node.kind == SK.ENUM_DECL then
         symbol = Symbol.enum(node.name, node.members, node.span)
         symbol.type_info = ZenithType.new(ZenithType.Kind.ENUM, node.name, { symbol = symbol })
+        symbol.generic_params = node.generic_params or {}
 
     elseif node.kind == SK.TRAIT_DECL then
         symbol = Symbol.trait(node.name, node.methods, node.span)
@@ -206,6 +207,7 @@ function Binder:_bind_node(node)
         [SK.STRUCT_INIT_EXPR]= self._bind_struct_init_expr,
         [SK.UNARY_EXPR]      = self._bind_unary_expr,
         [SK.BANG_EXPR]       = self._bind_bang_expr,
+        [SK.LEN_EXPR]        = self._bind_len_expr,
         [SK.LIST_EXPR]       = self._bind_list_expr,
         [SK.MAP_EXPR]        = self._bind_map_expr,
         [SK.ATTEMPT_STMT]    = self._bind_attempt_stmt,
@@ -522,13 +524,14 @@ end
 
 function Binder:_bind_var_decl(node)
     local type_info = BuiltinTypes.ANY
+    local symbol = nil
     if node.type_node then
         type_info = self:_resolve_type(node.type_node)
     end
 
     -- Se for um identificador simples, usamos a lógica antiga
     if node.name then
-        local symbol = self.scope:lookup_local(node.name)
+        symbol = self.scope:lookup_local(node.name)
         if not symbol then
             if node.kind == SK.CONST_DECL then symbol = Symbol.constant(node.name, type_info, node.is_pub, node.span)
             elseif node.kind == SK.GLOBAL_DECL then symbol = Symbol.global_var(node.name, type_info, node.is_pub, node.span)
@@ -539,8 +542,8 @@ function Binder:_bind_var_decl(node)
             if not self.scope:define(symbol) then
                 self.diagnostics:report_error("ZT-S001", string.format("redefinição de '%s'", node.name), node.span)
             end
-            node.symbol = symbol
         end
+        node.symbol = symbol
     elseif node.pattern then
         -- Destruturação complexa: vincular sub-padrões
         self:_bind_pattern(node.pattern, type_info)
@@ -574,7 +577,114 @@ function Binder:_bind_var_decl(node)
         end
     end
 
+    if symbol then
+        symbol.type_info = type_info
+        node.symbol = symbol
+    end
+
     return type_info
+end
+
+function Binder:_instantiate_type(type_info, bindings)
+    if not type_info then return nil end
+
+    if type_info.kind == ZenithType.Kind.TYPE_PARAM then
+        return bindings[type_info.name] or type_info
+    end
+
+    if type_info.kind == ZenithType.Kind.GENERIC then
+        local args = {}
+        for _, arg in ipairs(type_info.type_args or {}) do
+            table.insert(args, self:_instantiate_type(arg, bindings))
+        end
+        return ZenithType.new(ZenithType.Kind.GENERIC, type_info.base_name or type_info.name, {
+            base_name = type_info.base_name or type_info.name,
+            type_args = args,
+            span = type_info.span,
+            symbol = type_info.symbol,
+        })
+    end
+
+    if type_info.kind == ZenithType.Kind.UNION then
+        local types = {}
+        for _, inner in ipairs(type_info.types or {}) do
+            table.insert(types, self:_instantiate_type(inner, bindings))
+        end
+        return ZenithType.create_union(types)
+    end
+
+    if type_info.kind == ZenithType.Kind.NULLABLE then
+        local base = self:_instantiate_type(type_info.base_type, bindings)
+        return ZenithType.new(ZenithType.Kind.NULLABLE, tostring(base) .. "?", {
+            base_type = base,
+            span = type_info.span,
+        })
+    end
+
+    return type_info
+end
+
+function Binder:_collect_type_bindings(template_type, actual_type, bindings)
+    if not template_type or not actual_type then return end
+
+    if template_type.kind == ZenithType.Kind.TYPE_PARAM then
+        if not bindings[template_type.name] then
+            bindings[template_type.name] = actual_type
+        end
+        return
+    end
+
+    if template_type.kind == ZenithType.Kind.GENERIC and
+       actual_type.kind == ZenithType.Kind.GENERIC and
+       template_type.base_name == actual_type.base_name then
+        for i, inner in ipairs(template_type.type_args or {}) do
+            self:_collect_type_bindings(inner, actual_type.type_args and actual_type.type_args[i], bindings)
+        end
+    end
+end
+
+function Binder:_make_enum_instance_type(enum_symbol)
+    if not enum_symbol then return BuiltinTypes.ANY end
+    if not enum_symbol.generic_params or #enum_symbol.generic_params == 0 then
+        return enum_symbol.type_info or BuiltinTypes.ANY
+    end
+
+    local args = {}
+    for _, p in ipairs(enum_symbol.generic_params) do
+        table.insert(args, ZenithType.new(ZenithType.Kind.TYPE_PARAM, p.name, {
+            symbol = p,
+            constraint = p.constraint,
+        }))
+    end
+
+    return ZenithType.new(ZenithType.Kind.GENERIC, enum_symbol.name, {
+        base_name = enum_symbol.name,
+        type_args = args,
+        symbol = enum_symbol,
+    })
+end
+
+function Binder:_infer_enum_member_return(symbol, arg_types)
+    if not symbol or symbol.kind ~= Symbol.Kind.ENUM_MEMBER then
+        return symbol and (symbol.return_type or symbol.type_info) or nil
+    end
+
+    local inferred = {}
+    for i, param in ipairs(symbol.params or {}) do
+        self:_collect_type_bindings(param.type_info, arg_types and arg_types[i], inferred)
+    end
+
+    local current_ret = self.current_func and self.current_func.return_type
+    local parent = symbol.parent_enum
+    if parent and current_ret and current_ret.kind == ZenithType.Kind.GENERIC and current_ret.base_name == parent.name then
+        for i, p in ipairs(parent.generic_params or {}) do
+            if inferred[p.name] == nil then
+                inferred[p.name] = current_ret.type_args[i]
+            end
+        end
+    end
+
+    return self:_instantiate_type(symbol.return_type or symbol.type_info, inferred)
 end
 
 --- Vincula um padrão de destruturação.
@@ -584,6 +694,45 @@ function Binder:_bind_pattern(pattern, matched_type)
     if pattern.kind == SK.IDENTIFIER_EXPR then
         local name = pattern.name
         if name == "_" then return end
+
+        local builtin_type = BuiltinTypes.lookup(name)
+        if builtin_type and builtin_type.kind ~= ZenithType.Kind.GENERIC then
+            pattern.match_type = builtin_type
+            local TypeChecker = require("src.semantic.types.type_checker")
+            if matched_type ~= BuiltinTypes.ANY and
+               not TypeChecker.is_assignable(matched_type, builtin_type) and
+               not TypeChecker.is_assignable(builtin_type, matched_type) then
+                self.diagnostics:report_error("ZT-S100",
+                    string.format("tipo do padrão '%s' incompatível com '%s'", tostring(builtin_type), tostring(matched_type)),
+                    pattern.span)
+            end
+            return
+        end
+
+        local type_symbol = self.scope:lookup(name)
+        if type_symbol and (
+            type_symbol.kind == Symbol.Kind.ALIAS or
+            type_symbol.kind == Symbol.Kind.STRUCT or
+            type_symbol.kind == Symbol.Kind.TRAIT or
+            type_symbol.kind == Symbol.Kind.ENUM
+        ) then
+            local resolved_type = self:_resolve_type({
+                kind = SK.NAMED_TYPE,
+                name = name,
+                span = pattern.span
+            })
+            pattern.match_type = resolved_type
+
+            local TypeChecker = require("src.semantic.types.type_checker")
+            if matched_type ~= BuiltinTypes.ANY and
+               not TypeChecker.is_assignable(matched_type, resolved_type) and
+               not TypeChecker.is_assignable(resolved_type, matched_type) then
+                self.diagnostics:report_error("ZT-S100",
+                    string.format("tipo do padrão '%s' incompatível com '%s'", tostring(resolved_type), tostring(matched_type)),
+                    pattern.span)
+            end
+            return
+        end
         
         -- Se for um Enum Member conhecido, não é destruturação, é comparação de valor
         local existing = self.scope:lookup(name)
@@ -640,9 +789,19 @@ function Binder:_bind_pattern(pattern, matched_type)
         pattern.symbol = variant_sym
         
         if pattern.arguments and variant_sym.params then
+            local generic_bindings = {}
+            if matched_type.kind == ZenithType.Kind.GENERIC and
+               variant_sym.parent_enum and
+               matched_type.base_name == variant_sym.parent_enum.name then
+                for i, p in ipairs(variant_sym.parent_enum.generic_params or {}) do
+                    generic_bindings[p.name] = matched_type.type_args[i]
+                end
+            end
+
             for i, arg_p in ipairs(pattern.arguments) do
                 local param_info = variant_sym.params[i]
                 local matched_p_type = param_info and param_info.type_info or BuiltinTypes.ANY
+                matched_p_type = self:_instantiate_type(matched_p_type, generic_bindings)
                 self:_bind_pattern(arg_p, matched_p_type)
             end
         end
@@ -669,6 +828,7 @@ function Binder:_bind_literal_expr(node)
         float = BuiltinTypes.FLOAT,
         text = BuiltinTypes.TEXT,
         bool = BuiltinTypes.BOOL,
+        null = BuiltinTypes.NULL,
     }
     return map[node.literal_type] or BuiltinTypes.ERROR
 end
@@ -712,8 +872,15 @@ function Binder:_bind_identifier_expr(node)
     node.symbol = symbol
     -- Se for um reativo (STATE), o tipo resultante é o tipo base (transparente)
     node.is_reactive = (symbol.kind == Symbol.Kind.STATE or symbol.kind == Symbol.Kind.COMPUTED)
-    
-    return symbol.type_info or BuiltinTypes.ANY
+
+    if symbol.kind == Symbol.Kind.ENUM_MEMBER and not symbol.params then
+        local inferred = self:_infer_enum_member_return(symbol, {})
+        node.type_info = inferred
+        return inferred or BuiltinTypes.ANY
+    end
+
+    node.type_info = symbol.type_info or BuiltinTypes.ANY
+    return node.type_info
 end
 
 function Binder:_bind_binary_expr(node)
@@ -859,14 +1026,16 @@ function Binder:_bind_call_expr(node)
 
     -- 3. Verificar parâmetros obrigatórios faltantes e validar tipos
     local final_args = {}
+    local final_arg_types = {}
     -- Se houver spread, a validação de "faltantes" é pulada pois o spread pode preencher tudo em runtime
     if has_spread then
         -- Apenas vincula todos os argumentos presentes
         for _, arg in ipairs(args) do
             local arg_node = arg
             if type(arg) == "table" and arg.kind == "NAMED" then arg_node = arg.value end
-            self:_bind_node(arg_node)
+            local arg_type = self:_bind_node(arg_node)
             table.insert(final_args, arg)
+            table.insert(final_arg_types, arg_type)
         end
     else
         for i, p in ipairs(params) do
@@ -881,12 +1050,16 @@ function Binder:_bind_call_expr(node)
             if val then
                 local arg_type = self:_bind_node(val)
                 table.insert(final_args, val)
+                final_arg_types[i] = arg_type
             end
         end
     end
 
     node.resolved_args = final_args
     local ret = symbol and symbol.return_type or callee_type.return_type
+    if symbol and symbol.kind == Symbol.Kind.ENUM_MEMBER then
+        ret = self:_infer_enum_member_return(symbol, final_arg_types) or ret
+    end
     if not ret and callee_type.kind == ZenithType.Kind.STRUCT then
         ret = callee_type
     end
@@ -901,7 +1074,24 @@ end
 function Binder:_bind_enum_decl(node)
     local enum_symbol = self.scope:lookup_local(node.name)
     if not enum_symbol then return BuiltinTypes.VOID end
-    
+
+    node.symbol = enum_symbol
+    local enum_scope = Scope.new(Scope.Kind.BLOCK, self.scope)
+    local prev_scope = self.scope
+    self.scope = enum_scope
+
+    local resolved_generic_params = {}
+    for _, p in ipairs(node.generic_params or {}) do
+        local constraint = p.constraint and self:_resolve_type(p.constraint) or nil
+        local param_sym = Symbol.generic_param(p.name, constraint, p.span)
+        if not self.scope:define(param_sym) then
+            self.diagnostics:report_error("ZT-S001", string.format("parâmetro genérico '%s' já declarado", p.name), p.span)
+        end
+        table.insert(resolved_generic_params, param_sym)
+    end
+    enum_symbol.generic_params = resolved_generic_params
+
+    local enum_instance_type = self:_make_enum_instance_type(enum_symbol)
     local member_symbols = {}
     for _, member_node in ipairs(node.members) do
         local resolved_params = nil
@@ -912,17 +1102,27 @@ function Binder:_bind_enum_decl(node)
                 table.insert(resolved_params, { name = p.name, type_info = p_type })
             end
         end
-        
+
         local member_symbol = Symbol.enum_member(member_node.name, enum_symbol, resolved_params, member_node.span)
         member_symbol.declaration = member_node
+        member_symbol.return_type = enum_instance_type
+        if resolved_params and #resolved_params > 0 then
+            member_symbol.type_info = ZenithType.new(ZenithType.Kind.FUNC, member_node.name, {
+                params = resolved_params,
+                return_type = enum_instance_type,
+            })
+        else
+            member_symbol.type_info = enum_instance_type
+        end
         table.insert(member_symbols, member_symbol)
-        
+
         -- Facilitar uso sem prefixo (Enum.Member -> Member) se não houver colisão
-        if not self.scope:lookup_local(member_node.name) then
-            self.scope:define(member_symbol)
+        if not prev_scope:lookup_local(member_node.name) then
+            prev_scope:define(member_symbol)
         end
     end
-    
+
+    self.scope = prev_scope
     enum_symbol.member_symbols = member_symbols
     return enum_symbol.type_info
 end
@@ -1043,6 +1243,37 @@ function Binder:_bind_repeat_stmt(node)
     for _, stmt in ipairs(node.body) do self:_bind_node(stmt) end
     self.scope = old_scope
     return BuiltinTypes.VOID
+end
+
+function Binder:_bind_bang_expr(node)
+    local operand_type = self:_bind_node(node.expression)
+
+    if operand_type.kind == ZenithType.Kind.NULLABLE then
+        node.type_info = operand_type.base_type
+        return node.type_info
+    end
+
+    if operand_type.kind == ZenithType.Kind.UNION then
+        local inner = {}
+        for _, t in ipairs(operand_type.types or {}) do
+            if t ~= BuiltinTypes.NULL and t.kind ~= ZenithType.Kind.NULL then
+                table.insert(inner, t)
+            end
+        end
+
+        if #inner == 1 then
+            node.type_info = inner[1]
+            return node.type_info
+        end
+
+        if #inner > 1 then
+            node.type_info = ZenithType.create_union(inner)
+            return node.type_info
+        end
+    end
+
+    node.type_info = operand_type
+    return operand_type
 end
 
 function Binder:_bind_assert_stmt(node)
@@ -1230,13 +1461,52 @@ end
 function Binder:_bind_index_expr(node)
     local object_type = self:_bind_node(node.object)
     local index_type = self:_bind_node(node.index_expr)
-    
-    -- Zenith v0.2 simplificado: se for list, retorna o tipo do elemento
+
+    if node.index_expr and node.index_expr.kind == SK.RANGE_EXPR then
+        if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
+            return ZenithType.new(ZenithType.Kind.GENERIC, "list", {
+                base_name = "list",
+                type_args = { object_type.type_args[1] or BuiltinTypes.ANY },
+                span = node.span
+            })
+        end
+
+        if object_type == BuiltinTypes.TEXT then
+            return BuiltinTypes.TEXT
+        end
+
+        return BuiltinTypes.ANY
+    end
+
+    if index_type ~= BuiltinTypes.INT and index_type ~= BuiltinTypes.ANY then
+        self.diagnostics:report_error("ZT-S102", "índices devem ser inteiros", node.index_expr.span)
+    end
+
     if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
         return object_type.type_args[1] or BuiltinTypes.ANY
     end
-    
+
+    if object_type == BuiltinTypes.TEXT then
+        return BuiltinTypes.TEXT
+    end
+
     return BuiltinTypes.ANY
+end
+
+function Binder:_bind_len_expr(node)
+    local expr_type = self:_bind_node(node.expression)
+
+    if expr_type == BuiltinTypes.TEXT or expr_type == BuiltinTypes.ANY then
+        return BuiltinTypes.INT
+    end
+
+    if expr_type.kind == ZenithType.Kind.GENERIC then
+        if expr_type.base_name == "list" or expr_type.base_name == "map" or expr_type.base_name == "grid" then
+            return BuiltinTypes.INT
+        end
+    end
+
+    return BuiltinTypes.INT
 end
 
 function Binder:_bind_struct_init_expr(node)

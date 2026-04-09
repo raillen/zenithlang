@@ -36,7 +36,9 @@ function Lowerer:_lower_node(node)
         lowered = {}
         for k, v in pairs(node) do
             if type(v) == "table" then
-                if v.kind then
+                if k == "symbol" or k == "type_info" or k == "target_type" then
+                    lowered[k] = v
+                elseif v.kind then
                     lowered[k] = self:_lower_node(v)
                 else
                     -- Provavelmente uma lista de nós (como stmts, params, etc)
@@ -86,6 +88,41 @@ function Lowerer:_lower_node(node)
     return lowered
 end
 
+function Lowerer:_rewrite_it_alias(node, alias_name)
+    if not node or type(node) ~= "table" then
+        return node
+    end
+
+    if node.kind == SK.IT_EXPR then
+        return ExprSyntax.identifier(alias_name, node.span)
+    end
+
+    local rewritten = {}
+    for k, v in pairs(node) do
+        if type(v) == "table" then
+            if k == "symbol" or k == "type_info" or k == "target_type" then
+                rewritten[k] = v
+            elseif v.kind then
+                rewritten[k] = self:_rewrite_it_alias(v, alias_name)
+            else
+                local list = {}
+                for i, item in ipairs(v) do
+                    if type(item) == "table" and item.kind then
+                        table.insert(list, self:_rewrite_it_alias(item, alias_name))
+                    else
+                        table.insert(list, item)
+                    end
+                end
+                rewritten[k] = list
+            end
+        else
+            rewritten[k] = v
+        end
+    end
+
+    return rewritten
+end
+
 -- ============================================================================
 -- Visitantes de Declaração
 -- ============================================================================
@@ -114,12 +151,9 @@ function Lowerer:_lower_func_decl(node)
     end
 
     if node.body then
-        body = {}
-        -- Injeta destruturações primeiro
-        for _, s in ipairs(initial_stmts) do table.insert(body, self:_lower_node(s)) end
-        -- Corpo original
-        for _, s in ipairs(node.body) do
-            table.insert(body, self:_lower_node(s))
+        body = self:_lower_block(initial_stmts)
+        for _, s in ipairs(self:_lower_block(node.body)) do
+            table.insert(body, s)
         end
     end
     
@@ -232,6 +266,26 @@ function Lowerer:_lower_computed_decl(node)
 end
 
 function Lowerer:_lower_struct_decl(node)
+    local fields = {}
+    for _, field in ipairs(node.fields or {}) do
+        local lowered_condition = nil
+        if field.condition then
+            -- `it` em contratos de campo vira a variável local já materializada no construtor.
+            lowered_condition = self:_lower_node(self:_rewrite_it_alias(field.condition, "_val"))
+        end
+
+        table.insert(fields, {
+            kind = field.kind,
+            name = field.name,
+            type_node = field.type_node,
+            default_value = self:_lower_node(field.default_value),
+            is_pub = field.is_pub,
+            attributes = field.attributes,
+            condition = lowered_condition,
+            span = field.span
+        })
+    end
+
     local methods = {}
     for _, m in ipairs(node.methods) do
         table.insert(methods, self:_lower_node(m))
@@ -239,7 +293,7 @@ function Lowerer:_lower_struct_decl(node)
     return {
         kind = SK.STRUCT_DECL,
         name = node.name,
-        fields = node.fields,
+        fields = fields,
         methods = methods,
         is_pub = node.is_pub,
         span = node.span
@@ -409,6 +463,15 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
             }
             return ExprSyntax.literal(true, "bool", pattern.span), { b }
         else
+            if pattern.match_type then
+                return {
+                    kind = SK.IS_EXPR,
+                    expression = access_path_node,
+                    target_type = pattern.match_type,
+                    is_not = false,
+                    span = pattern.span
+                }, {}
+            end
             -- Se for um Enum Member conhecido (sem parâmetros no padrão), checamos a tag
             local Symbol = require("src.semantic.symbols.symbol")
             if pattern.symbol and pattern.symbol.kind == Symbol.Kind.ENUM_MEMBER then
@@ -441,13 +504,13 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
             if el.kind == SK.REST_EXPR then
                 -- ..resto
                 if el.expression.kind == SK.IDENTIFIER_EXPR then
-                    -- local resto = zt.slice(access_path, i, #access_path)
-                    -- O Lua usa base 1, i é o índice atual do spread
+                    -- local resto = zt.slice(access_path, i - 1)
+                    -- zt.slice usa faixas zero-based; o spread começa no elemento i (1-based na IR).
                     local slice_call = ExprSyntax.call(
                         ExprSyntax.identifier("zt.slice", el.span),
                         { 
                             access_path_node, 
-                            ExprSyntax.literal(i, "int", el.span),
+                            ExprSyntax.literal(i - 1, "int", el.span),
                         },
                         el.span
                     )
@@ -516,20 +579,6 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
     end
 
     return ExprSyntax.literal(true, "bool", pattern.span), {}
-end
-
-function Lowerer:_lower_var_decl(node)
-    return {
-        kind = SK.VAR_DECL,
-        name = node.name,
-        type_node = node.type_node, -- Tipos geralmente não precisam de lowering em v0.2
-        initializer = self:_lower_node(node.initializer),
-        is_pub = node.is_pub,
-        is_const = node.is_const,
-        is_static = node.is_static,
-        symbol = node.symbol,
-        span = node.span
-    }
 end
 
 function Lowerer:_lower_assign_stmt(node)

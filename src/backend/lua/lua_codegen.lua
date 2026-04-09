@@ -26,6 +26,7 @@ function LuaCodegen:generate_body(node)
     
     self:emit("-- Transpilado por Zenith v0.2.0 (Body Only)")
     self:emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
+    self:_emit_prelude_constructors()
     self:emit("")
     
     self:_emit_node(node)
@@ -44,6 +45,7 @@ function LuaCodegen:generate(node)
     -- Banner e Runtime
     self:emit("-- Transpilado por Zenith v0.2.0")
     self:emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
+    self:_emit_prelude_constructors()
     self:emit("")
     
     self:_emit_node(node)
@@ -58,6 +60,13 @@ end
 function LuaCodegen:emit(text)
     local indent = string.rep("    ", self.indent_level)
     table.insert(self.output, indent .. text)
+end
+
+function LuaCodegen:_emit_prelude_constructors()
+    self:emit("local Present = zt.Optional.Present")
+    self:emit("local Empty = zt.Optional.Empty")
+    self:emit("local Success = zt.Outcome.Success")
+    self:emit("local Failure = zt.Outcome.Failure")
 end
 
 function LuaCodegen:indent() self.indent_level = self.indent_level + 1 end
@@ -124,9 +133,16 @@ function LuaCodegen:_emit_compilation_unit(node)
         local struct_sym = struct_node.symbol
         if struct_sym and struct_sym.methods then
             local seen_methods = {}
-            for _, m_node in ipairs(struct_node.methods) do
+            for _, method_sym in ipairs(struct_sym.methods) do
+                local m_node = method_sym.declaration
+                if m_node and m_node.body and not seen_methods[m_node.name] then
+                    seen_methods[m_node.name] = true
+                    self:_emit_func_decl(m_node, struct_node.name)
+                end
+            end
+        else
+            for _, m_node in ipairs(struct_node.methods or {}) do
                 if m_node.body then
-                    -- Usa a lógica centralizada de emissão de função
                     self:_emit_func_decl(m_node, struct_node.name)
                 end
             end
@@ -298,14 +314,9 @@ function LuaCodegen:_emit_struct_decl(node)
         local default = field.default_value and self:_eval(field.default_value) or "nil"
         self:emit(string.format("local _val = fields.%s or %s", field.name, default))
         
-        -- Validação 'where' (it)
+        -- O lowerer já reescreveu `it` para `_val`.
         if field.condition then
-            -- Mapear 'it' para '_val' temporariamente
-            local old_it_map = self.current_it_map
-            self.current_it_map = "_val"
             local cond_str = self:_eval(field.condition)
-            self.current_it_map = old_it_map
-            
             self:emit(string.format("zt.check(%s, \"violacao de contrato no campo '%s' da struct '%s'\")", cond_str, field.name, node.name))
         end
         
@@ -418,6 +429,10 @@ function LuaCodegen:_emit_enum_decl(node)
     end
     self:dedent()
     self:emit("}")
+
+    for _, m in ipairs(node.members) do
+        self:emit(string.format("local %s = %s.%s", m.name, node.name, m.name))
+    end
 end
 
 function LuaCodegen:_emit_trait_decl(node)
@@ -679,14 +694,14 @@ function LuaCodegen:_eval(node)
         return string.format("coroutine.yield(%s)", self:_eval(node.expression))
 
     elseif node.kind == SK.UNARY_EXPR then
-        local op = node.operator.lexeme
+        local op = type(node.operator) == "table" and node.operator.lexeme or node.operator
         if op == "not" then return string.format("(not %s)", self:_eval(node.operand)) end
         return string.format("(%s%s)", op, self:_eval(node.operand))
 
     elseif node.kind == SK.BINARY_EXPR then
         local left = self:_eval(node.left)
         local right = self:_eval(node.right)
-        local op = node.operator.lexeme
+        local op = type(node.operator) == "table" and node.operator.lexeme or node.operator
         
         if op == "+" then
             -- Otimização Performance Audit: Se ambos forem numéricos, usa + nativo
@@ -746,13 +761,13 @@ function LuaCodegen:_eval(node)
             if node.callee.is_ufcs then
                 -- UFCS: obj.func(q) -> func(obj, q). 
                 -- O Binder já colocou o objeto em final_args, então basta chamar a função pelo nome.
-                local func_name = node.callee.member_name
+                local func_name = node.callee.member_name or node.callee.name
                 if node.callee.symbol then func_name = node.callee.symbol.name end
                 return string.format("%s(%s)", func_name, args_str)
             end
 
             local obj_str = self:_eval(node.callee.object)
-            local member = node.callee.member_name
+            local member = node.callee.member_name or node.callee.name
             
             -- Se o objeto for um módulo, usamos '.'
             local is_module = false
@@ -783,13 +798,13 @@ function LuaCodegen:_eval(node)
 
     elseif node.kind == SK.MEMBER_EXPR then
         if node.is_ufcs then
-            local func_name = node.member_name
+            local func_name = node.member_name or node.name
             if node.symbol then func_name = node.symbol.name end
             return func_name
         end
         
         local obj = self:_eval(node.object)
-        local member = node.member_name
+        local member = node.member_name or node.name
         
         -- Se for acesso a .set ou .get de um reativo, removemos o .get automático
         if (member == "set" or member == "get") and node.object.is_reactive then
@@ -908,7 +923,7 @@ function LuaCodegen:_eval(node)
         return "self"
     
     elseif node.kind == SK.IT_EXPR then
-        return self.current_it_map or "it"
+        return "it"
 
     elseif node.kind == SK.SELF_FIELD_EXPR then
         return "self." .. node.field_name
