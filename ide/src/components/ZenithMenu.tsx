@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { Menu, X, FilePlus, FolderOpen, Save, Hammer, Play, Settings, HelpCircle, Info, Zap } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
+import { useCommandStore } from "../store/useCommandStore";
 import { useTranslation } from "../utils/i18n";
-import { SettingsDialog } from "./SettingsDialog";
 
 export function ZenithMenu() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { setSettingsOpen } = useCommandStore();
   const menuRef = useRef<HTMLDivElement>(null);
   const { setProjectRoot, openFile } = useWorkspaceStore();
   const { t } = useTranslation();
@@ -78,7 +78,7 @@ export function ZenithMenu() {
             {/* Category: Help & Settings */}
             <MenuSection title={t('hub.categories.system')}>
               <MenuItem icon={<Settings size={14} />} label={t('hub.actions.preferences')} onClick={() => {
-                setIsSettingsOpen(true);
+                setSettingsOpen(true);
                 setIsOpen(false);
               }} />
               <MenuItem icon={<HelpCircle size={14} />} label={t('hub.actions.docs')} onClick={() => {}} />
@@ -97,8 +97,6 @@ export function ZenithMenu() {
           </div>
         </div>
       )}
-
-      {isSettingsOpen && <SettingsDialog onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }

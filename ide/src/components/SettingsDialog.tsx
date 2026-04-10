@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Globe, Cpu, Palette, Code, Check, Blocks, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Globe, Palette, Check, Blocks, ChevronRight, ChevronDown, Keyboard, Pencil } from "lucide-react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
+import { useCommandStore } from "../store/useCommandStore";
 import { useTranslation } from "../utils/i18n";
 import { THEMES } from "../themes";
 import { SearchableDropdown, DropdownOption } from "./ui/SearchableDropdown";
@@ -12,7 +13,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ onClose }: SettingsDialogProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'editor' | 'extensions'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'editor' | 'keymap' | 'extensions'>('general');
   const { settings, updateSettings } = useWorkspaceStore();
   const { t } = useTranslation();
 
@@ -27,11 +28,11 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-[600px] h-[450px] border border-ide-border bg-ide-bg rounded-2xl shadow-2xl flex overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="w-[850px] h-[600px] max-w-[90vw] max-h-[85vh] border border-ide-border bg-ide-bg rounded-2xl shadow-2xl flex overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* Sidebar */}
-        <div className="w-48 bg-ide-panel border-r border-ide-border p-4 flex flex-col gap-1">
-          <h2 className="text-[14px] font-bold text-ide-text mb-4 px-2">{t('settings.title')}</h2>
+        <div className="w-56 bg-ide-panel border-r border-ide-border p-6 flex flex-col gap-2">
+          <h2 className="text-[14px] font-bold text-ide-text mb-6 px-2">{t('settings.title')}</h2>
           
           <TabButton 
             active={activeTab === 'general'} 
@@ -44,6 +45,12 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             onClick={() => setActiveTab('editor')} 
             icon={<Palette size={14} />} 
             label={t('settings.tabs.editor')} 
+          />
+          <TabButton 
+            active={activeTab === 'keymap'} 
+            onClick={() => setActiveTab('keymap')} 
+            icon={<Keyboard size={14} />} 
+            label="Keybinds" 
           />
           <TabButton 
             active={activeTab === 'extensions'} 
@@ -61,7 +68,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             </button>
           </div>
 
-          <div className="p-8 overflow-y-auto flex-1">
+          <div className="px-12 py-10 overflow-y-auto flex-1">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8">
                 <section>
@@ -191,6 +198,8 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                </div>
             )}
 
+            {activeTab === 'keymap' && <KeybindsTab />}
+
             {activeTab === 'extensions' && (
               <div className="flex flex-col gap-6">
                 <section>
@@ -318,5 +327,180 @@ function LangOption({ label, active, onClick }: { label: string, active: boolean
       {active && <Check size={14} />}
     </button>
   );
+}
+
+function KeybindsTab() {
+   const commands = useCommandStore(s => s.commands);
+   const { settings, updateSettings } = useWorkspaceStore();
+   
+   const [editingCmdId, setEditingCmdId] = useState<string | null>(null);
+
+   const getShortcutForCommand = (id: string) => {
+       for (const [combo, cmdId] of Object.entries(settings.keymap || {})) {
+           if (cmdId === id) return combo;
+       }
+       return null;
+   };
+
+   let commandList = Object.values(commands).sort((a,b) => {
+       const catA = a.category || "Z";
+       const catB = b.category || "Z";
+       if (catA < catB) return -1;
+       if (catA > catB) return 1;
+       return a.title.localeCompare(b.title);
+   });
+
+   const handleSave = (cmdId: string, newCombo: string) => {
+        const newKeymap = { ...settings.keymap };
+
+        if (newKeymap[newCombo]) {
+            delete newKeymap[newCombo];
+        }
+
+        const oldCombo = getShortcutForCommand(cmdId);
+        if (oldCombo && oldCombo !== newCombo) {
+            delete newKeymap[oldCombo];
+        }
+
+        newKeymap[newCombo] = cmdId;
+        
+        updateSettings({ keymap: newKeymap });
+        setEditingCmdId(null);
+   };
+
+   return (
+       <div className="flex flex-col gap-6 h-full pb-8">
+           <section>
+              <label className="text-[11px] font-bold text-ide-text-dim uppercase tracking-widest block mb-1">
+                 Keyboard Shortcuts
+              </label>
+              <p className="text-[11px] text-ide-text-dim opacity-70 mb-4">
+                 Customize IDE behavior by mapping key chords to Actions.
+              </p>
+              
+              <div className="border border-ide-border rounded-xl bg-ide-panel/30 overflow-hidden flex flex-col">
+                  {commandList.map((cmd, i) => {
+                      const isEditing = editingCmdId === cmd.id;
+                      const shortcut = getShortcutForCommand(cmd.id);
+                      const isLast = i === commandList.length - 1;
+
+                      return (
+                          <div key={cmd.id} className={`flex items-center justify-between px-4 py-3 hover:bg-ide-panel/50 transition-colors ${!isLast ? 'border-b border-ide-border/50' : ''}`}>
+                              <div className="flex flex-col">
+                                 <span className="text-[12px] font-bold text-ide-text">{cmd.title}</span>
+                                 <span className="text-[10px] text-ide-text-dim">{cmd.category || 'System'} • {cmd.id}</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-4">
+                                  {isEditing ? (
+                                      <KeybindCapture 
+                                         currentCombo={shortcut} 
+                                         onSave={(combo) => handleSave(cmd.id, combo)}
+                                         onCancel={() => setEditingCmdId(null)}
+                                      />
+                                  ) : (
+                                      <>
+                                         {shortcut ? (
+                                            <span className="text-[11px] font-mono bg-ide-bg border border-ide-border px-2 py-0.5 rounded text-ide-text-dim">
+                                                {formatShortcutVisual(shortcut)}
+                                            </span>
+                                         ) : (
+                                            <span className="text-[11px] text-ide-text-dim italic opacity-50">unassigned</span>
+                                         )}
+                                         
+                                         <button 
+                                            onClick={() => setEditingCmdId(cmd.id)}
+                                            className="p-1.5 text-ide-text-dim hover:bg-ide-bg hover:text-white rounded transition-colors border border-transparent hover:border-ide-border"
+                                         >
+                                             <Pencil size={12} />
+                                         </button>
+                                      </>
+                                  )}
+                              </div>
+                          </div>
+                      )
+                  })}
+              </div>
+           </section>
+       </div>
+   );
+}
+
+function KeybindCapture({ currentCombo, onSave, onCancel }: { currentCombo: string | null, onSave: (combo: string) => void, onCancel: () => void }) {
+    const [combo, setCombo] = useState<string>(currentCombo || "");
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.key === 'Escape') {
+                onCancel();
+                return;
+            }
+            
+            // Allow storing only if a regular key is pressed
+            if (e.key === 'Enter') {
+                if (combo) {
+                    onSave(combo);
+                } else {
+                    onCancel();
+                }
+                return;
+            }
+
+            // Exclude lone modifiers from closing the chord
+            if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
+                return;
+            }
+
+            const keys = [];
+            if (e.ctrlKey) keys.push('ctrl');
+            if (e.shiftKey) keys.push('shift');
+            if (e.altKey) keys.push('alt');
+            
+            // We just grab the raw key lowercase
+            let keyName = e.key.toLowerCase();
+            // Edge cases like space
+            if (keyName === ' ') keyName = 'space';
+            if (keyName === 'arrowup') keyName = 'up';
+            if (keyName === 'arrowdown') keyName = 'down';
+            if (keyName === 'arrowleft') keyName = 'left';
+            if (keyName === 'arrowright') keyName = 'right';
+
+            keys.push(keyName);
+
+            setCombo(keys.join('+'));
+        };
+
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
+        return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    }, [combo, onSave, onCancel]);
+
+    return (
+        <div className="flex items-center gap-3">
+            <span className="text-[12px] bg-primary text-white px-3 py-1 rounded font-mono shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.5)] animate-pulse">
+                {combo ? formatShortcutVisual(combo) : "Aguardando teclas..."}
+            </span>
+            <div className="flex flex-col text-[9px] text-ide-text-dim leading-tight">
+               <span><kbd className="opacity-70">Enter</kbd> salvar</span>
+               <span><kbd className="opacity-70">Esc</kbd> cancelar</span>
+            </div>
+        </div>
+    );
+}
+
+function formatShortcutVisual(combo: string) {
+    return combo.split('+').map(k => {
+        if (k === 'ctrl') return 'Ctrl';
+        if (k === 'shift') return '⇧';
+        if (k === 'alt') return 'Alt';
+        if (k === 'up') return '↑';
+        if (k === 'down') return '↓';
+        if (k === 'left') return '←';
+        if (k === 'right') return '→';
+        if (k === 'space') return 'Space';
+        return k.length === 1 ? k.toUpperCase() : k;
+    }).join(' + ');
 }
 

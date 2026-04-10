@@ -15,3 +15,8 @@ end
 dependencies
     std: official
 end
+
+scripts
+    test:    "zt tests/core/test_v02_refinement.zt"
+    test-os: "zt tests/stdlib/test_os.zt --run"
+end

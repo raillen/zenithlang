@@ -1,0 +1,4 @@
+pub func main() -> int
+    print("Olá das Estrelas!")
+    return 0
+end

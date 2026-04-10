@@ -149,6 +149,17 @@ const DocViewer = ({ section, requestedDoc }) => {
     });
   }, [content]);
 
+  // Fechar sidebar mobile com ESC
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isMobileSidebarOpen]);
+
   const handleDocSelect = (doc) => {
     setCurrentDoc(doc);
     loadDoc(doc.path);
@@ -160,7 +171,7 @@ const DocViewer = ({ section, requestedDoc }) => {
   const nextDoc = currentIndex < sectionDocs.length - 1 ? sectionDocs[currentIndex + 1] : null;
 
   return (
-    <div data-z-id="docviewer-page" className="page-doc-viewer flex w-full bg-[#ECEEEE] transition-all duration-500 relative">
+    <div data-z-id="docviewer-page" className="page-doc-viewer flex w-full bg-[#ECEEEE] transition-all duration-500 relative" role="region" aria-label="Visualizador de Documentação">
       <ReadingProgressBar />
       
       {/* MOBILE SIDEBAR OVERLAY */}
@@ -173,6 +184,7 @@ const DocViewer = ({ section, requestedDoc }) => {
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileSidebarOpen(false)}
               className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] lg:hidden"
+              aria-hidden="true"
             />
             <motion.div
               initial={{ x: -280 }}
@@ -180,6 +192,9 @@ const DocViewer = ({ section, requestedDoc }) => {
               exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed left-0 top-0 bottom-0 w-[280px] bg-white z-[70] lg:hidden shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menu de tópicos da documentação"
             >
               <Sidebar 
                 sections={DOCS_STRUCTURE[section] || []} 
@@ -197,6 +212,7 @@ const DocViewer = ({ section, requestedDoc }) => {
         <aside 
           data-z-id="docviewer-sidebar-wrapper" 
           className="doc-sidebar shrink-0 hidden lg:block"
+          aria-label="Navegação lateral"
         >
           <Sidebar 
             sections={DOCS_STRUCTURE[section] || []} 
@@ -210,13 +226,15 @@ const DocViewer = ({ section, requestedDoc }) => {
         {/* Floating Mobile Toggle */}
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="lg:hidden fixed bottom-8 right-8 z-50 bg-[#111111] text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+          className="lg:hidden fixed bottom-8 right-8 z-50 bg-[#111111] text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all focus-visible:ring-4 focus-visible:ring-primary/40 outline-none"
+          aria-label="Abrir tópicos da documentação"
+          aria-expanded={isMobileSidebarOpen}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0-16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" aria-hidden="true"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0-16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
           <span className="text-sm font-bold pr-2">Tópicos</span>
         </button>
 
-        <div data-z-id="docviewer-breadcrumbs-wrapper" className="doc-breadcrumbs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <header data-z-id="docviewer-breadcrumbs-wrapper" className="doc-breadcrumbs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Breadcrumbs 
             section={section} 
             category={currentDoc?.category} 
@@ -227,14 +245,16 @@ const DocViewer = ({ section, requestedDoc }) => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsZenMode(!isZenMode)}
-            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${isZenMode ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white border-black/5 text-neutral/40 hover:text-primary hover:border-primary/20'}`}
+            aria-label={isZenMode ? "Desativar Modo Zen (mostrar barras laterais)" : "Ativar Modo Zen (esconder barras laterais)"}
+            aria-pressed={isZenMode}
+            className={`px-4 py-2 rounded-full border transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest outline-none focus-visible:ring-2 focus-visible:ring-primary ${isZenMode ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white border-black/5 text-neutral/40 hover:text-primary hover:border-primary/20'}`}
           >
             {isZenMode ? "Sair do Modo Zen" : "Modo Zen"}
           </motion.button>
-        </div>
+        </header>
 
         {loading ? (
-          <div data-z-id="docviewer-loading-skeleton" className="doc-loading flex flex-col gap-6 animate-pulse">
+          <div data-z-id="docviewer-loading-skeleton" className="doc-loading flex flex-col gap-6 animate-pulse" aria-hidden="true">
             <div data-z-id="docviewer-skeleton-1" className="h-10 bg-black/5 rounded-xl w-3/4" />
             <div data-z-id="docviewer-skeleton-2" className="h-4 bg-black/5 rounded-lg w-full" />
             <div data-z-id="docviewer-skeleton-3" className="h-4 bg-black/5 rounded-lg w-5/6" />
@@ -259,20 +279,21 @@ const DocViewer = ({ section, requestedDoc }) => {
               dangerouslySetInnerHTML={{ __html: content }} 
             />
             
-            <motion.div 
+            <nav 
               key={`nav-${currentDoc?.path}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.3 }}
               data-z-id="docviewer-pagination-wrapper" 
               className="doc-pagination mt-20 pt-8 border-t border-black/10"
+              aria-label="Páginas anterior e próxima"
             >
               <Pagination 
                 prev={prevDoc} 
                 next={nextDoc} 
                 onNavigate={handleDocSelect} 
               />
-            </motion.div>
+            </nav>
           </AnimatePresence>
         )}
       </main>
@@ -282,6 +303,7 @@ const DocViewer = ({ section, requestedDoc }) => {
         <aside 
           data-z-id="docviewer-toc-wrapper" 
           className="doc-toc shrink-0 hidden xl:block w-64"
+          aria-label="Sumário da página"
         >
           <TableOfContents content={content} />
         </aside>

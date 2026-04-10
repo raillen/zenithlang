@@ -7,42 +7,35 @@ local Failure = zt.Outcome.Failure
 
 local main
 
-local text = require("src/stdlib/text")
+local os = require("src/stdlib/os")
 
 function main()
-    print("--- Testando Módulo std.text ---")
-    local frase = "  Zenith é Sensacional! 🍎  "
-    print((tostring((tostring("Original: [") .. tostring(frase))) .. tostring("]")))
-    print((tostring((tostring("Trim:     [") .. tostring(text.trim(frase)))) .. tostring("]")))
-    local limpa = text.trim(frase)
-    print((tostring("Lower:    ") .. tostring(text.to_lower(limpa))))
-    print((tostring("Reverse:  ") .. tostring(text.reverse(limpa))))
-    print("\
---- Testando UTF-8 e Emojis ---")
-    local br = "Ação e Reação"
-    print((tostring("Texto: ") .. tostring(br)))
-    print((tostring("Caracteres (real): ") .. tostring(text.count_chars(br))))
-    print((tostring("Sem acentos: ") .. tostring(text.clean_accents(br))))
-    local emo = "Olá 🌍!"
-    print((tostring("\
-Texto: ") .. tostring(emo)))
-    print((tostring("Tem emoji? ") .. tostring(text.is_emoji(emo))))
-    print((tostring("Invertido: ") .. tostring(text.reverse(emo))))
-    print("\
---- Testando Cases ---")
-    local nome = "usuario_logado_hoje"
-    print((tostring("Snake: ") .. tostring(nome)))
-    print((tostring("Camel: ") .. tostring(text.to_camel_case(nome))))
-    local titulo = "Guia de Programação Zenith v0.3"
-    print((tostring("Slugify: ") .. tostring(text.slugify(titulo))))
-    print("\
---- Testando Segurança e UI ---")
-    local card = "1234567890123456"
-    print((tostring("Mascara: ") .. tostring(text.mask(card, 4, 4))))
-    local longo = "Este é um texto muito longo que deve ser cortado."
-    print((tostring("Truncate: ") .. tostring(text.truncate(longo, 20))))
-    print("\
---- Fim dos testes de TEXT ---")
+    print("--- Testando Módulo std.os ---")
+    print((tostring("Versão do Zenith: ") .. tostring(os.version)))
+    print((tostring("Plataforma: ") .. tostring(os.platform)))
+    print((tostring("Arquitetura: ") .. tostring(os.arch)))
+    print("--- Testando Variáveis de Ambiente ---")
+    local user = zt.unwrap_or(os.get_env_variable("USERNAME"), "desconhecido")
+    print((tostring("Usuário atual: ") .. tostring(user)))
+    local envs = os.get_all_env_variables()
+    print((tostring("Total de variáveis de ambiente: ") .. tostring(#(envs))))
+    print("--- Testando Informações de Hardware ---")
+    local hw = os.get_hardware_info()
+    print((tostring("Processador: ") .. tostring(hw.cpu)))
+    print((tostring((tostring("RAM: ") .. tostring(hw.ram_gb))) .. tostring(" GB")))
+    print("--- Testando Caminhos ---")
+    print((tostring("Trabalhando em: ") .. tostring(os.get_working_dir())))
+    print((tostring("Área de Trabalho: ") .. tostring(os.get_special_path(os.SpecialPath.Desktop))))
+    print("--- Testando Comandos ---")
+    local code = os.run_command("echo Hello from Zenith Command!")
+    print((tostring("Código de saída do echo: ") .. tostring(code)))
+    print("--- Testando Privilégios ---")
+    if os.is_admin() then
+        print("Rodando como Administrador")
+    else
+        print("Rodando como Usuário Normal")
+    end
+    print("--- Fim dos testes de OS ---")
     return 0
 end
 

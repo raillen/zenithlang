@@ -1,0 +1,48 @@
+-- tests/stdlib/test_text.zt
+import std.text
+
+pub func main() -> int
+    print("--- Testando Módulo std.text ---")
+
+    var frase = "  Zenith é Sensacional! 🍎  "
+    
+    -- 1. Transformação Básica
+    print("Original: [" + frase + "]")
+    print("Trim:     [" + text.trim(frase) + "]")
+    
+    var limpa = text.trim(frase)
+    print("Lower:    " + text.to_lower(limpa))
+    print("Reverse:  " + text.reverse(limpa))
+
+    -- 2. UTF-8 e Emojis
+    print("\n--- Testando UTF-8 e Emojis ---")
+    var br = "Ação e Reação"
+    print("Texto: " + br)
+    print("Caracteres (real): " + text.count_chars(br))
+    print("Sem acentos: " + text.clean_accents(br))
+    
+    var emo = "Olá 🌍!"
+    print("\nTexto: " + emo)
+    print("Tem emoji? " + text.is_emoji(emo))
+    print("Invertido: " + text.reverse(emo))
+
+    -- 3. Cases e Automação
+    print("\n--- Testando Cases ---")
+    var nome = "usuario_logado_hoje"
+    print("Snake: " + nome)
+    print("Camel: " + text.to_camel_case(nome))
+    
+    var titulo = "Guia de Programação Zenith v0.3"
+    print("Slugify: " + text.slugify(titulo))
+
+    -- 4. Segurança e UI
+    print("\n--- Testando Segurança e UI ---")
+    var card = "1234567890123456"
+    print("Mascara: " + text.mask(card, 4, 4))
+    
+    var longo = "Este é um texto muito longo que deve ser cortado."
+    print("Truncate: " + text.truncate(longo, 20))
+
+    print("\n--- Fim dos testes de TEXT ---")
+    return 0
+end

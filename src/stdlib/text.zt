@@ -1,0 +1,92 @@
+--- Biblioteca Padrão Zenith — Módulo Text
+--- Manipulação avançada de strings com suporte total a UTF-8.
+
+namespace std.text
+
+-- 🔡 TRANSFORMAÇÃO E CASE
+
+--- Converte o texto para MAIÚSCULAS (UTF-8 aware).
+pub func to_upper(t: text) -> text
+end
+
+--- Converte o texto para minúsculas (UTF-8 aware).
+pub func to_lower(t: text) -> text
+end
+
+--- Coloca a primeira letra em maiúscula.
+pub func capitalize(t: text) -> text
+end
+
+--- Remove espaços em branco do início e do fim.
+pub func trim(t: text) -> text
+end
+
+--- Inverte a ordem dos caracteres (correto para multi-byte).
+pub func reverse(t: text) -> text
+end
+
+--- Converte para snake_case (ex: "Nome Usuario" -> "nome_usuario").
+pub func to_snake_case(t: text) -> text
+end
+
+--- Converte para camelCase (ex: "nome_usuario" -> "nomeUsuario").
+pub func to_camel_case(t: text) -> text
+end
+
+--- Limpa o texto para uso em URLs (remove acentos e caracteres especiais).
+pub func slugify(t: text) -> text
+end
+
+--- Remove acentos brasileiros (ex: "Ação" -> "Acao").
+pub func clean_accents(t: text) -> text
+end
+
+-- 🔎 BUSCA E PREDICADOS
+
+--- Verifica se o texto contém a substring informada.
+pub func contains(t: text, search: text) -> bool
+end
+
+--- Verifica se o texto começa com o prefixo.
+pub func starts_with(t: text, prefix: text) -> bool
+end
+
+--- Verifica se o texto termina com o sufixo.
+pub func ends_with(t: text, suffix: text) -> bool
+end
+
+--- Verifica se o texto contém apenas números.
+pub func is_numeric(t: text) -> bool
+end
+
+--- Verifica se o texto contém Emojis.
+pub func is_emoji(t: text) -> bool
+end
+
+--- Retorna a quantidade real de caracteres (UTF-8), ignorando a contagem de bytes.
+pub func count_chars(t: text) -> int
+end
+
+-- 🔪 DIVISÃO E UNIÃO
+
+--- Divide o texto em uma lista usando um separador.
+pub func split(t: text, sep: text) -> list<text>
+end
+
+--- Une uma lista de textos usando um separador.
+pub func join(parts: list<text>, sep: text) -> text
+end
+
+--- Divide o texto em uma lista de linhas.
+pub func lines(t: text) -> list<text>
+end
+
+-- 🛡️ SEGURANÇA E UI
+
+--- Esconde parte do texto (ex: cartões, senhas).
+pub func mask(t: text, visible_start: int, visible_end: int, char: text = "*") -> text
+end
+
+--- Corta o texto se ele ultrapassar o limite, adicionando um sufixo.
+pub func truncate(t: text, max_len: int, suffix: text = "...") -> text
+end

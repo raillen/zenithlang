@@ -30,18 +30,28 @@ const Navbar = ({ activeSection, setActiveSection }) => {
         }}
       >
         {/* <!-- LOGO: Site Logo --> */}
-        <div data-z-id="navbar-logo-container" className="navbar-logo flex items-center gap-3 cursor-pointer" onClick={() => setActiveSection('home')}>
-          <img data-z-id="navbar-logo-img" src="/logo-with-text.svg" alt="Zenith" className="h-8 md:h-10 w-auto" />
+        <div 
+          data-z-id="navbar-logo-container" 
+          className="navbar-logo flex items-center gap-3 cursor-pointer focus-visible:outline-none" 
+          onClick={() => setActiveSection('home')}
+          role="button"
+          tabIndex={0}
+          aria-label="Zenith Home - Voltar para o início"
+          onKeyDown={(e) => e.key === 'Enter' && setActiveSection('home')}
+        >
+          <img data-z-id="navbar-logo-img" src="/logo-with-text.svg" alt="Zenith Logo" className="h-8 md:h-10 w-auto" />
         </div>
         
         {/* <!-- NAV: Menu Items (Desktop) --> */}
-        <ul data-z-id="navbar-menu" className="navbar-menu hidden md:flex items-center gap-1">
+        <ul data-z-id="navbar-menu" className="navbar-menu hidden md:flex items-center gap-1" role="menubar">
           {navItems.map((item) => (
-            <li data-z-id={`navbar-item-wrapper-${item.id}`} key={item.id}>
+            <li data-z-id={`navbar-item-wrapper-${item.id}`} key={item.id} role="none">
               <MagneticWrapper strength={0.3}>
                 <button
                   data-z-id={`navbar-item-btn-${item.id}`}
                   onClick={() => setActiveSection(item.id)}
+                  role="menuitem"
+                  aria-current={activeSection === item.id ? 'page' : undefined}
                   className={`navbar-item px-3 py-1.5 text-sm font-semibold rounded-full transition-all ${
                     activeSection === item.id 
                       ? 'bg-primary/10 text-primary' 
@@ -60,7 +70,9 @@ const Navbar = ({ activeSection, setActiveSection }) => {
           data-z-id="navbar-mobile-toggle"
           onClick={() => setIsMenuOpen(true)}
           className="flex md:hidden p-2 rounded-full hover:bg-black/5 text-neutral/60 transition-colors"
-          aria-label="Abrir Menu"
+          aria-label="Abrir Menu de Navegação"
+          aria-expanded={isMenuOpen}
+          aria-haspopup="true"
         >
           <List size={24} weight="bold" />
         </button>

@@ -165,14 +165,16 @@ const FeatureCard = ({ title, description, icon, className = "", horizontal = fa
       visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 20 } }
     }}
     className={`group relative bg-white border border-[#EAEAEA] rounded-[16px] p-8 md:p-10 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.04)] hover:border-[#D1D1D1] transition-all duration-500 ${className} ${horizontal ? 'flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-10' : 'flex flex-col gap-6'}`}
+    role="article"
+    aria-labelledby={`${props['data-z-id'] || 'feature-card'}-title`}
   >
-    <div data-z-id={`${props['data-z-id'] || 'feature-card'}-icon-container`} className="flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#FBFBFA] border border-[#EAEAEA] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-[#111111] group-hover:scale-105 transition-all duration-500 shrink-0">
+    <div data-z-id={`${props['data-z-id'] || 'feature-card'}-icon-container`} className="flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#FBFBFA] border border-[#EAEAEA] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-[#111111] group-hover:scale-105 transition-all duration-500 shrink-0" aria-hidden="true">
       {icon}
     </div>
     <div data-z-id={`${props['data-z-id'] || 'feature-card'}-content`} className="flex flex-col gap-2.5 flex-1">
-      <h3 data-z-id={`${props['data-z-id'] || 'feature-card'}-title`} className="text-[1.25rem] font-semibold tracking-tight text-[#111111] leading-tight">
+      <h2 data-z-id={`${props['data-z-id'] || 'feature-card'}-title`} id={`${props['data-z-id'] || 'feature-card'}-title`} className="text-[1.25rem] font-semibold tracking-tight text-[#111111] leading-tight">
         {title}
-      </h3>
+      </h2>
       <p data-z-id={`${props['data-z-id'] || 'feature-card'}-description`} className="text-[15px] text-[#787774] font-normal leading-relaxed max-w-[55ch]">
         {description}
       </p>

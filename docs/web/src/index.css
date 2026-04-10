@@ -33,6 +33,18 @@
     position: relative;
     -webkit-font-smoothing: antialiased;
   }
+
+  /* Accessibility: Visible Focus for Keyboard Navigation */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+
+  /* Hide focus ring when using mouse but keep for keyboard */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 /* Custom Utilities / Components */

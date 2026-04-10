@@ -39,6 +39,7 @@ export interface IDESettings {
   autoSave: 'off' | 'onFocusChange' | 'afterDelay';
   restoreSession: boolean;
   uiScale: number;
+  keymap: Record<string, string>;
 }
 
 interface WorkspaceState {
@@ -89,7 +90,15 @@ const DEFAULT_SETTINGS: IDESettings = {
   editorFormatOnSave: false,
   autoSave: 'off',
   restoreSession: true,
-  uiScale: 1
+  uiScale: 1,
+  keymap: {
+    "ctrl+shift+p": "zenith.workbench.action.showCommands",
+    "ctrl+shift+f": "zenith.workbench.action.findInFiles",
+    "ctrl+shift+o": "zenith.workbench.action.openFolder",
+    "ctrl+o": "zenith.workbench.action.openFile",
+    "ctrl+p": "zenith.workbench.action.quickOpen",
+    "ctrl+,": "zenith.workbench.action.openSettings"
+  }
 };
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -160,7 +169,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           }
       });
 
-      const finalSettings = { ...DEFAULT_SETTINGS, ...loadedSettings };
+      const finalSettings = { 
+          ...DEFAULT_SETTINGS, 
+          ...loadedSettings,
+          keymap: { ...DEFAULT_SETTINGS.keymap, ...(loadedSettings.keymap || {}) }
+      };
       set({ settings: finalSettings });
       
       // Bootstrap theme

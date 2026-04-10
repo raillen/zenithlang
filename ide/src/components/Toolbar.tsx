@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Play, Square, Hammer, ChevronRight, Layout, Settings } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
-import { ZenithMenu } from "./ZenithMenu";
+import { useCommandStore } from "../store/useCommandStore";
 import { useTranslation } from "../utils/i18n";
-import { SettingsDialog } from "./SettingsDialog";
+import { ZenithMenu } from "./ZenithMenu";
 
 export function Toolbar() {
   const { dirtyFiles, activeFile, setBottomPanelOpen, isBottomPanelOpen } = useWorkspaceStore();
   const [isRunning, setIsRunning] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { setSettingsOpen } = useCommandStore();
   const { t } = useTranslation();
 
   const handleRun = async () => {
@@ -88,7 +88,7 @@ export function Toolbar() {
           
           <button 
             title={t('toolbar.settings_tooltip')}
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => setSettingsOpen(true)}
             className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-ide-text-dim"
           >
             <Settings size={14} />
@@ -105,8 +105,6 @@ export function Toolbar() {
           <Layout size={16} />
         </button>
       </div>
-
-      {isSettingsOpen && <SettingsDialog onClose={() => setIsSettingsOpen(false)} />}
     </header>
   );
 }

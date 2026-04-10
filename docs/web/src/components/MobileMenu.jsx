@@ -3,6 +3,15 @@ import { motion } from 'framer-motion';
 import { X } from '@phosphor-icons/react';
 
 const MobileMenu = ({ isOpen, onClose, navItems, activeSection, setActiveSection }) => {
+  // ESC to close
+  React.useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
   const menuVariants = {
     closed: { 
       opacity: 0,
@@ -35,11 +44,14 @@ const MobileMenu = ({ isOpen, onClose, navItems, activeSection, setActiveSection
       exit="closed"
       variants={menuVariants}
       className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu de Navegação Mobile"
     >
       {/* Close Button */}
       <button 
         onClick={onClose}
-        className="absolute top-8 right-8 p-3 rounded-full bg-black/5 text-neutral hover:bg-black/10 transition-colors"
+        className="absolute top-8 right-8 p-3 rounded-full bg-black/5 text-neutral hover:bg-black/10 transition-colors outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
         aria-label="Fechar Menu"
       >
         <X size={24} weight="bold" />

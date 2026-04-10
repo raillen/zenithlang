@@ -283,6 +283,131 @@ fn get_git_status() -> Result<HashMap<String, String>, String> {
     Ok(status_map)
 }
 
+#[derive(Serialize)]
+struct SearchMatch {
+    line_number: usize,
+    line_content: String,
+}
+
+#[derive(Serialize)]
+struct FileResult {
+    file_path: String,
+    matches: Vec<SearchMatch>,
+}
+
+#[tauri::command]
+fn search_in_files(query: String, is_regex: bool, match_case: bool) -> Result<Vec<FileResult>, String> {
+    let mut all_results = Vec::new();
+    let root = workspace_root();
+
+    let query_lower = if !match_case { query.to_lowercase() } else { query.clone() };
+
+    let mut dirs_to_visit = vec![root.clone()];
+    
+    let re = if is_regex {
+        // We reuse the regex dependency
+        match regex::RegexBuilder::new(&query).case_insensitive(!match_case).build() {
+            Ok(r) => Some(r),
+            Err(e) => return Err(format!("Invalid regex: {}", e)),
+        }
+    } else {
+        None
+    };
+
+    while let Some(current_dir) = dirs_to_visit.pop() {
+        if let Ok(entries) = fs::read_dir(&current_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+
+                if name == ".git" || name == "node_modules" || name == "target" || name == "dist" || name == ".tauri" || name.ends_with(".db") || name.ends_with(".png") || name.ends_with(".jpg") || name.ends_with(".woff2") {
+                    continue; 
+                }
+
+                if path.is_dir() {
+                    dirs_to_visit.push(path);
+                } else {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        let mut file_matches = Vec::new();
+                        for (i, line) in content.lines().enumerate() {
+                            let matched = if let Some(ref r) = re {
+                                r.is_match(line)
+                            } else if match_case {
+                                line.contains(&query)
+                            } else {
+                                line.to_lowercase().contains(&query_lower)
+                            };
+
+                            if matched {
+                                file_matches.push(SearchMatch {
+                                    line_number: i + 1,
+                                    line_content: line.trim().to_string(), // Trimming whitespace limits frontend rendering mess
+                                });
+                            }
+                        }
+
+                        if !file_matches.is_empty() {
+                            let clean_path = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy().to_string();
+                            all_results.push(FileResult {
+                                file_path: clean_path.replace("\\", "/"),
+                                matches: file_matches,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    all_results.sort_by(|a, b| a.file_path.cmp(&b.file_path));
+    
+    Ok(all_results)
+}
+
+#[derive(Serialize)]
+struct FileNameResult {
+    name: String,
+    path: String,
+}
+
+#[tauri::command]
+fn search_file_names(query: String) -> Result<Vec<FileNameResult>, String> {
+    let mut all_results = Vec::new();
+    let root = workspace_root();
+
+    let query_lower = query.to_lowercase();
+    let mut dirs_to_visit = vec![root.clone()];
+    
+    while let Some(current_dir) = dirs_to_visit.pop() {
+        if let Ok(entries) = fs::read_dir(&current_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+
+                if name == ".git" || name == "node_modules" || name == "target" || name == "dist" || name == ".tauri" || name.ends_with(".db") || name.ends_with(".png") || name.ends_with(".jpg") || name.ends_with(".woff2") {
+                    continue; 
+                }
+
+                if path.is_dir() {
+                    dirs_to_visit.push(path);
+                } else {
+                    if query_lower.is_empty() || name.to_lowercase().contains(&query_lower) {
+                         let clean_path = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy().to_string();
+                         all_results.push(FileNameResult {
+                             name,
+                             path: clean_path.replace("\\", "/"),
+                         });
+                    }
+                }
+            }
+        }
+    }
+
+    all_results.sort_by(|a, b| a.name.cmp(&b.name));
+    all_results.truncate(100);
+    Ok(all_results)
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Zenith App!", name)
@@ -591,6 +716,8 @@ pub fn run() {
             pick_file,
             pick_folder,
             pick_save_path,
+            search_in_files,
+            search_file_names,
             terminal_create,
             terminal_write,
             terminal_resize,

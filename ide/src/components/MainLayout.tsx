@@ -3,6 +3,10 @@ import { Toolbar } from "./Toolbar";
 import { FileNavigator } from "./FileNavigator";
 import { TerminalPanel } from "./TerminalPanel";
 import { ProblemsPanel } from "./ProblemsPanel";
+import { GlobalSearch } from "./GlobalSearch";
+import { CommandPalette } from "./CommandPalette";
+import { SettingsDialog } from "./SettingsDialog";
+import { useCommandStore } from "../store/useCommandStore";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { Files, Search, GitBranch, Bug, AlertCircle } from "lucide-react";
 import { useTranslation } from "../utils/i18n";
@@ -18,9 +22,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     setBottomTab,
     diagnosticsMap
   } = useWorkspaceStore();
+  const { isSettingsOpen, setSettingsOpen } = useCommandStore();
   const { t } = useTranslation();
 
-  const problemCount = Object.values(diagnosticsMap).reduce((acc, curr) => acc + curr.length, 0);
+  const problemCount = Object.values(diagnosticsMap).reduce((acc, curr) => acc + (Array.isArray(curr) ? curr.length : 0), 0);
 
   const handleTabClick = (tab: string) => {
     if (activeSidebarTab === tab) {
@@ -54,8 +59,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-ide-text-dim border-b border-ide-border transition-colors duration-200">
                   {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
                 </div>
-                <div className="flex-1 overflow-auto">
-                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-ide-text-dim text-center italic">{t('common.coming_soon')}</div>}
+                <div className="flex-1 overflow-hidden h-full flex flex-col">
+                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : activeSidebarTab === 'search' ? <GlobalSearch /> : <div className="p-8 text-[11px] text-ide-text-dim text-center italic">{t('common.coming_soon')}</div>}
                 </div>
               </Panel>
 
@@ -104,6 +109,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       <StatusBar />
+      <CommandPalette />
+      {isSettingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
