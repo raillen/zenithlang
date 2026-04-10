@@ -25,9 +25,16 @@ const categoryIcons = {
   'Histórico': <Scroll weight="duotone" className="w-4 h-4" />
 };
 
-const Sidebar = ({ sections, currentDoc, onDocSelect }) => {
+const Sidebar = ({ sections, currentDoc, onDocSelect, isMobile = false }) => {
   return (
-    <aside data-z-id="sidebar-container" className="doc-sidebar w-64 h-[calc(100vh-64px)] overflow-y-auto glass-premium border-r border-black/5 px-6 py-10 sticky top-16">
+    <aside 
+      data-z-id="sidebar-container" 
+      className={`doc-sidebar overflow-y-auto px-6 py-10 transition-all ${
+        isMobile 
+          ? 'w-full h-full pb-32' 
+          : 'w-64 h-[calc(100vh-64px)] glass-premium border-r border-black/5 sticky top-16'
+      }`}
+    >
       {/* Search Trigger */}
       <button 
         data-z-id="sidebar-search-trigger"

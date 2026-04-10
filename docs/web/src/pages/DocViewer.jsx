@@ -50,6 +50,7 @@ const DocViewer = ({ section, requestedDoc }) => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const articleRef = useRef(null);
 
   // Achatando estrutura para navegação linear
@@ -151,6 +152,7 @@ const DocViewer = ({ section, requestedDoc }) => {
   const handleDocSelect = (doc) => {
     setCurrentDoc(doc);
     loadDoc(doc.path);
+    setIsMobileSidebarOpen(false);
   };
 
   const currentIndex = sectionDocs.findIndex(d => d.path === currentDoc?.path);
@@ -158,28 +160,63 @@ const DocViewer = ({ section, requestedDoc }) => {
   const nextDoc = currentIndex < sectionDocs.length - 1 ? sectionDocs[currentIndex + 1] : null;
 
   return (
-    <div data-z-id="docviewer-page" className="page-doc-viewer flex w-full bg-[#ECEEEE] transition-all duration-500">
+    <div data-z-id="docviewer-page" className="page-doc-viewer flex w-full bg-[#ECEEEE] transition-all duration-500 relative">
       <ReadingProgressBar />
+      
+      {/* MOBILE SIDEBAR OVERLAY */}
       <AnimatePresence>
-        {!isZenMode && (
-          <motion.aside 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            data-z-id="docviewer-sidebar-wrapper" 
-            className="doc-sidebar shrink-0"
-          >
-            <Sidebar 
-              sections={DOCS_STRUCTURE[section] || []} 
-              currentDoc={currentDoc}
-              onDocSelect={handleDocSelect}
+        {isMobileSidebarOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] lg:hidden"
             />
-          </motion.aside>
+            <motion.div
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed left-0 top-0 bottom-0 w-[280px] bg-white z-[70] lg:hidden shadow-2xl"
+            >
+              <Sidebar 
+                sections={DOCS_STRUCTURE[section] || []} 
+                currentDoc={currentDoc}
+                onDocSelect={handleDocSelect}
+                isMobile={true}
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
+
+      {/* DESKTOP SIDEBAR */}
+      {!isZenMode && (
+        <aside 
+          data-z-id="docviewer-sidebar-wrapper" 
+          className="doc-sidebar shrink-0 hidden lg:block"
+        >
+          <Sidebar 
+            sections={DOCS_STRUCTURE[section] || []} 
+            currentDoc={currentDoc}
+            onDocSelect={handleDocSelect}
+          />
+        </aside>
+      )}
       
-      <main data-z-id="docviewer-main-content" className={`doc-content flex-1 px-6 py-12 md:px-16 md:py-16 mx-auto min-h-[calc(100vh-64px)] relative transition-all duration-500 ${isZenMode ? 'max-w-3xl' : 'max-w-4xl'}`}>
-        <div data-z-id="docviewer-breadcrumbs-wrapper" className="doc-breadcrumbs mb-8 flex items-center justify-between">
+      <main data-z-id="docviewer-main-content" className={`doc-content flex-1 px-6 py-10 md:px-16 md:py-16 mx-auto min-h-[calc(100vh-64px)] relative transition-all duration-500 w-full ${isZenMode ? 'max-w-3xl' : 'max-w-4xl'}`}>
+        {/* Floating Mobile Toggle */}
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="lg:hidden fixed bottom-8 right-8 z-50 bg-[#111111] text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0-16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
+          <span className="text-sm font-bold pr-2">Tópicos</span>
+        </button>
+
+        <div data-z-id="docviewer-breadcrumbs-wrapper" className="doc-breadcrumbs mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Breadcrumbs 
             section={section} 
             category={currentDoc?.category} 
@@ -218,7 +255,7 @@ const DocViewer = ({ section, requestedDoc }) => {
                          prose-headings:font-display prose-headings:text-neutral
                          prose-pre:bg-[#FAFAFA] prose-pre:border prose-pre:border-black/5 prose-pre:shadow-sm
                          prose-a:text-primary hover:prose-a:text-primary-hover transition-colors
-                         prose-img:rounded-3xl prose-blockquote:rounded-r-xl"
+                         prose-img:rounded-3xl prose-blockquote:rounded-r-xl w-full overflow-x-hidden"
               dangerouslySetInnerHTML={{ __html: content }} 
             />
             
@@ -240,19 +277,15 @@ const DocViewer = ({ section, requestedDoc }) => {
         )}
       </main>
 
-      <AnimatePresence>
-        {!isZenMode && (
-          <motion.aside 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            data-z-id="docviewer-toc-wrapper" 
-            className="doc-toc shrink-0"
-          >
-            <TableOfContents content={content} />
-          </motion.aside>
-        )}
-      </AnimatePresence>
+      {/* TOC Sidebar - Hidden on Tablet/Mobile */}
+      {!isZenMode && (
+        <aside 
+          data-z-id="docviewer-toc-wrapper" 
+          className="doc-toc shrink-0 hidden xl:block w-64"
+        >
+          <TableOfContents content={content} />
+        </aside>
+      )}
     </div>
   );
 };

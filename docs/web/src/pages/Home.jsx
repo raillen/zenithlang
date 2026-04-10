@@ -57,52 +57,53 @@ const Home = ({ onNavigate }) => {
         <motion.div 
           data-z-id="home-hero-container"
           variants={containerVariants}
-          className="flex flex-col md:flex-row items-center md:items-start justify-between gap-16 md:gap-24"
+          className="flex flex-col md:flex-row items-center md:items-start justify-between gap-12 md:gap-24"
         >
           {/* Left Column: Typography */}
-          <div data-z-id="home-hero-content" className="flex-1 flex flex-col items-start gap-8 w-full max-w-[600px]">
+          <div data-z-id="home-hero-content" className="flex-1 flex flex-col items-center md:items-start text-center md:text-left gap-8 w-full max-w-[600px]">
             <motion.div data-z-id="home-hero-badge" variants={itemVariants} className="flex items-center gap-4 mb-2">
-              <img data-z-id="home-hero-logo" src="/logo-only.svg" alt="Zenith Logo" className="w-10 h-auto grayscale opacity-60" />
-              <div data-z-id="home-hero-divider" className="h-[1px] w-8 bg-black/10"></div>
-              <span data-z-id="home-hero-version" className="text-[11px] font-mono font-semibold tracking-[0.2em] text-neutral/40 uppercase">v0.2 Milestone</span>
+              <img data-z-id="home-hero-logo" src="/logo-only.svg" alt="Zenith Logo" className="w-8 md:w-10 h-auto grayscale opacity-60" />
+              <div data-z-id="home-hero-divider" className="h-[1px] w-6 md:w-8 bg-black/10"></div>
+              <span data-z-id="home-hero-version" className="text-[10px] md:text-[11px] font-mono font-semibold tracking-[0.2em] text-neutral/40 uppercase">v0.2 Milestone</span>
             </motion.div>
 
             <motion.h1
               data-z-id="home-hero-title"
               variants={itemVariants}
-              className="-mt-4 text-5xl md:text-[5.5rem] font-semibold tracking-[-0.02em] text-[#111111] leading-[1.05]"
-            >              Performance.<br />
+              className="-mt-4 text-4xl sm:text-5xl md:text-[5.5rem] font-semibold tracking-[-0.02em] text-[#111111] leading-[1.05]"
+            >
+              Performance.<br />
               Cognição.<br />
-              <span data-z-id="home-hero-title-highlight" className="font-serif italic text-primary pr-4 font-normal">Zenith.</span>
+              <span data-z-id="home-hero-title-highlight" className="font-serif italic text-primary pr-2 md:pr-4 font-normal">Zenith.</span>
             </motion.h1>
 
             <motion.p 
               data-z-id="home-hero-description"
               variants={itemVariants}
-              className="-mt-6 text-[20px] md:text-[22px] text-[#787774] font-serif leading-[1.6] max-w-[42ch]"
+              className="-mt-4 md:-mt-6 text-[18px] md:text-[22px] text-[#787774] font-serif leading-[1.6] max-w-[42ch]"
             >
               A linguagem de programação projetada para o cérebro moderno. Otimizada para jogos, automação e mínimo esforço cognitivo.
             </motion.p>
             
-            <motion.div data-z-id="home-hero-actions" variants={itemVariants} className="flex flex-wrap items-center gap-4 -mt-2 w-full">
-              <MagneticWrapper strength={0.4}>
+            <motion.div data-z-id="home-hero-actions" variants={itemVariants} className="flex flex-col sm:flex-row items-center gap-4 -mt-2 w-full">
+              <MagneticWrapper strength={0.4} className="w-full sm:w-auto">
                 <motion.button 
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   data-z-id="home-hero-btn-docs" 
                   onClick={() => onNavigate('handbook')}
-                  className="group flex items-center justify-center gap-2 bg-[#111111] text-white px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-[#333333] hover:shadow-xl hover:shadow-black/10 w-full sm:w-auto"
+                  className="group flex items-center justify-center gap-2 bg-[#111111] text-white px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-[#333333] hover:shadow-xl hover:shadow-black/10 w-full"
                 >
                   Ler Documentação
                   <ArrowRight data-z-id="home-hero-btn-docs-icon" weight="bold" className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
               </MagneticWrapper>
-              <MagneticWrapper strength={0.4}>
+              <MagneticWrapper strength={0.4} className="w-full sm:w-auto">
                 <motion.button 
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   data-z-id="home-hero-btn-github" 
-                  className="group flex items-center justify-center gap-2 bg-white/50 backdrop-blur-sm text-[#111111] border border-[#EAEAEA] px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-white hover:border-[#D1D1D1] hover:shadow-lg hover:shadow-black/5 w-full sm:w-auto"
+                  className="group flex items-center justify-center gap-2 bg-white/50 backdrop-blur-sm text-[#111111] border border-[#EAEAEA] px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-white hover:border-[#D1D1D1] hover:shadow-lg hover:shadow-black/5 w-full"
                 >
                   <GithubLogo data-z-id="home-hero-btn-github-icon" weight="fill" className="w-5 h-5" />
                   GitHub
@@ -111,11 +112,11 @@ const Home = ({ onNavigate }) => {
             </motion.div>
           </div>
 
-          {/* Right Column: Interactive 3D Representation */}
+          {/* Right Column: Terminal Representation (Now visible on mobile/tablets but below) */}
           <motion.div 
             data-z-id="home-hero-illustration-wrapper" 
             variants={itemVariants} 
-            className="flex-1 w-full relative hidden lg:flex items-center justify-center bg-white/5 rounded-[32px] border border-black/5 shadow-premium overflow-hidden min-h-[480px]"
+            className="flex-1 w-full relative flex items-center justify-center bg-white/5 rounded-[24px] md:rounded-[32px] border border-black/5 shadow-premium overflow-hidden min-h-[400px] md:min-h-[480px]"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-30" />
             <ZenithTerminal2D />
