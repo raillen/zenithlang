@@ -15,7 +15,9 @@ const CustomCursor = () => {
     const moveCursor = (e) => {
       cursorX.set(e.clientX);
       cursorY.set(e.clientY);
-      
+    };
+
+    const handleOver = (e) => {
       const target = e.target;
       const computedStyle = window.getComputedStyle(target);
       
@@ -31,9 +33,14 @@ const CustomCursor = () => {
       }
     };
 
-    window.addEventListener('mousemove', moveCursor);
-    return () => window.removeEventListener('mousemove', moveCursor);
-  }, []);
+    window.addEventListener('mousemove', moveCursor, { passive: true });
+    window.addEventListener('mouseover', handleOver);
+    
+    return () => {
+      window.removeEventListener('mousemove', moveCursor);
+      window.removeEventListener('mouseover', handleOver);
+    };
+  }, [cursorX, cursorY]);
 
   const variants = {
     default: {

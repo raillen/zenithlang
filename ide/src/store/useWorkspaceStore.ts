@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import Database from '@tauri-apps/plugin-sql';
+import { THEMES, defaultLight } from '../themes';
+import { applyThemeToDOM } from '../utils/themeEngine';
 
 export interface FileEntry {
   name: string;
@@ -16,10 +18,27 @@ export interface Diagnostic {
   code: string;
 }
 
+export interface ExtensionConfig {
+  compilerPath: string;
+  lspPath: string;
+  buildCommand: string;
+  isEnabled: boolean;
+}
+
 export interface IDESettings {
   language: 'pt' | 'en' | 'es';
-  theme: 'light' | 'dark';
-  compilerPath: string;
+  theme: string;
+  extensions: Record<string, ExtensionConfig>;
+  editorWordWrap: boolean;
+  editorMinimap: boolean;
+  editorFontSize: number;
+  editorFontFamily: string;
+  editorFontLigatures: boolean;
+  editorCursorBlinking: 'blink' | 'smooth' | 'phase' | 'expand' | 'solid';
+  editorFormatOnSave: boolean;
+  autoSave: 'off' | 'onFocusChange' | 'afterDelay';
+  restoreSession: boolean;
+  uiScale: number;
 }
 
 interface WorkspaceState {
@@ -52,8 +71,25 @@ interface WorkspaceState {
 
 const DEFAULT_SETTINGS: IDESettings = {
   language: 'pt',
-  theme: 'light',
-  compilerPath: 'ztc.lua'
+  theme: 'light-retina',
+  extensions: {
+    "zenith": {
+      compilerPath: "ztc.lua",
+      lspPath: "",
+      buildCommand: "lua ztc.lua build",
+      isEnabled: true
+    }
+  },
+  editorWordWrap: true,
+  editorMinimap: false,
+  editorFontSize: 13,
+  editorFontFamily: '"JetBrains Mono", Menlo, Monaco, "Courier New", monospace',
+  editorFontLigatures: true,
+  editorCursorBlinking: 'smooth',
+  editorFormatOnSave: false,
+  autoSave: 'off',
+  restoreSession: true,
+  uiScale: 1
 };
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -82,13 +118,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const updated = { ...get().settings, ...newSettings };
     set({ settings: updated });
     
+    if (newSettings.theme) {
+      applyThemeToDOM(THEMES[newSettings.theme] || defaultLight);
+    }
+    
     // Persist to SQLite
     try {
       const db = await Database.load("sqlite:zenith.db");
       for (const [key, value] of Object.entries(newSettings)) {
+        const valToSave = typeof value === 'object' && value !== null ? JSON.stringify(value) : value;
         await db.execute(
           "INSERT OR REPLACE INTO settings (key, value) VALUES ($1, $2)",
-          [key, value]
+          [key, valToSave]
         );
       }
     } catch (err) {
@@ -104,11 +145,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const loadedSettings: Partial<IDESettings> = {};
       rows.forEach(row => {
           if (row.key in DEFAULT_SETTINGS) {
-              (loadedSettings as any)[row.key] = row.value;
+              const defaultVal = (DEFAULT_SETTINGS as any)[row.key];
+              let val: any = row.value;
+              if (typeof defaultVal === 'boolean') val = val === 'true';
+              else if (typeof defaultVal === 'number') val = Number(val);
+              else if (typeof defaultVal === 'object' && defaultVal !== null) {
+                  try {
+                      val = JSON.parse(val);
+                  } catch (e) {
+                      val = defaultVal;
+                  }
+              }
+              (loadedSettings as any)[row.key] = val;
           }
       });
 
-      set({ settings: { ...DEFAULT_SETTINGS, ...loadedSettings } });
+      const finalSettings = { ...DEFAULT_SETTINGS, ...loadedSettings };
+      set({ settings: finalSettings });
+      
+      // Bootstrap theme
+      applyThemeToDOM(THEMES[finalSettings.theme] || defaultLight);
     } catch (err) {
       console.error("Failed to load settings from SQLite", err);
     }

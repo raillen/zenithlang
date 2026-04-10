@@ -507,7 +507,7 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.BINARY_EXPR then
         local op_map = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["=="] = "==", ["!="] = "~=", ["and"] = "and", ["or"] = "or", ["+"] = ".." }
         local op = node.operator.lexeme
-        if op == "+" then return string.format("(%s .. %s)", self:_eval(node.left), self:_eval(node.right))
+        if op == "+" then return string.format("(tostring(%s) .. tostring(%s))", self:_eval(node.left), self:_eval(node.right))
         elseif op == "or" then return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right)) end
         return string.format("(%s %s %s)", self:_eval(node.left), op_map[op] or op, self:_eval(node.right))
     elseif node.kind == SK.UNARY_EXPR then

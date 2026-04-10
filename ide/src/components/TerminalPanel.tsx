@@ -4,6 +4,8 @@ import { FitAddon } from 'xterm-addon-fit';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '../utils/tauri';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
+import { getTerminalTheme } from '../utils/themeEngine';
+import { THEMES, defaultLight } from '../themes';
 import 'xterm/css/xterm.css';
 
 interface TerminalDataPayload {
@@ -16,38 +18,19 @@ export function TerminalPanel() {
   const xtermRef = useRef<Terminal|null>(null);
   const sessionIdRef = useRef<number|null>(null);
   const { settings } = useWorkspaceStore();
-  const isDarkMode = settings.theme === 'dark';
+  
+  const currentThemeObj = THEMES[settings.theme] || defaultLight;
 
   useEffect(() => {
     if (xtermRef.current) {
-        xtermRef.current.options.theme = isDarkMode ? {
-           background: 'transparent',
-           foreground: '#e4e4e7', // zinc-200
-           cursor: '#fafafa',
-           selectionBackground: 'rgba(255, 255, 255, 0.2)',
-        } : {
-           background: 'transparent',
-           foreground: '#3f3f46', // zinc-600
-           cursor: '#18181b',
-           selectionBackground: 'rgba(0, 0, 0, 0.1)',
-        };
+        xtermRef.current.options.theme = getTerminalTheme(currentThemeObj);
     }
-  }, [isDarkMode]);
+  }, [currentThemeObj]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    const initialTheme = isDarkMode ? {
-       background: 'transparent',
-       foreground: '#e4e4e7', // zinc-200
-       cursor: '#fafafa',
-       selectionBackground: 'rgba(255, 255, 255, 0.2)',
-    } : {
-       background: 'transparent',
-       foreground: '#3f3f46', // zinc-600
-       cursor: '#18181b',
-       selectionBackground: 'rgba(0, 0, 0, 0.1)',
-    };
+    const initialTheme = getTerminalTheme(currentThemeObj);
 
     // Initialize xterm
     const term = new Terminal({

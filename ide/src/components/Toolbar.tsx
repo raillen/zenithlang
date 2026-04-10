@@ -40,8 +40,8 @@ export function Toolbar() {
 
       {/* Project Status & Actions (Center-Right weighted) */}
       <div className="flex-1 max-w-2xl flex items-center gap-2">
-        <div className="flex-1 bg-black/[0.03] rounded-md h-7 border border-black/[0.05] flex items-center px-3 gap-2 overflow-hidden">
-          <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-600 truncate">
+        <div className="flex-1 bg-ide-bg rounded-md h-7 border border-ide-border flex items-center px-3 gap-2 overflow-hidden">
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-ide-text-dim truncate">
             <span className="opacity-40">Zenith</span>
             <ChevronRight size={10} className="opacity-20" />
             <span className="opacity-40">v0.2</span>
@@ -60,7 +60,7 @@ export function Toolbar() {
             ) : (
               <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">{t('toolbar.ready')}</span>
+                  <span className="text-[9px] text-ide-text-dim font-bold uppercase tracking-wider">{t('toolbar.ready')}</span>
               </div>
             )}
           </div>
@@ -72,13 +72,13 @@ export function Toolbar() {
             onClick={handleRun}
             disabled={isRunning || !activeFile}
             title={t('toolbar.run_tooltip')}
-            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${isRunning ? 'bg-amber-500/10 text-amber-600' : 'hover:bg-black/5 text-zinc-600 active:scale-95 disabled:opacity-30'}`}
+            className={`p-1.5 rounded-md transition-all flex items-center justify-center ${isRunning ? 'bg-primary/20 text-primary' : 'hover:bg-black/5 text-ide-text-dim active:scale-95 disabled:opacity-30'}`}
           >
             {isRunning ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
           </button>
           <button 
             title={t('toolbar.build_tooltip')}
-            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-zinc-600 disabled:opacity-30"
+            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-ide-text-dim disabled:opacity-30"
             disabled={!activeFile}
           >
             <Hammer size={14} />
@@ -89,7 +89,7 @@ export function Toolbar() {
           <button 
             title={t('toolbar.settings_tooltip')}
             onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-zinc-500"
+            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-ide-text-dim"
           >
             <Settings size={14} />
           </button>
@@ -100,7 +100,7 @@ export function Toolbar() {
       <div className="w-1/4 flex justify-end gap-1 px-4">
         <button 
           onClick={() => setBottomPanelOpen(!isBottomPanelOpen)}
-          className={`p-1.5 rounded-md transition-colors ${isBottomPanelOpen ? 'bg-primary/10 text-primary' : 'hover:bg-black/5 text-zinc-400'}`}
+          className={`p-1.5 rounded-md transition-colors ${isBottomPanelOpen ? 'bg-primary/10 text-primary' : 'hover:bg-black/5 text-ide-text-dim'}`}
         >
           <Layout size={16} />
         </button>

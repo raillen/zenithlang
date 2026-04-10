@@ -4,12 +4,23 @@ import { useWorkspaceStore, FileEntry, Diagnostic } from "../store/useWorkspaceS
 import { invoke } from "../utils/tauri";
 import { TabManager } from "./TabManager";
 import { registerZenithLanguage } from "../utils/zenithLang";
+import { THEMES, defaultLight } from "../themes";
+import { getMonacoTheme } from "../utils/themeEngine";
 
 export function EditorPanel() {
   const { activeFile, setFileDirty, setDiagnostics, diagnosticsMap } = useWorkspaceStore();
   const [content, setContent] = useState("");
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
+  const { settings } = useWorkspaceStore();
+  const currentThemeObj = THEMES[settings.theme] || defaultLight;
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.defineTheme('zenith-dynamic', getMonacoTheme(currentThemeObj));
+      monacoRef.current.editor.setTheme('zenith-dynamic');
+    }
+  }, [currentThemeObj]);
 
   useEffect(() => {
     async function loadFile() {
@@ -74,6 +85,9 @@ export function EditorPanel() {
     editorRef.current = editor;
     monacoRef.current = monaco;
     registerZenithLanguage(monaco);
+    
+    monaco.editor.defineTheme('zenith-dynamic', getMonacoTheme(currentThemeObj));
+    monaco.editor.setTheme('zenith-dynamic');
 
     // Save Shortcut
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
@@ -99,13 +113,13 @@ export function EditorPanel() {
 
   if (!activeFile) {
     return (
-      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      <div className="flex-1 flex flex-col bg-ide-bg transition-colors duration-200 overflow-hidden">
         <TabManager />
-        <div className="flex-1 flex flex-col items-center justify-center text-zinc-300 select-none">
-          <div className="w-20 h-20 rounded-3xl bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-6">
-              <span className="text-5xl opacity-20 italic font-serif">Z</span>
+        <div className="flex-1 flex flex-col items-center justify-center text-ide-text-dim select-none">
+          <div className="w-20 h-20 rounded-3xl bg-ide-panel border border-ide-border flex items-center justify-center mb-6">
+              <span className="text-5xl opacity-20 italic font-serif text-ide-text">Z</span>
           </div>
-          <h2 className="text-lg font-bold tracking-tight text-zinc-400">Zenith IDE Retina</h2>
+          <h2 className="text-lg font-bold tracking-tight text-ide-text-dim">Zenith IDE Retina</h2>
           <p className="text-[11px] mt-2 opacity-50 uppercase tracking-widest font-medium">Select a file to begin crafting</p>
         </div>
       </div>
@@ -115,30 +129,33 @@ export function EditorPanel() {
   const file = activeFile as FileEntry;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-ide-bg transition-colors duration-200">
       <TabManager />
       
       {/* Breadcrumbs */}
-      <div className="h-7 px-4 flex items-center bg-zinc-50 border-b border-black/[0.03] text-[10px] text-zinc-400 font-medium">
-        <span className="opacity-50 hover:text-zinc-600 cursor-default">Project</span>
+      <div className="h-7 px-4 flex items-center bg-ide-panel border-b border-ide-border text-[10px] text-ide-text-dim font-medium transition-colors duration-200">
+        <span className="opacity-50 hover:text-ide-text cursor-default">Project</span>
         <span className="mx-1.5 opacity-20">/</span>
-        <span className="opacity-50 hover:text-zinc-600 cursor-default">src</span>
+        <span className="opacity-50 hover:text-ide-text cursor-default">src</span>
         <span className="mx-1.5 opacity-20">/</span>
-        <span className="text-zinc-600">{file.name}</span>
+        <span className="text-ide-text">{file.name}</span>
       </div>
 
       <div className="flex-1 overflow-hidden relative">
         <Editor
           height="100%"
           defaultLanguage="zenith"
-          theme="vs-light" 
+          theme="zenith-dynamic" 
           value={content}
           onMount={handleEditorDidMount}
           onChange={handleEditorChange}
           options={{
-            minimap: { enabled: false },
-            fontSize: 13,
-            fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
+            minimap: { enabled: settings.editorMinimap },
+            fontSize: settings.editorFontSize,
+            fontFamily: settings.editorFontFamily,
+            fontLigatures: settings.editorFontLigatures,
+            cursorBlinking: settings.editorCursorBlinking,
+            wordWrap: settings.editorWordWrap ? "on" : "off",
             lineNumbers: "on",
             roundedSelection: true,
             scrollBeyondLastLine: false,

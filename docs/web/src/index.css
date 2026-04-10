@@ -91,6 +91,27 @@ code[class*="language-"] {
 .token.operator { color: #d4d4d4 !important; }
 .token.punctuation { color: #d4d4d4 !important; }
 
+/* --- PERFORMANCE OPTIMIZATIONS --- */
+.doc-article, .glass-premium, .glass-dark, .doc-sidebar {
+  will-change: transform, opacity;
+  transform: translateZ(0); /* Força aceleração 3D */
+}
+
+#custom-cursor {
+  will-change: transform, width, height, opacity;
+  pointer-events: none;
+}
+
+.terminal-container {
+  will-change: contents;
+}
+
+/* Optimize Backdrop Filter for Performance */
+.glass-premium, .glass-dark {
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+}
+
 /* Scrollbar Customization */
 ::-webkit-scrollbar {
   width: 6px;

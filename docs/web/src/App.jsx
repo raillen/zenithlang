@@ -72,7 +72,25 @@ function App() {
         <div data-z-id="app-footer-container" className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div data-z-id="app-footer-branding" className="flex items-center gap-3 text-neutral/50 font-medium text-sm">
              <img data-z-id="app-footer-logo" src="/logo-only.svg" alt="Zenith" className="h-5 w-5 opacity-50 grayscale" />
-             <span data-z-id="app-footer-copyright">© 2026 Zenith. Desenvolvido com Antigravity.</span>
+             <span data-z-id="app-footer-copyright" className="flex items-center gap-1.5">
+               © 2026 Zenith. desenvolvido com 
+               <motion.span 
+                 whileHover={{ scale: [1, 1.4, 1] }} 
+                 transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut" }}
+                 className="text-red-500/80 cursor-default select-none mx-0.5"
+               >
+                 ❤️
+               </motion.span>
+               por 
+               <a 
+                 href="https://www.instagram.com/raillen.santos" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 className="font-bold hover:text-primary transition-colors duration-300"
+               >
+                 Raillen Santos
+               </a>
+             </span>
           </div>
           <nav data-z-id="app-footer-nav" className="flex gap-6 text-sm font-medium text-neutral/40">
             <a data-z-id="app-footer-link-docs" href="#" className="hover:text-neutral transition-colors">Documentação</a>

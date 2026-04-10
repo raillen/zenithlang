@@ -32,14 +32,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-white">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-ide-bg transition-colors duration-200">
       <div className="relative z-50">
         <Toolbar />
       </div>
       
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
-        <div className="w-12 bg-white/40 border-r border-ide-border flex flex-col items-center py-4 gap-4 backdrop-blur-md">
+        <div className="w-12 bg-ide-panel border-r border-ide-border flex flex-col items-center py-4 gap-4 transition-colors duration-200">
           <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator' && isSidebarOpen} onClick={() => handleTabClick('navigator')} title={t('sidebar.navigator')} />
           <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search' && isSidebarOpen} onClick={() => handleTabClick('search')} title={t('sidebar.search')} />
           <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source' && isSidebarOpen} onClick={() => handleTabClick('source')} title={t('sidebar.source')} />
@@ -51,11 +51,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <>
               {/* Navigator Sidebar */}
               <Panel defaultSize={20} minSize={15} className="xcode-sidebar flex flex-col">
-                <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 border-b border-black/[0.03]">
+                <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-ide-text-dim border-b border-ide-border transition-colors duration-200">
                   {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
                 </div>
                 <div className="flex-1 overflow-auto">
-                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-zinc-400 text-center italic">{t('common.coming_soon')}</div>}
+                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-ide-text-dim text-center italic">{t('common.coming_soon')}</div>}
                 </div>
               </Panel>
 
@@ -64,7 +64,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           )}
 
           {/* Main Editor & Bottom Panel */}
-          <Panel defaultSize={80} className="flex flex-col overflow-hidden bg-white/60">
+          <Panel defaultSize={80} className="flex flex-col overflow-hidden bg-ide-bg transition-colors duration-200">
             <Group orientation="vertical">
               <Panel defaultSize={75} className="relative flex-1 overflow-hidden">
                 {children}
@@ -73,7 +73,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               {isBottomPanelOpen && (
                 <>
                   <Separator className="h-[1px] bg-ide-border hover:bg-primary/30 transition-colors" />
-                  <Panel defaultSize={25} minSize={10} className="bg-white/40 backdrop-blur-lg flex flex-col">
+                  <Panel defaultSize={25} minSize={10} className="bg-ide-panel flex flex-col transition-colors duration-200">
                     <div className="h-8 border-b border-ide-border flex items-center px-4 gap-6">
                         <BottomTab 
                           label={t('bottom_tabs.console')} 
@@ -113,7 +113,7 @@ function ActivityIcon({ icon, active, onClick, title }: { icon: React.ReactNode,
     <button 
       onClick={onClick}
       title={title}
-      className={`p-2 rounded-lg transition-all ${active ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-black/5'}`}
+      className={`p-2 rounded-lg transition-all ${active ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' : 'text-ide-text-dim hover:text-ide-text hover:bg-black/5'}`}
     >
       {icon}
     </button>
@@ -141,7 +141,7 @@ function BottomTab({ label, active, onClick, icon }: { label: string, active: bo
   return (
     <button 
       onClick={onClick}
-      className={`text-[10px] font-bold uppercase tracking-widest h-full flex items-center transition-colors border-b-2 ${active ? 'text-primary border-primary' : 'text-zinc-400 border-transparent hover:text-zinc-600'}`}
+      className={`text-[10px] font-bold uppercase tracking-widest h-full flex items-center transition-colors border-b-2 ${active ? 'text-primary border-primary' : 'text-ide-text-dim border-transparent hover:text-ide-text'}`}
     >
       {label}
       {icon}

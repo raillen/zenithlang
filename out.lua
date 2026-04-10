@@ -7,26 +7,42 @@ local Failure = zt.Outcome.Failure
 
 local main
 
-local time = require("src/stdlib/time")
+local text = require("src/stdlib/text")
 
 function main()
-    print("--- Testando Módulo std.time ---")
-    local agora = time.now()
-    print(((((("Agora: " .. agora.day) .. "/") .. agora.month) .. "/") .. agora.year))
-    print(((((("Hora:  " .. agora.hour) .. ":") .. agora.minute) .. ":") .. agora.second))
+    print("--- Testando Módulo std.text ---")
+    local frase = "  Zenith é Sensacional! 🍎  "
+    print((tostring((tostring("Original: [") .. tostring(frase))) .. tostring("]")))
+    print((tostring((tostring("Trim:     [") .. tostring(text.trim(frase)))) .. tostring("]")))
+    local limpa = text.trim(frase)
+    print((tostring("Lower:    ") .. tostring(text.to_lower(limpa))))
+    print((tostring("Reverse:  ") .. tostring(text.reverse(limpa))))
     print("\
-Aguardando 2 segundos (Síncrono)...")
-    local d2 = time.seconds(2)
-    local sw = time.stopwatch()
-    sw:start()
-    time.sleep(d2)
-    local decorrido = sw:stop()
-    print((("Tempo real decorrido: " .. decorrido.seconds) .. "s"))
-    local d_complexa = time.duration(1, 30)
-    print(("\
-1m 30s em segundos: " .. d_complexa.seconds))
+--- Testando UTF-8 e Emojis ---")
+    local br = "Ação e Reação"
+    print((tostring("Texto: ") .. tostring(br)))
+    print((tostring("Caracteres (real): ") .. tostring(text.count_chars(br))))
+    print((tostring("Sem acentos: ") .. tostring(text.clean_accents(br))))
+    local emo = "Olá 🌍!"
+    print((tostring("\
+Texto: ") .. tostring(emo)))
+    print((tostring("Tem emoji? ") .. tostring(text.is_emoji(emo))))
+    print((tostring("Invertido: ") .. tostring(text.reverse(emo))))
     print("\
---- Fim dos testes de TIME ---")
+--- Testando Cases ---")
+    local nome = "usuario_logado_hoje"
+    print((tostring("Snake: ") .. tostring(nome)))
+    print((tostring("Camel: ") .. tostring(text.to_camel_case(nome))))
+    local titulo = "Guia de Programação Zenith v0.3"
+    print((tostring("Slugify: ") .. tostring(text.slugify(titulo))))
+    print("\
+--- Testando Segurança e UI ---")
+    local card = "1234567890123456"
+    print((tostring("Mascara: ") .. tostring(text.mask(card, 4, 4))))
+    local longo = "Este é um texto muito longo que deve ser cortado."
+    print((tostring("Truncate: ") .. tostring(text.truncate(longo, 20))))
+    print("\
+--- Fim dos testes de TEXT ---")
     return 0
 end
 

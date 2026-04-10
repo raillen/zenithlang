@@ -22,7 +22,7 @@ export function TabManager() {
   if (allTabs.length === 0) return null;
 
   return (
-    <div className="flex bg-zinc-50 border-b border-black/[0.05] h-9 overflow-x-auto no-scrollbar select-none">
+    <div className="flex bg-ide-panel border-b border-ide-border h-9 overflow-x-auto no-scrollbar select-none transition-colors duration-200">
       {allTabs.map((file) => {
         const isActive = activeFile?.path === file.path;
         const isPreview = previewFile?.path === file.path;
@@ -34,9 +34,9 @@ export function TabManager() {
             onClick={() => handleTabClick(file)}
             onAuxClick={(e) => e.button === 1 && closeFile(file.path)} // Middle click to close
             className={`
-              relative flex items-center h-full px-4 gap-2 border-r border-black/[0.05] cursor-pointer transition-all
+              relative flex items-center h-full px-4 gap-2 border-r border-ide-border cursor-pointer transition-all
               min-w-[120px] max-w-[200px] group
-              ${isActive ? 'bg-white' : 'hover:bg-black/[0.02]'}
+              ${isActive ? 'bg-ide-bg' : 'hover:bg-black/5'}
             `}
           >
             {/* Active Indicator Line */}
@@ -46,7 +46,7 @@ export function TabManager() {
 
             <span className={`
               text-[11px] truncate flex-1
-              ${isActive ? 'text-zinc-800 font-medium' : 'text-zinc-500'}
+              ${isActive ? 'text-ide-text font-medium' : 'text-ide-text-dim'}
               ${isPreview ? 'italic opacity-80' : ''}
             `}>
               {file.name}
@@ -61,7 +61,7 @@ export function TabManager() {
               <button
                 onClick={(e) => handleClose(e, file.path)}
                 className={`
-                  p-0.5 rounded-md hover:bg-black/10 text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity
+                  p-0.5 rounded-md hover:bg-black/10 text-ide-text-dim opacity-0 group-hover:opacity-100 transition-opacity
                   ${isDirty ? 'hidden group-hover:block' : 'block'}
                 `}
               >
