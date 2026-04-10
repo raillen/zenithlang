@@ -30,6 +30,7 @@ interface WorkspaceState {
   dirtyFiles: Set<string>;      // Set of paths that are unsaved
   diagnosticsMap: Record<string, Diagnostic[]>; // Errors/Warnings per file
   isBottomPanelOpen: boolean;
+  isSidebarOpen: boolean;
   activeSidebarTab: string;
   activeBottomTab: 'console' | 'terminal' | 'problems';
   currentProjectRoot: string;
@@ -41,6 +42,7 @@ interface WorkspaceState {
   setFileDirty: (path: string, dirty: boolean) => void;
   setDiagnostics: (path: string, diagnostics: Diagnostic[]) => void;
   setBottomPanelOpen: (open: boolean) => void;
+  setSidebarOpen: (open: boolean) => void;
   setSidebarTab: (tab: string) => void;
   setBottomTab: (tab: 'console' | 'terminal' | 'problems') => void;
   setProjectRoot: (path: string) => void;
@@ -62,6 +64,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   dirtyFiles: new Set(),
   diagnosticsMap: {},
   isBottomPanelOpen: false,
+  isSidebarOpen: true,
   activeSidebarTab: 'navigator',
   activeBottomTab: 'console',
   currentProjectRoot: '.',
@@ -181,6 +184,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   }),
   
   setBottomPanelOpen: (open) => set({ isBottomPanelOpen: open }),
+  setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   
   setSidebarTab: (tab) => set({ activeSidebarTab: tab }),
 }));

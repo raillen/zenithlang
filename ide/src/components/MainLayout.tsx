@@ -12,6 +12,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     isBottomPanelOpen, 
     activeSidebarTab, 
     setSidebarTab,
+    isSidebarOpen,
+    setSidebarOpen,
     activeBottomTab,
     setBottomTab,
     diagnosticsMap
@@ -19,6 +21,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
 
   const problemCount = Object.values(diagnosticsMap).reduce((acc, curr) => acc + curr.length, 0);
+
+  const handleTabClick = (tab: string) => {
+    if (activeSidebarTab === tab) {
+      setSidebarOpen(!isSidebarOpen);
+    } else {
+      setSidebarTab(tab);
+      if (!isSidebarOpen) setSidebarOpen(true);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-white">
@@ -29,24 +40,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
         <div className="w-12 bg-white/40 border-r border-ide-border flex flex-col items-center py-4 gap-4 backdrop-blur-md">
-          <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator'} onClick={() => setSidebarTab('navigator')} title={t('sidebar.navigator')} />
-          <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search'} onClick={() => setSidebarTab('search')} title={t('sidebar.search')} />
-          <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source'} onClick={() => setSidebarTab('source')} title={t('sidebar.source')} />
-          <ActivityIcon icon={<Bug size={18} />} active={activeSidebarTab === 'debug'} onClick={() => setSidebarTab('debug')} title={t('sidebar.debug')} />
+          <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator' && isSidebarOpen} onClick={() => handleTabClick('navigator')} title={t('sidebar.navigator')} />
+          <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search' && isSidebarOpen} onClick={() => handleTabClick('search')} title={t('sidebar.search')} />
+          <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source' && isSidebarOpen} onClick={() => handleTabClick('source')} title={t('sidebar.source')} />
+          <ActivityIcon icon={<Bug size={18} />} active={activeSidebarTab === 'debug' && isSidebarOpen} onClick={() => handleTabClick('debug')} title={t('sidebar.debug')} />
         </div>
 
         <Group orientation="horizontal" className="flex-1">
-          {/* Navigator Sidebar */}
-          <Panel defaultSize={20} minSize={15} className="xcode-sidebar flex flex-col">
-            <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 border-b border-black/[0.03]">
-              {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
-            </div>
-            <div className="flex-1 overflow-auto">
-              {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-zinc-400 text-center italic">{t('common.coming_soon')}</div>}
-            </div>
-          </Panel>
+          {isSidebarOpen && (
+            <>
+              {/* Navigator Sidebar */}
+              <Panel defaultSize={20} minSize={15} className="xcode-sidebar flex flex-col">
+                <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 border-b border-black/[0.03]">
+                  {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-zinc-400 text-center italic">{t('common.coming_soon')}</div>}
+                </div>
+              </Panel>
 
-          <Separator className="w-[1px] bg-ide-border hover:bg-primary/30 transition-colors" />
+              <Separator className="w-[1px] bg-ide-border hover:bg-primary/30 transition-colors" />
+            </>
+          )}
 
           {/* Main Editor & Bottom Panel */}
           <Panel defaultSize={80} className="flex flex-col overflow-hidden bg-white/60">
