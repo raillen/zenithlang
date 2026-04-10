@@ -84,8 +84,18 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                     {t('settings.labels.theme')}
                   </label>
                   <div className="flex gap-2">
-                    <button className="flex-1 p-3 rounded-xl border border-primary bg-primary/5 text-primary text-[11px] font-medium">Standard Light</button>
-                    <button className="flex-1 p-3 rounded-xl border border-ide-border bg-white text-zinc-400 text-[11px] font-medium opacity-50 cursor-not-allowed">Modern Dark (Soon)</button>
+                    <button 
+                      onClick={() => updateSettings({ theme: 'light' })}
+                      className={`flex-1 p-3 rounded-xl border text-[11px] font-medium transition-all ${settings.theme === 'light' ? 'border-primary bg-primary/5 text-primary' : 'border-ide-border hover:border-zinc-300 text-zinc-600'}`}
+                    >
+                      Standard Light
+                    </button>
+                    <button 
+                      onClick={() => updateSettings({ theme: 'dark' })}
+                      className={`flex-1 p-3 rounded-xl border text-[11px] font-medium transition-all ${settings.theme === 'dark' ? 'border-primary bg-primary/5 text-primary' : 'border-ide-border hover:border-zinc-300 text-zinc-600'}`}
+                    >
+                      Modern Dark
+                    </button>
                   </div>
                 </section>
               </div>

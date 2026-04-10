@@ -21,6 +21,7 @@ function LuaCodegen:generate_body(node)
     self.output = {}
     self.indent_level = 0
     self.pub_members = {}
+    self.imports = {}
     self.has_namespace = false
     self.skip_exports = true
     
@@ -39,11 +40,12 @@ function LuaCodegen:generate(node)
     self.output = {}
     self.indent_level = 0
     self.pub_members = {}
+    self.imports = {} -- Rastreador de módulos importados
     self.has_namespace = false
     self.skip_exports = false
     
     -- Banner e Runtime
-    self:emit("-- Transpilado por Zenith v0.2.0")
+    self:emit("-- Transpilado por Zenith v0.2.5")
     self:emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
     self:_emit_prelude_constructors()
     self:emit("")
@@ -272,15 +274,12 @@ function LuaCodegen:_emit_namespace_decl(node)
 end
 
 function LuaCodegen:_emit_type_alias_decl(node)
-    -- Apenas um apelido em tempo de compilação, ignorar no Lua
 end
 
 function LuaCodegen:_emit_union_decl(node)
-    -- Apenas uma união em tempo de compilação, ignorar no Lua
 end
 
 function LuaCodegen:_emit_import_decl(node)
-    -- Lógica de busca de caminho compatível com ModuleManager
     local path = node.path
     local parts = {}
     for part in path:gmatch("[^%.]+") do table.insert(parts, part) end
@@ -295,7 +294,6 @@ function LuaCodegen:_emit_import_decl(node)
     local name = node.alias or parts[#parts]
     self.imports[name] = true
 
-    -- Heurística para detectar import de membro:
     if name == "fast_add" then
         local member = parts[#parts]
         table.remove(parts)
@@ -314,39 +312,26 @@ function LuaCodegen:_emit_func_decl(node, struct_name)
     end
     
     local names = {}
-    for _, p in ipairs(node.params or {}) do
-        table.insert(names, p.name)
-    end
-    
+    for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
     local params_str = table.concat(names, ", ")
+    
     self:emit(string.format("function %s(%s)", name, params_str))
     self:indent()
-    
-    for _, stmt in ipairs(node.body) do
-        self:_emit_node(stmt)
-    end
-    
+    for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
     self:emit("end")
 end
 
 function LuaCodegen:_emit_async_func_decl(node)
-    -- No Lua, funções async viram coroutines
     local names = {}
-    for _, p in ipairs(node.params or {}) do
-        table.insert(names, p.name)
-    end
+    for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
     local params_str = table.concat(names, ", ")
 
     self:emit(string.format("function %s(%s) ", node.name, params_str))
     self:indent()
     self:emit("return zt.async_run(function(...)")
     self:indent()
-    
-    for _, stmt in ipairs(node.body) do
-        self:_emit_node(stmt)
-    end
-    
+    for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
     self:emit("end, " .. params_str .. ")")
     self:dedent()
@@ -358,15 +343,11 @@ function LuaCodegen:_emit_struct_decl(node)
     self:emit(string.format("local %s = {}", name))
     self:emit(string.format("%s.__index = %s", name, name))
     self:emit("")
-    
     self:emit(string.format("function %s.new(fields)", name))
     self:indent()
     self:emit(string.format("local self = setmetatable({}, %s)", name))
-    
     for _, field in ipairs(node.fields) do
         local init = field.initializer and self:_eval(field.initializer) or "nil"
-        
-        -- Aplicação do 'where' (contrato)
         if field.where_clause then
             self:emit(string.format("local _val = fields.%s or %s", field.name, init))
             local cond = self:_eval_with_it(field.where_clause, "_val")
@@ -376,15 +357,12 @@ function LuaCodegen:_emit_struct_decl(node)
             self:emit(string.format("self.%s = fields.%s or %s", field.name, field.name, init))
         end
     end
-    
     self:emit("return self")
     self:dedent()
     self:emit("end")
 end
 
-function LuaCodegen:_emit_trait_decl(node)
-    -- No Lua, traits são apenas recipientes de métodos que serão copiados
-end
+function LuaCodegen:_emit_trait_decl(node) end
 
 function LuaCodegen:_emit_enum_decl(node)
     self:emit(string.format("local %s = {", node.name))
@@ -396,12 +374,9 @@ function LuaCodegen:_emit_enum_decl(node)
     self:emit("}")
 end
 
-
 -- 🚀 STATEMENTS
 
-function LuaCodegen:_emit_expr_stmt(node)
-    self:emit(self:_eval(node.expression))
-end
+function LuaCodegen:_emit_expr_stmt(node) self:emit(self:_eval(node.expression)) end
 
 function LuaCodegen:_emit_assign_stmt(node)
     self:emit(string.format("%s = %s", self:_eval(node.target), self:_eval(node.value)))
@@ -427,17 +402,13 @@ function LuaCodegen:_emit_for_in_stmt(node)
     local vars = {}
     for _, v in ipairs(node.variables) do table.insert(vars, v.name) end
     local vars_str = table.concat(vars, ", ")
-
-    -- Otimização: se for um Range 1..10, usa for numérico do Lua
     if node.iterable.kind == SK.RANGE_EXPR then
         local start_v = self:_eval(node.iterable.start_expr)
         local end_v = self:_eval(node.iterable.end_expr)
         self:emit(string.format("for %s = %s, %s do", vars_str, start_v, end_v))
     else
-        -- Zenith usa zt.iter para abstrair listas e Trait Iterable
         self:emit(string.format("for %s in zt.iter(%s) do", vars_str, self:_eval(node.iterable)))
     end
-
     self:indent()
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
@@ -453,7 +424,6 @@ function LuaCodegen:_emit_repeat_times_stmt(node)
 end
 
 function LuaCodegen:_emit_match_stmt(node)
-    -- Se chegar aqui, o Lowerer falhou em desaçucarar.
     self:emit("-- [Aviso: Match não desaçucarado]")
 end
 
@@ -480,27 +450,23 @@ function LuaCodegen:_emit_return_stmt(node)
     self:emit(string.format("return%s", val))
 end
 
-
 function LuaCodegen:_emit_if_stmt(node)
     self:emit(string.format("if %s then", self:_eval(node.condition)))
     self:indent()
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
-
     for _, elif in ipairs(node.elif_clauses or {}) do
         self:emit(string.format("elseif %s then", self:_eval(elif.condition)))
         self:indent()
         for _, stmt in ipairs(elif.body) do self:_emit_node(stmt) end
         self:dedent()
     end
-
     if node.else_clause then
         self:emit("else")
         self:indent()
         for _, stmt in ipairs(node.else_clause.body) do self:_emit_node(stmt) end
         self:dedent()
     end
-
     self:emit("end")
 end
 
@@ -511,7 +477,6 @@ function LuaCodegen:_emit_attempt_stmt(node)
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
     self:emit("end)")
-
     if node.rescue_clause then
         self:emit("if not _ok then")
         self:indent()
@@ -530,132 +495,66 @@ end
 
 function LuaCodegen:_eval(node)
     if not node then return "nil" end
-    
-    -- Caso especial: Tabela de argumento nomeado (gerada pelo parser)
-    if type(node) == "table" and node.kind == "NAMED" then
-        return self:_eval(node.value)
-    end
+    if type(node) == "table" and node.kind == "NAMED" then return self:_eval(node.value) end
     
     if node.kind == SK.LITERAL_EXPR then
         if type(node.value) == "string" then return string.format("%q", node.value) end
         return tostring(node.value)
-    
-    elseif node.kind == SK.IDENTIFIER_EXPR then
-        return node.name
-    
-    elseif node.kind == SK.SELF_EXPR then
-        return "self"
-    
-    elseif node.kind == SK.IT_EXPR then
-        return "it"
-    
-    elseif node.kind == SK.SELF_FIELD_EXPR then
-        return "self." .. node.field_name
-
+    elseif node.kind == SK.IDENTIFIER_EXPR then return node.name
+    elseif node.kind == SK.SELF_EXPR then return "self"
+    elseif node.kind == SK.IT_EXPR then return "it"
+    elseif node.kind == SK.SELF_FIELD_EXPR then return "self." .. node.field_name
     elseif node.kind == SK.BINARY_EXPR then
         local op_map = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["=="] = "==", ["!="] = "~=", ["and"] = "and", ["or"] = "or", ["+"] = ".." }
-        -- Concatenação Zenith (+) -> Lua (..)
         local op = node.operator.lexeme
-        if op == "+" then
-            -- Heurística simples: se um dos lados for literal string, usa ..
-            return string.format("(%s .. %s)", self:_eval(node.left), self:_eval(node.right))
-        elseif op == "or" then
-            -- Suporte a unwrap de Optional/Outcome
-            return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right))
-        end
+        if op == "+" then return string.format("(%s .. %s)", self:_eval(node.left), self:_eval(node.right))
+        elseif op == "or" then return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right)) end
         return string.format("(%s %s %s)", self:_eval(node.left), op_map[op] or op, self:_eval(node.right))
-    
     elseif node.kind == SK.UNARY_EXPR then
         local op = node.operator.lexeme == "not" and "not " or "-"
         return string.format("%s%s", op, self:_eval(node.operand))
-
-    elseif node.kind == SK.NAMED_ARG_EXPR then
-        return self:_eval(node.value)
-
     elseif node.kind == SK.CALL_EXPR then
         local args = {}
         for _, arg in ipairs(node.arguments) do table.insert(args, self:_eval(arg)) end
-        
         if node.callee.kind == SK.MEMBER_EXPR then
-            return string.format("%s:%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", "))
-        else
-            return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", "))
-        end
-    
-    elseif node.kind == SK.MEMBER_EXPR then
-        return string.format("%s.%s", self:_eval(node.object), node.member_name)
-    
-    elseif node.kind == SK.LEN_EXPR then
-        return string.format("#(%s)", self:_eval(node.expression))
-    
+            local obj_name = node.callee.object.name
+            local is_module = obj_name and self.imports[obj_name]
+            if is_module then return string.format("%s.%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", "))
+            else return string.format("%s:%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", ")) end
+        else return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", ")) end
+    elseif node.kind == SK.MEMBER_EXPR then return string.format("%s.%s", self:_eval(node.object), node.member_name)
+    elseif node.kind == SK.LEN_EXPR then return string.format("#(%s)", self:_eval(node.expression))
     elseif node.kind == SK.LIST_EXPR then
-        local elements = {}
-        for _, el in ipairs(node.elements) do table.insert(elements, self:_eval(el)) end
-        return "{" .. table.concat(elements, ", ") .. "}"
-    
+        local el = {}
+        for _, e in ipairs(node.elements) do table.insert(el, self:_eval(e)) end
+        return "{" .. table.concat(el, ", ") .. "}"
     elseif node.kind == SK.MAP_EXPR then
-        local entries = {}
-        for _, p in ipairs(node.pairs or {}) do
-            table.insert(entries, string.format("[%s] = %s", self:_eval(p.key), self:_eval(p.value)))
-        end
-        return "{" .. table.concat(entries, ", ") .. "}"
-    
-    elseif node.kind == SK.INDEX_EXPR then
-        return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
-
-    elseif node.kind == SK.BANG_EXPR then
-        -- Desaçucarado: result! -> error propagation
-        return self:_eval(node.expression)
-
-    elseif node.kind == SK.NATIVE_LUA_EXPR then
-        return "(" .. node.lua_code .. ")"
-    
-    elseif node.kind == SK.AWAIT_EXPR then
-        return string.format("zt.await(%s)", self:_eval(node.expression))
-
+        local en = {}
+        for _, p in ipairs(node.pairs or {}) do table.insert(en, string.format("[%s] = %s", self:_eval(p.key), self:_eval(p.value))) end
+        return "{" .. table.concat(en, ", ") .. "}"
+    elseif node.kind == SK.INDEX_EXPR then return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+    elseif node.kind == SK.BANG_EXPR then return self:_eval(node.expression)
+    elseif node.kind == SK.NATIVE_LUA_EXPR then return "(" .. node.lua_code .. ")"
+    elseif node.kind == SK.AWAIT_EXPR then return string.format("zt.await(%s)", self:_eval(node.expression))
     elseif node.kind == SK.IS_EXPR then
         local type_str = "nil"
         if node.type_symbol then
             local t = node.type_symbol
             local primitives = { int=1, float=1, text=1, bool=1 }
             local name = t.base_name or t.name
-            if primitives[name] then
-                type_str = "\"" .. name .. "\""
-            else
-                type_str = name -- Nome da struct/tabela
-            end
+            type_str = primitives[name] and ("\"" .. name .. "\"") or name
         elseif node.type_node then
             type_str = node.type_node.name
             local primitives = { int=1, float=1, text=1, bool=1 }
-            if primitives[type_str] then
-                type_str = "\"" .. type_str .. "\""
-            end
+            if primitives[type_str] then type_str = "\"" .. type_str .. "\"" end
         end
-        
         local call = string.format("zt.is(%s, %s)", self:_eval(node.expression), type_str)
         return node.is_not and ("not " .. call) or call
-
-    elseif node.kind == SK.AS_EXPR then
-        return self:_eval(node.expression)
-    end
-    
+    elseif node.kind == SK.AS_EXPR then return self:_eval(node.expression) end
     return "-- [[Expr:" .. node.kind .. "]]"
 end
 
 function LuaCodegen:_eval_with_it(expr, it_value)
-    -- Gambiarra temporária: substitui 'it' por it_value no codegen
-    local old_eval = self._eval
-    self._eval = function(s, node)
-        if node and node.kind == SK.IT_EXPR then return it_value end
-        return old_eval(s, node)
-    end
-    local res = self:_eval(expr)
-    self._eval = old_eval
-    return res
-end
-
-return LuaCodegen
-it' por it_value no codegen
     local old_eval = self._eval
     self._eval = function(s, node)
         if node and node.kind == SK.IT_EXPR then return it_value end

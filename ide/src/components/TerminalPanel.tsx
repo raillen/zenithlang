@@ -3,6 +3,7 @@ import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '../utils/tauri';
+import { useWorkspaceStore } from '../store/useWorkspaceStore';
 import 'xterm/css/xterm.css';
 
 interface TerminalDataPayload {
@@ -14,21 +15,46 @@ export function TerminalPanel() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal|null>(null);
   const sessionIdRef = useRef<number|null>(null);
+  const { settings } = useWorkspaceStore();
+  const isDarkMode = settings.theme === 'dark';
+
+  useEffect(() => {
+    if (xtermRef.current) {
+        xtermRef.current.options.theme = isDarkMode ? {
+           background: 'transparent',
+           foreground: '#e4e4e7', // zinc-200
+           cursor: '#fafafa',
+           selectionBackground: 'rgba(255, 255, 255, 0.2)',
+        } : {
+           background: 'transparent',
+           foreground: '#3f3f46', // zinc-600
+           cursor: '#18181b',
+           selectionBackground: 'rgba(0, 0, 0, 0.1)',
+        };
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
+
+    const initialTheme = isDarkMode ? {
+       background: 'transparent',
+       foreground: '#e4e4e7', // zinc-200
+       cursor: '#fafafa',
+       selectionBackground: 'rgba(255, 255, 255, 0.2)',
+    } : {
+       background: 'transparent',
+       foreground: '#3f3f46', // zinc-600
+       cursor: '#18181b',
+       selectionBackground: 'rgba(0, 0, 0, 0.1)',
+    };
 
     // Initialize xterm
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 12,
       fontFamily: "JetBrains Mono, Menlo, Monaco, 'Courier New', monospace",
-      theme: {
-        background: 'transparent',
-        foreground: '#3f3f46', // zinc-600
-        cursor: '#18181b',
-        selectionBackground: 'rgba(0, 0, 0, 0.1)',
-      },
+      theme: initialTheme,
       allowProposedApi: true,
     });
 
