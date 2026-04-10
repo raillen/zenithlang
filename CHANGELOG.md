@@ -2,6 +2,20 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [0.2.5] - 2026-04-09
+
+### Adicionado (Stdlib Foundation)
+- 🖥️ **std.os**: Interface com o sistema operacional, hardware e variáveis de ambiente.
+- 📂 **std.fs**: Manipulação de arquivos e pastas (nível atômico e streams).
+- 🧭 **std.fs.path**: Submódulo para manipulação inteligente de caminhos.
+- 📦 **std.json**: Serialização e desserialização de dados estruturados com suporte a indentação.
+
+### Corrigido (Estabilização do Core)
+- 🐛 **Shadowing no Codegen**: Corrigida a declaração dupla de locais que quebrava a reatividade.
+- 🏗️ **Aninhamento no Parser**: Corrigido o `parse_block` para suportar estruturas complexas aninhadas (match/while/if).
+- 🔤 **Lexer Escapes**: Adicionado suporte a escapes de aspas e chaves (`\{`, `\}`) em strings literais.
+- 🛠️ **Operadores no Codegen**: Adicionado suporte para operador de tamanho `#`, listas `[]` e mapas `{}`.
+
 ## [0.2.0] - 2026-04-08
 
 ### Adicionado (Finalização do Core)

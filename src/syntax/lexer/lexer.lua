@@ -163,7 +163,7 @@ function Lexer:_read_string()
         elseif c == "\\" then
             self:advance()
             local esc = self:current()
-            local map = { n="\n", t="\t", r="\r", ['"']='"', ["\\"]="\\" }
+            local map = { n="\n", t="\t", r="\r", ['"']='"', ["\\"]="\\", ["{"]="{", ["}"]="}" }
             current_fragment = current_fragment .. (map[esc] or esc)
             self:advance()
         else

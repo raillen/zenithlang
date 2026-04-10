@@ -214,7 +214,7 @@ struct Diagnostic {
 }
 
 #[tauri::command]
-fn run_diagnostics(path: String, content: String) -> Result<Vec<Diagnostic>, String> {
+fn run_diagnostics(_path: String, content: String) -> Result<Vec<Diagnostic>, String> {
     use std::process::Command;
     use regex::Regex;
     use std::fs;

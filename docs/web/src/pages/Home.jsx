@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { GameController, Brain, Lightning, ArrowRight, GithubLogo } from '@phosphor-icons/react';
+import MagneticWrapper from '../components/MagneticWrapper';
+import ZenithTerminal2D from '../components/ZenithTerminal2D';
 
 const Home = ({ onNavigate }) => {
   // Motion configurations
@@ -83,66 +85,40 @@ const Home = ({ onNavigate }) => {
             </motion.p>
             
             <motion.div data-z-id="home-hero-actions" variants={itemVariants} className="flex flex-wrap items-center gap-4 -mt-2 w-full">
-              <motion.button 
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                data-z-id="home-hero-btn-docs" 
-                onClick={() => onNavigate('handbook')}
-                className="group flex items-center justify-center gap-2 bg-[#111111] text-white px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-[#333333] hover:shadow-xl hover:shadow-black/10 w-full sm:w-auto"
-              >
-                Ler Documentação
-                <ArrowRight data-z-id="home-hero-btn-docs-icon" weight="bold" className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </motion.button>
-              <motion.button 
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                data-z-id="home-hero-btn-github" 
-                className="group flex items-center justify-center gap-2 bg-white/50 backdrop-blur-sm text-[#111111] border border-[#EAEAEA] px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-white hover:border-[#D1D1D1] hover:shadow-lg hover:shadow-black/5 w-full sm:w-auto"
-              >
-                <GithubLogo data-z-id="home-hero-btn-github-icon" weight="fill" className="w-5 h-5" />
-                GitHub
-              </motion.button>
+              <MagneticWrapper strength={0.4}>
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  data-z-id="home-hero-btn-docs" 
+                  onClick={() => onNavigate('handbook')}
+                  className="group flex items-center justify-center gap-2 bg-[#111111] text-white px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-[#333333] hover:shadow-xl hover:shadow-black/10 w-full sm:w-auto"
+                >
+                  Ler Documentação
+                  <ArrowRight data-z-id="home-hero-btn-docs-icon" weight="bold" className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </motion.button>
+              </MagneticWrapper>
+              <MagneticWrapper strength={0.4}>
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  data-z-id="home-hero-btn-github" 
+                  className="group flex items-center justify-center gap-2 bg-white/50 backdrop-blur-sm text-[#111111] border border-[#EAEAEA] px-7 py-3.5 rounded-[8px] text-[15px] font-medium tracking-wide transition-all hover:bg-white hover:border-[#D1D1D1] hover:shadow-lg hover:shadow-black/5 w-full sm:w-auto"
+                >
+                  <GithubLogo data-z-id="home-hero-btn-github-icon" weight="fill" className="w-5 h-5" />
+                  GitHub
+                </motion.button>
+              </MagneticWrapper>
             </motion.div>
           </div>
 
-          {/* Right Column: Abstract/Code Representation */}
-          <motion.div data-z-id="home-hero-illustration-wrapper" variants={itemVariants} className="flex-1 w-full relative hidden lg:block">
-            <div data-z-id="home-hero-illustration-container" className="w-full aspect-square max-w-[480px] ml-auto relative">
-              <motion.div 
-                whileHover={{ y: -8, transition: { duration: 0.4, ease: "easeOut" } }}
-                data-z-id="home-hero-code-window" 
-                className="absolute inset-0 border border-white/20 rounded-[20px] bg-white/40 backdrop-blur-xl flex flex-col overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.05)] border-t-white/40"
-              >
-                <div data-z-id="home-hero-code-header" className="h-12 border-b border-black/5 flex items-center px-5 gap-2 bg-white/20">
-                  <div data-z-id="home-hero-code-dot-1" className="w-2.5 h-2.5 rounded-full bg-[#EAEAEA]"></div>
-                  <div data-z-id="home-hero-code-dot-2" className="w-2.5 h-2.5 rounded-full bg-[#EAEAEA]"></div>
-                  <div data-z-id="home-hero-code-dot-3" className="w-2.5 h-2.5 rounded-full bg-[#EAEAEA]"></div>
-                </div>
-                <motion.div 
-                  variants={codeContainerVariants}
-                  data-z-id="home-hero-code-content" 
-                  className="p-8 font-mono text-[13px] sm:text-[14px] leading-[2.2] text-[#787774] overflow-x-auto whitespace-nowrap"
-                >
-                  <motion.div variants={codeLineVariants}><span className="text-[#D33969] font-semibold">import</span> <span className="text-[#6F42C1]">std.ui</span></motion.div><br/>
-                  <motion.div variants={codeLineVariants}><span className="text-[#D33969] font-semibold">func</span> <span className="text-[#111111] font-bold">App</span>()</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;<span className="text-[#D33969] font-semibold">state</span> count: <span className="text-[#0071E3]">int</span> = <span className="text-[#D19A66]">0</span></motion.div><br/>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;<span className="text-[#D33969] font-semibold">func</span> <span className="text-[#111111] font-bold">increment</span>()</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;count = count + <span className="text-[#D19A66]">1</span></motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;<span className="text-[#D33969] font-semibold">end</span></motion.div><br/>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;<span className="text-[#D33969] font-semibold">return</span> <span className="text-[#6F42C1]">ui.Window</span> &#123;</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-[#E36209]">title</span>: <span className="text-[#22863A]">"Zenith"</span>,</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-[#E36209]">body</span>: <span className="text-[#6F42C1]">ui.Button</span> &#123;</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-[#E36209]">text</span>: <span className="text-[#22863A]">"Cliques: &#123;count&#125;"</span>,</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-[#E36209]">on_click</span>: increment</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&nbsp;&nbsp;&#125;</motion.div>
-                  <motion.div variants={codeLineVariants}>&nbsp;&nbsp;&#125;</motion.div>
-                  <motion.div variants={codeLineVariants}><span className="text-[#D33969] font-semibold">end</span></motion.div>
-                </motion.div>
-              </motion.div>
-              {/* Subtle decorative geometric accents */}
-              <div data-z-id="home-hero-decor-1" className="absolute -bottom-8 -left-8 w-40 h-40 border border-[#EAEAEA] rounded-full opacity-50 z-[-1]"></div>
-              <div data-z-id="home-hero-decor-2" className="absolute -top-4 -right-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl z-[-1]"></div>
-            </div>
+          {/* Right Column: Interactive 3D Representation */}
+          <motion.div 
+            data-z-id="home-hero-illustration-wrapper" 
+            variants={itemVariants} 
+            className="flex-1 w-full relative hidden lg:flex items-center justify-center bg-white/5 rounded-[32px] border border-black/5 shadow-premium overflow-hidden min-h-[480px]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-30" />
+            <ZenithTerminal2D />
           </motion.div>
         </motion.div>
 

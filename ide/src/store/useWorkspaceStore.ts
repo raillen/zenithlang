@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import Database from '@tauri-apps/plugin-sql';
 
 export interface FileEntry {
   name: string;
@@ -15,6 +16,12 @@ export interface Diagnostic {
   code: string;
 }
 
+export interface IDESettings {
+  language: 'pt' | 'en' | 'es';
+  theme: 'light' | 'dark';
+  compilerPath: string;
+}
+
 interface WorkspaceState {
   fileTree: FileEntry[];
   openFiles: FileEntry[];     // Files currently pinned/fixed as tabs
@@ -26,6 +33,7 @@ interface WorkspaceState {
   activeSidebarTab: string;
   activeBottomTab: 'console' | 'terminal' | 'problems';
   currentProjectRoot: string;
+  settings: IDESettings;
   
   setFileTree: (tree: FileEntry[]) => void;
   openFile: (file: FileEntry, isFixed?: boolean) => void;
@@ -36,9 +44,17 @@ interface WorkspaceState {
   setSidebarTab: (tab: string) => void;
   setBottomTab: (tab: 'console' | 'terminal' | 'problems') => void;
   setProjectRoot: (path: string) => void;
+  updateSettings: (newSettings: Partial<IDESettings>) => Promise<void>;
+  loadSettings: () => Promise<void>;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+const DEFAULT_SETTINGS: IDESettings = {
+  language: 'pt',
+  theme: 'light',
+  compilerPath: 'ztc.lua'
+};
+
+export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   fileTree: [],
   openFiles: [],
   activeFile: null,
@@ -49,6 +65,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   activeSidebarTab: 'navigator',
   activeBottomTab: 'console',
   currentProjectRoot: '.',
+  settings: DEFAULT_SETTINGS,
 
   setFileTree: (tree) => set({ fileTree: tree }),
   
@@ -57,6 +74,42 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   })),
   
   setBottomTab: (tab) => set({ activeBottomTab: tab }),
+
+  updateSettings: async (newSettings) => {
+    const updated = { ...get().settings, ...newSettings };
+    set({ settings: updated });
+    
+    // Persist to SQLite
+    try {
+      const db = await Database.load("sqlite:zenith.db");
+      for (const [key, value] of Object.entries(newSettings)) {
+        await db.execute(
+          "INSERT OR REPLACE INTO settings (key, value) VALUES ($1, $2)",
+          [key, value]
+        );
+      }
+    } catch (err) {
+      console.error("Failed to persist settings", err);
+    }
+  },
+
+  loadSettings: async () => {
+    try {
+      const db = await Database.load("sqlite:zenith.db");
+      const rows = await db.select<{ key: string, value: string }[]>("SELECT key, value FROM settings");
+      
+      const loadedSettings: Partial<IDESettings> = {};
+      rows.forEach(row => {
+          if (row.key in DEFAULT_SETTINGS) {
+              (loadedSettings as any)[row.key] = row.value;
+          }
+      });
+
+      set({ settings: { ...DEFAULT_SETTINGS, ...loadedSettings } });
+    } catch (err) {
+      console.error("Failed to load settings from SQLite", err);
+    }
+  },
 
   setProjectRoot: (path) => set({ 
     currentProjectRoot: path,

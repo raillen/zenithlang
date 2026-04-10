@@ -1,6 +1,6 @@
 -- Projeto de Exemplo Zenith
 project meu_projeto
-    version: 0.2.0
+    version: 0.2.5
     author:  "Rafael"
 end
 

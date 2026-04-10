@@ -1,0 +1,39 @@
+--- Biblioteca Padrão Zenith — Módulo JSON
+--- Serialização e desserialização de dados estruturados.
+
+namespace std.json
+
+-- 🏗️ CORE
+
+--- Converte uma string JSON em uma estrutura Zenith (mapas ou listas).
+pub func parse(json: text) -> Outcome<any, text>
+end
+
+--- Tenta converter um JSON diretamente para uma Struct T.
+pub func decode<T>(json: text) -> Outcome<T, text>
+end
+
+--- Converte um objeto Zenith em uma string JSON.
+--- @param indent int 0 para minificado, 1-8 para espaços, -1 para tabs.
+pub func stringify(value: any, indent: int = 0) -> text
+end
+
+-- 🛠️ UTILITÁRIOS
+
+--- Remove todos os espaços e quebras de linha de um JSON sem alterar o conteúdo.
+pub func minify(json: text) -> Outcome<text, text>
+end
+
+--- Formata um JSON para torná-lo legível.
+pub func beautify(json: text, indent: int = 4) -> Outcome<text, text>
+end
+
+-- 📂 ATALHOS DE ARQUIVO (Conveniência)
+
+--- Lê um arquivo e realiza o parse do conteúdo JSON.
+pub func read_file(path: text) -> Outcome<any, text>
+end
+
+--- Serializa um valor e grava no arquivo especificado.
+pub func write_file(path: text, value: any, indent: int = 4) -> Outcome<void, text>
+end

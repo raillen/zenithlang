@@ -1,4 +1,4 @@
-# Guia de Sintaxe Zenith (v0.2)
+# Guia de Sintaxe Zenith (v0.2.5)
 
 > Zenith é uma linguagem desenhada para ser lida e compreendida sem esforço mental excessivo. Se você tem TDAH ou Dislexia, este guia foi feito pensando em você.
 

@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import DocViewer from './pages/DocViewer';
 import SearchModal from './components/SearchModal';
+import CustomCursor from './components/CustomCursor';
 
 function App() {
   const [activeSection, setActiveSection] = useState('home');
@@ -29,7 +30,8 @@ function App() {
   };
 
   return (
-    <div data-z-id="app-root" className="min-h-screen bg-[#ECEEEE] selection:bg-primary selection:text-white">
+    <div data-z-id="app-root" className="min-h-screen bg-[#ECEEEE] selection:bg-primary selection:text-white cursor-none">
+      <CustomCursor />
       {/* <!-- HEADER: Navbar --> */}
       <header data-z-id="app-header" className="site-header-navbar sticky top-0 z-50 w-full">
         <Navbar activeSection={activeSection} setActiveSection={setActiveSection} />

@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar';
 import Breadcrumbs from '../components/Breadcrumbs';
 import Pagination from '../components/Pagination';
 import TableOfContents from '../components/TableOfContents';
+import ReadingProgressBar from '../components/ReadingProgressBar';
 import { DOCS_STRUCTURE, getAllDocs } from '../data/docs';
 import 'prismjs/components/prism-lua';
 
@@ -158,6 +159,7 @@ const DocViewer = ({ section, requestedDoc }) => {
 
   return (
     <div data-z-id="docviewer-page" className="page-doc-viewer flex w-full bg-[#ECEEEE] transition-all duration-500">
+      <ReadingProgressBar />
       <AnimatePresence>
         {!isZenMode && (
           <motion.aside 
@@ -212,21 +214,11 @@ const DocViewer = ({ section, requestedDoc }) => {
               transition={{ duration: 0.3, ease: "easeOut" }}
               data-z-id="docviewer-article"
               ref={articleRef}
-              className="doc-article prose prose-slate max-w-[70ch] mx-auto
-                         prose-headings:font-display prose-headings:font-semibold prose-headings:tracking-normal prose-headings:text-[#1d1d1f]
-                         prose-h1:text-4xl prose-h1:mb-8 prose-h1:mt-2
-                         prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:border-b prose-h2:border-black/5 prose-h2:pb-2
-                         prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4
-                         prose-p:leading-[1.8] prose-p:text-[1.125rem] prose-p:text-[#333333] prose-p:font-normal prose-p:mb-6
-                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                         prose-strong:font-semibold prose-strong:text-[#1d1d1f]
-                         prose-code:bg-black/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-[#1d1d1f] prose-code:font-mono prose-code:text-[0.9em] prose-code:before:content-none prose-code:after:content-none
-                         prose-pre:bg-[#FAFAFA] prose-pre:rounded-2xl prose-pre:border prose-pre:border-black/5 prose-pre:shadow-sm prose-pre:p-6 prose-pre:my-8
-                         prose-ul:my-6 prose-ul:leading-[1.8] prose-ul:pl-6 prose-ul:text-[1.125rem] prose-ul:text-[#333333] prose-ul:list-disc
-                         prose-ol:my-6 prose-ol:leading-[1.8] prose-ol:pl-6 prose-ol:text-[1.125rem] prose-ol:text-[#333333]
-                         prose-li:my-2
-                         prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:bg-primary/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-2xl prose-blockquote:font-display prose-blockquote:text-lg prose-blockquote:italic prose-blockquote:text-neutral/80
-                         prose-img:rounded-3xl prose-img:border prose-img:border-black/5 prose-img:shadow-xl"
+              className="doc-article prose prose-slate prose-lg max-w-none 
+                         prose-headings:font-display prose-headings:text-neutral
+                         prose-pre:bg-[#FAFAFA] prose-pre:border prose-pre:border-black/5 prose-pre:shadow-sm
+                         prose-a:text-primary hover:prose-a:text-primary-hover transition-colors
+                         prose-img:rounded-3xl prose-blockquote:rounded-r-xl"
               dangerouslySetInnerHTML={{ __html: content }} 
             />
             

@@ -16,7 +16,7 @@ local is_windows = package.config:sub(1,1) == "\\"
 local platform_name = is_windows and "windows" or "linux" -- simplificado
 
 -- 💎 PROPRIEDADES
-OS.version = "0.2.0"
+OS.version = "0.2.5"
 OS.platform = platform_name
 OS.arch = os.getenv("PROCESSOR_ARCHITECTURE") or "x64"
 OS.project_root = os.getenv("ZENITH_PROJECT_ROOT") or "."

@@ -24,7 +24,7 @@ function LuaCodegen:generate_body(node)
     self.has_namespace = false
     self.skip_exports = true
     
-    self:emit("-- Transpilado por Zenith v0.2.0 (Body Only)")
+    self:emit("-- Transpilado por Zenith v0.2.5 (Body Only)")
     self:emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
     self:_emit_prelude_constructors()
     self:emit("")
@@ -586,6 +586,13 @@ function LuaCodegen:_eval(node)
         local elements = {}
         for _, el in ipairs(node.elements) do table.insert(elements, self:_eval(el)) end
         return "{" .. table.concat(elements, ", ") .. "}"
+    
+    elseif node.kind == SK.MAP_EXPR then
+        local entries = {}
+        for _, p in ipairs(node.pairs or {}) do
+            table.insert(entries, string.format("[%s] = %s", self:_eval(p.key), self:_eval(p.value)))
+        end
+        return "{" .. table.concat(entries, ", ") .. "}"
     
     elseif node.kind == SK.INDEX_EXPR then
         return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))

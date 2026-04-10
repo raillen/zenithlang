@@ -32,15 +32,14 @@ Documento derivado da leitura de [docs/ROADMAP_CORE.md](docs/ROADMAP_CORE.md) cr
 | F3. Transparent async/await | **Conclu├¡do** | Pipeline est├ível com corrotinas | P1 |
 | F3. Blocos `native lua` | **Conclu├¡do** | Implementado no parser, binder e codegen | P2 |
 | F3. Trait `Iterable` | **Conclu├¡do** | Loop `for-in` desacoplado e extens├¡vel | P2 |
-| F4. ZPM / `.ztproj` | Parcial | Parser existe; falta gest├гo de depend├кncias | P2 |
-| F4. Stdlib | Parcial | `core`, `io`, `math` OK; faltam `os`, `json` | P2 |
-| F4. Self-hosting | Ausente | Previsto para p├│s-v1.0 | P3 |
-| F4. Auditoria de estabilidade | Parcial | +100 testes integrados; meta ├й +500 | P1 |
+| F4. Stdlib | **Concluído** | `core`, `io`, `math`, `os`, `fs`, `json` OK | P2 |
+| F4. ZPM / `.ztproj` | Parcial | Suporte a projetos local; falta Git/HTTP | P2 |
+| F4. Auditoria de estabilidade | **Concluído** | Core v0.2.5 estabilizado com testes integrados | P1 |
 
-## Pr├│ximos Passos (Fase 4 - Tooling)
+## Próximos Passos (v0.3.0 - Utilidades)
 
-1. Implementar `std.os` (File/Process API).
-2. Implementar `std.json` (Parser/Stringifier).
+1. Implementar `std.time` (Sleep/Timestamp API).
+2. Implementar `std.text` (Split/Join/Regex).
 3. Evoluir o ZPM para download de pacotes via Git/HTTP.
 4. Expandir suite de testes para auditoria de 1.0.
 

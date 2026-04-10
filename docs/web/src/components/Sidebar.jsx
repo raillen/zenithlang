@@ -27,7 +27,7 @@ const categoryIcons = {
 
 const Sidebar = ({ sections, currentDoc, onDocSelect }) => {
   return (
-    <aside data-z-id="sidebar-container" className="doc-sidebar w-64 h-[calc(100vh-64px)] overflow-y-auto bg-[#ECEEEE] border-r border-black/5 px-4 py-6 sticky top-16">
+    <aside data-z-id="sidebar-container" className="doc-sidebar w-64 h-[calc(100vh-64px)] overflow-y-auto glass-premium border-r border-black/5 px-6 py-10 sticky top-16">
       {/* Search Trigger */}
       <button 
         data-z-id="sidebar-search-trigger"

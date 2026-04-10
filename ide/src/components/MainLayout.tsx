@@ -5,6 +5,7 @@ import { TerminalPanel } from "./TerminalPanel";
 import { ProblemsPanel } from "./ProblemsPanel";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { Files, Search, GitBranch, Bug, AlertCircle } from "lucide-react";
+import { useTranslation } from "../utils/i18n";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { 
@@ -15,6 +16,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     setBottomTab,
     diagnosticsMap
   } = useWorkspaceStore();
+  const { t } = useTranslation();
 
   const problemCount = Object.values(diagnosticsMap).reduce((acc, curr) => acc + curr.length, 0);
 
@@ -27,20 +29,20 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
         <div className="w-12 bg-white/40 border-r border-ide-border flex flex-col items-center py-4 gap-4 backdrop-blur-md">
-          <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator'} onClick={() => setSidebarTab('navigator')} />
-          <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search'} onClick={() => setSidebarTab('search')} />
-          <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source'} onClick={() => setSidebarTab('source')} />
-          <ActivityIcon icon={<Bug size={18} />} active={activeSidebarTab === 'debug'} onClick={() => setSidebarTab('debug')} />
+          <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator'} onClick={() => setSidebarTab('navigator')} title={t('sidebar.navigator')} />
+          <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search'} onClick={() => setSidebarTab('search')} title={t('sidebar.search')} />
+          <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source'} onClick={() => setSidebarTab('source')} title={t('sidebar.source')} />
+          <ActivityIcon icon={<Bug size={18} />} active={activeSidebarTab === 'debug'} onClick={() => setSidebarTab('debug')} title={t('sidebar.debug')} />
         </div>
 
         <Group orientation="horizontal" className="flex-1">
           {/* Navigator Sidebar */}
           <Panel defaultSize={20} minSize={15} className="xcode-sidebar flex flex-col">
             <div className="h-8 flex items-center px-4 text-[10px] font-bold uppercase tracking-widest text-zinc-400 border-b border-black/[0.03]">
-              {activeSidebarTab === 'navigator' ? 'Project Navigator' : activeSidebarTab}
+              {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
             </div>
             <div className="flex-1 overflow-auto">
-              {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-zinc-400 text-center italic">Coming soon</div>}
+              {activeSidebarTab === 'navigator' ? <FileNavigator /> : <div className="p-8 text-[11px] text-zinc-400 text-center italic">{t('common.coming_soon')}</div>}
             </div>
           </Panel>
 
@@ -59,17 +61,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   <Panel defaultSize={25} minSize={10} className="bg-white/40 backdrop-blur-lg flex flex-col">
                     <div className="h-8 border-b border-ide-border flex items-center px-4 gap-6">
                         <BottomTab 
-                          label="Console" 
+                          label={t('bottom_tabs.console')} 
                           active={activeBottomTab === 'console'} 
                           onClick={() => setBottomTab('console')} 
                         />
                         <BottomTab 
-                          label="Terminal" 
+                          label={t('bottom_tabs.terminal')} 
                           active={activeBottomTab === 'terminal'} 
                           onClick={() => setBottomTab('terminal')} 
                         />
                         <BottomTab 
-                          label={`Problems ${problemCount > 0 ? `(${problemCount})` : ''}`} 
+                          label={`${t('bottom_tabs.problems')} ${problemCount > 0 ? `(${problemCount})` : ''}`} 
                           active={activeBottomTab === 'problems'} 
                           onClick={() => setBottomTab('problems')} 
                           icon={problemCount > 0 ? <AlertCircle size={10} className="ml-1 text-red-500" /> : null}
@@ -91,10 +93,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ActivityIcon({ icon, active, onClick }: { icon: React.ReactNode, active: boolean, onClick: () => void }) {
+function ActivityIcon({ icon, active, onClick, title }: { icon: React.ReactNode, active: boolean, onClick: () => void, title?: string }) {
   return (
     <button 
       onClick={onClick}
+      title={title}
       className={`p-2 rounded-lg transition-all ${active ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' : 'text-zinc-400 hover:text-zinc-600 hover:bg-black/5'}`}
     >
       {icon}

@@ -1,8 +1,10 @@
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { AlertCircle, AlertTriangle, Info, ChevronRight } from "lucide-react";
+import { useTranslation } from "../utils/i18n";
 
 export function ProblemsPanel() {
   const { diagnosticsMap, openFile } = useWorkspaceStore();
+  const { t } = useTranslation();
 
   const allDiagnostics = Object.entries(diagnosticsMap).flatMap(([path, diagnostics]) => 
     diagnostics.map(d => ({ ...d, path }))
@@ -12,7 +14,7 @@ export function ProblemsPanel() {
     return (
       <div className="flex flex-col items-center justify-center h-full text-zinc-300">
         <Info size={32} className="mb-2 opacity-20" />
-        <p className="text-xs font-medium">No problems detected</p>
+        <p className="text-xs font-medium">{t('problems.empty')}</p>
       </div>
     );
   }
@@ -51,7 +53,7 @@ export function ProblemsPanel() {
             <div className="flex items-center mt-0.5 text-[10px] text-zinc-400">
               <span className="truncate">{d.path.split(/[\\/]/).pop()}</span>
               <ChevronRight size={10} className="mx-1 opacity-50" />
-              <span>Line {d.line}, Col {d.col}</span>
+              <span>{t('problems.line')} {d.line}, {t('problems.col')} {d.col}</span>
             </div>
           </div>
         </div>

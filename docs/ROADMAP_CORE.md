@@ -1,51 +1,54 @@
-# Roadmap de Consolidação: Zenith Core v1.0
+# Roadmap de Consolidação: Zenith Core
 
-Este documento detalha o caminho técnico para finalizar o núcleo da linguagem Zenith, partindo da versão atual (v0.2.0) até o lançamento da v1.0.0 estável.
+Este documento detalha o caminho técnico do núcleo da linguagem Zenith, refletindo o progresso real do compilador e as metas de evolução granular.
 
 ## 🎯 Visão Geral
-O objetivo é transformar o Zenith em uma linguagem de produção, focada em acessibilidade cognitiva (TDAH/Dislexia) e alta performance sobre a VM Lua.
+O Zenith é uma linguagem focada em acessibilidade cognitiva (TDAH/Dislexia) e alta performance sobre a VM Lua, priorizando clareza sintática e segurança de dados.
 
 ---
 
-## 🛠️ Fase 1: Ergonomia e Expressividade (v0.3.0)
-*Foco: Reduzir a verbosidade e aumentar o prazer de escrever Zenith.*
+## ✅ Fase 1, 2 e 3: O Coração (v0.2.5) - *Concluído*
+*Foco: Estabelecer a gramática, o sistema de tipos e a infraestrutura básica.*
 
-- [ ] **Funções Anônimas (Lambdas)**: Sintaxe `(a, b) => expr` para callbacks rápidos.
-- [ ] **Destruturação em Parâmetros**: `func mover(Player { @posicao })` para acesso direto a campos na assinatura.
-- [ ] **Spread Operator em Expressões**: Espalhar coleções `[..lista, item]` e mapas `{..config, cor: "azul"}`.
-- [ ] **Type Aliases Avançados**: Suporte total a `type` para apelidos semânticos e `union` para tipos soma complexos.
-
-## 🌀 Fase 2: Sistema de Tipos e ADTs (v0.4.0)
-*Foco: Segurança de dados e modelagem complexa.*
-
-- [ ] **Enums com Dados (Sum Types)**: `enum Status: Sucesso(valor: T), Erro(msg: text)`.
-- [ ] **Generic Constraints Profundas**: Validação de métodos de Traits dentro de contextos genéricos.
-- [ ] **Slicing de Coleções**: Suporte nativo para fatiamento `lista[0..5]` em todos os tipos de coletores.
-- [ ] **Option/Result Types**: Tipos nativos para lidar com ausência de valor e erros sem exceções.
-
-## ⚡ Fase 3: Infraestrutura e Performance (v0.5.0)
-*Foco: Otimização e integração com a plataforma Lua.*
-
-- [ ] **Deep Desugaring na IR**: Mover toda a lógica de `match` e `where` para o Lowerer, limpando o Codegen.
-- [ ] **Transparent Async/Await**: Implementação robusta de corrotinas Zenith que não bloqueiam a execução.
-- [ ] **Blocos Native**: Keyword `native lua ... end` para integração direta e sem overhead com o ecossistema Lua.
-- [ ] **Trait `Iterable`**: Tornar o loop `for-in` extensível para qualquer estrutura de dados do usuário.
-
-## 📦 Fase 4: Tooling e Consolidação (v1.0.0)
-*Foco: Ecossistema e estabilidade final.*
-
-- [ ] **Zenith Project System (ZPM)**: Gerenciamento de dependências externas via `.ztproj`.
-- [ ] **Standard Library (Stdlib)**: Finalização dos módulos `std.io`, `std.os`, `std.math` e `std.json`.
-- [ ] **Self-Hosting (Opcional)**: Reescrever partes do compilador em Zenith para provar a maturidade da linguagem.
-- [ ] **Auditoria de Estabilidade**: Suite de testes com +500 casos de uso cobrindo edge cases.
+- [x] **ADTs e Match**: Suporte a Enums genéricos e destruturação poderosa.
+- [x] **Sistema de Tipos**: Verificação estática, Traits e restrições genéricas (`where`).
+- [x] **Concorrência**: Async/Await integrado via corrotinas transparentes.
+- [x] **Interoperabilidade**: Blocos `native lua` para acesso direto ao ecossistema Lua.
+- [x] **Ergonomia**: Lambdas, Spread, Slicing e Operador `?` (Optional/Outcome).
 
 ---
 
-## 📖 Diretrizes de Design (Core)
-1. **Nenhuma Inferência de Tipo Global**: O Zenith exige clareza. `var x: int` é a lei.
-2. **Verticalidade**: Priorizar sintaxes que permitam leitura de cima para baixo.
-3. **Explícito é melhor que Implícito**: Evitar comportamentos "mágicos" que confundam o programador.
-4. **Erros Amigáveis**: O compilador deve ser um mentor, não um juiz. Mensagens de erro devem sugerir soluções.
+## 🚀 Fase 4: Tooling e Fundação (v0.2.5) - *Concluído*
+*Foco: Permitir que o Zenith interaja com o mundo real.*
+
+- [x] **Transpiler CLI**: Orquestrador `ztc` estável com suporte a `--run`.
+- [x] **Project System**: Gerenciamento de build via arquivos `.ztproj`.
+- [x] **Bibliotecas Base**: Implementação de `std.os`, `std.fs`, `std.json`.
 
 ---
-*Última atualização: 08 de Abril de 2026*
+
+## 🌀 Fase 5: Utilidades e Ecossistema (v0.3.0) - *Em Aberto*
+*Foco: Expandir as ferramentas para o desenvolvedor.*
+
+- [ ] **Bibliotecas de Suporte**: `std.time` (delays/clocks) e `std.text` (manipulação de strings).
+- [ ] **ZPM (Git/HTTP)**: Suporte para baixar e gerenciar dependências externas.
+- [ ] **Orquestrador de Testes**: Melhoria no `test_all.lua` para relatórios visuais.
+
+---
+
+## 🛠️ Fase 6: Profissionalização (v0.4.0+)
+*Foco: Estabilidade e ferramentas de IDE.*
+
+- [ ] **LSP Básico**: Autocomplete e diagnósticos em tempo real para editores.
+- [ ] **Reflexão Básica**: Capacidade de inspecionar campos de structs em runtime (necessário para JSON automático).
+- [ ] **Auditoria 1.0**: Expansão da suite para +500 testes integrados.
+
+---
+
+## 📖 Diretrizes de Design
+1. **Verticalidade**: Priorizar sintaxes que permitam leitura de cima para baixo.
+2. **Explícito é melhor que Implícito**: Evitar comportamentos "mágicos" que confundam o programador.
+3. **Erros Amigáveis**: O compilador deve sugerir soluções (Mentoria).
+
+---
+*Atualizado em: 09 de Abril de 2026 (v0.2.5)*

@@ -908,9 +908,16 @@ end
 function Binder:_bind_map_expr(node)
     local key_type = BuiltinTypes.TEXT
     local val_type = BuiltinTypes.ANY
-    if #node.entries > 0 then
-        key_type = self:_bind_node(node.entries[1].key)
-        val_type = self:_bind_node(node.entries[1].value)
+    
+    local pairs_list = node.pairs or {}
+    if #pairs_list > 0 then
+        key_type = self:_bind_node(pairs_list[1].key)
+        val_type = self:_bind_node(pairs_list[1].value)
+    end
+    
+    for _, p in ipairs(pairs_list) do
+        self:_bind_node(p.key)
+        self:_bind_node(p.value)
     end
     
     return ZenithType.new(ZenithType.Kind.GENERIC, "map", {

@@ -25,7 +25,7 @@ end
 
 -- 💎 PROPRIEDADES (Constantes de Inicialização)
 
-pub const version: text = "0.2.0"
+pub const version: text = "0.2.5"
 pub const platform: text = "windows" -- Detectado no boot
 pub const arch: text = "x64"         -- Detectado no boot
 pub const project_root: text = "."   -- Caminho base do projeto

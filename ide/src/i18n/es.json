@@ -41,5 +41,25 @@
         "compiler_path": "Ruta del Compilador (ztc.lua)"
     },
     "save": "Guardar Cambios"
+  },
+  "sidebar": {
+    "navigator": "Explorador",
+    "navigator_title": "Navegador de Proyecto",
+    "search": "Búsqueda Global",
+    "source": "Gestor de Git",
+    "debug": "Debugger Zenith"
+  },
+  "bottom_tabs": {
+    "console": "Consola",
+    "terminal": "Terminal",
+    "problems": "Problemas"
+  },
+  "common": {
+    "coming_soon": "Próximamente..."
+  },
+  "problems": {
+    "empty": "Ningún problema detectado",
+    "line": "Línea",
+    "col": "Col"
   }
 }

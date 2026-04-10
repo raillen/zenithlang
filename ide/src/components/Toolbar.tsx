@@ -3,10 +3,14 @@ import { Play, Square, Hammer, ChevronRight, Layout, Settings } from "lucide-rea
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
 import { ZenithMenu } from "./ZenithMenu";
+import { useTranslation } from "../utils/i18n";
+import { SettingsDialog } from "./SettingsDialog";
 
 export function Toolbar() {
   const { dirtyFiles, activeFile, setBottomPanelOpen, isBottomPanelOpen } = useWorkspaceStore();
   const [isRunning, setIsRunning] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { t } = useTranslation();
 
   const handleRun = async () => {
     const file = activeFile as FileEntry;
@@ -43,7 +47,7 @@ export function Toolbar() {
             <span className="opacity-40">v0.2</span>
             <ChevronRight size={10} className="opacity-20" />
             <span className={dirtyFiles.has(activeFile?.path || '') ? 'text-amber-600' : 'opacity-60'}>
-              {activeFile ? (activeFile as FileEntry).name : 'No file selected'}
+              {activeFile ? (activeFile as FileEntry).name : t('toolbar.no_file')}
               {dirtyFiles.has(activeFile?.path || '') && " •"}
             </span>
           </div>
@@ -51,12 +55,12 @@ export function Toolbar() {
           <div className="ml-auto flex items-center gap-2">
             {isRunning ? (
               <div className="flex items-center gap-2 animate-pulse">
-                  <span className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">Compiling...</span>
+                  <span className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">{t('toolbar.compiling')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Ready</span>
+                  <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">{t('toolbar.ready')}</span>
               </div>
             )}
           </div>
@@ -67,13 +71,13 @@ export function Toolbar() {
           <button 
             onClick={handleRun}
             disabled={isRunning || !activeFile}
-            title="Run Project (⌘R)"
+            title={t('toolbar.run_tooltip')}
             className={`p-1.5 rounded-md transition-all flex items-center justify-center ${isRunning ? 'bg-amber-500/10 text-amber-600' : 'hover:bg-black/5 text-zinc-600 active:scale-95 disabled:opacity-30'}`}
           >
             {isRunning ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
           </button>
           <button 
-            title="Build All (⌘B)"
+            title={t('toolbar.build_tooltip')}
             className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-zinc-600 disabled:opacity-30"
             disabled={!activeFile}
           >
@@ -83,7 +87,8 @@ export function Toolbar() {
           <div className="h-4 w-[1px] bg-black/5 mx-1" />
           
           <button 
-            title="Settings"
+            title={t('toolbar.settings_tooltip')}
+            onClick={() => setIsSettingsOpen(true)}
             className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-zinc-500"
           >
             <Settings size={14} />
@@ -100,6 +105,8 @@ export function Toolbar() {
           <Layout size={16} />
         </button>
       </div>
+
+      {isSettingsOpen && <SettingsDialog onClose={() => setIsSettingsOpen(false)} />}
     </header>
   );
 }

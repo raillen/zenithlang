@@ -7,63 +7,40 @@ local Failure = zt.Outcome.Failure
 
 local main
 
-local fs = require("src/stdlib/fs")
-
-local path = require("src/stdlib/fs/path")
+local json = require("src/stdlib/json")
 
 function main()
-    print("--- Testando Módulo std.fs ---")
-    local arq = "teste_zenith.txt"
-    print("Criando arquivo...")
-    fs.write_text_file(arq, "Linha 2\
-Linha 3")
-    print("Testando Prepend (Linha 1)...")
-    fs.prepend_text(arq, "Linha 1\
-")
-    print("Testando Append (Linha 4)...")
-    fs.append_text(arq, "\
-Linha 4")
-    local res_read = fs.read_text_file(arq)
-    local _m = res_read
+    print("--- Testando Módulo std.json ---")
+    local raw_json = "{ \"nome\": \"Zenith\", \"versao\": 0.2 }"
+    print("Testando parse genérico...")
+    local res_parse = json.parse(raw_json)
+    local _m = res_parse
     if ((_m._tag == "Success") and true) then
-        local txt = _m._1
-        print(("Conteúdo final:\
-" .. txt))
+        local obj = _m._1
+        local mapa = obj
+        print(("Nome: " .. mapa.nome))
     elseif ((_m._tag == "Failure") and true) then
         local e = _m._1
-        print("Erro ao ler")
+        print("Erro no parse")
     end
     print("\
-Lendo linha por linha (Stream):")
-    local res_open = fs.open_file(arq, fs.FileMode.Read)
-    local _m = res_open
+Testando stringify:")
+    local data = {["id"] = 1, ["autor"] = "Rafael"}
+    local s = json.stringify(data, 0)
+    print(s)
+    print("\
+Testando beautify:")
+    local res_b = json.beautify(s, 2)
+    local _m = res_b
     if ((_m._tag == "Success") and true) then
-        local h = _m._1
-        local handle = h
-        local l1_opt = handle.read_line()
-        local _m = l1_opt
-        if ((_m._tag == "Present") and true) then
-            local t = _m._1
-            local txt = t
-            print(("Linha 1: " .. txt))
-        elseif (_m._tag == "Empty") then
-            print("Vazio")
-        end
-        handle.close()
+        local b = _m._1
+        print(b)
     elseif ((_m._tag == "Failure") and true) then
-        local err = _m._1
-        print("Falha ao abrir")
+        local e = _m._1
+        print("Erro no beautify")
     end
     print("\
---- Testando std.fs.path ---")
-    local full = path.join({"C:", "Projetos", "Zenith", "main.zt"})
-    print(("Path join: " .. full))
-    print(("Extensão: " .. path.extension(full)))
-    print(("Basename: " .. path.basename(full)))
-    print(("Dirname:  " .. path.dirname(full)))
-    fs.remove_file(arq)
-    print("\
---- Fim dos testes de FS ---")
+--- Fim dos testes ---")
     return 0
 end
 

@@ -2,11 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { Menu, X, FilePlus, FolderOpen, Save, Hammer, Play, Settings, HelpCircle, Info, Zap } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
+import { useTranslation } from "../utils/i18n";
+import { SettingsDialog } from "./SettingsDialog";
 
 export function ZenithMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { setProjectRoot, openFile } = useWorkspaceStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -57,25 +61,28 @@ export function ZenithMenu() {
         <div className="absolute top-12 left-0 w-[500px] bg-white/98 backdrop-blur-2xl border border-ide-border rounded-2xl shadow-2xl p-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex gap-8">
             {/* Category: File */}
-            <MenuSection title="Arquivo">
-              <MenuItem icon={<FilePlus size={14} />} label="Novo Script (.zt)" onClick={() => {}} />
-              <MenuItem icon={<FolderOpen size={14} />} label="Abrir Pasta..." onClick={handleOpenFolder} />
-              <MenuItem icon={<FilePlus size={14} />} label="Abrir Arquivo..." onClick={handleOpenFile} />
-              <MenuItem icon={<Save size={14} />} label="Salvar como..." onClick={() => {}} />
+            <MenuSection title={t('hub.categories.file')}>
+              <MenuItem icon={<FilePlus size={14} />} label={t('hub.actions.new_script')} onClick={() => {}} />
+              <MenuItem icon={<FolderOpen size={14} />} label={t('hub.actions.open_folder')} onClick={handleOpenFolder} />
+              <MenuItem icon={<FilePlus size={14} />} label={t('hub.actions.open_file')} onClick={handleOpenFile} />
+              <MenuItem icon={<Save size={14} />} label={t('hub.actions.save_as')} onClick={() => {}} />
             </MenuSection>
 
             {/* Category: Zenith Tools */}
-            <MenuSection title="Zenith">
-              <MenuItem icon={<Hammer size={14} />} label="Compilar (Hammer)" onClick={() => {}} />
-              <MenuItem icon={<Play size={14} />} label="Rodar em Zenith" onClick={() => {}} />
-              <MenuItem icon={<Zap size={14} />} label="Check Diagnostics" onClick={() => {}} />
+            <MenuSection title={t('hub.categories.zenith')}>
+              <MenuItem icon={<Hammer size={14} />} label={t('hub.actions.compile')} onClick={() => {}} />
+              <MenuItem icon={<Play size={14} />} label={t('hub.actions.run')} onClick={() => {}} />
+              <MenuItem icon={<Zap size={14} />} label={t('hub.actions.check')} onClick={() => {}} />
             </MenuSection>
 
             {/* Category: Help & Settings */}
-            <MenuSection title="Sistema">
-              <MenuItem icon={<Settings size={14} />} label="Preferências" onClick={() => {}} />
-              <MenuItem icon={<HelpCircle size={14} />} label="Documentação" onClick={() => {}} />
-              <MenuItem icon={<Info size={14} />} label="Sobre Zenith" onClick={() => {}} />
+            <MenuSection title={t('hub.categories.system')}>
+              <MenuItem icon={<Settings size={14} />} label={t('hub.actions.preferences')} onClick={() => {
+                setIsSettingsOpen(true);
+                setIsOpen(false);
+              }} />
+              <MenuItem icon={<HelpCircle size={14} />} label={t('hub.actions.docs')} onClick={() => {}} />
+              <MenuItem icon={<Info size={14} />} label={t('hub.actions.about')} onClick={() => {}} />
             </MenuSection>
           </div>
 
@@ -84,12 +91,14 @@ export function ZenithMenu() {
               <div className="w-5 h-5 bg-primary rounded-md flex items-center justify-center">
                  <div className="w-2 h-2 bg-white rotate-45" />
               </div>
-              ZENITH HUB
+              {t('hub.title')}
             </div>
-            <div className="text-[10px] text-zinc-400">Version 0.2.0-Alpha</div>
+            <div className="text-[10px] text-zinc-400">{t('hub.version')}</div>
           </div>
         </div>
       )}
+
+      {isSettingsOpen && <SettingsDialog onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }

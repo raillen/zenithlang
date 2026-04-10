@@ -5,9 +5,11 @@ import { useWorkspaceStore } from "./store/useWorkspaceStore";
 import { invoke } from "./utils/tauri";
 
 function App() {
-  const { setProjectRoot, openFile } = useWorkspaceStore();
+  const { setProjectRoot, openFile, loadSettings } = useWorkspaceStore();
 
   useEffect(() => {
+    loadSettings();
+    
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Ctrl + Shift + O: Open Folder
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {

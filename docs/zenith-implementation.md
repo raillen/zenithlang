@@ -1,6 +1,6 @@
 # Zenith Language — Documento de Implementação
 
-> Versão de referência: v1.0-alpha  
+> Versão de referência: v0.2.5 (Stable Core)
 > Target de saída: Lua 5.4  
 > Paradigma: transpiler com frontend próprio
 
