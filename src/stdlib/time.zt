@@ -1,0 +1,89 @@
+--- Biblioteca Padrão Zenith — Módulo Time
+--- Gestão de tempo, intervalos e controle de fluxo.
+
+namespace std.time
+
+-- 📦 ENUMS E ESTRUTURAS
+
+pub enum Weekday
+    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
+end
+
+pub struct Duration
+    pub seconds: float
+    
+    --- Retorna a duração em milissegundos.
+    pub func to_ms() -> float
+    end
+    
+    --- Calcula a diferença entre dois instantes.
+    pub func between(start: DateTime, end: DateTime) -> Duration
+    end
+end
+
+pub struct DateTime
+    pub year: int
+    pub month: int
+    pub day: int
+    pub hour: int
+    pub minute: int
+    pub second: int
+    pub millisecond: int
+    pub weekday: Weekday
+    pub unix: float
+    
+    --- Formata a data usando um padrão de exemplo (ex: "DD/MM/YYYY").
+    pub func format(pattern: text) -> text
+    end
+end
+
+pub struct Stopwatch
+    -- Implementado via native lua para alta precisão
+    pub func start()
+    end
+    pub func stop() -> Duration
+    end
+    pub func reset()
+    end
+end
+
+-- 🏗️ CONSTRUTORES (Acessibilidade)
+
+--- Cria uma duração baseada em componentes.
+pub func duration(
+    hours: float = 0.0, 
+    minutes: float = 0.0, 
+    seconds: float = 0.0, 
+    ms: float = 0.0
+) -> Duration
+end
+
+--- Atalho para segundos.
+pub func seconds(s: float) -> Duration
+end
+
+--- Atalho para milissegundos.
+pub func ms(milliseconds: float) -> Duration
+end
+
+-- 🚀 CORE
+
+--- Retorna o instante atual.
+pub func now() -> DateTime
+end
+
+--- Retorna o instante atual em UTC.
+pub func utc_now() -> DateTime
+end
+
+--- Cria um novo cronômetro de alta precisão.
+pub func stopwatch() -> Stopwatch
+end
+
+--- Pausa a execução do programa (Síncrono).
+pub func sleep(d: Duration)
+end
+
+--- Pausa a execução de uma tarefa (Assíncrono).
+pub async func wait(d: Duration)
+end

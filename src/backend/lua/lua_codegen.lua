@@ -293,6 +293,7 @@ function LuaCodegen:_emit_import_decl(node)
     end
 
     local name = node.alias or parts[#parts]
+    self.imports[name] = true
 
     -- Heurística para detectar import de membro:
     if name == "fast_add" then
@@ -574,7 +575,12 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.CALL_EXPR then
         local args = {}
         for _, arg in ipairs(node.arguments) do table.insert(args, self:_eval(arg)) end
-        return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", "))
+        
+        if node.callee.kind == SK.MEMBER_EXPR then
+            return string.format("%s:%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", "))
+        else
+            return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", "))
+        end
     
     elseif node.kind == SK.MEMBER_EXPR then
         return string.format("%s.%s", self:_eval(node.object), node.member_name)
@@ -638,6 +644,18 @@ end
 
 function LuaCodegen:_eval_with_it(expr, it_value)
     -- Gambiarra temporária: substitui 'it' por it_value no codegen
+    local old_eval = self._eval
+    self._eval = function(s, node)
+        if node and node.kind == SK.IT_EXPR then return it_value end
+        return old_eval(s, node)
+    end
+    local res = self:_eval(expr)
+    self._eval = old_eval
+    return res
+end
+
+return LuaCodegen
+it' por it_value no codegen
     local old_eval = self._eval
     self._eval = function(s, node)
         if node and node.kind == SK.IT_EXPR then return it_value end

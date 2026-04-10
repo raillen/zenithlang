@@ -1,0 +1,35 @@
+-- tests/stdlib/test_time.zt
+import std.time
+
+pub func main() -> int
+    print("--- Testando Módulo std.time ---")
+
+    -- 1. Testando Relógio
+    var agora = time.now()
+    print("Agora: " + agora.day + "/" + agora.month + "/" + agora.year)
+    print("Hora:  " + agora.hour + ":" + agora.minute + ":" + agora.second)
+
+    -- 2. Testando Duração e Sleep
+    print("\nAguardando 2 segundos (Síncrono)...")
+    var d2 = time.seconds(2)
+    
+    var sw = time.stopwatch()
+    sw.start()
+    
+    time.sleep(d2)
+    
+    var decorrido = sw.stop()
+    print("Tempo real decorrido: " + decorrido.seconds + "s")
+
+    -- 3. Testando Construtores
+    var d_complexa = time.duration(minutes: 1, seconds: 30)
+    print("\n1m 30s em segundos: " + d_complexa.seconds)
+
+    -- 4. Testando Async Wait (Opcional - se o runtime suportar no teste)
+    -- print("\nIniciando Wait Assíncrono (1s)...")
+    -- await time.wait(time.seconds(1))
+    -- print("Wait finalizado!")
+
+    print("\n--- Fim dos testes de TIME ---")
+    return 0
+end

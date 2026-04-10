@@ -7,40 +7,26 @@ local Failure = zt.Outcome.Failure
 
 local main
 
-local json = require("src/stdlib/json")
+local time = require("src/stdlib/time")
 
 function main()
-    print("--- Testando Módulo std.json ---")
-    local raw_json = "{ \"nome\": \"Zenith\", \"versao\": 0.2 }"
-    print("Testando parse genérico...")
-    local res_parse = json.parse(raw_json)
-    local _m = res_parse
-    if ((_m._tag == "Success") and true) then
-        local obj = _m._1
-        local mapa = obj
-        print(("Nome: " .. mapa.nome))
-    elseif ((_m._tag == "Failure") and true) then
-        local e = _m._1
-        print("Erro no parse")
-    end
+    print("--- Testando Módulo std.time ---")
+    local agora = time:now()
+    print(((((("Agora: " .. agora.day) .. "/") .. agora.month) .. "/") .. agora.year))
+    print(((((("Hora:  " .. agora.hour) .. ":") .. agora.minute) .. ":") .. agora.second))
     print("\
-Testando stringify:")
-    local data = {["id"] = 1, ["autor"] = "Rafael"}
-    local s = json.stringify(data, 0)
-    print(s)
+Aguardando 2 segundos (Síncrono)...")
+    local d2 = time:seconds(2)
+    local sw = time:stopwatch()
+    sw:start()
+    time:sleep(d2)
+    local decorrido = sw:stop()
+    print((("Tempo real decorrido: " .. decorrido.seconds) .. "s"))
+    local d_complexa = time:duration(1, 30)
+    print(("\
+1m 30s em segundos: " .. d_complexa.seconds))
     print("\
-Testando beautify:")
-    local res_b = json.beautify(s, 2)
-    local _m = res_b
-    if ((_m._tag == "Success") and true) then
-        local b = _m._1
-        print(b)
-    elseif ((_m._tag == "Failure") and true) then
-        local e = _m._1
-        print("Erro no beautify")
-    end
-    print("\
---- Fim dos testes ---")
+--- Fim dos testes de TIME ---")
     return 0
 end
 
