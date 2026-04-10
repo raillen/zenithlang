@@ -1,0 +1,56 @@
+-- tests/stdlib/test_reflect.zt
+import std.reflect
+
+struct Usuario
+    pub nome: text
+    pub idade: int
+    pub ativo: bool
+    
+    pub func saudar()
+        print("Olá!")
+    end
+end
+
+pub func main() -> int
+    print("--- Testando Módulo std.reflect ---")
+
+    var u = Usuario { nome: "Rafael", idade: 30, ativo: true }
+
+    -- 1. Testando type_of
+    print("Tipo: " + reflect.type_of(u))
+    print("Tipo Primitivo: " + reflect.type_of(42))
+
+    -- 2. Testando inspect (Metadados)
+    var info_opt = reflect.inspect(u)
+    match info_opt
+        case Present(info) =>
+            var ti: any = info
+            print("\nInspecionando struct " + ti.name + ":")
+            
+            print("Campos:")
+            for f in ti.fields
+                var field: any = f
+                print("  - " + field.name + ": " + field.type_name)
+            end
+            
+            print("Métodos:")
+            for m in ti.methods
+                var method: any = m
+                print("  - " + method.name + "()")
+            end
+            
+        case Empty =>
+            print("Falha ao inspecionar: metadados não encontrados.")
+    end
+
+    -- 3. Testando Manipulação Dinâmica
+    print("\nManipulação Dinâmica:")
+    var nome_atual = reflect.get_value(u, "nome")
+    print("Nome lido via reflect: " + nome_atual)
+    
+    reflect.set_value(u, "nome", "Zenith Explorer")
+    print("Novo nome no objeto: " + u.nome)
+
+    print("\n--- Fim dos testes de REFLECT ---")
+    return 0
+end

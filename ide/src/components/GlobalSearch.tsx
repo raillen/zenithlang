@@ -33,8 +33,9 @@ export function GlobalSearch() {
     setError(null);
     try {
       const res: FileResult[] = await invoke("search_in_files", {
+        rootPath: useWorkspaceStore.getState().currentProjectRoot,
         query,
-        isRegex: false, // V1 disables complex searches to simplify testing
+        isRegex: false,
         matchCase: false
       });
       setResults(res);

@@ -27,7 +27,7 @@ O Zenith é uma linguagem focada em acessibilidade cognitiva (TDAH/Dislexia) e a
 
 ---
 
-## 🌀 Fase 5: Utilidades e Ecossistema (v0.3.0) - *Em Aberto*
+## 🌀 Fase 5: Utilidades e Ecossistema (v0.2.6) - *Em Aberto*
 *Foco: Expandir as ferramentas para o desenvolvedor.*
 
 - [ ] **Bibliotecas de Suporte**: `std.time` (delays/clocks) e `std.text` (manipulação de strings).
@@ -36,12 +36,16 @@ O Zenith é uma linguagem focada em acessibilidade cognitiva (TDAH/Dislexia) e a
 
 ---
 
-## 🛠️ Fase 6: Profissionalização (v0.4.0+)
-*Foco: Estabilidade e ferramentas de IDE.*
+- [ ] **Auditoria de Estabilidade**: Expansão da suite para +500 testes integrados.
 
-- [ ] **LSP Básico**: Autocomplete e diagnósticos em tempo real para editores.
-- [ ] **Reflexão Básica**: Capacidade de inspecionar campos de structs em runtime (necessário para JSON automático).
-- [ ] **Auditoria 1.0**: Expansão da suite para +500 testes integrados.
+---
+
+## 🔱 Fase 7: Zenith Ascension (v0.3.0)
+*Foco: Independência total e maturidade técnica.*
+
+- [ ] **Self-Hosted Compiler**: Reescrever o `ztc` inteiramente em Zenith.
+- [ ] **Otimização por Zenith**: Usar as ferramentas da linguagem para otimizar o próprio binário.
+- [ ] **Bootstrapping**: Garantir que o Zenith consiga se compilar sem depender do código Lua original.
 
 ---
 

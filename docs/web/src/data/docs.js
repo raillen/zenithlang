@@ -1,25 +1,32 @@
 export const DOCS_STRUCTURE = {
   handbook: [
-    { title: 'Guia do Usuário', docs: [
+    { title: 'Guia do Usuario', docs: [
       { label: 'Sintaxe', path: '/docs-content/handbook/syntax.md' },
-      { label: 'Idiomas', path: '/docs-content/handbook/idioms.md' }
+      { label: 'Idiomatismo', path: '/docs-content/handbook/idioms.md' }
     ]},
     { title: 'Suporte', docs: [
       { label: 'Cheat Sheet', path: '/docs-content/support/cheat-sheet.md' },
-      { label: 'Catálogo de Erros', path: '/docs-content/support/error-catalog.md' },
-      { label: 'Cognição Visual', path: '/docs-content/support/visual-cognition.md' }
+      { label: 'Catalogo de Erros', path: '/docs-content/support/error-catalog.md' },
+      { label: 'Cognicao Visual', path: '/docs-content/support/visual-cognition.md' }
     ]}
   ],
   api: [
-    { title: 'Biblioteca Padrão', docs: [
+    { title: 'Biblioteca Padrao', docs: [
       { label: 'Core', path: '/docs-content/api/std-core.md' },
       { label: 'I/O', path: '/docs-content/api/std-io.md' },
-      { label: 'Math', path: '/docs-content/api/std-math.md' }
+      { label: 'Math', path: '/docs-content/api/std-math.md' },
+      { label: 'Text', path: '/docs-content/api/std-text.md' },
+      { label: 'Time', path: '/docs-content/api/std-time.md' },
+      { label: 'FS', path: '/docs-content/api/std-fs.md' },
+      { label: 'FS Path', path: '/docs-content/api/std-fs-path.md' },
+      { label: 'JSON', path: '/docs-content/api/std-json.md' },
+      { label: 'OS', path: '/docs-content/api/std-os.md' },
+      { label: 'OS Process', path: '/docs-content/api/std-os-process.md' }
     ]}
   ],
   pedagogy: [
     { title: 'Teoria', docs: [
-      { label: '01. Introdução', path: '/docs-content/pedagogy/01-introduction.md' },
+      { label: '01. Introducao', path: '/docs-content/pedagogy/01-introduction.md' },
       { label: '02. Lexer Theory', path: '/docs-content/pedagogy/02-lexer-theory.md' },
       { label: '03. AST Theory', path: '/docs-content/pedagogy/03-ast-theory.md' },
       { label: '04. Parser Theory', path: '/docs-content/pedagogy/04-parser-theory.md' },
@@ -28,7 +35,7 @@ export const DOCS_STRUCTURE = {
       { label: '07. CodeGen Theory', path: '/docs-content/pedagogy/07-codegen-theory.md' },
       { label: '08. Runtime Theory', path: '/docs-content/pedagogy/08-runtime-theory.md' }
     ]},
-    { title: 'Implementação', docs: [
+    { title: 'Implementacao', docs: [
       { label: '01. Lexer Impl', path: '/docs-content/pedagogy/02-lexer-implementation.md' },
       { label: '02. AST Impl', path: '/docs-content/pedagogy/03-ast-implementation.md' },
       { label: '03. Parser Impl', path: '/docs-content/pedagogy/04-parser-implementation.md' },
@@ -36,13 +43,13 @@ export const DOCS_STRUCTURE = {
       { label: '05. Types Impl', path: '/docs-content/pedagogy/06-types-implementation.md' },
       { label: '06. CodeGen Impl', path: '/docs-content/pedagogy/07-codegen-implementation.md' },
       { label: '07. Runtime Impl', path: '/docs-content/pedagogy/08-runtime-implementation.md' },
-      { label: '10. Próximos Passos', path: '/docs-content/pedagogy/10-next-steps.md' }
+      { label: '10. Proximos Passos', path: '/docs-content/pedagogy/10-next-steps.md' }
     ]}
   ],
   architecture: [
     { title: 'Sistema', docs: [
-      { label: 'Visão Geral', path: '/docs-content/architecture/01-overview.md' },
-      { label: 'Implementação', path: '/docs-content/zenith-implementation.md' }
+      { label: 'Visao Geral', path: '/docs-content/architecture/01-overview.md' },
+      { label: 'Implementacao', path: '/docs-content/zenith-implementation.md' }
     ]}
   ],
   roadmap: [
@@ -60,18 +67,17 @@ export const DOCS_STRUCTURE = {
     ]}
   ],
   changelog: [
-    { title: 'Histórico', docs: [
+    { title: 'Historico', docs: [
       { label: 'Changelog', path: '/docs-content/history/changelog.md' }
     ]}
   ]
 };
 
-// Helper para achatar a estrutura para busca
 export const getAllDocs = () => {
   const flattened = [];
-  Object.keys(DOCS_STRUCTURE).forEach(sectionKey => {
-    DOCS_STRUCTURE[sectionKey].forEach(group => {
-      group.docs.forEach(doc => {
+  Object.keys(DOCS_STRUCTURE).forEach((sectionKey) => {
+    DOCS_STRUCTURE[sectionKey].forEach((group) => {
+      group.docs.forEach((doc) => {
         flattened.push({
           ...doc,
           section: sectionKey,

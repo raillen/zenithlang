@@ -1,0 +1,46 @@
+--- Biblioteca Padrão Zenith — Submódulo OS Process
+--- Gestão avançada de processos e execução em background.
+
+namespace std.os.process
+
+-- 📦 ESTRUTURAS
+
+pub struct Process
+    pub pid: int
+    pub executable: text
+    
+    --- Aguarda o fim do processo e retorna o código de saída.
+    pub async func wait() -> int
+    end
+    
+    --- Encerra o processo forçadamente.
+    pub func kill() -> bool
+    end
+    
+    --- Se 'capture' foi true no spawn, retorna o conteúdo do stdout.
+    pub func read_output() -> Optional<text>
+    end
+
+    --- Limpa recursos temporários associados ao processo.
+    pub func close()
+    end
+end
+
+-- 🏗️ CORE
+
+--- Inicia um novo programa em background.
+--- @param cmd text Nome do executável ou comando do sistema
+--- @param args list<text> Lista de argumentos
+--- @param capture bool Se verdadeiro, guarda o stdout para leitura posterior
+--- @param env map<text, text> Variáveis de ambiente exclusivas para este processo
+pub func spawn(
+    cmd: text, 
+    args: list<text> = [], 
+    capture: bool = false, 
+    env: map<text, text> = {}
+) -> Outcome<Process, text>
+end
+
+--- Retorna o PID do processo Zenith atual (0 se desconhecido).
+pub func current_id() -> int
+end

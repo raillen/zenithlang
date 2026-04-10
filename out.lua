@@ -5,48 +5,85 @@ local Empty = zt.Optional.Empty
 local Success = zt.Outcome.Success
 local Failure = zt.Outcome.Failure
 
-local main
+local test_base64, test_sha256, test_hmac, test_uuid, test_password
 
-local os = require("src/stdlib/os")
+local crypto = require("src/stdlib/crypto")
 
-function main()
-    print("--- Testando Módulo std.os ---")
-    print((tostring("Versão do Zenith: ") .. tostring(os.version)))
-    print((tostring("Plataforma: ") .. tostring(os.platform)))
-    print((tostring("Arquitetura: ") .. tostring(os.arch)))
-    print("--- Testando Variáveis de Ambiente ---")
-    local user = zt.unwrap_or(os.get_env_variable("USERNAME"), "desconhecido")
-    print((tostring("Usuário atual: ") .. tostring(user)))
-    local envs = os.get_all_env_variables()
-    print((tostring("Total de variáveis de ambiente: ") .. tostring(#(envs))))
-    print("--- Testando Informações de Hardware ---")
-    local hw = os.get_hardware_info()
-    print((tostring("Processador: ") .. tostring(hw.cpu)))
-    print((tostring((tostring("RAM: ") .. tostring(hw.ram_gb))) .. tostring(" GB")))
-    print("--- Testando Caminhos ---")
-    print((tostring("Trabalhando em: ") .. tostring(os.get_working_dir())))
-    print((tostring("Área de Trabalho: ") .. tostring(os.get_special_path(os.SpecialPath.Desktop))))
-    print("--- Testando Comandos ---")
-    local code = os.run_command("echo Hello from Zenith Command!")
-    print((tostring("Código de saída do echo: ") .. tostring(code)))
-    print("--- Testando Privilégios ---")
-    if os.is_admin() then
-        print("Rodando como Administrador")
-    else
-        print("Rodando como Usuário Normal")
+function test_base64()
+    print("--- Testando Base64 ---")
+    local original = "Zenith"
+    local encoded = crypto.base64_encode(original)
+    print(zt.add("Original: ", original))
+    print(zt.add("Encoded:  ", encoded))
+    local decoded_res = crypto.base64_decode(encoded)
+    local decoded = decoded_res:unwrap_or("erro")
+    print(zt.add("Decoded:  ", decoded))
+    if (original == decoded) then
+        print("✅ Base64 OK!")
     end
-    print("--- Fim dos testes de OS ---")
-    return 0
+end
+
+function test_sha256()
+    print("\
+--- Testando SHA-256 ---")
+    local hash = crypto.sha256("zenith")
+    print(zt.add("Hash de 'zenith': ", hash))
+    if hash:starts_with("0d51704") then
+        print("✅ SHA-256 OK!")
+    else
+        print("❌ SHA-256 incorreto")
+    end
+end
+
+function test_hmac()
+    print("\
+--- Testando HMAC-SHA256 ---")
+    local hmac = crypto.hmac_sha256("key", "data")
+    print(zt.add("HMAC: ", hmac))
+    if hmac:starts_with("5031fe") then
+        print("✅ HMAC OK!")
+    else
+        print("❌ HMAC incorreto")
+    end
+end
+
+function test_uuid()
+    print("\
+--- Testando UUID v4 ---")
+    local id1 = crypto.generate_uuid()
+    local id2 = crypto.generate_uuid()
+    print(zt.add("UUID 1: ", id1))
+    print(zt.add("UUID 2: ", id2))
+    if (id1 ~= id2) then
+        print("✅ UUIDs são diferentes!")
+    end
+    if (#(id1) == 36) then
+        print("✅ Formato do UUID OK!")
+    end
+end
+
+function test_password()
+    print("\
+--- Testando Password Helper ---")
+    local p1 = crypto.hash_password("123456", "salt")
+    local p2 = crypto.hash_password("123456", "salt")
+    local p3 = crypto.hash_password("123456", "other_salt")
+    if ((p1 == p2) and (p1 ~= p3)) then
+        print("✅ Password hashing com salt OK!")
+    end
 end
 
 -- Struct Methods
+test_base64()
 
--- Auto-run main if not in a namespace
-if not false then
-    local status = main()
-    if type(status) == 'number' then os.exit(status) end
-end
+test_sha256()
+
+test_hmac()
+
+test_uuid()
+
+test_password()
+
 
 return {
-    main = main,
 }

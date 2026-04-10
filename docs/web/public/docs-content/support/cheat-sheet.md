@@ -1,59 +1,138 @@
-# Zenith Cheat Sheet (v0.2)
+# Zenith Cheat Sheet
 
-Referência rápida para os comandos e sintaxes mais comuns.
+Referência rápida da sintaxe e da stdlib principal no snapshot atual.
 
-## Variáveis e Tipos
+## Declarações
+
 ```zt
-var x: int = 10         -- Variável
-const Y: text = "Fixo"  -- Constante
-var u: int | text = 5   -- União de tipos
+var x: int = 10
+const APP_NAME: text = "Zenith"
+global DEBUG: bool = false
+
+type UserId = text
+union Result<T> = T | text
 ```
 
-## Estrutura de Fluxo
+## Fluxo
+
 ```zt
 if x > 0
-    print("Positivo")
+    print("positivo")
+elif x == 0
+    print("zero")
+else
+    print("negativo")
 end
 
-match valor
-    case 10: print("Dez")
-    else: print("Outro")
+for i in 1..3
+    print(i)
 end
 
-repeat 5 times
-    print("Zenith!")
+repeat 2 times
+    print("tick")
 end
 ```
 
-## Funções e Blocos
+## `match`, `check` e erro
+
+```zt
+match payload
+    case Success(v):
+        print(v)
+    case Failure(err):
+        print(err)
+    else:
+        print("fallback")
+end
+
+check idade >= 18 else
+    panic("bloqueado")
+end
+
+attempt
+    throw "falha"
+rescue e
+    print(e)
+end
+```
+
+## Funções e lambdas
+
 ```zt
 func soma(a: int, b: int) -> int
     return a + b
 end
 
-async func carregar()
-    await download()
+async func carregar() -> text
+    return "ok"
+end
+
+var dobro = (n: int) => n * 2
+var soma_bloco = (a: int, b: int) => do
+    return a + b
 end
 ```
 
-## Composição (LEGO Style)
+## Structs, traits e contratos
+
 ```zt
 struct Player
     pub nome: text
-    pub vida: int = 100
+    pub vida: int where it >= 0
 end
 
-trait Voador
-    pub func voar()
+trait Greetable
+    pub func greet() -> text
 end
 
-apply Voador to Player
+apply Greetable to Player
+    pub func greet() -> text
+        return "Oi, " + @nome
+    end
+end
 ```
 
-## Reatividade
+## Operadores úteis
+
 ```zt
-state energia: int = 100
-watch energia
-    if it < 20 then print("Cuidado!") end
+var trecho = lista[0..1]
+var copia = [..lista, 4]
+var nome = apelido!
+var texto = fs.read_text_file("a.txt")?
+var user = os.get_env_variable("USERNAME") or "desconhecido"
+```
+
+## Módulos
+
+```zt
+namespace app.main
+
+import std.fs
+import std.json
+import std.os
+import std.os.process
+```
+
+## Stdlib principal
+
+```zt
+fs.read_text_file("a.txt")
+json.stringify({ "ok": true }, 2)
+time.sleep(time.seconds(1))
+os.run_command("echo hello")
+process.spawn("echo", ["hello"], capture: true)
+```
+
+## Testes e interop
+
+```zt
+group "core"
+    test "smoke"
+        assert(true, "ok")
+    end
+end
+
+native lua
+    print("interop")
 end
 ```

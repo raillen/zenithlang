@@ -75,33 +75,64 @@
   }
 }
 
-/* PrismJS Styling Fixes for High Contrast */
+/* Zenith Chroma: High-Fidelity Syntax Highlighting */
 pre[class*="language-"] {
-  background: #1e1e1e !important; /* Fundo escuro para maior contraste do Zenith */
-  border-radius: 12px !important;
-  border: 1px solid rgba(0,0,0,0.1) !important;
-  color: #d4d4d4 !important;
+  background: #f8f9fb !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+  color: #24292f !important;
   padding: 1.5rem !important;
   margin: 1.5rem 0 !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 0.9rem !important;
 }
 
 code[class*="language-"] {
-  color: #d4d4d4 !important;
+  color: #24292f !important;
   text-shadow: none !important;
 }
 
-.token.comment, .token.prolog, .token.doctype, .token.cdata {
-  color: #6a9955 !important; /* Verde vibrante para comentários */
+.token.comment, 
+.token.prolog, 
+.token.doctype, 
+.token.cdata {
+  color: #8b949e !important;
   font-style: italic !important;
 }
 
-.token.keyword { color: #569cd6 !important; }
-.token.string { color: #ce9178 !important; }
-.token.function { color: #dcdcaa !important; }
-.token.number { color: #b5cea8 !important; }
-.token.operator { color: #d4d4d4 !important; }
-.token.punctuation { color: #d4d4d4 !important; }
+.token.keyword { 
+  color: #cf222e !important; 
+  font-weight: 600 !important;
+}
+
+.token.string { 
+  color: #0a3069 !important; 
+}
+
+.token.function { 
+  color: #8250df !important; 
+  font-weight: 500 !important;
+}
+
+.token.number { 
+  color: #0550ae !important; 
+}
+
+.token.operator,
+.token.punctuation { 
+  color: #24292f !important; 
+  opacity: 0.8 !important;
+}
+
+.token.boolean {
+  color: #cf222e !important;
+  font-weight: 500 !important;
+}
+
+.token.class-name {
+  color: #953800 !important;
+}
 
 /* --- PERFORMANCE OPTIMIZATIONS --- */
 .doc-article, .glass-premium, .glass-dark, .doc-sidebar {

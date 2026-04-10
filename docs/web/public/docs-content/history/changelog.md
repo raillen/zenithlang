@@ -1,24 +1,64 @@
 # Evolução da Linguagem Zenith
 
-Este changelog registra as mudanças na especificação e no compilador da linguagem Zenith.
+Este changelog acompanha o estado real do repositório, incluindo o snapshot de desenvolvimento atual.
 
-## [v0.2.0-alpha] - 2026-04-08 (Versão Atual)
+## [Em desenvolvimento] - 2026-04-10
+
 ### Adicionado
-- **Reatividade Nativa**: Keywords `state`, `computed` e `watch` integradas ao Core.
-- **Grids**: Novo tipo primitivo `grid<T>` para matrizes 2D eficientes.
-- **Lambdas**: Sintaxe simplificada para funções anônimas `(a, b) => expr`.
-- **Match Avançado**: Suporte a destruturação de listas e structs no `match`.
-- **Modificador `uniq`**: Garantia de unicidade em coleções no nível de tipo.
+
+- `std.os.process` com `spawn`, `wait`, `kill`, `read_output` e `current_id`.
 
 ### Alterado
-- **Sintaxe purista**: Remoção de parênteses opcionais em `if` e `while` para manter a consistência visual.
-- **Self-Shortcut**: Introdução do `@` como atalho para `self`.
-- **Destruturação**: Palavra-chave `as` em parâmetros para evitar conflitos visuais.
 
-## [v0.1.0-alpha] - 2026-03-20
+- O codegen de `async func` foi ajustado para não emitir chamada inválida quando a função não possui parâmetros.
+
+### Observações
+
+- `std.os.process` já está documentado e testado no repositório, mas ainda carrega limitações conhecidas no runtime:
+  - `pid` simbólico
+  - `kill()` best effort
+  - `current_id()` retornando `0`
+- A integração async do runtime segue em estabilização.
+
+## [0.2.5] - 2026-04-09
+
 ### Adicionado
-- **Compilador v1**: Transpilação funcional para Lua 5.4.
-- **Sistema de Tipos**: Verificação estática obrigatória para `var` e `const`.
-- **Composição**: Implementação de `struct`, `trait` e `apply`.
-- **Organização**: Sistema de `namespace` e `pub`.
-- **Pratt Parser**: Expressões com precedência matemática correta.
+
+- `std.os`
+- `std.fs`
+- `std.fs.path`
+- `std.json`
+
+### Corrigido
+
+- Shadowing no codegen
+- Ajustes de parser para aninhamentos complexos
+- Escapes de string com `\"`, `\{` e `\}`
+- Suporte ampliado a `#`, listas e mapas no backend Lua
+
+## [0.2.0] - 2026-04-08
+
+### Adicionado
+
+- Lowering e IR
+- Constant folding
+- Desestruturação em `match` e `var`
+- Restrições genéricas com `where T is Trait`
+- Traits com validação e default impls
+- Contratos `where` em campos de `struct`
+- Prelude automática com `std.core`
+- Spread e slicing com `..`
+- Distinção entre `type` e `union`
+
+### Alterado
+
+- `@campo` substituiu o antigo açúcar com `self`
+- `.` passou a ser usado como base do chaining UFCS
+- Variáveis passaram a exigir tipo explícito
+- Retornos passaram a aceitar forma padronizada com `->`
+
+## [0.1.0] - 2026-04-07
+
+- Primeira versão funcional da linguagem
+- Variáveis, funções e structs básicas
+- Transpilação inicial para Lua

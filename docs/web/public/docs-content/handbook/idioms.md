@@ -1,58 +1,124 @@
-# Idiomatismo e Boas Práticas (The Zenith Way)
+# Idiomatismo e Boas Práticas
 
-**Objetivo**: Padronizar a escrita de código para máxima clareza e manutenibilidade.  
-**Público-alvo**: Desenvolvedores Zenith v0.2.  
-**Contexto**: Manual Oficial (v0.2)
+Este guia resume o estilo recomendado para o Zenith atual, com foco em legibilidade, previsibilidade e baixo atrito cognitivo.
 
-## 🎨 Nomenclatura
+## 1. Nomeie com intenção
 
-O Zenith preza pela legibilidade semântica.
+- Variáveis e funções: `snake_case`
+- Tipos, `struct`, `enum` e `trait`: `PascalCase`
+- Constantes: `SCREAMING_SNAKE_CASE`
 
-- **Variáveis e Funções**: Use `snake_case`.
-    - `var player_name = "Zen"`
-    - `func calculate_damage()`
-- **Tipos (Structs, Traits, Enums)**: Use `PascalCase`.
-    - `STRUCT GameManager`
-    - `TRAIT PhysicsEntity`
-- **Constantes**: Use `SCREAMING_SNAKE_CASE`.
-    - `const MAX_LEVEL = 99`
+```zt
+const MAX_RETRIES: int = 3
 
-## 🧠 Reatividade: `state` vs `var`
-
-Não torne tudo reativo. A reatividade tem um custo de memória e processamento (metatabelas).
-
-- **Use `state`** apenas para valores que precisam disparar atualizações visuais ou lógicas automáticas em outros lugares (UI, Scores, Stats).
-- **Use `var`** para controles internos, contadores de loop e lógica temporária dentro de funções.
-
-## 🧱 Composição sobre Herança
-
-O Zenith não suporta herança de classes. O padrão correto é criar comportamentos pequenos e reutilizáveis com **Traits**.
-
-- Em vez de `Orc herda de Monstro`, use:
-    - Trait `Combative` (para atacar).
-    - Trait `Vulnerable` (para receber dano).
-    - Aplique ambas à Struct `Orc`.
-
-## 🛡️ Tratamento de Erros com `check`
-
-O Zenith evita o uso de `try/catch`. O idiomatismo correto para validações é o uso do `check`.
-
-```text
--- Ruim: Verificação manual poluída
-if score < 0:
-    error("Inválido")
+struct ApiClient
+    pub base_url: text
 end
 
--- Bom: O "Zenith Way"
-check score > 0 else "O score não pode ser negativo"
+func carregar_usuario() -> text
+    return "ok"
+end
 ```
 
-## 🧹 Código Limpo e Acessível
+## 2. Prefira tipos explícitos
 
-- Evite funções gigantescas. Prefira várias funções pequenas e bem nomeadas.
-- Documente suas API usando o formato Markdown diretamente nos arquivos `.zt`.
-- Use o operador `@` para acessar campos internos em métodos de struct, tornando o código mais conciso.
+Evite depender de inferência implícita para nomes importantes.
 
----
+```zt
+var retries: int = 0
+var status: text | int = "ok"
+```
 
-**Status**: Versão 0.2 Completa
+Quando quiser carregar significado de domínio, use `type`:
+
+```zt
+type UserId = text
+```
+
+Quando quiser modelar mais de um caso válido, use `union` ou `enum`:
+
+```zt
+union SearchResult = text | int
+```
+
+## 3. Modele falhas no tipo
+
+Use `Optional` e `Outcome` em vez de esconder erro em convenções soltas.
+
+```zt
+func carregar() -> Outcome<text, text>
+    return fs.read_text_file("config.json")
+end
+```
+
+Para consumo, prefira `match`, `or` ou `?`:
+
+```zt
+var user = os.get_env_variable("USERNAME") or "desconhecido"
+```
+
+## 4. Use `where` para invariantes de dados
+
+```zt
+struct Item
+    pub nome: text
+    pub quantidade: int where it >= 0
+end
+```
+
+Se um campo não pode assumir qualquer valor, deixe isso perto da definição do tipo.
+
+## 5. Composição antes de herança
+
+O caminho idiomático do Zenith é `trait` + `apply`.
+
+```zt
+trait Renderable
+    pub func render() -> text
+end
+
+apply Renderable to Card
+    pub func render() -> text
+        return @title
+    end
+end
+```
+
+## 6. Use `@campo` só dentro de métodos
+
+Dentro de `struct` e blocos `apply`, `@campo` melhora legibilidade. Fora disso, prefira nomes explícitos.
+
+```zt
+pub func render() -> text
+    return "Olá, " + @nome
+end
+```
+
+## 7. Separe terminal, arquivos e sistema
+
+- `std.io` para terminal
+- `std.fs` para arquivos
+- `std.json` para serialização
+- `std.os` para ambiente e shell
+- `std.os.process` para processos em background
+
+Essa separação torna o código mais fácil de testar e de entender.
+
+## 8. Use `native lua` como fronteira, não como padrão
+
+`native lua` é útil para interoperabilidade, mas o código idiomático de Zenith mantém a maior parte da regra de negócio em Zenith puro.
+
+## 9. Prefira exemplos verticais
+
+Zenith foi desenhado para leitura descendente. Quebre chamadas e decisões em blocos curtos.
+
+```zt
+var resultado: int = inicial
+    .step1(5)
+    .step2()
+```
+
+## 10. Trate áreas em transição com cautela
+
+- `state`, `computed` e `watch` existem, mas a ergonomia do runtime ainda está sendo refinada.
+- O pipeline async está em evolução; `async`, `await`, `time.wait()` e `std.os.process.wait()` já fazem parte da superfície pública, mas ainda recebem estabilização interna.

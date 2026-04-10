@@ -1,0 +1,52 @@
+--- Biblioteca Padrão Zenith — Módulo Log
+--- Sistema de registro visual estruturado com suporte a níveis e cores Aura.
+
+namespace std.log
+
+--- Níveis de severidade do log.
+pub enum LogLevel
+    Trace
+    Debug
+    Info
+    Warning
+    Error
+    Panic
+end
+
+--- Formatos de saída suportados.
+pub enum LogFormat
+    Text
+    Json
+end
+
+--- Define o nível mínimo de log a ser exibido.
+pub func set_level(level: LogLevel)
+end
+
+--- Define o formato de saída (Text ou Json).
+pub func set_format(format: LogFormat)
+end
+
+--- Registra uma mensagem de nível TRACE (extrema verbosidade).
+pub func trace(msg: text)
+end
+
+--- Registra uma mensagem de nível DEBUG (útil para desenvolvimento).
+pub func debug(msg: text)
+end
+
+--- Registra uma mensagem de nível INFO (informações gerais de fluxo).
+pub func info(msg: text)
+end
+
+--- Registra um aviso (algo inesperado, mas não fatal).
+pub func warn(msg: text)
+end
+
+--- Registra um erro (falha em uma operação).
+pub func err(msg: text)
+end
+
+--- Registra um erro crítico e encerra o programa com status 1.
+pub func panic(msg: text)
+end

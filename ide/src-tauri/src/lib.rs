@@ -296,9 +296,17 @@ struct FileResult {
 }
 
 #[tauri::command]
-fn search_in_files(query: String, is_regex: bool, match_case: bool) -> Result<Vec<FileResult>, String> {
+fn search_in_files(
+    root_path: Option<String>,
+    query: String, 
+    is_regex: bool, 
+    match_case: bool
+) -> Result<Vec<FileResult>, String> {
     let mut all_results = Vec::new();
-    let root = workspace_root();
+    let root = match root_path {
+        Some(p) if !p.is_empty() => resolve_path(&p)?,
+        _ => workspace_root(),
+    };
 
     let query_lower = if !match_case { query.to_lowercase() } else { query.clone() };
 
@@ -371,9 +379,12 @@ struct FileNameResult {
 }
 
 #[tauri::command]
-fn search_file_names(query: String) -> Result<Vec<FileNameResult>, String> {
+fn search_file_names(root_path: Option<String>, query: String) -> Result<Vec<FileNameResult>, String> {
     let mut all_results = Vec::new();
-    let root = workspace_root();
+    let root = match root_path {
+        Some(p) if !p.is_empty() => resolve_path(&p)?,
+        _ => workspace_root(),
+    };
 
     let query_lower = query.to_lowercase();
     let mut dirs_to_visit = vec![root.clone()];
@@ -406,6 +417,69 @@ fn search_file_names(query: String) -> Result<Vec<FileNameResult>, String> {
     all_results.sort_by(|a, b| a.name.cmp(&b.name));
     all_results.truncate(100);
     Ok(all_results)
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub enum SymbolKind {
+    Function,
+    Struct,
+    Variable,
+    Constant,
+    Interface,
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct Symbol {
+    name: String,
+    kind: SymbolKind,
+    line: usize,
+    col: usize,
+}
+
+#[tauri::command]
+fn get_file_symbols(content: String) -> Result<Vec<Symbol>, String> {
+    use regex::Regex;
+    
+    let mut symbols = Vec::new();
+    
+    // Patterns for Zenith v0.2
+    let func_re = Regex::new(r"(?m)^func\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap();
+    let struct_re = Regex::new(r"(?m)^struct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*").unwrap();
+    let const_re = Regex::new(r"(?m)^const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[:=]").unwrap();
+    let var_re = Regex::new(r"(?m)^var\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[:=]").unwrap();
+    let interface_re = Regex::new(r"(?m)^interface\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{").unwrap();
+
+    // Mapping patterns to kinds
+    let patterns = [
+        (&func_re, SymbolKind::Function),
+        (&struct_re, SymbolKind::Struct),
+        (&const_re, SymbolKind::Constant),
+        (&var_re, SymbolKind::Variable),
+        (&interface_re, SymbolKind::Interface),
+    ];
+
+    for (re, kind) in patterns {
+        for cap in re.captures_iter(&content) {
+            let name = cap[1].to_string();
+            let pos = cap.get(1).unwrap().start();
+            
+            // Calculate line and col from byte position
+            let line = content[..pos].lines().count();
+            let col = content[..pos].lines().last().map(|l| l.len() + 1).unwrap_or(1);
+            
+            symbols.push(Symbol {
+                name,
+                kind: kind.clone(),
+                line,
+                col,
+            });
+        }
+    }
+
+    // Sort by line number
+    symbols.sort_by_key(|s| s.line);
+    
+    Ok(symbols)
 }
 
 #[tauri::command]
@@ -690,7 +764,7 @@ fn spawn_terminal_waiter(app_handle: AppHandle, session_id: PtyHandler, session:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(
+        /* .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(
                     "sqlite:zenith.db",
@@ -703,7 +777,7 @@ pub fn run() {
                     }],
                 )
                 .build(),
-        )
+        ) */
         .manage(TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -721,7 +795,8 @@ pub fn run() {
             terminal_create,
             terminal_write,
             terminal_resize,
-            terminal_kill
+            terminal_kill,
+            get_file_symbols
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

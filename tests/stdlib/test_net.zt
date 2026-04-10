@@ -1,0 +1,32 @@
+-- tests/stdlib/test_net.zt
+import std.net.socket
+
+pub async func main() -> int
+    print("--- Testando Módulo std.net (FFI) ---")
+
+    -- 1. Testando Buffer Nativo
+    print("Criando buffer de 10 bytes...")
+    var buf = socket.create_buffer(10)
+    var handle: any = buf
+    
+    handle.write_byte(0, 72) -- 'H'
+    handle.write_byte(1, 105) -- 'i'
+    print("Conteúdo do Buffer: " + handle.to_text())
+
+    -- 2. Testando TcpClient
+    print("\nTentando conectar ao localhost:8080...")
+    var client = socket.tcp_client()
+    var c_handle: any = client
+    
+    var res = await c_handle.connect("127.0.0.1", 8080)
+    match res
+        case Success
+            print("Conectado com sucesso!")
+            client.close()
+        case Failure(err)
+            print("Conexão falhou (Esperado): " + err)
+    end
+
+    print("\n--- Fim dos testes de NET ---")
+    return 0
+end

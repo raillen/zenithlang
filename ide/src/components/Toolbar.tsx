@@ -42,14 +42,42 @@ export function Toolbar() {
       <div className="flex-1 max-w-2xl flex items-center gap-2">
         <div className="flex-1 bg-ide-bg rounded-md h-7 border border-ide-border flex items-center px-3 gap-2 overflow-hidden">
           <div className="flex items-center gap-1.5 text-[10px] font-medium text-ide-text-dim truncate">
-            <span className="opacity-40">Zenith</span>
-            <ChevronRight size={10} className="opacity-20" />
-            <span className="opacity-40">v0.2</span>
-            <ChevronRight size={10} className="opacity-20" />
-            <span className={dirtyFiles.has(activeFile?.path || '') ? 'text-amber-600' : 'opacity-60'}>
-              {activeFile ? (activeFile as FileEntry).name : t('toolbar.no_file')}
-              {dirtyFiles.has(activeFile?.path || '') && " •"}
-            </span>
+            {activeFile ? (
+              <>
+                <span className="opacity-40">Project</span>
+                <ChevronRight size={10} className="opacity-20" />
+                {(() => {
+                  const root = useWorkspaceStore.getState().currentProjectRoot;
+                  let relPath = activeFile.path;
+                  
+                  // Try to make it relative to root for display
+                  if (relPath.startsWith(root)) {
+                    relPath = relPath.replace(root, '').replace(/^[\/\\]/, '');
+                  }
+                  
+                  const segments = relPath.split(/[\/\\]/).filter(Boolean);
+                  return segments.map((seg, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className={i === segments.length - 1 
+                        ? (dirtyFiles.has(activeFile.path) ? 'text-amber-600 font-bold' : 'opacity-80 font-semibold text-ide-text') 
+                        : 'opacity-40'}>
+                        {seg}
+                      </span>
+                      {i < segments.length - 1 && <ChevronRight size={10} className="opacity-20" />}
+                      {i === segments.length - 1 && dirtyFiles.has(activeFile.path) && " •"}
+                    </div>
+                  ));
+                })()}
+              </>
+            ) : (
+              <>
+                <span className="opacity-40">Zenith</span>
+                <ChevronRight size={10} className="opacity-20" />
+                <span className="opacity-40">v0.2</span>
+                <ChevronRight size={10} className="opacity-20" />
+                <span className="opacity-60">{t('toolbar.no_file')}</span>
+              </>
+            )}
           </div>
           
           <div className="ml-auto flex items-center gap-2">

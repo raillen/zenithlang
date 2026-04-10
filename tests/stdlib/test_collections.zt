@@ -1,0 +1,46 @@
+-- tests/stdlib/test_collections.zt
+import std.collections
+
+pub func main() -> int
+    print("--- Testando Módulo std.collections ---")
+
+    -- 1. Testando Pilha (Stack)
+    print("\n[Pilha]")
+    var s = collections.new_stack()
+    s.push_item("A")
+    s.push_item("B")
+    print("Topo: " + s.peek_top())
+    print("Pop:  " + s.pop_item())
+    print("Topo: " + s.peek_top())
+
+    -- 2. Testando Fila (Queue)
+    print("\n[Fila]")
+    var q = collections.new_queue()
+    q.enqueue_item(1)
+    q.enqueue_item(2)
+    print("Frente: " + q.peek_front())
+    print("Saiu:   " + q.dequeue_item())
+    print("Frente: " + q.peek_front())
+
+    -- 3. Testando Conjunto (Set)
+    print("\n[Conjunto]")
+    var conj = collections.new_set()
+    conj.add_item("X")
+    conj.add_item("X") -- Duplicado, deve ignorar
+    conj.add_item("Y")
+    print("Tem X? " + conj.contains_item("X"))
+    print("Tem Z? " + conj.contains_item("Z"))
+
+    -- 4. Testando Utilidades Funcionais
+    print("\n[Utilidades]")
+    var lista = [1, 2, 3, 4, 5, 2]
+    
+    var unicos = collections.distinct_items(lista)
+    print("Únicos: {#unicos}") -- Deve ser 5
+
+    var chunks = collections.chunk_list(lista, 2)
+    print("Pedaços: {#chunks}") -- Deve ser 3
+
+    print("\n--- Fim dos testes de COLLECTIONS ---")
+    return 0
+end

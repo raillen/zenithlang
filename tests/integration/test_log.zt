@@ -1,0 +1,34 @@
+import std.log
+
+func test_text_logs()
+    print("--- Testando Logs em Texto ---")
+    log.set_format(log.LogFormat.Text)
+    log.set_level(log.LogLevel.Trace)
+    
+    log.trace("Mensagem de rastro (Trace)")
+    log.debug("Depuração iniciada (Debug)")
+    log.info("Sistema operando normalmente (Info)")
+    log.warn("Atenção: Uso de memória um pouco alto (Warn)")
+    log.err("Erro ao processar requisição (Error)")
+end
+
+func test_filtering()
+    print("\n--- Testando Filtro (Apenas Warning e acima) ---")
+    log.set_level(log.LogLevel.Warning)
+    
+    log.info("Isso NÃO deve aparecer")
+    log.warn("Isso DEVE aparecer (Warn)")
+    log.err("Isso DEVE aparecer (Error)")
+end
+
+func test_json_logs()
+    print("\n--- Testando Logs em JSON ---")
+    log.set_format(log.LogFormat.Json)
+    log.set_level(log.LogLevel.Info)
+    
+    log.info("Log estruturado em JSON")
+end
+
+test_text_logs()
+test_filtering()
+test_json_logs()

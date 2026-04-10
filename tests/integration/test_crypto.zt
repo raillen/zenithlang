@@ -1,0 +1,76 @@
+import std.crypto
+
+func test_base64()
+    print("--- Testando Base64 ---")
+    var original = "Zenith"
+    var encoded = crypto.base64_encode(original)
+    print("Original: " + original)
+    print("Encoded:  " + encoded)
+    
+    var decoded_res = crypto.base64_decode(encoded)
+    var decoded = decoded_res.unwrap_or("erro")
+    print("Decoded:  " + decoded)
+    
+    if original == decoded
+        print("✅ Base64 OK!")
+    end
+end
+
+func test_sha256()
+    print("\n--- Testando SHA-256 ---")
+    -- Hash de "zenith" (conhecido: d03c536...)
+    var hash = crypto.sha256("zenith")
+    print("Hash de 'zenith': " + hash)
+    
+    if hash.starts_with("0d51704")
+        print("✅ SHA-256 OK!")
+    else
+        print("❌ SHA-256 incorreto")
+    end
+end
+
+func test_hmac()
+    print("\n--- Testando HMAC-SHA256 ---")
+    var hmac = crypto.hmac_sha256("key", "data")
+    print("HMAC: " + hmac)
+    -- Hash esperado para hmac-sha256("key", "data"): 5031fe...
+    if hmac.starts_with("5031fe")
+        print("✅ HMAC OK!")
+    else
+        print("❌ HMAC incorreto")
+    end
+end
+
+func test_uuid()
+    print("\n--- Testando UUID v4 ---")
+    var id1 = crypto.generate_uuid()
+    var id2 = crypto.generate_uuid()
+    print("UUID 1: " + id1)
+    print("UUID 2: " + id2)
+    
+    if id1 != id2
+        print("✅ UUIDs são diferentes!")
+    end
+    
+    -- Verificar formato (comprimento)
+    if #id1 == 36
+        print("✅ Formato do UUID OK!")
+    end
+end
+
+func test_password()
+    print("\n--- Testando Password Helper ---")
+    var p1 = crypto.hash_password("123456", "salt")
+    var p2 = crypto.hash_password("123456", "salt")
+    var p3 = crypto.hash_password("123456", "other_salt")
+    
+    if p1 == p2 and p1 != p3
+        print("✅ Password hashing com salt OK!")
+    end
+end
+
+test_base64()
+test_sha256()
+test_hmac()
+test_uuid()
+test_password()

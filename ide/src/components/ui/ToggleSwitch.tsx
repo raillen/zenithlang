@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function ToggleSwitch({ checked, onChange }: { checked: boolean, onChange: (val: boolean) => void }) {
   return (
     <button

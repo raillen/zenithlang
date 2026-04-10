@@ -10,6 +10,10 @@ import { useCommandStore } from "../store/useCommandStore";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { Files, Search, GitBranch, Bug, AlertCircle } from "lucide-react";
 import { useTranslation } from "../utils/i18n";
+import { BrandLogo } from "./BrandLogo";
+import { OutlinePanel } from "./OutlinePanel";
+import { List } from "lucide-react";
+
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { 
@@ -48,7 +52,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <ActivityIcon icon={<Files size={18} />} active={activeSidebarTab === 'navigator' && isSidebarOpen} onClick={() => handleTabClick('navigator')} title={t('sidebar.navigator')} />
           <ActivityIcon icon={<Search size={18} />} active={activeSidebarTab === 'search' && isSidebarOpen} onClick={() => handleTabClick('search')} title={t('sidebar.search')} />
           <ActivityIcon icon={<GitBranch size={18} />} active={activeSidebarTab === 'source' && isSidebarOpen} onClick={() => handleTabClick('source')} title={t('sidebar.source')} />
+          <ActivityIcon icon={<List size={18} />} active={activeSidebarTab === 'outline' && isSidebarOpen} onClick={() => handleTabClick('outline')} title="Outline" />
           <ActivityIcon icon={<Bug size={18} />} active={activeSidebarTab === 'debug' && isSidebarOpen} onClick={() => handleTabClick('debug')} title={t('sidebar.debug')} />
+
         </div>
 
         <Group orientation="horizontal" className="flex-1">
@@ -60,8 +66,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   {activeSidebarTab === 'navigator' ? t('sidebar.navigator_title') : activeSidebarTab}
                 </div>
                 <div className="flex-1 overflow-hidden h-full flex flex-col">
-                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : activeSidebarTab === 'search' ? <GlobalSearch /> : <div className="p-8 text-[11px] text-ide-text-dim text-center italic">{t('common.coming_soon')}</div>}
+                  {activeSidebarTab === 'navigator' ? <FileNavigator /> : 
+                   activeSidebarTab === 'search' ? <GlobalSearch /> : 
+                   activeSidebarTab === 'outline' ? <OutlinePanel /> :
+                   <div className="p-8 text-[11px] text-ide-text-dim text-center italic">{t('common.coming_soon')}</div>}
                 </div>
+
               </Panel>
 
               <Separator className="w-[1px] bg-ide-border hover:bg-primary/30 transition-colors" />
@@ -138,7 +148,10 @@ function StatusBar() {
       </div>
       <div className="flex items-center gap-4 pr-2">
         <span>UTF-8</span>
-        <span>Zenith v0.2-alpha</span>
+        <div className="flex items-center gap-1.5">
+          <BrandLogo variant="icon" className="h-3.5 w-3.5 opacity-90" alt="Zenith" />
+          <span>Zenith v0.2-alpha</span>
+        </div>
       </div>
     </footer>
   )

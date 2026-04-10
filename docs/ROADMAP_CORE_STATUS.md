@@ -36,12 +36,12 @@ Documento derivado da leitura de [docs/ROADMAP_CORE.md](docs/ROADMAP_CORE.md) cr
 | F4. ZPM / `.ztproj` | Parcial | Suporte a projetos local; falta Git/HTTP | P2 |
 | F4. Auditoria de estabilidade | **Concluído** | Core v0.2.5 estabilizado com testes integrados | P1 |
 
-## Próximos Passos (v0.3.0 - Utilidades)
+## Próximos Passos (v0.3.0 - Zenith Ascension)
 
-1. Implementar `std.time` (Sleep/Timestamp API).
-2. Implementar `std.text` (Split/Join/Regex).
-3. Evoluir o ZPM para download de pacotes via Git/HTTP.
-4. Expandir suite de testes para auditoria de 1.0.
+1. Finalizar pacotes da v0.2.x (`std.time`, `std.text`, ZPM estável).
+2. Iniciar a arquitetura do **Compilador Self-Hosted** em Zenith.
+3. Mapear as APIs do Parser e Binder atuais para a nova implementação.
+4. Definir a estratégia de bootstrapping (compilar Zenith com o compilador Lua legado).
 
 ---
 *Atualizado em: 09 de Abril de 2026*

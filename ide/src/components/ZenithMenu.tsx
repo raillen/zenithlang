@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, X, FilePlus, FolderOpen, Save, Hammer, Play, Settings, HelpCircle, Info, Zap } from "lucide-react";
+import { FilePlus, FolderOpen, Save, Hammer, Play, Settings, HelpCircle, Info, Zap } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 import { invoke } from "../utils/tauri";
 import { useCommandStore } from "../store/useCommandStore";
 import { useTranslation } from "../utils/i18n";
+import { BrandLogo } from "./BrandLogo";
 
 export function ZenithMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,13 +53,18 @@ export function ZenithMenu() {
     <div className="relative" ref={menuRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 rounded-lg transition-all ${isOpen ? 'bg-primary text-white shadow-lg' : 'hover:bg-black/5 text-zinc-600'}`}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+          isOpen
+            ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
+            : 'text-ide-text-dim hover:bg-black/5 hover:text-ide-text active:scale-95'
+        }`}
+        title={t('hub.title')}
       >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
+        <BrandLogo variant="icon" className={`h-5 w-5 transition-transform duration-300 ${isOpen ? 'rotate-90 scale-90' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-12 left-0 w-[500px] bg-white/98 backdrop-blur-2xl border border-ide-border rounded-2xl shadow-2xl p-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="absolute top-10 left-0 w-[500px] rounded-2xl border border-ide-border bg-ide-panel p-6 shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2 duration-300 ring-1 ring-black/5">
           <div className="flex gap-8">
             {/* Category: File */}
             <MenuSection title={t('hub.categories.file')}>
@@ -87,13 +93,8 @@ export function ZenithMenu() {
           </div>
 
           <div className="mt-6 pt-4 border-t border-ide-border flex items-center justify-between">
-            <div className="flex items-center gap-2 text-primary font-bold tracking-tighter italic scale-110">
-              <div className="w-5 h-5 bg-primary rounded-md flex items-center justify-center">
-                 <div className="w-2 h-2 bg-white rotate-45" />
-              </div>
-              {t('hub.title')}
-            </div>
-            <div className="text-[10px] text-zinc-400">{t('hub.version')}</div>
+            <BrandLogo variant="lockup" className="h-6 w-auto" alt={t('hub.title')} />
+            <div className="text-[10px] text-ide-text-dim/50">{t('hub.version')}</div>
           </div>
         </div>
       )}
@@ -104,7 +105,7 @@ export function ZenithMenu() {
 function MenuSection({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="flex-1 flex flex-col gap-3">
-      <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1">{title}</h3>
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-ide-text-dim/60 mb-1">{title}</h3>
       <div className="flex flex-col gap-1">
         {children}
       </div>
@@ -116,7 +117,7 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode, label: stri
   return (
     <button 
       onClick={onClick}
-      className="flex items-center gap-3 px-2 py-1.5 rounded-md text-[11px] text-zinc-600 hover:bg-primary/10 hover:text-primary transition-all text-left group"
+      className="flex items-center gap-3 px-2 py-1.5 rounded-md text-[11px] text-ide-text-dim hover:bg-primary/10 hover:text-primary transition-all text-left group"
     >
       <span className="opacity-50 group-hover:opacity-100 transition-opacity">{icon}</span>
       <span className="font-medium">{label}</span>

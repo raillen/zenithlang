@@ -18,6 +18,14 @@ export interface Diagnostic {
   code: string;
 }
 
+export interface Symbol {
+  name: string;
+  kind: 'Function' | 'Struct' | 'Variable' | 'Constant' | 'Interface';
+  line: number;
+  col: number;
+}
+
+
 export interface ExtensionConfig {
   compilerPath: string;
   lspPath: string;
@@ -55,6 +63,8 @@ interface WorkspaceState {
   activeBottomTab: 'console' | 'terminal' | 'problems';
   currentProjectRoot: string;
   settings: IDESettings;
+  activeFileSymbols: Symbol[];
+
   
   setFileTree: (tree: FileEntry[]) => void;
   openFile: (file: FileEntry, isFixed?: boolean) => void;
@@ -66,6 +76,8 @@ interface WorkspaceState {
   setSidebarTab: (tab: string) => void;
   setBottomTab: (tab: 'console' | 'terminal' | 'problems') => void;
   setProjectRoot: (path: string) => void;
+  setActiveFileSymbols: (symbols: Symbol[]) => void;
+
   updateSettings: (newSettings: Partial<IDESettings>) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
@@ -114,6 +126,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   activeBottomTab: 'console',
   currentProjectRoot: '.',
   settings: DEFAULT_SETTINGS,
+  activeFileSymbols: [],
+
 
   setFileTree: (tree) => set({ fileTree: tree }),
   
@@ -189,8 +203,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     activeFile: null,
     previewFile: null,
     dirtyFiles: new Set(),
-    diagnosticsMap: {}
+    diagnosticsMap: {},
+    activeFileSymbols: []
   }),
+
+  setActiveFileSymbols: (symbols) => set({ activeFileSymbols: symbols }),
+
   
   openFile: (file, isFixed = false) => set((state) => {
     // If it's a folder, do nothing

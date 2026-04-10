@@ -1,0 +1,44 @@
+-- tests/stdlib/test_http.zt
+import std.http
+
+pub async func main() -> int
+    print("--- Testando Módulo std.http ---")
+
+    -- 1. Testando GET Assíncrono
+    print("Enviando requisição GET para JSONPlaceholder...")
+    var url = "https://jsonplaceholder.typicode.com/todos/1"
+    
+    match await http.get(url)
+        case Success(res) =>
+            var r: any = res -- Usando any p/ facilitar acesso no v0.2.5
+            print("Status Code: " + r.status)
+            
+            print("Parseando JSON da resposta...")
+            match r.json()
+                case Success(obj) =>
+                    var data: any = obj
+                    print("Título: " + data.title)
+                    print("ID:     " + data.id)
+                case Failure(e) =>
+                    print("Falha ao parsear JSON")
+            end
+            
+        case Failure(err) =>
+            print("Erro na requisição: " + err)
+    end
+
+    -- 2. Testando POST Assíncrono
+    print("\nEnviando POST com dados...")
+    var post_data = { "projeto": "Zenith", "tipo": "Linguagem" }
+    match await http.post("https://jsonplaceholder.typicode.com/posts", post_data)
+        case Success(res) =>
+            var r: any = res
+            print("POST Status: " + r.status)
+            print("Corpo:       " + r.body)
+        case Failure(err) =>
+            print("Erro no POST: " + err)
+    end
+
+    print("\n--- Fim dos testes de HTTP ---")
+    return 0
+end

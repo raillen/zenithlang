@@ -1,52 +1,46 @@
-# Módulo de Matemática (`std.math`)
+# Módulo `std.math`
 
-O módulo `math` fornece constantes e funções matemáticas comuns.
+O `std.math` expõe as primitivas matemáticas atualmente declaradas na stdlib.
 
 ## Constantes
 
-### `PI`
-O valor da constante matemática π (aproximadamente 3.14159).
+| API | Descrição |
+| :-- | :-- |
+| `PI: float` | Valor de π. |
 
-### `E`
-O valor da base dos logaritmos naturais (aproximadamente 2.71828).
+## Funções numéricas
 
-## Funções Básicas
+| API | Descrição |
+| :-- | :-- |
+| `abs(x: float) -> float` | Valor absoluto. |
+| `floor(x: float) -> int` | Arredonda para baixo. |
+| `ceil(x: float) -> int` | Arredonda para cima. |
+| `sqrt(x: float) -> float` | Raiz quadrada. |
+| `random() -> float` | Número pseudoaleatório do host Lua. |
 
-### `abs(n: float) -> float`
-Retorna o valor absoluto de um número.
+## Trigonometria
 
-### `sqrt(n: float) -> float`
-Retorna a raiz quadrada de um número.
+| API | Descrição |
+| :-- | :-- |
+| `sin(x: float) -> float` | Seno. |
+| `cos(x: float) -> float` | Cosseno. |
+| `tan(x: float) -> float` | Tangente. |
+| `rad(deg: float) -> float` | Graus para radianos. |
+| `deg(rad: float) -> float` | Radianos para graus. |
 
-### `pow(base: float, exp: float) -> float`
-Retorna a base elevada ao expoente.
-
-### `round(n: float) -> int`
-Arredonda um número para o inteiro mais próximo.
-
-### `floor(n: float) -> int`
-Arredonda um número para baixo.
-
-### `ceil(n: float) -> int`
-Arredonda um número para cima.
-
-### `random() -> float`
-Retorna um número pseudo-aleatório entre 0.0 e 1.0.
-
-## Trigonometria e Conversão
-
-Inclui `sin`, `cos`, `tan`, `asin`, `acos`, `atan`.
-
-### `rad(deg: float) -> float`
-Converte graus para radianos.
-
-### `deg(rad: float) -> float`
-Converte radianos para graus.
+## Exemplo
 
 ```zt
 import std.math
 
-var raio = 5.0
-var area = math.PI * math.pow(raio, 2)
-print("Área do círculo: {area}")
+pub func main() -> int
+    var angulo = math.rad(180.0)
+    print("PI aproximado: " + math.PI)
+    print("sin(angulo): " + math.sin(angulo))
+    return 0
+end
 ```
+
+## Observações
+
+- Esta é a API real do repositório atual. Entradas antigas como `E`, `pow`, `round`, `asin`, `acos` e `atan` não estão declaradas no módulo atual.

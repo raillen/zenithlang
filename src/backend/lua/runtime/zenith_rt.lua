@@ -6,6 +6,9 @@
 local zt = {}
 local unpack = table.unpack or unpack
 
+-- Inicializa semente aleatória para o sistema
+math.randomseed(os.time())
+
 -- ----------------------------------------------------------------------------
 -- Reatividade (Core do ZenEngine)
 -- ----------------------------------------------------------------------------
@@ -141,22 +144,66 @@ function zt.is(val, target_type)
 end
 
 -- ----------------------------------------------------------------------------
+-- String Extensions (Zenith Text Methods)
+-- ----------------------------------------------------------------------------
+
+local string_mt = getmetatable("")
+string_mt.__index.starts_with = function(self, prefix)
+    return self:sub(1, #prefix) == prefix
+end
+
+string_mt.__index.ends_with = function(self, suffix)
+    return suffix == "" or self:sub(-#suffix) == suffix
+end
+
+string_mt.__index.contains = function(self, search)
+    return self:find(search, 1, true) ~= nil
+end
+
+-- ----------------------------------------------------------------------------
 -- Utilitários
 -- ----------------------------------------------------------------------------
 
 zt.Optional = {
     Present = function(value)
-        return { _tag = "Present", value = value, _1 = value }
+        local obj = { _tag = "Present", value = value, _1 = value }
+        setmetatable(obj, { 
+            __tostring = function() return tostring(value) end,
+            __index = {
+                unwrap_or = function(self, default) return self.value end
+            }
+        })
+        return obj
     end,
     Empty = { _tag = "Empty" },
 }
+setmetatable(zt.Optional.Empty, { 
+    __tostring = function() return "null" end,
+    __index = {
+        unwrap_or = function(self, default) return default end
+    }
+})
 
 zt.Outcome = {
     Success = function(value)
-        return { _tag = "Success", value = value, _1 = value }
+        local obj = { _tag = "Success", value = value, _1 = value }
+        setmetatable(obj, { 
+            __tostring = function() return tostring(value) end,
+            __index = {
+                unwrap_or = function(self, default) return self.value end
+            }
+        })
+        return obj
     end,
     Failure = function(err)
-        return { _tag = "Failure", error = err, _1 = err }
+        local obj = { _tag = "Failure", error = err, _1 = err }
+        setmetatable(obj, { 
+            __tostring = function() return "Error: " .. tostring(err) end,
+            __index = {
+                unwrap_or = function(self, default) return default end
+            }
+        })
+        return obj
     end,
 }
 
@@ -271,7 +318,13 @@ function zt.iter(obj)
                 return nil
             end
         end
-        return ipairs(obj)
+        -- Para listas comuns, retornamos um iterador que dá apenas os valores
+        local i = 0
+        local n = #obj
+        return function()
+            i = i + 1
+            if i <= n then return obj[i] end
+        end
     end
     
     return function() return nil end
@@ -291,33 +344,61 @@ function zt.assert(condition, message, ...)
     assert(condition, message, ...)
 end
 
---- Suporte a Async/Await (Corrotinas Transparentes)
-function zt.async(fn)
-    return function(...)
-        local co = coroutine.create(fn)
-        local function resume_step(...)
-            local args = {...}
-            if coroutine.status(co) == "dead" then return unpack(args) end
-            
-            local ok, res = coroutine.resume(co, unpack(args))
-            if not ok then
-                error(res, 0)
-            end
-            
-            if coroutine.status(co) == "dead" then
-                return res
-            end
-            
-            -- Se yieldou uma função (resultado de outro zt.async), resolvemos
-            if type(res) == "function" then
-                return resume_step(res())
-            else
-                -- Valor puro, devolve para a coroutine
-                return resume_step(res)
-            end
+--- Inicia uma tarefa assíncrona.
+function zt.async_run(fn, ...)
+    local co = coroutine.create(fn)
+    local args = {...}
+    local task = { co = co }
+    
+    -- Função que executa um passo da corrotina
+    local function step(...)
+        if coroutine.status(co) == "dead" then return task.result end
+        local ok, res = coroutine.resume(co, unpack({...}))
+        if not ok then error(res, 0) end
+        
+        -- Se a corrotina terminou, grava o resultado final
+        if coroutine.status(co) == "dead" then
+            task.result = res
+            return res
         end
-        return resume_step(...)
+        
+        -- Se a corrotina yieldou (await), retornamos o controle
+        return res
     end
+    
+    task.step = step
+    task.is_done = function() return coroutine.status(co) == "dead" end
+    
+    -- Execução inicial
+    task.result = step(unpack(args))
+    
+    return task
+end
+
+--- Aguarda a conclusão de uma tarefa assíncrona.
+function zt.await(task)
+    if type(task) ~= "table" or not task.co then return task end
+    
+    while not task.is_done() do
+        -- Se estivermos dentro de uma corrotina, cedemos o controle
+        coroutine.yield()
+        task.step() -- Tenta avançar a tarefa que estamos esperando
+    end
+    
+    return task.result
+end
+
+--- Driver principal para rodar o ponto de entrada assíncrono.
+function zt.drive(task)
+    if type(task) ~= "table" or not task.co then return task end
+    while not task.is_done() do
+        task.step()
+        if not task.is_done() then
+            -- Pequena pausa para não consumir 100% de CPU em loops vazios
+            -- (Em cenários reais de IO isso seria controlado por eventos)
+        end
+    end
+    return task.result
 end
 
 --- Implementação de + (sobrecarregado para soma e concatenação)

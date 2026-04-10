@@ -1,0 +1,75 @@
+import std.events
+
+func test_basic_events()
+    var emitter = events.EventEmitter<text>()
+    var received = ""
+    
+    var id = emitter.on("greet", (name: text) => do
+        received = "Hello " + name
+    end)
+    
+    print("Testando emit...")
+    emitter.emit("greet", "Zenith")
+    
+    if received == "Hello Zenith"
+        print("✅ Evento básico funcionou!")
+    else
+        print("❌ Evento básico falhou: " + received)
+    end
+    
+    print("Testando off...")
+    emitter.off(id)
+    received = "nada"
+    emitter.emit("greet", "Ninguém")
+    
+    if received == "nada"
+        print("✅ Off funcionou!")
+    else
+        print("❌ Off falhou!")
+    end
+end
+
+func test_once_event()
+    var emitter = events.EventEmitter<int>()
+    var count = 0
+    
+    emitter.once("increment", (v: int) => do
+        count = count + v
+    end)
+    
+    emitter.emit("increment", 10)
+    emitter.emit("increment", 10)
+    
+    if count == 10
+        print("✅ Once funcionou!")
+    else
+        print("❌ Once falhou: count é " + count)
+    end
+end
+
+func test_error_isolation()
+    var emitter = events.EventEmitter<any>()
+    
+    emitter.on("fail", (d: any) => do
+        -- Simular erro
+        error("Erro proposital")
+    end)
+    
+    emitter.on("fail", (d: any) => do
+        print("✅ Segundo listener executado mesmo após erro no primeiro!")
+    end)
+    
+    print("Testando isolamento de erros...")
+    var outcome = emitter.emit("fail", null)
+    
+    match outcome
+        case Success(v): print("❌ Emit deveria ter retornado Failure")
+        case Failure(errs): 
+            print("✅ Emit retornou Failure com " + #errs + " erro(s)")
+    end
+end
+
+-- Execução dos testes
+test_basic_events()
+test_once_event()
+test_error_isolation()

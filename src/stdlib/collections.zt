@@ -1,0 +1,79 @@
+--- Biblioteca Padrão Zenith — Módulo Collections
+--- Estruturas de dados especializadas e utilitários de processamento.
+
+namespace std.collections
+
+-- 📦 ESTRUTURAS
+
+pub struct Set<T>
+    --- Adiciona um item único ao conjunto.
+    pub func add_item(item: T)
+    end
+    --- Remove um item do conjunto.
+    pub func remove_item(item: T)
+    end
+    --- Verifica se o item já existe.
+    pub func contains_item(item: T) -> bool
+    end
+    --- Limpa todos os elementos.
+    pub func clear_all()
+    end
+end
+
+pub struct Queue<T>
+    --- Adiciona um item ao final da fila (FIFO).
+    pub func enqueue_item(item: T)
+    end
+    --- Remove e retorna o primeiro item da fila.
+    pub func dequeue_item() -> Optional<T>
+    end
+    --- Olha o primeiro item sem remover.
+    pub func peek_front() -> Optional<T>
+    end
+end
+
+pub struct Stack<T>
+    --- Adiciona um item ao topo da pilha (LIFO).
+    pub func push_item(item: T)
+    end
+    --- Remove e retorna o item do topo.
+    pub func pop_item() -> Optional<T>
+    end
+    --- Olha o topo sem remover.
+    pub func peek_top() -> Optional<T>
+    end
+end
+
+pub struct MultiMap<K, V>
+    --- Associa um valor a uma chave (permitindo múltiplos valores por chave).
+    pub func add_pair(key: K, value: V)
+    end
+    --- Retorna todos os valores associados a uma chave.
+    pub func get_all_values(key: K) -> list<V>
+    end
+    --- Remove todos os valores de uma chave.
+    pub func remove_key(key: K)
+    end
+end
+
+-- 🏗️ OPERAÇÕES DE LISTA (Funcional)
+
+--- Filtra itens de uma lista baseada em uma condição.
+pub func filter_items<T>(list: list<T>, predicate: (T) => bool) -> list<T>
+end
+
+--- Transforma cada item de uma lista.
+pub func map_items<T, R>(list: list<T>, transform: (T) => R) -> list<R>
+end
+
+--- Divide uma lista em pedaços de tamanho fixo.
+pub func chunk_list<T>(list: list<T>, size: int) -> list<list<T>>
+end
+
+--- Retorna apenas os itens únicos de uma lista.
+pub func distinct_items<T>(list: list<T>) -> list<T>
+end
+
+--- Encontra o primeiro item que atende à condição.
+pub func find_first<T>(list: list<T>, predicate: (T) => bool) -> Optional<T>
+end

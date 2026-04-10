@@ -47,7 +47,7 @@ export function registerZenithLanguage(monaco: any) {
 
   // 3. Completion Item Provider (Snippets)
   monaco.languages.registerCompletionItemProvider('zenith', {
-    provideCompletionItems: (model: any, position: any) => {
+    provideCompletionItems: (_model: any, _position: any) => {
       const suggestions = Object.entries(ZENITH_BUILTINS).map(([key, doc]) => ({
         label: key,
         kind: monaco.languages.CompletionItemKind.Function,

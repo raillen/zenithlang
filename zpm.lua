@@ -64,6 +64,55 @@ local function print_git_guide()
     print(aura.gray .. "--------------------------------------------------" .. aura.reset .. "\n")
 end
 
+-- 🔒 LOCKFILE (Segurança)
+local function update_lockfile()
+    -- Carregamento dinâmico da Lib JSON nativa
+    local json = require("src/stdlib/json")
+    local f_proj = io.open("zenith.ztproj", "r")
+    if not f_proj then return end
+    
+    local deps = {}
+    local in_deps = false
+    for line in f_proj:lines() do
+        if line:match("dependencies") then in_deps = true
+        elseif line:match("end") and in_deps then in_deps = false
+        elseif in_deps then
+            local name, url = line:match("%s*(.-):%s*\"?(.-)\"?$")
+            if name and url ~= "official" then deps[name] = url end
+        end
+    end
+    f_proj:close()
+
+    local lock_data = {
+        zpm_version = VERSION,
+        packages = {}
+    }
+
+    print(aura.gray .. " 🔒 Travando órbita (zenith.lock)..." .. aura.reset)
+    
+    for name, url in pairs(deps) do
+        local path = ".zt/vendor/" .. name
+        local cmd = "cd " .. path .. " && git rev-parse HEAD"
+        if is_windows then cmd = "cd /d " .. path:gsub("/", "\\") .. " && git rev-parse HEAD" end
+        
+        local handle = io.popen(cmd .. " 2>nul")
+        if handle then
+            local hash = handle:read("*l")
+            handle:close()
+            if hash then
+                lock_data.packages[name] = { url = url, hash = hash }
+            end
+        end
+    end
+
+    local fw = io.open("zenith.lock", "w")
+    if fw then
+        fw:write(json.stringify(lock_data, 4))
+        fw:close()
+        print(aura.gray .. "    Check-in estelar concluído." .. aura.reset)
+    end
+end
+
 -- 🛰️ COMANDOS
 
 local commands = {}
@@ -97,12 +146,10 @@ end
 function commands.init()
     print_header()
     local folder_name = "novo_projeto"
-    
     if io.open("zenith.ztproj", "r") then
         print_error("Já existe um manifesto " .. aura.bold .. "zenith.ztproj" .. aura.reset .. " neste setor.")
         return
     end
-
     local template = [[
 project ]] .. folder_name .. [[
 
@@ -126,20 +173,10 @@ end
 
 function commands.run()
     local script_name = arg[2]
-    if not script_name then
-        print_error("Informe o nome do script para ignição (ex: zpm run test).")
-        return
-    end
-
+    if not script_name then print_error("Informe o nome do script.") return end
     print_header()
-    
-    -- 1. Localizar script no manifesto
     local f = io.open("zenith.ztproj", "r")
-    if not f then
-        print_error("Manifesto " .. aura.bold .. "zenith.ztproj" .. aura.reset .. " não encontrado.")
-        return
-    end
-
+    if not f then print_error("Manifesto não encontrado.") return end
     local command = nil
     local in_scripts = false
     for line in f:lines() do
@@ -147,73 +184,47 @@ function commands.run()
         elseif line:match("end") and in_scripts then in_scripts = false
         elseif in_scripts then
             local name, cmd = line:match("%s*(.-):%s*\"(.*)\"")
-            if name == script_name then
-                command = cmd
-                break
-            end
+            if name == script_name then command = cmd; break end
         end
     end
     f:close()
-
-    if not command then
-        print_error("Script " .. aura.bold .. script_name .. aura.reset .. " não mapeado no radar.")
-        return
-    end
-
-    -- 2. Tratamento Especial para 'zt '
-    if command:sub(1, 3) == "zt " then
-        command = "lua ztc.lua " .. command:sub(4)
-    end
-
-    -- 3. Execução com Visual Aura
+    if not command then print_error("Script não mapeado."); return end
+    if command:sub(1, 3) == "zt " then command = "lua ztc.lua " .. command:sub(4) end
     print(aura.purple .. " ⚡ PROPULSÃO: " .. aura.reset .. aura.bold .. script_name .. aura.reset)
     print(aura.gray .. " $ " .. command .. aura.reset .. "\n")
-    
-    local exit_code = os.execute(command)
-    
+    os.execute(command)
     print("\n" .. aura.gray .. "------------------------------------" .. aura.reset)
-    if exit_code == 0 or exit_code == true then
-        print_success("Missão concluída com sucesso.")
-    else
-        print_error("A propulsão falhou (Código: " .. tostring(exit_code) .. ").")
-    end
 end
 
 function commands.list()
     local mode = arg[2] or "--local"
     print_header()
-
     local function list_local()
         local f = io.open("zenith.ztproj", "r")
-        if not f then print_warning("Manifesto não encontrado.") return end
+        if not f then return end
         print(aura.bold .. " [ Órbita Local (Projeto) ]" .. aura.reset)
         local in_deps = false
         for line in f:lines() do
             if line:match("dependencies") then in_deps = true
             elseif line:match("end") and in_deps then in_deps = false
             elseif in_deps then
-                local name, url = line:match("%s*(.-):%s*(.*)")
+                local name, url = line:match("%s*(.-):%s*\"?(.-)\"?$")
                 if name then print("  " .. aura.cyan .. "• " .. aura.reset .. string.format("%-15s %s", name, aura.gray .. url .. aura.reset)) end
             end
         end
         f:close()
         print("")
     end
-
     local function list_global()
         print(aura.bold .. " [ Órbita Global (Sistema) ]" .. aura.reset)
         local cmd = is_windows and ("dir /b " .. global_dir .. " 2>nul") or ("ls " .. global_dir .. " 2>/dev/null")
         local handle = io.popen(cmd)
         local found = false
-        for line in handle:lines() do
-            print("  " .. aura.purple .. "★ " .. aura.reset .. line)
-            found = true
-        end
+        for line in handle:lines() do print("  " .. aura.purple .. "★ " .. aura.reset .. line); found = true end
         handle:close()
-        if not found then print(aura.gray .. "  (Nenhum pacote global detectado)" .. aura.reset) end
+        if not found then print(aura.gray .. "  (Nenhum pacote detectado)") end
         print("")
     end
-
     if mode == "--all" then list_local(); list_global()
     elseif mode == "--global" or mode == "-g" then list_global()
     else list_local() end
@@ -221,7 +232,7 @@ end
 
 function commands.add()
     local url = arg[2]
-    if not url then print_error("Informe a URL do pacote.") return end
+    if not url then print_error("Informe a URL.") return end
     if not check_git() then print_git_guide(); return end
     print_header()
     local repo_name = url:match("([^/]+)$") or "lib"
@@ -230,26 +241,20 @@ function commands.add()
     local mkdir_cmd = is_windows and "if not exist .zt\\vendor mkdir .zt\\vendor" or "mkdir -p .zt/vendor"
     os.execute(mkdir_cmd .. " > nul 2>&1")
     print_info("Acoplando: " .. aura.bold .. repo_name .. aura.reset)
-    local cmd = "git clone --depth 1 " .. full_url .. " " .. dest_path
-    if run_with_spinner("Baixando do hiperespaço...", cmd) then
+    if run_with_spinner("Baixando do hiperespaço...", "git clone --depth 1 " .. full_url .. " " .. dest_path) then
         local f = io.open("zenith.ztproj", "a")
         f:write("\n    " .. repo_name .. ": \"" .. url .. "\"\n")
         f:close()
         print_success("Pacote integrado!")
+        update_lockfile()
     end
 end
 
 function commands.install()
     print_header()
     print_info("Sincronizando órbita do projeto...")
-
-    -- 1. Ler Manifesto
     local f = io.open("zenith.ztproj", "r")
-    if not f then
-        print_error("Manifesto " .. aura.bold .. "zenith.ztproj" .. aura.reset .. " não encontrado.")
-        return
-    end
-
+    if not f then print_error("Manifesto não encontrado."); return end
     local deps = {}
     local in_deps = false
     for line in f:lines() do
@@ -257,143 +262,95 @@ function commands.install()
         elseif line:match("end") and in_deps then in_deps = false
         elseif in_deps then
             local name, url = line:match("%s*(.-):%s*\"?(.-)\"?$")
-            if name and url ~= "official" then
-                table.insert(deps, { name = name, url = url })
-            end
+            if name and url ~= "official" then table.insert(deps, {name=name, url=url}) end
         end
     end
     f:close()
-
-    if #deps == 0 then
-        print_success("Nenhuma dependência externa para acoplar.")
-        return
-    end
-
-    -- 2. Garantir Pasta Vendor
+    if #deps == 0 then print_success("Nenhuma dependência externa."); return end
     local mkdir_cmd = is_windows and "if not exist .zt\\vendor mkdir .zt\\vendor" or "mkdir -p .zt/vendor"
     os.execute(mkdir_cmd .. " > nul 2>&1")
-
-    -- 3. Instalar cada dependência
-    if not check_git() then
-        print_git_guide()
-        return
-    end
-
-    local installed_count = 0
+    if not check_git() then print_git_guide(); return end
     for _, dep in ipairs(deps) do
         local dest_path = ".zt/vendor/" .. dep.name
-        
-        -- Verifica se já existe
-        local check_cmd = is_windows and ("if exist " .. dest_path:gsub("/", "\\") .. " exit 0") or ("test -d " .. dest_path)
-        local exists = os.execute(check_cmd .. " > nul 2>&1") == 0
-
-        if exists then
-            print(aura.gray .. " • " .. aura.reset .. dep.name .. aura.gray .. " (Já acoplado)" .. aura.reset)
-        else
-            print_info("Sincronizando satélite: " .. aura.bold .. dep.name .. aura.reset)
-            local full_url = dep.url:match("^http") and dep.url or ("https://" .. dep.url)
-            local clone_cmd = "git clone --depth 1 " .. full_url .. " " .. dest_path
-            
-            if run_with_spinner("Baixando do hiperespaço...", clone_cmd) then
-                installed_count = installed_count + 1
-            end
+        local exists = os.execute((is_windows and ("if exist " .. dest_path:gsub("/", "\\") .. " exit 0") or ("test -d " .. dest_path)) .. " > nul 2>&1") == 0
+        if not exists then
+            print_info("Sincronizando: " .. aura.bold .. dep.name .. aura.reset)
+            run_with_spinner("Baixando...", "git clone --depth 1 " .. (dep.url:match("^http") and dep.url or ("https://" .. dep.url)) .. " " .. dest_path)
         end
     end
-
-    print("\n" .. aura.gray .. "------------------------------------" .. aura.reset)
-    print_success("Sincronização concluída. " .. installed_count .. " novos pacotes acoplados.")
+    print_success("Sincronia concluída.")
+    update_lockfile()
 end
 
 function commands.remove()
     local name = arg[2]
-    if not name then print_error("Informe o nome do pacote.") return end
+    if not name then print_error("Informe o nome."); return end
     print_header()
     local path = ".zt/vendor/" .. name
     local rm_cmd = is_windows and ("rd /s /q " .. path:gsub("/", "\\")) or ("rm -rf " .. path)
-    if run_with_spinner("Removendo arquivos...", rm_cmd) then
+    if run_with_spinner("Removendo...", rm_cmd) then
+        local f = io.open("zenith.ztproj", "r")
+        local lines = {}
+        if f then
+            for line in f:lines() do if not line:match("^%s*" .. name .. ":") then table.insert(lines, line) end end
+            f:close()
+            local fw = io.open("zenith.ztproj", "w")
+            fw:write(table.concat(lines, "\n"))
+            fw:close()
+        end
         print_success("Pacote desorbitado.")
+        update_lockfile()
     end
 end
 
 function commands.publish()
     print_header()
-    print_info("Iniciando sequência de lançamento (Publish)...")
-    
-    -- 1. Ler Metadados do Manifesto
+    print_info("Lançamento estelar...")
     local f = io.open("zenith.ztproj", "r")
-    if not f then
-        print_error("Manifesto " .. aura.bold .. "zenith.ztproj" .. aura.reset .. " não encontrado.")
-        return
-    end
-    
-    local content = f:read("*a")
-    f:close()
-
-    local p_name = content:match("project%s+([%w_]+)") or "desconhecido"
-    local p_version = content:match("version:%s*([%d%.%w%-]+)") or "0.1.0"
-    
-    print(aura.gray .. " 📦 Projeto: " .. aura.reset .. aura.bold .. p_name .. aura.reset)
-    print(aura.gray .. " 🏷️  Versão:  " .. aura.reset .. aura.cyan .. p_version .. aura.reset)
-    print("")
-
-    -- 2. Verificar Ambiente Git
-    if not check_git() then
-        print_git_guide()
-        return
-    end
-
-    local is_repo = os.execute("git rev-parse --is-inside-work-tree > nul 2>&1") == 0
-    if not is_repo then
-        print_error("Este diretório não é um repositório Git. Use " .. aura.cyan .. "git init" .. aura.reset .. " primeiro.")
-        return
-    end
-
-    local has_remote = os.execute("git remote get-url origin > nul 2>&1") == 0
-    if not has_remote then
-        print_warning("Nenhum 'remote origin' detectado. O lançamento será apenas local.")
-    end
-
-    -- 3. Sequência de Comandos
+    if not f then print_error("Manifesto não encontrado."); return end
+    local content = f:read("*a"); f:close()
+    local p_version = content:match("version:%s*\"?([%d%.%w%-]+)\"?") or "0.1.0"
+    if not check_git() then print_git_guide(); return end
     local tag = "v" .. p_version
-    print_info("Criando marca temporal: " .. aura.bold .. tag .. aura.reset)
-    
-    -- Tenta criar a tag (ignora se já existir)
     os.execute("git tag " .. tag .. " > nul 2>&1")
-    
-    local push_cmd = "git push origin " .. tag
-    if has_remote then
-        if run_with_spinner("Lançando para as estrelas...", push_cmd) then
-            print_success("Módulo " .. aura.bold .. p_name .. aura.reset .. " publicado com sucesso!")
-            print(aura.purple .. " 🌌 Órbita sincronizada com o servidor remoto." .. aura.reset)
-        else
-            print_error("Falha ao enviar para o servidor. Verifique sua conexão ou permissões.")
-        end
-    else
-        print_success("Tag " .. aura.bold .. tag .. aura.reset .. " criada localmente.")
-        print_info("Conecte um repositório remoto para brilhar em toda a galáxia.")
+    if run_with_spinner("Lançando para as estrelas...", "git push origin " .. tag) then
+        print_success("Publicado com sucesso!")
     end
+end
+
+function commands.clean()
+    print_header()
+    print_info("Faxina de órbita...")
+    local paths = { ".zt/vendor", "dist", "out.lua", "zenith.lock" }
+    for _, p in ipairs(paths) do
+        local cmd = is_windows and ("rd /s /q " .. p:gsub("/", "\\") .. " 2>nul || del /q " .. p:gsub("/", "\\") .. " 2>nul") or ("rm -rf " .. p)
+        os.execute(cmd)
+    end
+    print_success("Espaço limpo.")
+end
+
+function commands.update()
+    print_header()
+    print_info("Buscando atualizações...")
+    commands.install() -- Reutiliza install para garantir presença e atualizar lock
 end
 
 function commands.doctor()
     print_header()
     local function check(label, cmd)
         local success = os.execute(cmd .. " > nul 2>&1") == 0
-        local icon = success and (aura.green .. "[✔]") or (aura.red .. "[✘]")
-        print(string.format(" %s %-18s .... %s", icon, label, success and aura.green.."OK" or aura.red.."Falha"))
+        print(string.format(" %s %-18s .... %s", success and aura.green.."[✔]" or aura.red.."[✘]", label, success and aura.green.."OK" or aura.red.."Falha"))
     end
     check("Compilador ZTC", "lua ztc.lua --version")
     check("Motor Lua", "lua -v")
     check("Conexão Git", "git --version")
-    print("\n " .. aura.blue .. "🚀 Diagnóstico concluído." .. aura.reset .. "\n")
+    print("\n " .. aura.blue .. "🚀 Órbita estável." .. aura.reset .. "\n")
 end
 
 -- 🚀 DISPATCHER
 local cmd_name = arg[1]
-if not cmd_name or cmd_name == "help" or cmd_name == "--help" then
-    commands.help()
-elseif commands[cmd_name] then
-    commands[cmd_name]()
+if not cmd_name or cmd_name == "help" or cmd_name == "--help" then commands.help()
+elseif commands[cmd_name] then commands[cmd_name]()
 else
     print_error("Comando estelar desconhecido: " .. aura.bold .. tostring(cmd_name) .. aura.reset)
-    print_info("Use " .. aura.cyan .. "zpm help" .. aura.reset .. " para ver o Atlas de Comandos.")
 end

@@ -3,44 +3,65 @@
 
 namespace std.math
 
-pub const PI: float = 3.141592653589793
+-- 💎 CONSTANTES
 
-pub func abs(x: float) : float
-    return x -- Mapeado nativamente
+pub const PI: float  = 3.141592653589793
+pub const E: float   = 2.718281828459045
+pub const TAU: float = 6.283185307179586
+
+-- 🏗️ OPERAÇÕES CORE
+
+pub func abs(x: float) -> float
 end
 
-pub func floor(x: float) : int
-    return 0 -- Mapeado nativamente
+pub func sqrt(x: float) -> float
 end
 
-pub func ceil(x: float) : int
-    return 0 -- Mapeado nativamente
+pub func pow(base: float, exp: float) -> float
 end
 
-pub func sin(x: float) : float
-    return 0.0 -- Mapeado nativamente
+pub func floor(x: float) -> int
 end
 
-pub func cos(x: float) : float
-    return 0.0 -- Mapeado nativamente
+pub func ceil(x: float) -> int
 end
 
-pub func tan(x: float) : float
-    return 0.0 -- Mapeado nativamente
+pub func round(x: float) -> int
 end
 
-pub func sqrt(x: float) : float
-    return 0.0 -- Mapeado nativamente
+-- 📐 TRIGONOMETRIA
+
+pub func sin(x: float) -> float
 end
 
-pub func random() : float
-    return 0.0 -- Mapeado nativamente
+pub func cos(x: float) -> float
 end
 
-pub func rad(deg: float) : float
-    return deg * (PI / 180.0)
+pub func tan(x: float) -> float
 end
 
-pub func deg(rad: float) : float
-    return rad * (180.0 / PI)
+pub func asin(x: float) -> float
+end
+
+pub func acos(x: float) -> float
+end
+
+pub func atan2(y: float, x: float) -> float
+end
+
+pub func rad(deg: float) -> float
+end
+
+pub func deg(rad: float) -> float
+end
+
+-- 🛠️ UTILITÁRIOS
+
+pub func clamp(val: float, min: float, max: float) -> float
+end
+
+pub func lerp(a: float, b: float, t: float) -> float
+end
+
+pub func sign(x: float) -> int
 end

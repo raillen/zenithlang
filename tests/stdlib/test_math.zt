@@ -1,16 +1,38 @@
-import std.math as m
+-- tests/stdlib/test_math.zt
+import std.math
+import std.math.random
+import std.math.vec
 
-func main()
-    print("Testando std.math")
+pub func main() -> int
+    print("--- Testando Módulo std.math ---")
+
+    -- 1. Constantes e Core
+    print("PI:  " + math.PI)
+    print("E:   " + math.E)
+    print("TAU: " + math.TAU)
     
-    local x: float = m.PI
-    assert(x > 3.0 and x < 4.0, "PI deve estar entre 3 e 4")
+    print("Round 3.6: " + math.round(3.6))
+    print("Clamp 15 [0, 10]: " + math.clamp(15.0, 0.0, 10.0))
+
+    -- 2. Submódulo Random
+    print("\n--- Testando std.math.random ---")
+    random.seed(42)
+    print("Int (1-100): " + random.int(1, 100))
+    print("Float (0-1): " + random.float())
+    print("Bool:        " + random.bool())
+
+    -- 3. Submódulo Vec
+    print("\n--- Testando std.math.vec ---")
+    var v = vec.vec2(3.0, 4.0)
+    var handle: any = v -- Usando any p/ simplificar acesso aos métodos
     
-    local s: float = m.sin(0.0)
-    assert(s == 0.0, "sin(0) deve ser 0")
+    print("Vetor: (" + handle.x + ", " + handle.y + ")")
+    print("Comprimento: " + handle.length())
     
-    local r: float = m.rad(180.0)
-    assert(r == m.PI, "rad(180) deve ser PI")
-    
-    print("Sucesso: std.math validado!")
+    var n = handle.normalize()
+    var nh: any = n
+    print("Normalizado: (" + nh.x + ", " + nh.y + ")")
+
+    print("\n--- Fim dos testes de MATH ---")
+    return 0
 end

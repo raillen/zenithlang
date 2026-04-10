@@ -1,0 +1,30 @@
+--- Biblioteca Padrão Zenith — Módulo HTTP
+--- Cliente e Servidor Web modernos e assíncronos.
+
+namespace std.http
+
+-- 📦 ESTRUTURAS
+
+pub struct Response
+    pub status: int
+    pub body: text
+    pub headers: map<text, text>
+    
+    --- Converte o corpo da resposta em um objeto Zenith (JSON).
+    pub func json() -> any
+    end
+end
+
+-- 🚀 HTTP CLIENT (Async)
+
+--- Realiza uma requisição GET.
+pub async func get(url: text, timeout: int = 30000) -> Outcome<Response, text>
+end
+
+--- Realiza uma requisição POST.
+pub async func post(url: text, body: any, headers: map<text, text> = {}, timeout: int = 30000) -> Outcome<Response, text>
+end
+
+--- Baixa um arquivo diretamente para o disco com feedback de progresso.
+pub async func download_file(url: text, destination: text) -> Outcome<void, text>
+end

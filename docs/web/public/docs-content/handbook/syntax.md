@@ -1,429 +1,417 @@
-# Guia de Sintaxe Zenith (v0.2)
+# Guia de Sintaxe Zenith
 
-> Zenith é uma linguagem desenhada para ser lida e compreendida sem esforço mental excessivo. Se você tem TDAH ou Dislexia, este guia foi feito pensando em você.
+> Snapshot alinhado ao estado atual do repositório em 2026-04-10.
 
----
+Este guia cobre a sintaxe que o parser e a stdlib expõem hoje. Onde a implementação do runtime ainda está em transição, isso é indicado explicitamente.
 
-## 0. Guia de Estudo (Neurodiversidade)
-
-Programar pode ser cansativo para o cérebro. Aqui estão algumas dicas para ler esta documentação e o código Zenith:
-
-*   **Pule para os Exemplos:** Se as definições técnicas parecerem confusas, olhe primeiro o código. Nossos exemplos são "autoexplicativos".
-*   **Âncoras Textuais:** Use os títulos numerados, subtítulos e caixas de destaque `Dica`, `Importante` e `Exemplo` para se localizar rapidamente.
-*   **Carga Cognitiva:** Zenith evita "sintaxes mágicas". Se você entende o básico, o resto segue a mesma lógica.
-*   **Pausa Ativa:** Se sentir que as palavras estão "dançando", faça uma pausa. O Zenith foi feito para que você possa voltar de onde parou sem perder o fio da meada.
-
-> [!NOTE]
-> **Leitura em camadas:** primeiro entenda o nome da construção, depois observe o exemplo mínimo e só então mergulhe nos detalhes.
-
-> [!IMPORTANT]
-> **Se perder o fio:** volte para o último título numerado que fez sentido. O guia foi organizado para permitir retomada sem reler tudo.
-
----
-
-## 1. Fundamentos (O Básico)
-
-Todo programa Zenith começa com o simples.
+## 1. Fundamentos
 
 ### Comentários
-Use comentários para explicar o **porquê** e não o **quê**.
-```zt
--- Isso é um comentário de uma linha.
--- O compilador ignora tudo depois do '--'.
-```
-
-### Variáveis e Constantes
-Zenith é **explícito**. Você precisa dizer o que é o quê.
-
-*   `var`: Coisas que **podem** mudar (Variáveis).
-*   `const`: Coisas que **nunca** mudam (Constantes).
 
 ```zt
-var vida: int = 100        -- 'vida' pode diminuir ou aumentar.
-const PI: float = 3.14     -- O valor de PI é fixo.
+-- Comentário de linha
 ```
 
-### Tipos Primitivos
-Os "tijolos" básicos da linguagem:
+### Declarações
 
-| Tipo | O que é? | Exemplo |
-| :--- | :--- | :--- |
-| `int` | Números inteiros | `10`, `-5`, `0` |
-| `float` | Números com vírgula | `3.14`, `0.5` |
-| `text` | Textos (Strings) | `"Olá Zenith"` |
-| `bool` | Verdadeiro ou Falso | `true`, `false` |
-| `null` | Vazio/Nada | `null` |
-| `void` | Retorno vazio (funções) | `void` |
-| `any` | Qualquer tipo | `any` |
-
-### Uniões de Tipos (`|`)
-Às vezes uma variável pode ser mais de uma coisa. Use o `|` para unir tipos. Você pode usar o operador `is` para verificar o tipo atual.
+Zenith mantém tipagem explícita para variáveis nomeadas.
 
 ```zt
-var id: int | text = 10      -- Pode ser um número...
-if id is int
-    print("É um número!")
-end
-
-id = "zenith_01"             -- ...ou um texto!
+var energia: int = 100
+const PI: float = 3.14
+global DEBUG: bool = false
 ```
 
-> [!TIP]
-> **Dica de Visualização:** Imagine `var` como uma caixa que você pode trocar o conteúdo, e `const` como um objeto gravado na pedra.
+Palavras-chave centrais:
 
----
+- `var`
+- `const`
+- `global`
+- `pub`
 
-## 2. Lógica e Fluxo
+### Tipos primitivos
 
-Como o seu programa toma decisões.
+| Tipo | Uso |
+| :-- | :-- |
+| `int` | Inteiros |
+| `float` | Números fracionários |
+| `text` | Strings |
+| `bool` | Booleanos |
+| `null` | Ausência de valor |
+| `void` | Retorno vazio |
+| `any` | Escape hatch de tipagem |
 
-### Condicionais (if, elif, else)
-Zenith usa blocos claros que terminam com `end`.
+### Coleções e modificadores
+
+As coleções principais do Zenith são `list`, `map` e `grid`.
+
+```zt
+var nomes: list<text> = ["Ana", "Ivo"]
+var flags: map<text, bool> = { "debug": true }
+var mapa: grid<int> = grid<int>(10, 10, 0)
+var unicos: uniq list<text> = ["a", "b"]
+```
+
+### Nulabilidade
+
+`T?` é açúcar para `T | null`.
+
+```zt
+var apelido: text? = null
+```
+
+### Alias e união
+
+Use `type` para alias semântico e `union` para nomes públicos de tipos soma.
+
+```zt
+type NomeArquivo = text
+union Resultado<T> = T | text
+```
+
+### Tipos de função
+
+```zt
+var op: (int, int) => int
+```
+
+## 2. Controle de fluxo
+
+### Condicionais
 
 ```zt
 if energia > 80
-    print("Correndo rápido!")
+    print("Alta")
 elif energia > 20
-    print("Caminhando...")
+    print("Média")
 else
-    print("Exausto.")
+    print("Baixa")
 end
 ```
 
-Use `elif` para condições extras e `else` para quando nada mais for verdade. O Zenith também usa os operadores lógicos `and`, `or` e `not` para combinar condições.
+Observação: Zenith não usa `then`.
+
+### Loops
 
 ```zt
-if energia > 50 and vivo
-    print("Pronto para lutar!")
-end
-```
-
-### O Poder do `match` (Destruturação)
-O `match` no Zenith não apenas compara valores, mas também "desmonta" objetos.
-
-```zt
--- Destruturando uma Lista
-var lista: any = [10, 20, 30]
-match lista
-    case [10, a, ..resto]: 
-        print("Capturou a={a}")      -- Captura o segundo item
-        print("Tamanho do resto: {#resto}")
-    else: print("Não casou")
+while vivo
+    break
 end
 
--- Destruturando uma Struct
-match player
-    case Player { nome, vida: 0 }:
-        print("{nome} foi derrotado!")
-end
-```
-
-### O Statement `check`
-O `check` é usado para validações rápidas. Se a condição for falsa, ele executa o bloco `else`. É excelente para evitar `ifs` aninhados e garantir pré-condições.
-
-```zt
-func processar(n: int)
-    check n > 0 else
-        print("Erro: n deve ser positivo!")
-        return
-    end
-    -- Continua o processamento com segurança...
-end
-```
-
-
-### Loops (Repetições)
-Repetir tarefas sem cansar o cérebro.
-
-*   **`while`**: Repete enquanto algo for verdade.
-*   **`for`**: Percorre uma lista ou intervalo.
-*   **`repeat`** e **`times`**: Repete um número exato de vezes (Exclusivo do Zenith!).
-
-```zt
--- Repetir 5 vezes (Simples e direto):
-repeat 5 times
-    print("Contagem regressiva!")
-end
-
--- Percorrendo uma lista:
 for item in inventario
-    if item == "Bomba" then
-        break -- Para o loop imediatamente.
-    end
-    print("Você tem: " + item)
+    continue
+end
+
+repeat 3 times
+    print("tick")
 end
 ```
 
-Use `break` para sair de um loop e `continue` para pular para a próxima volta.
+### `match`
 
-### Assincronia (`async`, `await`)
-Para tarefas que demoram (como baixar um arquivo), o Zenith usa `async` e `await`. Isso evita que o programa inteiro "trave".
+`match` aceita padrões literais, tipos, listas, variantes e structs.
 
 ```zt
-async func baixar_fase()
-    var dados = await download("level1.zt")
-    print("Fase carregada!")
+match valor
+    case 10:
+        print("dez")
+    case [1, a, ..resto]:
+        print(a)
+    case Player { nome, vida: 0 }:
+        print(nome)
+    else:
+        print("sem match")
 end
 ```
 
----
+`case` pode usar `:` ou `=>`.
 
-## 3. Coleções e Dados
-
-Como organizar muitos pedaços de informação.
-
-### Listas (`list`)
-As listas guardam itens um após o outro. Use `list<T>` para dizer o que tem dentro.
+### Tratamento de erro
 
 ```zt
-var inventario: list<text> = ["Espada", "Escudo", "Poção"]
-append(inventario, "Arco")           -- Adiciona no final.
-```
-
-### Mapas (`map`)
-Os mapas ligam uma **Chave** a um **Valor**. Use `map<K, V>` para dicionários.
-
-```zt
-var status: map<text, int> = {
-    "força": 10,
-    "mana": 50
-}
-```
-
-### Grids (`grid`) - Matrizes 2D
-O Zenith tem suporte nativo para `grid` (tabelas de duas dimensões). Perfeito para jogos!
-
-```zt
--- Cria um mapa de jogo 10x10 preenchido com 0:
-var mapa: grid<int> = grid<int>(10, 10, 0)
-mapa[5, 5] = 1        -- Coloca um '1' no centro do mapa.
-```
-
-### O Modificador `uniq` (Conjuntos)
-Se você quer uma lista que **não permite** itens repetidos, use `uniq`.
-
-```zt
--- Mesmo que você tente adicionar "Rafael" duas vezes, ele só aparecerá uma.
-var nomes: uniq list<text> = ["Rafael", "Joana"]
-```
-
-### Enumerações (`enum`)
-O `enum` cria uma lista de opções fixas. É muito útil com o `match`.
-
-```zt
-enum Direcao
-    Norte, Sul, Leste, Oeste
+attempt
+    throw "falha"
+rescue e
+    print(e)
 end
-
-var d: Direcao = Direcao.Norte
 ```
 
----
+### `check`
 
-## 4. Funções e Organização
-
-Como criar comandos personalizados e organizar seu código em arquivos.
-
-### Criando Funções (`func`)
-Funções são receitas de bolo que seu código executa quando você chamar o nome delas.
-
-*   `input`: Parâmetros que a função recebe.
-*   `->`: O que a função devolve para você (Tipo de Retorno).
+`check` valida uma condição e executa o bloco `else` quando falha.
 
 ```zt
--- Função que soma dois números:
+check idade >= 18 else
+    panic("acesso negado")
+end
+```
+
+Também existe `check expr` como expressão prefixa.
+
+## 3. Funções e lambdas
+
+### Funções nomeadas
+
+```zt
 func somar(a: int, b: int) -> int
     return a + b
 end
-
-var total: int = somar(10, 5)        -- Chama a função e guarda o '15'.
 ```
 
-### Argumentos Nomeados e Padrão
-Você pode dar valores padrão para os parâmetros e chamar funções usando o nome dos argumentos.
+O parser aceita `:` e `->` para retorno, mas a forma preferida na documentação é `->`.
+
+### `async func` e `await`
 
 ```zt
-func configurar(nome: text, volume: int = 80, brilho: int = 100)
-    print("Configurando {nome}: Vol={volume}, Brilho={brilho}")
+async func carregar() -> text
+    return "ok"
 end
 
-configurar("Menu")                   -- Usa os padrões (80, 100)
-configurar("Jogo", brilho: 50)       -- Muda apenas o brilho
-```
-
-### Namespaces e Imports
-Seu código fica em gavetas chamadas `namespace`. Use `import` para pegar algo de outra gaveta e `pub` para deixar suas gavetas abertas para outros.
-
-```zt
-namespace player_logic
-
-import std.math                      -- Pegando comandos matemáticos.
-
-pub func pular() -> void
-    -- Lógica de pular...
+async func main() -> int
+    var valor: text = await carregar()
+    print(valor)
+    return 0
 end
 ```
 
-Utilize `export` para disponibilizar funções de um módulo e `global` para variáveis acessíveis em qualquer lugar. O símbolo `self` refere-se à instância atual de um objeto (ou `@` como atalho), e `_` é usado para descartar valores que você não vai usar.
+O token `do` também é aceito antes do corpo:
 
----
+```zt
+async func carregar() -> text do
+    return "ok"
+end
+```
 
-## 5. Composição (OOP com Structs e Traits)
+### Parâmetros com padrão e argumentos nomeados
 
-Zenith não usa o modelo tradicional de "Classes". Ele usa algo mais fácil e modular: **Composição**.
+```zt
+func abrir(path: text, mode: text = "r")
+    print(path + " / " + mode)
+end
 
-### Structs (Dados)
-O `struct` define a forma de um objeto e seus campos. Você pode usar o operador `where` para validar dados.
+abrir("a.txt")
+abrir(path: "b.txt", mode: "w")
+```
+
+### Desestruturação em parâmetros
+
+```zt
+func somar_vetor(Vec2 { x, y }) -> int
+    return x + y
+end
+
+func primeiro([a, b, ..resto]: list<int>) -> int
+    return a + b
+end
+```
+
+### Lambdas
+
+```zt
+var dobro = (n: int) => n * 2
+
+var soma = (a: int, b: int) => do
+    var total: int = a + b
+    return total
+end
+
+var worker = async (msg: text) => msg
+```
+
+## 4. Tipos compostos
+
+### `struct`
 
 ```zt
 struct Player
     pub nome: text
-    pub vida: int = 100 where it >= 0  -- Não permite vida negativa!
+    pub vida: int = 100 where it >= 0
 end
 ```
 
-### Traits (Comportamentos)
-O `trait` define o que um objeto pode **fazer**. Agora suporta **implementações padrão** (corpo opcional).
+O `where` em campo define um contrato de runtime.
+
+### `enum`
+
+```zt
+enum Status
+    Loading
+    Success(value: text)
+    Failure(error: text)
+end
+```
+
+### `trait` e `apply`
 
 ```zt
 trait Greetable
-    pub func greet()
-        print("Olá, eu sou um Zenith!") -- Padrão
-    end
-    
-    pub func identify() -- Obrigatório implementar
-end
-```
-
-### Genéricos com Restrições (`where`)
-Você pode exigir que um tipo genérico implemente uma `trait` específica.
-
-```zt
--- T deve ser algo que saiba saudar
-struct Box<T where T is Greetable>
-    pub item: T
+    pub func greet() -> text
 end
 
-pub func saudar_tudo<T where T is Greetable>(lista: list<T>)
-    for item in lista
-        item.greet()
+apply Greetable to Player
+    pub func greet() -> text
+        return "Oi, eu sou " + @nome
     end
 end
 ```
 
-O `apply` diz que um `Struct` agora também tem os comportamentos de um `Trait`.
+### `redo`
+
+`redo` redefine um método já existente.
 
 ```zt
-apply Voador to Player
-
-var p: Player = Player { nome: "Zenith" }
-p.voar()                             -- Agora o Player sabe voar!
-```
-
-### Redefinição (`redo`)
-O `redo` permite alterar o comportamento de uma função que já existe em um `struct` ou `trait`.
-
-```zt
-redo func Player.voar()
-    print("Voo supersônico!")
+redo func Player.greet() -> text
+    return "sobrescrito"
 end
 ```
 
-> [!IMPORTANT]
-> **Por que isso é bom para TDAH?** Você pode montar seus objetos como se fossem peças de LEGO, em vez de heranças gigantes e confusas.
+## 5. Expressões e operadores
 
----
-
-## 6. Reatividade e Erros
-
-Zenith ajuda você a lidar com mudanças de estado e problemas que podem acontecer.
-
-### Sistema Reativo (`state`, `computed`, `watch`)
-Ideal para interfaces e sistemas que precisam reagir a mudanças automaticamente.
-
-*   `state`: Uma variável que "avisa" quando muda.
-*   `computed`: Um valor que se recalcula sozinho quando um `state` muda.
-*   `watch`: Um bloco de código que roda sempre que um `state` muda.
+### Conversão e refinamento
 
 ```zt
-state contador: int = 0
-computed dobro: int = contador * 2
+var valor: int | text = 10
 
-watch contador
-    print("O contador mudou! Dobro agora é: {dobro}")
+if valor is int
+    print("é int")
 end
 
-contador = 5                         -- Isso dispara o 'watch' automaticamente.
+if valor is not text
+    print("não é text")
+end
+
+var texto = valor as text
 ```
 
-### Tratamento de Erros (`attempt`, `rescue`)
-Não deixe seu programa travar! Use `attempt` para tentar algo perigoso e `throw` para lançar seus próprios erros.
+### Tamanho, range, spread e slicing
 
 ```zt
-func validar(idade: int)
-    if idade < 0
-        throw "Idade não pode ser negativa"
+var itens = [1, 2, 3]
+print(#itens)
+
+for i in 1..3
+    print(i)
+end
+
+var copia = [..itens, 4, 5]
+var trecho = itens[0..1]
+```
+
+`..` também aparece em padrões de lista e em chamadas:
+
+```zt
+func somar_tres(a: int, b: int, c: int) -> int
+    return a + b + c
+end
+
+var nums = [10, 20, 30]
+print(somar_tres(..nums))
+```
+
+### `!` e `?`
+
+```zt
+var nome = apelido!
+var dados = fs.read_text_file("app.txt")?
+```
+
+- `expr!` afirma que o valor não é nulo.
+- `expr?` propaga `Optional` ou `Outcome` para fora da função atual.
+
+### UFCS e acesso a membros
+
+`@campo` é açúcar para `self.campo`.
+
+```zt
+var resultado: int = 10
+    .step1(5)
+    .step2()
+```
+
+No parser atual, `.` continua existindo como acesso a membro e também como base do encadeamento UFCS.
+
+### `native lua`
+
+```zt
+native lua
+    print("bloco Lua puro")
+end
+
+var resposta = native lua 20 + 22 end
+```
+
+## 6. Módulos
+
+### `namespace`, `import` e `export`
+
+```zt
+namespace app.main
+
+import std.fs
+import std.time as tempo
+
+export func agora() -> float
+    return tempo.now().unix
+end
+```
+
+## 7. Reatividade e testes
+
+### `state`, `computed` e `watch`
+
+Essas palavras-chave existem e fazem parte do parser e do runtime Lua, mas a ergonomia final ainda está em estabilização.
+
+```zt
+state counter: int = 10
+computed doubled: int = counter * 2
+
+watch
+    print(doubled)
+end
+```
+
+Use esse conjunto com cautela em código novo até a camada de runtime async/reativa estabilizar completamente.
+
+### `group`, `test` e `assert`
+
+O parser reconhece DSL de testes:
+
+```zt
+group "math"
+    test "soma"
+        assert(true, "deveria passar")
     end
 end
-
-attempt
-    validar(-1)
-rescue e
-    print("Ops, algo deu errado: " + e.message)
-end
 ```
 
-### O Operador Bang (`!`)
-Se você sabe que uma função pode dar erro, mas quer que o erro seja tratado por quem chamou esta função, use `!`.
+O comando de CLI `zt test` ainda está em evolução no repositório atual.
 
-```zt
--- Tenta carregar o nível. Se falhar, o erro "sobe" para a função pai.
-var nivel = carregar_nivel(1)!
-```
+## 8. Inventário de palavras-chave
 
----
+### Declaração e visibilidade
 
-## 7. Contratos e Metadados (Avançado)
+`var`, `const`, `global`, `pub`, `func`, `async`, `await`, `namespace`, `import`, `export`, `redo`
 
-Para quando você quer garantir que os dados sigam regras estritas.
+### Tipos e modelagem
 
-### Cláusulas `where`
-Você pode colocar regras diretamente na definição da variável.
+`struct`, `enum`, `trait`, `apply`, `to`, `type`, `union`, `where`, `grid`, `uniq`
 
-```zt
-struct Item
-    -- A quantidade nunca pode ser menor que zero.
-    pub quantidade: int = 1 where it >= 0
-end
-```
+### Fluxo
 
-### Atributos `@`
-Metadados que ajudam ferramentas e o próprio Zenith a entender melhor seu código.
+`if`, `elif`, `else`, `end`, `while`, `for`, `in`, `repeat`, `times`, `return`, `break`, `continue`, `match`, `case`, `attempt`, `rescue`, `check`, `throw`, `watch`, `do`
 
-```zt
-struct Boss
-    @min(100) @max(9999)
-    pub vida: int = 500
-end
-```
+### Operadores e refinamento
 
-### Testes Unitários (`group`, `test`)
-O Zenith tem suporte nativo para testes, facilitando a vida do desenvolvedor. Use o comando `assert` para validar resultados.
+`as`, `is`, `and`, `or`, `not`
 
-```zt
-group "Matemática"
-    test "soma básica"
-        assert(1 + 1 == 2)
-    end
-end
-```
+### Literais e referências especiais
 
----
+`true`, `false`, `null`, `self`, `it`, `_`
 
-## Parabéns!
-Você agora conhece a alma da linguagem Zenith. 
+### DSL de testes
 
-**Próximos passos:**
-1. Tente rodar os exemplos da pasta `/examples`.
-2. Se o cérebro cansar, lembre-se: **Zenith foi feito para ser lido com calma.**
-3. Em caso de dúvidas, os erros do compilador Zenith tentam ser o mais amigáveis possível!
+`group`, `test`, `assert`
+
+### Interop
+
+`native`

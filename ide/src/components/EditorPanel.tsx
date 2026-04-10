@@ -6,6 +6,7 @@ import { TabManager } from "./TabManager";
 import { registerZenithLanguage } from "../utils/zenithLang";
 import { THEMES, defaultLight } from "../themes";
 import { getMonacoTheme } from "../utils/themeEngine";
+import { BrandLogo } from "./BrandLogo";
 
 export function EditorPanel() {
   const { activeFile, setFileDirty, setDiagnostics, diagnosticsMap } = useWorkspaceStore();
@@ -111,16 +112,56 @@ export function EditorPanel() {
     setContent(value || "");
   };
 
+  // Jump to line logic
+  useEffect(() => {
+    const handleJump = (e: any) => {
+        const { line, col } = e.detail;
+        if (editorRef.current) {
+            editorRef.current.revealLineInCenter(line);
+            editorRef.current.setPosition({ lineNumber: line, column: col });
+            editorRef.current.focus();
+        }
+    };
+
+    window.addEventListener("zenith://editor-jump", handleJump);
+    return () => window.removeEventListener("zenith://editor-jump", handleJump);
+  }, []);
+
   if (!activeFile) {
+
     return (
-      <div className="flex-1 flex flex-col bg-ide-bg transition-colors duration-200 overflow-hidden">
+      <div className="h-full flex flex-col bg-ide-bg transition-colors duration-200 overflow-hidden relative">
         <TabManager />
-        <div className="flex-1 flex flex-col items-center justify-center text-ide-text-dim select-none">
-          <div className="w-20 h-20 rounded-3xl bg-ide-panel border border-ide-border flex items-center justify-center mb-6">
-              <span className="text-5xl opacity-20 italic font-serif text-ide-text">Z</span>
+        
+        {/* Background Gradient / Pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--color-primary-rgb),0.03)_0%,transparent_70%)] pointer-events-none" />
+        
+        <div className="flex-1 flex flex-col items-center justify-center text-ide-text-dim select-none z-10 animate-in fade-in zoom-in-95 duration-1000">
+          <div className="relative group mb-8">
+             <div className="absolute -inset-4 bg-primary/20 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+             <div className="relative flex h-24 w-24 items-center justify-center rounded-[2rem] border border-ide-border bg-ide-panel/80 shadow-2xl backdrop-blur-xl">
+               <BrandLogo variant="icon" className="h-12 w-12 drop-shadow-lg" />
+             </div>
           </div>
-          <h2 className="text-lg font-bold tracking-tight text-ide-text-dim">Zenith IDE Retina</h2>
-          <p className="text-[11px] mt-2 opacity-50 uppercase tracking-widest font-medium">Select a file to begin crafting</p>
+
+          <div className="flex flex-col items-center gap-2 mb-12">
+            <BrandLogo variant="lockup" className="h-10 w-auto opacity-90" alt="Zenith IDE Retina" />
+            <div className="h-px w-12 bg-primary/30 rounded-full" />
+            <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-primary/60">Crafting at the speed of thought</p>
+          </div>
+
+          {/* Shortcut Hints Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 max-w-lg w-full px-8 opacity-60 hover:opacity-100 transition-opacity duration-300">
+            <ShortcutHint label="Quick Open" combo={["Ctrl", "P"]} />
+            <ShortcutHint label="Show Commands" combo={["Ctrl", "Shift", "P"]} />
+            <ShortcutHint label="Open Settings" combo={["Ctrl", ","]} />
+            <ShortcutHint label="Open Folder" combo={["Ctrl", "Shift", "O"]} />
+          </div>
+
+          <div className="mt-16 text-[9px] text-ide-text-dim/40 border-t border-ide-border/30 pt-4 flex items-center gap-4">
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-primary/40" /> v0.2-ALPHA</span>
+            <span>OS: {navigator.platform}</span>
+          </div>
         </div>
       </div>
     );
@@ -174,6 +215,21 @@ export function EditorPanel() {
             }
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+function ShortcutHint({ label, combo }: { label: string, combo: string[] }) {
+  return (
+    <div className="flex items-center justify-between text-[11px] group cursor-default">
+      <span className="text-ide-text-dim group-hover:text-ide-text transition-colors">{label}</span>
+      <div className="flex items-center gap-1 translate-y-[1px]">
+        {combo.map((key, i) => (
+          <span key={i} className="min-w-[1.4em] h-[1.4em] flex items-center justify-center px-1 rounded border border-ide-border bg-ide-panel/50 text-ide-text-dim font-mono text-[9px] shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+            {key}
+          </span>
+        ))}
       </div>
     </div>
   );

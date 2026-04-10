@@ -51,7 +51,10 @@ export function CommandPalette() {
            // Debounce search loosely
            const timer = setTimeout(async () => {
                try {
-                   const res: FileNameResult[] = await invoke("search_file_names", { query: cleanQuery });
+                   const res: FileNameResult[] = await invoke("search_file_names", { 
+                        rootPath: useWorkspaceStore.getState().currentProjectRoot,
+                        query: cleanQuery 
+                    });
                    setFileResults(res);
                    setSelectedIndex(0);
                } catch(e) {

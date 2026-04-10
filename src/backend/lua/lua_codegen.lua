@@ -178,6 +178,7 @@ function LuaCodegen:_emit_compilation_unit(node)
         self:emit(string.format("if not %s then", self.has_namespace and "true" or "false"))
         self:indent()
         self:emit("local status = main()")
+        self:emit("if type(status) == 'table' and status.co then status = zt.drive(status) end")
         self:emit("if type(status) == 'number' then os.exit(status) end")
         self:dedent()
         self:emit("end")
@@ -326,6 +327,7 @@ function LuaCodegen:_emit_async_func_decl(node)
     local names = {}
     for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
     local params_str = table.concat(names, ", ")
+    local call_args = #names > 0 and (", " .. params_str) or ""
 
     self:emit(string.format("function %s(%s) ", node.name, params_str))
     self:indent()
@@ -333,7 +335,7 @@ function LuaCodegen:_emit_async_func_decl(node)
     self:indent()
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
-    self:emit("end, " .. params_str .. ")")
+    self:emit("end" .. call_args .. ")")
     self:dedent()
     self:emit("end")
 end
@@ -342,7 +344,39 @@ function LuaCodegen:_emit_struct_decl(node)
     local name = node.name
     self:emit(string.format("local %s = {}", name))
     self:emit(string.format("%s.__index = %s", name, name))
+    
+    -- Geração de Metadados para Reflexão
+    self:emit(string.format("%s._metadata = {", name))
+    self:indent()
+    self:emit(string.format("name = %q,", name))
+    
+    -- Campos Públicos
+    self:emit("fields = {")
+    self:indent()
+    for _, field in ipairs(node.fields) do
+        if field.is_pub then
+            local type_name = field.type_annotation and field.type_annotation.name or "any"
+            self:emit(string.format("{ name = %q, type = %q },", field.name, type_name))
+        end
+    end
+    self:dedent()
+    self:emit("},")
+
+    -- Métodos Públicos
+    self:emit("methods = {")
+    self:indent()
+    for _, m in ipairs(node.methods or {}) do
+        if m.is_pub then
+            self:emit(string.format("%q,", m.name))
+        end
+    end
+    self:dedent()
+    self:emit("}")
+    
+    self:dedent()
+    self:emit("}")
     self:emit("")
+    
     self:emit(string.format("function %s.new(fields)", name))
     self:indent()
     self:emit(string.format("local self = setmetatable({}, %s)", name))
@@ -507,7 +541,7 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.BINARY_EXPR then
         local op_map = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["=="] = "==", ["!="] = "~=", ["and"] = "and", ["or"] = "or", ["+"] = ".." }
         local op = node.operator.lexeme
-        if op == "+" then return string.format("(tostring(%s) .. tostring(%s))", self:_eval(node.left), self:_eval(node.right))
+        if op == "+" then return string.format("zt.add(%s, %s)", self:_eval(node.left), self:_eval(node.right))
         elseif op == "or" then return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right)) end
         return string.format("(%s %s %s)", self:_eval(node.left), op_map[op] or op, self:_eval(node.right))
     elseif node.kind == SK.UNARY_EXPR then
@@ -532,6 +566,14 @@ function LuaCodegen:_eval(node)
         local en = {}
         for _, p in ipairs(node.pairs or {}) do table.insert(en, string.format("[%s] = %s", self:_eval(p.key), self:_eval(p.value))) end
         return "{" .. table.concat(en, ", ") .. "}"
+
+    elseif node.kind == SK.STRUCT_INIT_EXPR then
+        local fields = {}
+        for _, f in ipairs(node.fields or {}) do
+            table.insert(fields, string.format("[%q] = %s", f.name, self:_eval(f.value)))
+        end
+        return string.format("%s.new({%s})", node.type_name, table.concat(fields, ", "))
+
     elseif node.kind == SK.INDEX_EXPR then return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
     elseif node.kind == SK.BANG_EXPR then return self:_eval(node.expression)
     elseif node.kind == SK.NATIVE_LUA_EXPR then return "(" .. node.lua_code .. ")"
@@ -550,7 +592,44 @@ function LuaCodegen:_eval(node)
         end
         local call = string.format("zt.is(%s, %s)", self:_eval(node.expression), type_str)
         return node.is_not and ("not " .. call) or call
-    elseif node.kind == SK.AS_EXPR then return self:_eval(node.expression) end
+    elseif node.kind == SK.AS_EXPR then return self:_eval(node.expression)
+    elseif node.kind == SK.LAMBDA_EXPR then
+        local names = {}
+        for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
+        local params_str = table.concat(names, ", ")
+        
+        local code = {}
+        table.insert(code, string.format("function(%s)", params_str))
+        
+        -- Se o corpo for uma lista de statements (do...end)
+        if type(node.body) == "table" and not node.body.kind then
+             -- Precisamos emitir os statements. Mas _eval retorna uma string...
+             -- Isso é um problema. O codegen do Zenith parece misturar emissão direta com avaliação de string.
+             -- Vamos tentar usar uma função anônima que executa os statements.
+             
+             -- Na verdade, o melhor é mudar _eval para suportar blocos ou usar um helper.
+             -- Mas dado a estrutura atual, vou emitir uma string que contém a função completa.
+             -- Para manter a indentação, vou usar um "sub-codegen" ou capturar o output.
+             
+             local sub = LuaCodegen.new()
+             sub.indent_level = self.indent_level + 1
+             for _, stmt in ipairs(node.body) do sub:_emit_node(stmt) end
+             
+             local body_code = table.concat(sub.output, "\n")
+             table.insert(code, body_code)
+             table.insert(code, string.rep("    ", self.indent_level) .. "end")
+        else
+            -- Lambda de expressão única: (x) => x + 1
+            table.insert(code, string.rep("    ", self.indent_level + 1) .. "return " .. self:_eval(node.body))
+            table.insert(code, string.rep("    ", self.indent_level) .. "end")
+        end
+        
+        local final_code = table.concat(code, "\n")
+        if node.is_async then
+            return string.format("zt.async_run(%s)", final_code)
+        end
+        return final_code
+    end
     return "-- [[Expr:" .. node.kind .. "]]"
 end
 

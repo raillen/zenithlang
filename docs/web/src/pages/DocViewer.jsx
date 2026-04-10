@@ -11,6 +11,7 @@ import TableOfContents from '../components/TableOfContents';
 import ReadingProgressBar from '../components/ReadingProgressBar';
 import { DOCS_STRUCTURE, getAllDocs } from '../data/docs';
 import 'prismjs/components/prism-lua';
+import '../utils/zenith-prism';
 
 // Configurar Marked para gerar IDs nos cabeçalhos
 const renderer = new marked.Renderer();
@@ -114,15 +115,86 @@ const DocViewer = ({ section, requestedDoc }) => {
     setLoading(false);
   };
 
-  // Delegar eventos de cópia para evitar múltiplos roots do React
+  const [pageSymbols, setPageSymbols] = useState([]);
+
+  // Extrair símbolos (headers e funções em tabelas) para navegação rápida
   useEffect(() => {
     if (!content || !articleRef.current) return;
 
-    // Highlight syntax
-    Prism.highlightAllUnder(articleRef.current);
+    const symbols = [];
+    const container = articleRef.current;
+    
+    // 1. Extrair headers (h2, h3)
+    const headers = container.querySelectorAll('h2, h3');
+    headers.forEach(header => {
+      if (!header.id) {
+        header.id = header.innerText.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+      }
+      symbols.push({
+        id: header.id,
+        label: header.innerText,
+        type: header.tagName.toLowerCase() === 'h2' ? 'section' : 'subsection',
+        top: header.offsetTop
+      });
+    });
 
-    // Injetar botões de cópia de forma leve (sem createRoot)
-    const preBlocks = articleRef.current.querySelectorAll('pre');
+    // 2. Extrair funções de tabelas de API
+    // Procuramos por tabelas que tenham "API" ou "Função" no cabeçalho
+    const tables = container.querySelectorAll('table');
+    tables.forEach(table => {
+      const ths = Array.from(table.querySelectorAll('th'));
+      const isApiTable = ths.some(th => {
+        const text = th.innerText.toLowerCase();
+        return text.includes('api') || text.includes('função') || text.includes('método');
+      });
+
+      if (isApiTable) {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach((row, idx) => {
+          const firstCell = row.querySelector('td');
+          if (firstCell) {
+            const apiText = firstCell.innerText.trim();
+            // Criar um ID único amigável: nome-da-funcao
+            const cleanId = apiText.split('(')[0].toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+            const uniqueId = `api-${cleanId}`;
+            
+            row.id = uniqueId;
+            row.classList.add('api-symbol-row', 'transition-colors', 'duration-500');
+            
+            symbols.push({
+              id: uniqueId,
+              label: apiText,
+              type: 'function',
+              top: row.offsetTop
+            });
+          }
+        });
+      }
+    });
+
+    setPageSymbols(symbols);
+
+    // Lidar com Deep Linking (URL Hash) após extração de símbolos
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      setTimeout(() => {
+        const element = container.querySelector(`#${hash}`);
+        if (element) {
+          const offset = 100;
+          const rect = element.getBoundingClientRect();
+          const offsetPosition = rect.top + window.pageYOffset - offset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+          element.classList.add('bg-primary/5', 'ring-2', 'ring-primary/20');
+          setTimeout(() => element.classList.remove('bg-primary/5', 'ring-2', 'ring-primary/20'), 3000);
+        }
+      }, 500); // Delay para garantir que o render está estável
+    }
+
+    // Highlight syntax
+    Prism.highlightAllUnder(container);
+
+    // Injetar botões de cópia de forma leve
+    const preBlocks = container.querySelectorAll('pre');
     preBlocks.forEach(pre => {
       if (pre.querySelector('.copy-btn-vanilla')) return;
       
@@ -159,6 +231,26 @@ const DocViewer = ({ section, requestedDoc }) => {
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isMobileSidebarOpen]);
+
+  const scrollToSymbol = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      const offset = 100; // Espaço para o header sticky
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+
+      // Efeito visual de destaque momentâneo
+      element.classList.add('bg-primary/5', 'ring-2', 'ring-primary/20');
+      setTimeout(() => {
+        element.classList.remove('bg-primary/5', 'ring-2', 'ring-primary/20');
+      }, 2000);
+    }
+  };
 
   const handleDocSelect = (doc) => {
     setCurrentDoc(doc);
@@ -239,6 +331,8 @@ const DocViewer = ({ section, requestedDoc }) => {
             section={section} 
             category={currentDoc?.category} 
             label={currentDoc?.label} 
+            symbols={pageSymbols}
+            onSymbolSelect={scrollToSymbol}
           />
           
           <motion.button 
@@ -305,7 +399,11 @@ const DocViewer = ({ section, requestedDoc }) => {
           className="doc-toc shrink-0 hidden xl:block w-64"
           aria-label="Sumário da página"
         >
-          <TableOfContents content={content} />
+          <TableOfContents 
+            content={content} 
+            symbols={pageSymbols}
+            onSymbolSelect={scrollToSymbol} 
+          />
         </aside>
       )}
     </div>

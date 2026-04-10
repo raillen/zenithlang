@@ -1,0 +1,32 @@
+-- tests/stdlib/test_process.zt
+import std.os.process
+
+pub async func main() -> int
+    print("--- Testando Submódulo std.os.process ---")
+
+    -- 1. Testando Spawn Simples (Sincronizado via Await)
+    print("Iniciando processo em background...")
+    
+    var args = ["Olá das Estrelas!"]
+    var p_res = process.spawn("echo", args, capture: true)
+
+    match p_res
+        case Success(p) =>
+            var handle: any = p -- Usando any para simplificar no Binder v0.2.5
+            print("Processo ID simbólico: " + handle.pid)
+            
+            print("Aguardando conclusão (Assíncrono)...")
+            var exit_code = await handle.wait()
+            
+            print("Processo finalizado com código: " + exit_code)
+            
+            var output = handle.read_output() or "sem saída"
+            print("Saída capturada: " + output)
+            
+        case Failure(err) =>
+            print("Falha ao spawnar: " + err)
+    end
+
+    print("--- Fim dos testes de PROCESS ---")
+    return 0
+end

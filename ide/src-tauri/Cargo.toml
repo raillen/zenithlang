@@ -1,5 +1,5 @@
 [package]
-name = "zenith-ide"
+name = "zenith_ide"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
@@ -24,4 +24,4 @@ serde_json = "1"
 rfd = "0.15"
 portable-pty = "0.9"
 regex = "1.10"
-tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
+# tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }

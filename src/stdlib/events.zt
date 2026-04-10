@@ -1,0 +1,37 @@
+--- Biblioteca Padrão Zenith — Módulo Events
+--- Provê comunicação desacoplada via EventEmitter.
+
+namespace std.events
+
+pub struct EventEmitter<T>
+    --- Registra um ouvinte para um evento específico.
+    --- Retorna um ID único (text) que pode ser usado para remover o ouvinte via 'off'.
+    pub func on(event: text, callback: (T) => void) -> text
+    end
+
+    --- Registra um ouvinte que será executado apenas uma vez e depois removido.
+    pub func once(event: text, callback: (T) => void) -> text
+    end
+
+    --- Dispara um evento para todos os ouvintes registrados.
+    --- Retorna Success se todos rodarem, ou Failure com a lista de mensagens de erro se algum falhar.
+    pub func emit(event: text, data: T) -> Outcome<void, list<text>>
+    end
+
+    --- Remove um ouvinte específico através de seu ID.
+    --- Retorna true se o ouvinte existia e foi removido.
+    pub func off(listener_id: text) -> bool
+    end
+
+    --- Retorna o número de ouvintes registrados para um evento (ou total se event for null).
+    pub func count(event: text? = null) -> int
+    end
+
+    --- Remove todos os ouvintes de um evento específico ou de todos os eventos.
+    pub func clear(event: text? = null)
+    end
+
+    --- Aguarda o próximo disparo de um evento de forma assíncrona.
+    pub async func wait_for(event: text) -> T
+    end
+end
