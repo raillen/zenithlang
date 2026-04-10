@@ -25,6 +25,8 @@ export interface Symbol {
   col: number;
 }
 
+export type EditorPane = 'primary' | 'secondary';
+export type EditorSplitMode = 'single' | 'vertical' | 'horizontal';
 
 export interface ExtensionConfig {
   compilerPath: string;
@@ -54,6 +56,8 @@ interface WorkspaceState {
   fileTree: FileEntry[];
   openFiles: FileEntry[];     // Files currently pinned/fixed as tabs
   activeFile: FileEntry | null;
+  primaryFile: FileEntry | null;
+  secondaryFile: FileEntry | null;
   previewFile: FileEntry | null; // The temporary "single-click" file
   dirtyFiles: Set<string>;      // Set of paths that are unsaved
   diagnosticsMap: Record<string, Diagnostic[]>; // Errors/Warnings per file
@@ -64,6 +68,8 @@ interface WorkspaceState {
   currentProjectRoot: string;
   settings: IDESettings;
   activeFileSymbols: Symbol[];
+  focusedPane: EditorPane;
+  splitMode: EditorSplitMode;
 
   
   setFileTree: (tree: FileEntry[]) => void;
@@ -77,6 +83,8 @@ interface WorkspaceState {
   setBottomTab: (tab: 'console' | 'terminal' | 'problems') => void;
   setProjectRoot: (path: string) => void;
   setActiveFileSymbols: (symbols: Symbol[]) => void;
+  setFocusedPane: (pane: EditorPane) => void;
+  setSplitMode: (mode: EditorSplitMode) => void;
 
   updateSettings: (newSettings: Partial<IDESettings>) => Promise<void>;
   loadSettings: () => Promise<void>;
@@ -113,10 +121,18 @@ const DEFAULT_SETTINGS: IDESettings = {
   }
 };
 
+const appendUniqueFile = (files: FileEntry[], file: FileEntry) =>
+  files.some((entry) => entry.path === file.path) ? files : [...files, file];
+
+const getFallbackFile = (files: FileEntry[], excludedPaths: string[] = []) =>
+  files.find((entry) => !excludedPaths.includes(entry.path)) ?? null;
+
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   fileTree: [],
   openFiles: [],
   activeFile: null,
+  primaryFile: null,
+  secondaryFile: null,
   previewFile: null,
   dirtyFiles: new Set(),
   diagnosticsMap: {},
@@ -127,6 +143,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentProjectRoot: '.',
   settings: DEFAULT_SETTINGS,
   activeFileSymbols: [],
+  focusedPane: 'primary',
+  splitMode: 'single',
 
 
   setFileTree: (tree) => set({ fileTree: tree }),
@@ -201,24 +219,105 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     currentProjectRoot: path,
     openFiles: [],
     activeFile: null,
+    primaryFile: null,
+    secondaryFile: null,
     previewFile: null,
     dirtyFiles: new Set(),
     diagnosticsMap: {},
-    activeFileSymbols: []
+    activeFileSymbols: [],
+    focusedPane: 'primary',
+    splitMode: 'single'
   }),
 
   setActiveFileSymbols: (symbols) => set({ activeFileSymbols: symbols }),
+
+  setFocusedPane: (pane) => set((state) => {
+    const nextPane = state.splitMode === 'single' ? 'primary' : pane;
+    return {
+      focusedPane: nextPane,
+      activeFile: nextPane === 'secondary' ? state.secondaryFile : state.primaryFile,
+    };
+  }),
+
+  setSplitMode: (mode) => set((state) => {
+    if (mode === state.splitMode) return state;
+
+    if (mode === 'single') {
+      const nextPrimaryFile =
+        state.focusedPane === 'secondary'
+          ? (state.secondaryFile ?? state.primaryFile ?? state.activeFile)
+          : (state.primaryFile ?? state.activeFile ?? state.secondaryFile);
+
+      return {
+        splitMode: 'single',
+        focusedPane: 'primary',
+        primaryFile: nextPrimaryFile,
+        secondaryFile: null,
+        activeFile: nextPrimaryFile,
+        previewFile: state.previewFile?.path === nextPrimaryFile?.path ? state.previewFile : null,
+      };
+    }
+
+    const primaryFile = state.primaryFile ?? state.activeFile ?? state.previewFile ?? state.openFiles[0] ?? null;
+
+    return {
+      splitMode: mode,
+      primaryFile,
+      activeFile: state.focusedPane === 'secondary' && state.secondaryFile
+        ? state.secondaryFile
+        : primaryFile,
+      previewFile: state.previewFile?.path === primaryFile?.path ? state.previewFile : null,
+    };
+  }),
 
   
   openFile: (file, isFixed = false) => set((state) => {
     // If it's a folder, do nothing
     if (file.is_directory) return state;
 
+    if (state.splitMode !== 'single') {
+      const paneWithFile =
+        state.primaryFile?.path === file.path
+          ? 'primary'
+          : state.secondaryFile?.path === file.path
+            ? 'secondary'
+            : null;
+
+      if (paneWithFile) {
+        return {
+          focusedPane: paneWithFile,
+          activeFile: paneWithFile === 'secondary' ? state.secondaryFile : state.primaryFile,
+        };
+      }
+
+      const nextOpenFiles = appendUniqueFile(state.openFiles, file);
+      const nextState = {
+        openFiles: nextOpenFiles,
+        previewFile: null,
+        activeFile: file,
+      };
+
+      if (state.focusedPane === 'secondary') {
+        return {
+          ...nextState,
+          secondaryFile: file,
+          focusedPane: 'secondary',
+        };
+      }
+
+      return {
+        ...nextState,
+        primaryFile: file,
+        focusedPane: 'primary',
+      };
+    }
+
     if (isFixed) {
       // Pinning the file: Add to openFiles, clear preview if it was this file
       const isOpened = state.openFiles.some(f => f.path === file.path);
       return {
         activeFile: file,
+        primaryFile: file,
         previewFile: state.previewFile?.path === file.path ? null : state.previewFile,
         openFiles: isOpened ? state.openFiles : [...state.openFiles, file],
       };
@@ -228,6 +327,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       
       return {
         activeFile: file,
+        primaryFile: file,
         previewFile: isAlreadyInOpenFiles ? null : file,
       };
     }
@@ -237,17 +337,64 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const newOpenFiles = state.openFiles.filter(f => f.path !== path);
     const newDirtyFiles = new Set(state.dirtyFiles);
     newDirtyFiles.delete(path);
+    const nextPreviewFile = state.previewFile?.path === path ? null : state.previewFile;
 
-    const isPathInPreview = state.previewFile?.path === path;
-    const isPathActive = state.activeFile?.path === path;
+    if (state.splitMode === 'single') {
+      const nextPrimaryFile =
+        state.primaryFile?.path === path
+          ? (nextPreviewFile ?? newOpenFiles[0] ?? null)
+          : state.primaryFile;
+
+      const nextActiveFile =
+        state.activeFile?.path === path
+          ? (nextPreviewFile ?? newOpenFiles[0] ?? null)
+          : state.activeFile;
+
+      const visibleFile = nextActiveFile ?? nextPrimaryFile ?? null;
+
+      return {
+        openFiles: newOpenFiles,
+        dirtyFiles: newDirtyFiles,
+        previewFile: nextPreviewFile,
+        primaryFile: visibleFile,
+        activeFile: visibleFile,
+      };
+    }
+
+    let nextPrimaryFile = state.primaryFile?.path === path ? null : state.primaryFile;
+    let nextSecondaryFile = state.secondaryFile?.path === path ? null : state.secondaryFile;
+
+    if (!nextPrimaryFile) {
+      nextPrimaryFile = nextPreviewFile ?? getFallbackFile(
+        newOpenFiles,
+        nextSecondaryFile ? [nextSecondaryFile.path] : []
+      );
+    }
+
+    if (!nextSecondaryFile) {
+      nextSecondaryFile = getFallbackFile(
+        newOpenFiles,
+        nextPrimaryFile ? [nextPrimaryFile.path] : []
+      );
+    }
+
+    let nextFocusedPane = state.focusedPane;
+    if (nextFocusedPane === 'primary' && !nextPrimaryFile && nextSecondaryFile) {
+      nextFocusedPane = 'secondary';
+    } else if (nextFocusedPane === 'secondary' && !nextSecondaryFile) {
+      nextFocusedPane = 'primary';
+    }
+
+    const nextActiveFile = nextFocusedPane === 'secondary' ? nextSecondaryFile : nextPrimaryFile;
 
     return {
       openFiles: newOpenFiles,
       dirtyFiles: newDirtyFiles,
-      previewFile: isPathInPreview ? null : state.previewFile,
-      activeFile: isPathActive 
-        ? (isPathInPreview ? (newOpenFiles[0] || null) : (state.previewFile || newOpenFiles[0] || null))
-        : state.activeFile
+      previewFile: nextPreviewFile?.path === nextPrimaryFile?.path ? nextPreviewFile : null,
+      primaryFile: nextPrimaryFile,
+      secondaryFile: nextSecondaryFile,
+      focusedPane: nextFocusedPane,
+      activeFile: nextActiveFile ?? null,
     };
   }),
 
@@ -257,12 +404,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       newDirtyFiles.add(path);
       // Auto-fix if it was a preview file
       if (state.previewFile?.path === path) {
-          const file = state.previewFile;
-          return {
-              dirtyFiles: newDirtyFiles,
-              previewFile: null,
-              openFiles: [...state.openFiles, file]
-          };
+        const file = state.previewFile;
+        return {
+          dirtyFiles: newDirtyFiles,
+          previewFile: null,
+          openFiles: appendUniqueFile(state.openFiles, file),
+          primaryFile: state.primaryFile?.path === path ? file : state.primaryFile,
+          activeFile: state.activeFile?.path === path ? file : state.activeFile,
+        };
       }
     } else {
       newDirtyFiles.delete(path);

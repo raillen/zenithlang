@@ -2,7 +2,17 @@ import { X } from "lucide-react";
 import { useWorkspaceStore, FileEntry } from "../store/useWorkspaceStore";
 
 export function TabManager() {
-  const { openFiles, previewFile, activeFile, openFile, closeFile, dirtyFiles } = useWorkspaceStore();
+  const {
+    openFiles,
+    previewFile,
+    activeFile,
+    primaryFile,
+    secondaryFile,
+    splitMode,
+    openFile,
+    closeFile,
+    dirtyFiles,
+  } = useWorkspaceStore();
 
   const handleTabClick = (file: FileEntry) => {
     openFile(file, true); // Clicking a tab makes it fixed if it wasn't
@@ -27,6 +37,8 @@ export function TabManager() {
         const isActive = activeFile?.path === file.path;
         const isPreview = previewFile?.path === file.path;
         const isDirty = dirtyFiles.has(file.path);
+        const isInPrimaryPane = primaryFile?.path === file.path;
+        const isInSecondaryPane = secondaryFile?.path === file.path;
 
         return (
           <div
@@ -52,6 +64,13 @@ export function TabManager() {
               {file.name}
             </span>
 
+            {splitMode !== "single" && (isInPrimaryPane || isInSecondaryPane) && (
+              <div className="flex items-center gap-1">
+                {isInPrimaryPane && <PaneBadge label="P" active={isActive && !isInSecondaryPane} />}
+                {isInSecondaryPane && <PaneBadge label="S" active={isActive && !isInPrimaryPane} />}
+              </div>
+            )}
+
             {/* Dirty/Close Button */}
             <div className="flex items-center justify-center w-4 h-4">
               {isDirty ? (
@@ -72,5 +91,18 @@ export function TabManager() {
         );
       })}
     </div>
+  );
+}
+
+function PaneBadge({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span
+      className={`
+        inline-flex h-4 min-w-4 items-center justify-center rounded-md px-1 text-[9px] font-bold uppercase tracking-wide
+        ${active ? "bg-primary/15 text-primary" : "bg-ide-bg text-ide-text-dim"}
+      `}
+    >
+      {label}
+    </span>
   );
 }
