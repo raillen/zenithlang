@@ -764,7 +764,7 @@ fn spawn_terminal_waiter(app_handle: AppHandle, session_id: PtyHandler, session:
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        /* .plugin(
+        .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(
                     "sqlite:zenith.db",
@@ -777,26 +777,26 @@ pub fn run() {
                     }],
                 )
                 .build(),
-        ) */
+        )
         .manage(TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_file_tree,
             read_file,
             write_file,
-            get_git_status,
-            run_diagnostics,
             run_compiler,
             pick_file,
             pick_folder,
             pick_save_path,
+            run_diagnostics,
+            get_git_status,
             search_in_files,
             search_file_names,
+            get_file_symbols,
             terminal_create,
             terminal_write,
             terminal_resize,
-            terminal_kill,
-            get_file_symbols
+            terminal_kill
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

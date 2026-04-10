@@ -1,9 +1,0 @@
-﻿identifier = "app-main"
-description = "Full IDE capability"
-windows = ["*"]
-platforms = ["windows"]
-permissions = [
-  "core:default",
-  "core:window:default",
-  "zenith_ide:allow-all"
-]

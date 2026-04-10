@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Minimalist main capability",
+  "windows": ["main"],
+  "platforms": ["windows"],
+  "permissions": [
+    "core:app:default",
+    "core:event:default",
+    "core:resources:default",
+    "core:webview:default",
+    "core:window:default",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-execute"
+  ]
+}
