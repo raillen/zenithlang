@@ -1,0 +1,22 @@
+import std.test
+
+test.describe("Zenith Test Framework", () => do
+    test.test("Equação simples", () => do
+        test.assert_eq(2 + 2, 4)
+    end)
+
+    test.test("Booleanos", () => do
+        test.assert_true(true)
+        test.assert_false(false)
+    end)
+
+    test.test("Outcome Helpers", () => do
+        var s = Success(10)
+        var f = Failure("erro")
+        
+        test.assert_outcome_success(s)
+        test.assert_outcome_failure(f)
+    end)
+end)
+
+test.run_all()

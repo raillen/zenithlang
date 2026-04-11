@@ -6,6 +6,7 @@
 local SourceText        = require("src.source.source_text")
 local Lexer             = require("src.syntax.lexer.lexer")
 local ParserContext     = require("src.syntax.parser.parser_context")
+local TokenKind         = require("src.syntax.tokens.token_kind")
 local ParseDeclarations = require("src.syntax.parser.parse_declarations")
 local DeclSyntax        = require("src.syntax.ast.decl_syntax")
 local Span              = require("src.source.span")
@@ -30,12 +31,31 @@ function Parser.parse(source_text)
 
     -- Parse de todas as declarações/statements do arquivo
     local declarations = {}
+    local doc_comments = {}
     ctx:skip_newlines()
 
     while not ctx:is_at_end() do
-        local node = ParseDeclarations.parse_declaration_or_statement(ctx)
-        if node then
-            table.insert(declarations, node)
+        if ctx:match(TokenKind.DOC_COMMENT) then
+            local token = ctx:peek(-1)
+            local content = token.lexeme
+            
+            -- Extrai @target se houver
+            local target = content:match("@target:%s*([%w%.]+)")
+            if target then
+                table.insert(doc_comments, { target = target, content = content, span = token.span })
+            else
+                -- Se não tem target, fica "pendente" para a próxima declaração
+                ctx.last_doc_comment = content
+            end
+        else
+            local node = ParseDeclarations.parse_declaration_or_statement(ctx)
+            if node then
+                if ctx.last_doc_comment then
+                    node.doc_comment = ctx.last_doc_comment
+                    ctx.last_doc_comment = nil
+                end
+                table.insert(declarations, node)
+            end
         end
         ctx:skip_newlines()
     end
@@ -49,6 +69,7 @@ function Parser.parse(source_text)
     end
 
     local unit = DeclSyntax.compilation_unit(declarations, span)
+    unit.doc_comments = doc_comments -- Anexa blocos @target avulsos
 
     return unit, ctx.diagnostics
 end

@@ -1,0 +1,32 @@
+import std.test
+
+test.describe("Ascension Phase 4: Binding (Identidade & Contexto)", () => do
+    var global_x = 100
+
+    test.test("Shadowing de Variáveis", () => do
+        var x = 10
+        do
+            var x = 20
+            test.assert_eq(x, 20)
+        end
+        test.assert_eq(x, 10)
+        test.assert_eq(global_x, 100)
+    end)
+
+    struct Personagem
+        vida: int
+        pub func esta_vivo() -> bool
+            return self.vida > 0
+        end
+    end
+
+    test.test("Resolução de Métodos e self", () => do
+        var p = Personagem { vida = 50 }
+        test.assert_true(p.esta_vivo())
+        
+        p.vida = 0
+        test.assert_false(p.esta_vivo())
+    end)
+end)
+
+test.run_all()

@@ -1,0 +1,342 @@
+{
+  "site": {
+    "title": "Zenith",
+    "tagline": "Clareza cognitiva, auto-hospedagem real e evolução documentada.",
+    "version": "0.3.0 Ascension Final"
+  },
+  "navigation": [
+    {
+      "id": "start",
+      "label": "Visão & Marcas",
+      "groups": [
+        {
+          "title": "Essenciais",
+          "docs": [
+            {
+              "label": "Marcas e Ecossistema",
+              "file": "manifesto/brands.md",
+              "state": "current",
+              "summary": "Nomes oficiais e identidades das ferramentas Zenith."
+            },
+            {
+              "label": "Portal da Documentação",
+              "file": "INDEX.md",
+              "state": "current",
+              "summary": "Mapa principal da documentação oficial."
+            },
+            {
+              "label": "Manifesto Zenith",
+              "file": "MANIFESTO.md",
+              "state": "current",
+              "summary": "Identidade, filosofia pessoal e compromisso cognitivo."
+            },
+            {
+              "label": "Roadmap de Implementações",
+              "file": "roadmap/implementations.md",
+              "state": "current",
+              "summary": "Roadmap por trilhas de implementação, não por sprints."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language",
+      "label": "Linguagem",
+      "groups": [
+        {
+          "title": "Estado da Linguagem",
+          "docs": [
+            {
+              "label": "Zenith Current",
+              "file": "language/current.md",
+              "state": "current",
+              "summary": "Linha recomendada para uso e contribuição hoje."
+            },
+            {
+              "label": "Zenith Legacy",
+              "file": "language/legacy.md",
+              "state": "deprecated",
+              "summary": "Registro preservado da linguagem legada e do seu papel atual."
+            },
+            {
+              "label": "Direções Futuras",
+              "file": "language/future.md",
+              "state": "vision",
+              "summary": "Liberdade futura da linguagem, alvos e sonhos declarados."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "compiler",
+      "label": "Compiladores",
+      "groups": [
+        {
+          "title": "Linhas do Compilador",
+          "docs": [
+            {
+              "label": "Ascension Compiler (Zenith)",
+              "file": "compiler/ascension-zenith.md",
+              "state": "current",
+              "summary": "Motor auto-hospedado oficial, concluído e em uso real."
+            },
+            {
+              "label": "Bootstrap Compiler (Lua)",
+              "file": "compiler/bootstrap-lua.md",
+              "state": "deprecated",
+              "summary": "Compilador em Lua preservado como legado técnico."
+            },
+            {
+              "label": "Alvos de Compilação",
+              "file": "compiler/targets.md",
+              "state": "current",
+              "summary": "Distribuição multiplataforma atual, com C e bytecode ainda como horizonte."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "versions",
+      "label": "Versões",
+      "groups": [
+        {
+          "title": "Linhas de Versão",
+          "docs": [
+            {
+              "label": "0.3.x Ascension",
+              "file": "versions/0.3.x-ascension.md",
+              "state": "current",
+              "summary": "A linha em que Zenith se torna oficialmente auto-hospedado."
+            },
+            {
+              "label": "0.2.x Milestone",
+              "file": "versions/0.2.x-milestone.md",
+              "state": "stable",
+              "summary": "Consolidação semântica, lowering e base da stdlib."
+            },
+            {
+              "label": "0.1.x Genesis",
+              "file": "versions/0.1.x-genesis.md",
+              "state": "archived",
+              "summary": "A origem funcional da linguagem."
+            },
+            {
+              "label": "Changelog Canonico",
+              "file": "versions/changelog.md",
+              "state": "current",
+              "summary": "Registro consolidado em estilo de changelog moderno."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "roadmap",
+      "label": "Roadmap",
+      "groups": [
+        {
+          "title": "Implementação",
+          "docs": [
+            {
+              "label": "Cronograma Mestre",
+              "file": "roadmap/MASTER.md",
+              "state": "current",
+              "summary": "Visão unificada da evolução Zenith."
+            },
+            {
+              "label": "Ascension",
+              "file": "roadmap/ascension.md",
+              "state": "stable",
+              "summary": "Registro da conclusao do motor auto-hospedado."
+            },
+            {
+              "label": "Core",
+              "file": "roadmap/core.md",
+              "state": "current",
+              "summary": "Consolidação do núcleo da linguagem até Ascension Final."
+            },
+            {
+              "label": "Bibliotecas",
+              "file": "roadmap/libs.md",
+              "state": "current",
+              "summary": "Evolução da stdlib e da camada oficial de suporte."
+            },
+            {
+              "label": "Qualidade",
+              "file": "roadmap/quality.md",
+              "state": "current",
+              "summary": "Blindagem, testes e maturidade de plataforma."
+            },
+            {
+              "label": "Odyssey",
+              "file": "roadmap/odyssey.md",
+              "state": "vision",
+              "summary": "Visão de ecossistema e plataforma v1.0."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "learn",
+      "label": "Aprender",
+      "groups": [
+        {
+          "title": "Handbook",
+          "docs": [
+            {
+              "label": "Sintaxe",
+              "file": "learn/handbook/syntax.md",
+              "state": "current",
+              "summary": "Guia rapido da surface syntax atual."
+            },
+            {
+              "label": "Idioms",
+              "file": "learn/handbook/idioms.md",
+              "state": "current",
+              "summary": "Como escrever código com cara de Zenith."
+            }
+          ]
+        },
+        {
+          "title": "Especificacao",
+          "docs": [
+            {
+              "label": "Gramática",
+              "file": "specification/grammar.md",
+              "state": "current",
+              "summary": "Regras formais da linguagem."
+            },
+            {
+              "label": "Semântica",
+              "file": "specification/semantics.md",
+              "state": "current",
+              "summary": "Resolução de nomes, escopos e contratos."
+            },
+            {
+              "label": "Tipos",
+              "file": "specification/types.md",
+              "state": "current",
+              "summary": "Sistema de tipos, traits, genericos e where."
+            },
+            {
+              "label": "Project System",
+              "file": "specification/project-system.md",
+              "state": "current",
+              "summary": "Organização de projetos, módulos e builds."
+            },
+            {
+              "label": "Transpilacao",
+              "file": "specification/transpilation.md",
+              "state": "current",
+              "summary": "Mapeamento para Lua e limites atuais."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "label": "Referência",
+      "groups": [
+        {
+          "title": "Módulos Oficiais",
+          "docs": [
+            {
+              "label": "std.core",
+              "file": "api/std-core.md",
+              "state": "current",
+              "summary": "Tipos básicos, Optional, Outcome e primitives."
+            },
+            {
+              "label": "std.io",
+              "file": "api/std-io.md",
+              "state": "current",
+              "summary": "Entrada e saída de dados."
+            },
+            {
+              "label": "std.fs",
+              "file": "api/std-fs.md",
+              "state": "current",
+              "summary": "Arquivos, pastas e fluxo de disco."
+            },
+            {
+              "label": "std.fs.path",
+              "file": "api/std-fs-path.md",
+              "state": "current",
+              "summary": "Manipulação de caminhos."
+            },
+            {
+              "label": "std.json",
+              "file": "api/std-json.md",
+              "state": "current",
+              "summary": "Leitura, escrita e serializacao JSON."
+            },
+            {
+              "label": "std.math",
+              "file": "api/std-math.md",
+              "state": "current",
+              "summary": "Matemática, vetores e aleatoriedade."
+            },
+            {
+              "label": "std.text",
+              "file": "api/std-text.md",
+              "state": "current",
+              "summary": "Texto, UTF-8, cases e utilitarios de string."
+            },
+            {
+              "label": "std.time",
+              "file": "api/std-time.md",
+              "state": "current",
+              "summary": "Tempo, durações e stopwatch."
+            },
+            {
+              "label": "std.os",
+              "file": "api/std-os.md",
+              "state": "current",
+              "summary": "Ambiente, sistema operacional e comandos."
+            },
+            {
+              "label": "std.os.process",
+              "file": "api/std-os-process.md",
+              "state": "current",
+              "summary": "Processos, captura de saída e espera assíncrona."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "support",
+      "label": "Suporte",
+      "groups": [
+        {
+          "title": "Leitura e Diagnostico",
+          "docs": [
+            {
+              "label": "Cognição Visual",
+              "file": "support/visual-cognition.md",
+              "state": "current",
+              "summary": "Como Zenith pensa legibilidade, TDAH e dislexia."
+            },
+            {
+              "label": "Catálogo de Erros",
+              "file": "support/error-catalog.md",
+              "state": "current",
+              "summary": "Códigos de erro e leitura guiada dos diagnosticos."
+            },
+            {
+              "label": "Cheat Sheet",
+              "file": "support/cheat-sheet.md",
+              "state": "current",
+              "summary": "Referência rápida da sintaxe e stdlib principal."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

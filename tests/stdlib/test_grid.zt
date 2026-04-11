@@ -1,0 +1,47 @@
+import std.test
+import std.collections
+
+test.describe("Collections: Grid 2D", () => do
+    test.test("Criação e Acesso", () => do
+        -- No Zenith v0.3, usamos o construtor industrial
+        var mapa = collections.new_grid(10, 10, 0)
+        
+        test.assert_eq(mapa.width, 10)
+        test.assert_eq(mapa.height, 10)
+        
+        -- Get deve retornar Optional.Present(0) inicial
+        var val = mapa.get(5, 5)
+        test.assert_eq(val.unwrap_or(-1), 0)
+    end)
+
+    test.test("Modificação de Valores", () => do
+        var mapa = collections.new_grid(5, 5, 0)
+        
+        var ok = mapa.set(2, 2, 42)
+        test.assert_true(ok)
+        
+        var val = mapa.get(2, 2)
+        test.assert_eq(val.unwrap_or(0), 42)
+    end)
+
+    test.test("Segurança de Limites (Boundaries)", () => do
+        var mapa = collections.new_grid(3, 3, 0)
+        
+        -- Fora dos limites deve retornar Empty e false
+        var fora = mapa.get(5, 5)
+        test.assert_true(fora.is_empty())
+        
+        var erro_set = mapa.set(-1, 0, 10)
+        test.assert_false(erro_set)
+    end)
+
+    test.test("Preenchimento (Fill)", () => do
+        var mapa = collections.new_grid(2, 2, 0)
+        mapa.fill(7)
+        
+        test.assert_eq(mapa.get(0, 0).unwrap_or(0), 7)
+        test.assert_eq(mapa.get(1, 1).unwrap_or(0), 7)
+    end)
+end)
+
+test.run_all()

@@ -292,7 +292,7 @@ function ParseStatements._parse_native_lua(ctx, is_stmt)
     
     while not ctx:is_at_end() do
         local t = ctx:peek()
-        if t.kind == TokenKind.KW_NATIVE or t.kind == TokenKind.KW_IF or t.kind == TokenKind.KW_WHILE or t.kind == TokenKind.KW_FOR or t.kind == TokenKind.KW_MATCH or t.kind == TokenKind.KW_ATTEMPT then
+        if block_openers[t.kind] or (t.kind == TokenKind.IDENTIFIER and t.lexeme == "function") then
             depth = depth + 1
         elseif t.kind == TokenKind.KW_END then
             depth = depth - 1

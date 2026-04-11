@@ -63,9 +63,6 @@ KeywordTable.keywords = {
     -- Módulos
     ["import"]    = TokenKind.KW_IMPORT,
     ["export"]    = TokenKind.KW_EXPORT,
-    ["group"]     = TokenKind.KW_GROUP,
-    ["test"]      = TokenKind.KW_TEST,
-    ["assert"]    = TokenKind.KW_ASSERT,
 
     -- Lógicos e Validação
     ["and"]       = TokenKind.KW_AND,
@@ -84,6 +81,7 @@ KeywordTable.keywords = {
     -- Conversão
     ["to"]        = TokenKind.KW_TO,
     ["native"]    = TokenKind.KW_NATIVE,
+    ["extern"]    = TokenKind.KW_EXTERN,
 }
 
 --- Verifica se uma string é keyword e retorna o TokenKind correspondente.

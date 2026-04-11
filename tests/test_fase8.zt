@@ -1,0 +1,30 @@
+import std.io as io
+import std.os as os
+import std.time as time
+
+func main()
+    io.write_line("🚀 Zenith Ascension — Grande Validação da Fase 8")
+    io.write_line("-------------------------------------------------")
+    
+    -- 1. Teste de Tempo Nativo
+    var timestamp = time.get_timestamp()
+    var cpu_start = time.get_cpu_time()
+    
+    io.write_line("Timestamp atual: " + timestamp)
+    io.write_line("Data formatada: " + time.format_date(timestamp, "%d/%m/%Y %H:%M:%S"))
+    
+    -- 2. Teste de OS e Plataforma
+    var plat = os.get_platform()
+    io.write_line("Plataforma: " + plat)
+    
+    io.write_line("Pausando execução por 200ms...")
+    os.sleep(200)
+    
+    var cpu_end = time.get_cpu_time()
+    var delta = cpu_end - cpu_start
+    
+    io.write_line("✅ Teste concluído com sucesso!")
+    io.write_line("Tempo de CPU decorrido: " + delta + "s")
+end
+
+main()

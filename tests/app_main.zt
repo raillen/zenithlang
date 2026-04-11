@@ -1,0 +1,12 @@
+namespace app_main
+
+import tests.math_utils as math
+
+func main()
+    var x = 10
+    var y = 20
+    var r = math.add(x, y)
+    print("Resultado modular: " + r)
+end
+
+main()

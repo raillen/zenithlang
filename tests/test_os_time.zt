@@ -1,0 +1,36 @@
+import std.io
+import std.os
+import std.time
+
+func main()
+    std.io.write_line("🕒 Teste de Sistema e Tempo — Zenith Fase 8")
+    
+    -- 1. Teste de Tempo
+    var start = std.time.get_cpu_time()
+    var timestamp = std.time.get_timestamp()
+    var date_str = std.time.format_date(timestamp, "%d/%m/%Y %H:%M:%S")
+    
+    std.io.write_line("Data Atual: " + date_str)
+    
+    -- 2. Teste de OS e Sleep
+    var platform = std.os.get_platform()
+    std.io.write_line("Plataforma: " + platform)
+    
+    std.io.write_line("Dormindo por 500ms...")
+    std.os.sleep(500)
+    
+    var finish = std.time.get_cpu_time()
+    var diff = finish - start
+    std.io.write_line("✅ Tempo decorrido (CPU): " + diff + "s")
+    
+    -- 3. Teste de Ambiente
+    match std.os.get_env("PATH")
+        case Optional.Present(path) =>
+            std.io.write_line("✅ Variável PATH encontrada (truncada): " + std.io.read_line()) -- Apenas para pausar ou registrar
+            std.io.write_line("Tamanho do PATH: " + #path)
+        case Optional.Empty =>
+            std.io.write_line("❌ Variável PATH não encontrada.")
+    end
+end
+
+main()

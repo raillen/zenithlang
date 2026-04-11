@@ -1,0 +1,146 @@
+import std.fs
+import std.io
+import std.os
+import std.text
+import std.time
+import std.json
+
+-- 🎨 CORES AURA
+func c_reset() -> text return "\e[0m" end
+func c_bold() -> text return "\e[1m" end
+func c_green() -> text return "\e[32m" end
+func c_red() -> text return "\e[31m" end
+func c_cyan() -> text return "\e[36m" end
+func c_gray() -> text return "\e[90m" end
+func c_yellow() -> text return "\e[33m" end
+
+func main()
+    -- Captura argumentos (ex: --grep pattern)
+    var args = os.get_args()
+    var filter = ""
+    var export_report = false
+    
+    var idx = 1
+    while idx <= #args
+        var v = args[idx]
+        if v == "--grep" and (idx + 1) <= #args
+            filter = args[idx + 1]
+        elif v == "--report"
+            export_report = true
+        end
+        idx += 1
+    end
+
+    io.write_line(c_bold() + c_cyan() + "[TEST] ZENITH TEST ORCHESTRATOR (ZTest)" + c_reset())
+    io.write_line(c_gray() + "====================================" + c_reset())
+    
+    var tests_dir = "tests"
+    if not fs.exists(tests_dir)
+        io.write_line(c_red() + "Erro: Diretorio /tests nao encontrado." + c_reset())
+        os.exit_process(1)
+    end
+
+    -- Descoberta dinâmica de testes via std.fs
+    var files = []
+    var folders = ["tests/core", "tests/stdlib", "tests/integration", "tests/ascension"]
+    
+    for folder in folders do
+        if fs.exists(folder)
+            var dir_files = fs.list_directory(folder)
+            for f in dir_files do
+                -- Verificamos se o arquivo segue o padrão de teste
+                if text.contains(f, "_test.zt") or (text.starts_with(f, "test_") and text.ends_with(f, ".zt"))
+                    var path = folder + "/" + f
+                    if filter == "" or text.contains(path, filter)
+                        files.add(path)
+                    end
+                end
+            end
+        end
+    end
+
+    if #files == 0
+        io.write_line(c_yellow() + "Nenhum arquivo de teste correspondente encontrado." + c_reset())
+        return
+    end
+
+    var total_passed = 0
+    var total_failed = 0
+    var start_total = time.get_cpu_time()
+    
+    var platform = os.get_platform()
+    
+    var i = 1
+    while i <= #files
+        var file = files[i]
+        var display_name = text.truncate(file, 40)
+        io.write(c_bold() + " [" + i + "/" + #files + "] " + c_reset() + display_name + " ")
+        
+        var start_suite = time.get_cpu_time()
+        
+        -- 1. Compilar (Usando novo comando 'compile' que não executa)
+        var compile_cmd = "lua ztc.lua compile " + file + " out.lua > nul 2>&1"
+        if platform != "windows"
+            compile_cmd = "lua ztc.lua compile " + file + " out.lua > /dev/null 2>&1"
+        end
+        
+        var compile_res = os.run_command(compile_cmd)
+        
+        if compile_res.is_failure()
+            io.write_line(c_red() + "FALHA NA COMPILACAO" + c_reset())
+            total_failed += 1
+        else
+            -- 2. Executar (com flags de ambiente para o motor unitário)
+            var env_flags = "set ZTEST_SILENT=1 && "
+            if platform != "windows"
+                env_flags = "ZTEST_SILENT=1 "
+            end
+            
+            var run_res = os.run_command(env_flags + "lua out.lua > nul 2>&1")
+            var end_suite = time.get_cpu_time()
+            var duration = end_suite - start_suite
+            
+            var dur_text = text.format("%.3fs", duration)
+
+            if run_res.is_success()
+                io.write_line(c_green() + "PASSOU" + c_reset() + c_gray() + " [ " + dur_text + " ]" + c_reset())
+                total_passed += 1
+            else
+                io.write_line(c_red() + "FALHOU" + c_reset() + c_gray() + " [ " + dur_text + " ]" + c_reset())
+                -- Mostra o erro detalhado se falhou
+                os.run_command("lua out.lua")
+                total_failed += 1
+            end
+        end
+        
+        i += 1
+    end
+
+    var end_total = time.get_cpu_time()
+    var total_duration = end_total - start_total
+    var total_dur_text = text.format("%.2fs", total_duration)
+
+    io.write_line(c_gray() + "====================================" + c_reset())
+    if total_failed == 0
+        io.write_line(c_green() + c_bold() + " SUCESSO: " + total_passed + " suites passaram em " + total_dur_text + "!" + c_reset())
+    else
+        io.write_line(c_red() + c_bold() + " FALHA: " + total_failed + " suite(s) falharam. (Total: " + total_dur_text + ")" + c_reset())
+    end
+
+    -- Exportação de Relatório Final para o Dashboard
+    if export_report
+        var report = {
+            "timestamp": time.get_timestamp(),
+            "total": #files,
+            "passed": total_passed,
+            "failed": total_failed,
+            "duration": total_duration
+        }
+        json.write_file("site/public/test-health.json", report, 4)
+        io.write_line(c_gray() + " Relatorio exportado para site/public/test-health.json" + c_reset())
+    end
+
+    if total_failed > 0
+        os.exit_process(1)
+    end
+end

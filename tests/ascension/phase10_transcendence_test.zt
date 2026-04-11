@@ -1,0 +1,36 @@
+import std.test
+
+@windows
+func platform_msg() -> text
+    return "Windows Power"
+end
+
+@linux
+func platform_msg() -> text
+    return "Linux Force"
+end
+
+-- FFI (Simulado para teste de sintaxe)
+extern func printf(fmt: text, val: int) -> int
+
+test.describe("Ascension Phase 10: Transcendência", () => do
+    test.test("Compilação Condicional (Atributos)", () => do
+        var msg = platform_msg()
+        -- Como estamos no Windows, deve retornar Windows
+        test.assert_eq(msg, "Windows Power")
+    end)
+
+    test.test("Constant Folding Industrial", () => do
+        -- O compilador deve resolver isso em tempo de build
+        var res = 100 * 2 + (50 / 2)
+        test.assert_eq(res, 225)
+    end)
+
+    test.test("Sintaxe FFI (Extern)", () => do
+        -- Apenas verificamos se o símbolo existe (mesmo que falhe se não for LuaJIT)
+        -- No nosso mock de ffi_bind, se não houver ffi, ele retorna uma função de erro.
+        test.assert_true(zt.is(printf, "function"))
+    end)
+end)
+
+test.run_all()

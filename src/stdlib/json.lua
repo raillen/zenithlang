@@ -73,7 +73,9 @@ function JSON.parse(str)
         while pos <= #str and str:sub(pos,pos):match("%s") do pos = pos + 1 end
     end
 
-    local function parse_val()
+    local parse_val, parse_str, parse_num, parse_obj, parse_arr
+
+    parse_val = function()
         skip_whitespace()
         local char = str:sub(pos, pos)
         
@@ -88,7 +90,7 @@ function JSON.parse(str)
         error("Caractere inesperado '" .. char .. "' na posição " .. pos)
     end
 
-    function parse_str()
+    parse_str = function()
         pos = pos + 1 -- "
         local start = pos
         while pos <= #str and str:sub(pos,pos) ~= "\"" do
@@ -101,14 +103,14 @@ function JSON.parse(str)
         return s:gsub("\\n", "\n"):gsub("\\\"", "\""):gsub("\\\\", "\\")
     end
 
-    function parse_num()
+    parse_num = function()
         local start = pos
         while pos <= #str and str:sub(pos,pos):match("[%d%.eE%-]") do pos = pos + 1 end
         local n_str = str:sub(start, pos - 1)
         return tonumber(n_str)
     end
 
-    function parse_obj()
+    parse_obj = function()
         pos = pos + 1 -- {
         local obj = {}
         skip_whitespace()
@@ -130,7 +132,7 @@ function JSON.parse(str)
         return obj
     end
 
-    function parse_arr()
+    parse_arr = function()
         pos = pos + 1 -- [
         local arr = {}
         skip_whitespace()

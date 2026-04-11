@@ -1,0 +1,38 @@
+import std.test
+import std.text.regex as re
+
+test.describe("Stdlib: Text.Regex (Fluent Builder)", () => do
+    test.test("Validacao Simples: ID de Usuario", () => do
+        -- Padrao: Comeca com letras, seguido de numeros, ate o fim
+        var pattern = re.new_builder().starts_with().alpha().many().digit().many().ends_with().build()
+
+        test.assert_true(pattern.test("player123"))
+        test.assert_true(pattern.test("admin0"))
+        test.assert_false(pattern.test("123player")) -- Comeca com numero
+        test.assert_false(pattern.test("player 123")) -- Tem espaco
+    end)
+
+    test.test("Substituicao (Replace)", () => do
+        var pattern = re.new_builder().literal("bad").build()
+        
+        var result = pattern.replace("this is bad", "good")
+        test.assert_eq(result, "this is good")
+    end)
+
+    test.test("Busca e Metadados (Find)", () => do
+        var pattern = re.new_builder().digit().many().build()
+        
+        var match_opt = pattern.find("O ano eh 2026")
+        -- Usamos o match para garantir seguranca total
+        match match_opt
+            case Present(m):
+                test.assert_eq(m.value, "2026")
+                -- "O ano eh " tem 9 caracteres (index 0 a 8)
+                test.assert_eq(m.start_pos, 9)
+            case Empty:
+                test.assert_true(false)
+        end
+    end)
+end)
+
+test.run_all()

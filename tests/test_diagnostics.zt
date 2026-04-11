@@ -1,0 +1,16 @@
+func soma(a: int, b: int) -> int
+    return a + b
+end
+
+func soma(x: int) -> int -- Erro ZT-2002: Duplicata
+    return x
+end
+
+func main()
+    var x = 10
+    var y = z + x -- Erro ZT-2001: 'z' não encontrado
+    
+    if x > 0
+        io.print("positivo")
+    end
+end

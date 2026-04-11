@@ -1,0 +1,30 @@
+-- tests/stdlib/test_log.zt
+import std.log
+import std.fs
+
+func meu_sink(entry: any)
+    -- Simulando um Sink manual
+    print("Sink local capturou: " + entry.message)
+end
+
+pub func main() -> int
+    print("--- Testando Módulo std.log (Aura Sinks) ---")
+
+    -- 1. Configurando Sink Customizado
+    log.add_sink(meu_sink)
+
+    -- 2. Testando Níveis e Contexto
+    log.set_level(log.Level.Debug)
+    log.with_context({ "versao": "0.2.8" })
+
+    log.log_debug("Motor iônico aquecendo...")
+    log.log_info("Entrando em hipervelocidade.")
+    log.log_warn("Radiação cósmica acima do normal.")
+    log.log_error("Falha no capacitor de fluxo!")
+
+    -- 3. Testando Time Task
+    log.time_task("Simulação de Voo", () => print("Executando manobra..."))
+
+    print("--- Fim dos testes de LOG ---")
+    return 0
+end

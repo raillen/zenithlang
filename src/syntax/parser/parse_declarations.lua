@@ -18,50 +18,78 @@ function ParseDeclarations.parse_declaration_or_statement(ctx)
     ctx:skip_newlines()
     if ctx:is_at_end() then return nil end
 
+    -- Coleta atributos @attr
+    local attributes = {}
+    while ctx:peek().kind == TokenKind.AT do
+        local attr_start = ctx:advance()
+        local attr_name = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do atributo após '@'")
+        local args = {}
+        if ctx:match(TokenKind.LPAREN) then
+            if not ctx:check(TokenKind.RPAREN) then
+                repeat
+                    table.insert(args, ParseExpressions.parse_expression(ctx))
+                until not ctx:match(TokenKind.COMMA)
+            end
+            ctx:expect(TokenKind.RPAREN, "esperado ')' após argumentos do atributo")
+        end
+        table.insert(attributes, DeclSyntax.attribute_node(attr_name.lexeme, args, attr_start.span:merge(ctx:peek(-1).span)))
+        ctx:skip_newlines()
+    end
+
     local k = ctx:peek().kind
+    local node = nil
 
     -- Namespaces e Imports
     if k == TokenKind.KW_NAMESPACE then
-        return ParseDeclarations._parse_namespace(ctx)
+        node = ParseDeclarations._parse_namespace(ctx)
     elseif k == TokenKind.KW_IMPORT then
-        return ParseDeclarations._parse_import(ctx)
+        node = ParseDeclarations._parse_import(ctx)
     elseif k == TokenKind.KW_EXPORT then
-        return ParseDeclarations._parse_export(ctx)
+        node = ParseDeclarations._parse_export(ctx)
     elseif k == TokenKind.KW_PUB then
-        return ParseDeclarations._parse_pub_decl(ctx)
+        node = ParseDeclarations._parse_pub_decl(ctx)
     elseif k == TokenKind.KW_REDO then
-        return ParseDeclarations._parse_redo(ctx)
+        node = ParseDeclarations._parse_redo(ctx)
+    elseif k == TokenKind.KW_EXTERN then
+        node = ParseDeclarations._parse_extern(ctx, false)
     end
 
     -- Variáveis e Constantes
-    if k == TokenKind.KW_VAR or k == TokenKind.KW_CONST or k == TokenKind.KW_GLOBAL or
-       k == TokenKind.KW_STATE or k == TokenKind.KW_COMPUTED then
-        return ParseDeclarations._parse_var(ctx)
+    if not node and (k == TokenKind.KW_VAR or k == TokenKind.KW_CONST or k == TokenKind.KW_GLOBAL or
+       k == TokenKind.KW_STATE or k == TokenKind.KW_COMPUTED) then
+        node = ParseDeclarations._parse_var(ctx)
     end
 
     -- Funções
-    if k == TokenKind.KW_FUNC or k == TokenKind.KW_ASYNC then
-        return ParseDeclarations._parse_func(ctx, false)
+    if not node and (k == TokenKind.KW_FUNC or k == TokenKind.KW_ASYNC) then
+        node = ParseDeclarations._parse_func(ctx, false)
     end
 
     -- Tipos Compostos
-    if k == TokenKind.KW_STRUCT then
-        return ParseDeclarations._parse_struct(ctx, false)
-    elseif k == TokenKind.KW_ENUM then
-        return ParseDeclarations._parse_enum(ctx, false)
-    elseif k == TokenKind.KW_TRAIT then
-        return ParseDeclarations._parse_trait(ctx, false)
-    elseif k == TokenKind.KW_APPLY then
-        return ParseDeclarations._parse_apply(ctx)
-    elseif k == TokenKind.KW_TYPE then
-        return ParseDeclarations._parse_type_alias(ctx, false)
-    elseif k == TokenKind.KW_UNION then
-        return ParseDeclarations._parse_union(ctx, false)
+    if not node then
+        if k == TokenKind.KW_STRUCT then
+            node = ParseDeclarations._parse_struct(ctx, false)
+        elseif k == TokenKind.KW_ENUM then
+            node = ParseDeclarations._parse_enum(ctx, false)
+        elseif k == TokenKind.KW_TRAIT then
+            node = ParseDeclarations._parse_trait(ctx, false)
+        elseif k == TokenKind.KW_APPLY then
+            node = ParseDeclarations._parse_apply(ctx)
+        elseif k == TokenKind.KW_TYPE then
+            node = ParseDeclarations._parse_type_alias(ctx, false)
+        elseif k == TokenKind.KW_UNION then
+            node = ParseDeclarations._parse_union(ctx, false)
+        end
     end
 
     -- Testes
-    if k == TokenKind.KW_GROUP or k == TokenKind.KW_TEST then
-        return ParseDeclarations._parse_test(ctx)
+    if not node and (k == TokenKind.KW_GROUP or k == TokenKind.KW_TEST) then
+        node = ParseDeclarations._parse_test(ctx)
+    end
+
+    if node then
+        node.attributes = attributes
+        return node
     end
 
     -- Se não for uma declaração, tenta um statement
@@ -343,7 +371,7 @@ function ParseDeclarations._parse_struct(ctx, is_pub)
             -- OBS: atributos em métodos podem ser suportados futuramente
             table.insert(methods, ParseDeclarations._parse_func(ctx, member_pub))
         else
-            local f_id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+            local f_id = ctx:expect_field_name("esperado nome do campo")
             ctx:expect(TokenKind.COLON, "esperado ':'")
             local f_type = ParseTypes.parse_type(ctx)
             
@@ -553,6 +581,24 @@ function ParseDeclarations._parse_import(ctx)
     local alias = nil
     if ctx:match(TokenKind.KW_AS) then alias = ctx:expect(TokenKind.IDENTIFIER).lexeme end
     return DeclSyntax.import_decl(path, alias, start.span:merge(ctx:peek(-1).span))
+end
+
+function ParseDeclarations._parse_extern(ctx, is_pub)
+    local start = ctx:expect(TokenKind.KW_EXTERN, "esperado 'extern'")
+    ctx:expect(TokenKind.KW_FUNC, "esperado 'func' após 'extern'")
+    
+    local name_token = ctx:expect(TokenKind.IDENTIFIER, "esperado nome da função externa")
+    
+    ctx:expect(TokenKind.LPAREN, "esperado '('")
+    local params = ParseDeclarations._parse_params(ctx)
+    ctx:expect(TokenKind.RPAREN, "esperado ')' após parâmetros")
+    
+    local return_type = nil
+    if ctx:match(TokenKind.COLON) or ctx:match(TokenKind.ARROW) then
+        return_type = ParseTypes.parse_type(ctx)
+    end
+    
+    return DeclSyntax.extern_decl(name_token.lexeme, params, return_type, is_pub, start.span:merge(ctx:peek(-1).span))
 end
 
 function ParseDeclarations._parse_namespace(ctx)

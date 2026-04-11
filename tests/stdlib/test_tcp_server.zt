@@ -1,0 +1,38 @@
+-- tests/stdlib/test_tcp_server.zt
+import std.net.socket
+
+pub async func main() -> int
+    print("--- Testando TcpServer Nativo (FFI) ---")
+
+    var server = socket.tcp_server()
+    var port = 9999
+    
+    print("Iniciando servidor na porta " + port + "...")
+    match server.listen(port)
+        case Success =>
+            print("Servidor em órbita! Aguardando primeiro contato...")
+            
+            -- No teste, vamos aceitar apenas uma conexão e fechar
+            match await server.accept()
+                case Success(client) =>
+                    var c: any = client
+                    print("Conexão recebida!")
+                    
+                    await c.send("Bem-vindo à rede Zenith!\n")
+                    print("Mensagem enviada.")
+                    
+                    c.close()
+                case Failure(err) =>
+                    print("Falha ao aceitar conexão: " + err)
+            end
+            
+            server.close()
+            print("Servidor encerrado.")
+            
+        case Failure(err) =>
+            print("Falha ao iniciar servidor: " + err)
+    end
+
+    print("--- Fim dos testes de SERVER ---")
+    return 0
+end

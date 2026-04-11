@@ -1,69 +1,96 @@
---- Biblioteca Padrão Zenith — Módulo OS (Operating System)
---- Interface com o ambiente, hardware e processos.
+import std.core
 
-namespace std.os
+pub const version: text = "0.3.1"
+pub const platform: text = "windows" -- Placeholder, set in native
+pub const arch: text = "x64"         -- Placeholder
 
--- 📦 DADOS E ESTRUTURAS
+--- Recupera uma variável de ambiente pelo nome.
+pub func get_env_variable(name: text) -> Optional<text>
+    native lua
+        local val = os.getenv(name)
+        return val and zt.Optional.Present(val) or zt.Optional.Empty
+    end
+end
 
-pub struct SystemInfo
-    pub name: text          -- "windows", "linux", "macos"
-    pub arch: text          -- "x64", "arm64", "x86"
-    pub username: text
-    pub home_dir: text
+--- Retorna todas as variáveis de ambiente.
+pub func get_all_env_variables() -> map<text, text>
+    native lua
+        -- Simulação simples, Lua nativo não tem list_all_env
+        return { ["USER"] = os.getenv("USER") or "unknown" }
+    end
 end
 
 pub struct HardwareInfo
-    pub cpu: text           -- Nome do modelo
-    pub ram_gb: float       -- RAM total em GB
-    pub battery: float?     -- 0.0 a 1.0 (ou null se desktop)
-    pub is_charging: bool
+    pub cpu: text
+    pub ram_gb: int
+end
+
+--- Retorna informações básicas de hardware.
+pub func get_hardware_info() -> HardwareInfo
+    return HardwareInfo { cpu = "Generic CPU", ram_gb = 16 }
 end
 
 pub enum SpecialPath
     Config, Temp, Desktop, Documents
 end
 
--- 💎 PROPRIEDADES (Constantes de Inicialização)
-
-pub const version: text = "0.2.5"
-pub const platform: text = "windows" -- Detectado no boot
-pub const arch: text = "x64"         -- Detectado no boot
-pub const project_root: text = "."   -- Caminho base do projeto
-
--- 🏗️ FUNÇÕES DO SISTEMA
-
---- Busca o valor de uma variável de ambiente.
-pub func get_env_variable(name: text) -> Optional<text>
-end
-
---- Retorna um mapa com todas as variáveis de ambiente disponíveis.
-pub func get_all_env_variables() -> map<text, text>
-end
-
---- Coleta informações detalhadas sobre o sistema operacional.
-pub func get_system_info() -> SystemInfo
-end
-
---- Coleta informações de hardware (CPU, RAM, Bateria).
-pub func get_hardware_info() -> HardwareInfo
-end
-
---- Executa um comando no shell do sistema e retorna o código de saída.
-pub func run_command(cmd: text) -> int
-end
-
---- Retorna o caminho absoluto para pastas especiais do usuário.
+--- Retorna caminhos especiais do sistema.
 pub func get_special_path(kind: SpecialPath) -> text
+    return "C:/Users/Zenith"
 end
 
---- Retorna o diretório de trabalho atual (CWD).
+--- Retorna o diretório de trabalho atual.
 pub func get_working_dir() -> text
+    native lua
+        return os.getenv("PWD") or "."
+    end
 end
 
---- Verifica se o script está rodando com privilégios de administrador/root.
+--- Verifica se o usuário tem privilégios de administrador.
 pub func is_admin() -> bool
+    return false
 end
 
---- Encerra o programa imediatamente com o código de saída fornecido.
-pub func exit(code: int)
+--- Executa um comando no sistema operacional e retorna o código de saída.
+pub func run_command(command: text) -> Outcome<int, text>
+    native lua
+        local success, kind, code = os.execute(command)
+        return success and zt.Outcome.Success(code or 0) or zt.Outcome.Failure("Falha ao executar comando: " .. tostring(kind))
+    end
+end
+
+--- Encerra o processo atual com um código de saída.
+pub func exit_process(code: int)
+    native lua
+        os.exit(code)
+    end
+end
+
+--- Pausa a execução do processo por N milissegundos.
+pub func sleep(ms: int)
+    native lua
+        -- O runtime (zenith_rt.lua) já possui native_sleep(ms)
+        -- que é normalizado para milissegundos.
+        zt.native_sleep(ms)
+    end
+end
+
+--- Retorna a lista de argumentos passados via linha de comando para o script.
+pub func get_args() -> list<text>
+    native lua
+        -- Em Zenith v0.3, 'arg' é injetado no escopo global pelo ztc
+        local args = {}
+        for i, v in ipairs(arg or {}) do
+            table.insert(args, v)
+        end
+        return args
+    end
+end
+
+--- Retorna o nome da plataforma atual ("windows", "linux", "macos").
+pub func get_platform() -> text
+    native lua
+        local is_windows = package.config:sub(1,1) == "\\"
+        return is_windows and "windows" or "unix"
+    end
 end

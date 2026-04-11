@@ -1,0 +1,38 @@
+import std.io
+import std.fs
+import std.core
+
+func main()
+    var path = "tests/hello_stdlib.txt"
+    var content = "Zenith Ascension — Validação da Fase 7 Concluída!"
+    
+    std.io.write_line("🚀 Iniciando Teste da Stdlib...")
+    
+    -- 1. Teste de Escrita
+    std.io.write_line("Escrevendo em: " + path)
+    var write_res = std.fs.write_text_file(path, content)
+    
+    match write_res
+        case Outcome.Success(v) => 
+            std.io.write_line("✅ Arquivo gravado com sucesso!")
+            
+            -- 2. Teste de Leitura
+            var read_res = std.fs.read_text_file(path)
+            match read_res
+                case Outcome.Success(text_content) => 
+                    std.io.write_line("✅ Conteúdo lido: " + text_content)
+                case Outcome.Failure(err) => 
+                    std.io.write_line("❌ Erro na leitura: " + err)
+            end
+            
+            -- 3. Teste de Existência
+            if std.fs.exists(path)
+                std.io.write_line("✅ Verificação de existência: OK")
+            end
+            
+        case Outcome.Failure(err) => 
+            std.io.write_line("❌ Erro na gravação: " + err)
+    end
+end
+
+main()

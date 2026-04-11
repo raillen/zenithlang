@@ -10,6 +10,29 @@ local OperatorTable = require("src.syntax.tokens.operator_table")
 
 local ParseExpressions = {}
 
+--- Heurística para distinguir '<' (menor que) de '<T>' (genéricos).
+function ParseExpressions._is_generic_start(ctx)
+    local i = 0
+    local balance = 1
+    while true do
+        local t = ctx:peek(i)
+        if t.kind == TokenKind.EOF or t.kind == TokenKind.SEMICOLON or t.kind == TokenKind.NEWLINE then
+            return false
+        end
+        if t.kind == TokenKind.LESS then
+            balance = balance + 1
+        elseif t.kind == TokenKind.GREATER then
+            balance = balance - 1
+            if balance == 0 then
+                local next_t = ctx:peek(i + 1)
+                return next_t.kind == TokenKind.LPAREN or next_t.kind == TokenKind.LBRACE
+            end
+        end
+        i = i + 1
+        if i > 30 then return false end
+    end
+end
+
 --- Ponto de entrada para parsing de expressões.
 function ParseExpressions.parse_expression(ctx, precedence)
     precedence = precedence or 0
@@ -70,10 +93,10 @@ function ParseExpressions.parse_expression(ctx, precedence)
             
             -- Casos Especiais de Operadores Binários
             if kind == TokenKind.DOT then
-                local member = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo após '.'")
+                local member = ctx:expect_field_name("esperado nome do campo após '.'")
                 left = ExprSyntax.member(left, member.lexeme, left.span:merge(member.span))
             
-            elseif kind == TokenKind.LESS then
+            elseif kind == TokenKind.LESS and ParseExpressions._is_generic_start(ctx) then
                 -- Genéricos: func<T>() ou Struct<T> {}
                 local generic_args = {}
                 repeat
@@ -107,7 +130,8 @@ function ParseExpressions.parse_expression(ctx, precedence)
                     if not ctx:check(TokenKind.RBRACE) then
                         repeat
                             ctx:skip_newlines()
-                            local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+                            if ctx:check(TokenKind.RBRACE) then break end
+                            local name_t = ctx:expect_field_name("esperado nome do campo")
                             local f_val
                             if ctx:match(TokenKind.COLON) then
                                 f_val = ParseExpressions.parse_expression(ctx)
@@ -115,7 +139,9 @@ function ParseExpressions.parse_expression(ctx, precedence)
                                 f_val = ExprSyntax.identifier(name_t.lexeme, name_t.span)
                             end
                             table.insert(fields, { name = name_t.lexeme, value = f_val })
-                        until not ctx:match(TokenKind.COMMA)
+                            ctx:match(TokenKind.COMMA)
+                            ctx:skip_newlines()
+                        until ctx:check(TokenKind.RBRACE) or ctx:is_at_end()
                     end
                     local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
                     left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span))
@@ -155,7 +181,8 @@ function ParseExpressions.parse_expression(ctx, precedence)
                 if not ctx:check(TokenKind.RBRACE) then
                     repeat
                         ctx:skip_newlines()
-                        local name_t = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo")
+                        if ctx:check(TokenKind.RBRACE) then break end
+                        local name_t = ctx:expect_field_name("esperado nome do campo")
                         local f_val
                         if ctx:match(TokenKind.COLON) then
                             f_val = ParseExpressions.parse_expression(ctx)
@@ -163,7 +190,9 @@ function ParseExpressions.parse_expression(ctx, precedence)
                             f_val = ExprSyntax.identifier(name_t.lexeme, name_t.span)
                         end
                         table.insert(fields, { name = name_t.lexeme, value = f_val })
-                    until not ctx:match(TokenKind.COMMA)
+                        ctx:match(TokenKind.COMMA)
+                        ctx:skip_newlines()
+                    until ctx:check(TokenKind.RBRACE) or ctx:is_at_end()
                 end
                 local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
                 left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span))
@@ -284,8 +313,11 @@ function ParseExpressions._parse_primary(ctx)
         if not ctx:check(TokenKind.RBRACKET) then
             repeat
                 ctx:skip_newlines()
+                if ctx:check(TokenKind.RBRACKET) then break end
                 table.insert(elements, ParseExpressions.parse_expression(ctx))
-            until not ctx:match(TokenKind.COMMA)
+                ctx:match(TokenKind.COMMA)
+                ctx:skip_newlines()
+            until ctx:check(TokenKind.RBRACKET) or ctx:is_at_end()
         end
         local end_t = ctx:expect(TokenKind.RBRACKET, "esperado ']'")
         return ExprSyntax.list(elements, start.span:merge(end_t.span))
@@ -296,6 +328,7 @@ function ParseExpressions._parse_primary(ctx)
         if not ctx:check(TokenKind.RBRACE) then
             repeat
                 ctx:skip_newlines()
+                if ctx:check(TokenKind.RBRACE) then break end
                 if ctx:check(TokenKind.DOT_DOT) then
                     table.insert(entries, ParseExpressions.parse_expression(ctx))
                 else
@@ -304,14 +337,16 @@ function ParseExpressions._parse_primary(ctx)
                     local val = ParseExpressions.parse_expression(ctx)
                     table.insert(entries, { key = key, value = val })
                 end
-            until not ctx:match(TokenKind.COMMA)
+                ctx:match(TokenKind.COMMA)
+                ctx:skip_newlines()
+            until ctx:check(TokenKind.RBRACE) or ctx:is_at_end()
         end
         local end_t = ctx:expect(TokenKind.RBRACE, "esperado '}'")
         return ExprSyntax.map(entries, start.span:merge(end_t.span))
 
     elseif k == TokenKind.AT then
         local start = ctx:advance()
-        local id = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do campo após '@'")
+        local id = ctx:expect_field_name("esperado nome do campo após '@'")
         return ExprSyntax.self_field(id.lexeme, start.span:merge(id.span))
     
     elseif k == TokenKind.KW_CHECK then

@@ -1,0 +1,26 @@
+import std.test
+
+struct Caixa<T>
+    valor: T
+end
+
+func obter_valor<T>(c: Caixa<T>) -> T
+    return c.valor
+end
+
+test.describe("Core: Generics", () => do
+    test.test("Struct Genérica", () => do
+        var c = Caixa<int> { valor = 100 }
+        test.assert_eq(c.valor, 100)
+        
+        var cs = Caixa<text> { valor = "Olá" }
+        test.assert_eq(cs.valor, "Olá")
+    end)
+
+    test.test("Função Genérica", () => do
+        var c = Caixa<float> { valor = 3.14 }
+        test.assert_eq(obter_valor(c), 3.14)
+    end)
+end)
+
+test.run_all()

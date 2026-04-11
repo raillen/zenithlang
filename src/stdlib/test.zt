@@ -1,0 +1,81 @@
+namespace std.test
+
+import std.core
+
+pub func describe(name: text, body: func)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.describe(name, body)
+    end
+end
+
+pub func test(name: text, body: func)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.test(name, body)
+    end
+end
+
+pub func before_each(body: func)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.before_each(body)
+    end
+end
+
+pub func after_each(body: func)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.after_each(body)
+    end
+end
+
+pub func assert_eq(actual: any, expected: any)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_eq(actual, expected)
+    end
+end
+
+pub func assert_true(condition: bool)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_true(condition)
+    end
+end
+
+pub func assert_false(condition: bool)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_false(condition)
+    end
+end
+
+pub func assert_snapshot(name: text, content: any)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_snapshot(name, content)
+    end
+end
+
+pub func assert_outcome_success(res: Outcome)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_outcome_success(res)
+    end
+end
+
+pub func assert_outcome_failure(res: Outcome)
+    native lua
+        local test_mod = require("src/stdlib/test")
+        test_mod.assert_outcome_failure(res)
+    end
+end
+
+--- Executa todos os testes registrados no processo atual.
+pub func run_all() -> bool
+    native lua
+        local test_mod = require("src/stdlib/test")
+        return test_mod.run_all()
+    end
+end

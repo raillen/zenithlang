@@ -1,30 +1,46 @@
---- Biblioteca Padrão Zenith — Módulo Core (Prelude)
---- Contém funções fundamentais disponíveis globalmente.
+--- Biblioteca Padrao Zenith - Modulo Core (Preludio)
+--- Contem os tipos fundamentais e estruturas essenciais da linguagem.
 
 namespace std.core
 
-pub func print(value: any) -> text
-end
-
-pub func error(message: text)
-end
-
-pub func assert(condition: bool, message: text)
-end
-
-pub func panic(message: text)
-end
-
-pub enum Optional<T>
-    Present(value: T)
+--- Representa um valor que pode ou nao estar presente.
+pub enum Optional
+    Present
     Empty
 end
 
-pub enum Outcome<T, E>
-    Success(value: T)
-    Failure(error: E)
+--- Representa o resultado de uma operacao que pode falhar.
+pub enum Outcome
+    Success
+    Failure
 end
 
-pub trait Iterable<T>
-    func iterator() -> () => Optional<T>
+--- Escreve um valor no console.
+pub func print(value: any)
+    native lua
+        print(tostring(value))
+    end
 end
+
+--- Valida uma condicao.
+pub func assert(condition: bool, message: text = "assertion failed")
+    if not condition
+        panic(message)
+    end
+end
+
+--- Interrompe a execucao com um erro.
+pub func error(message: text)
+    native lua
+        error(message)
+    end
+end
+
+--- Falha fatal do sistema.
+pub func panic(message: text)
+    native lua
+        error("PANIC: " .. message)
+    end
+end
+
+--- Funcoes de utilidade para o preludio (em breve)

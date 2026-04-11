@@ -1,0 +1,29 @@
+enum Status
+    Active
+    Inactive
+end
+
+struct Point
+    pub x: int = 0
+    pub y: int = 0
+    
+    func move(dx: int, dy: int)
+        @x = @x + dx
+        @y = @y + dy
+    end
+end
+
+func test_data() -> int
+    var p = Point { x: 10, y: 20 }
+    p.move(5, 5)
+    var s = Status.Active
+    if s == "Active" and p.x == 15
+        return p.y
+    end
+    return 0
+end
+
+var res = test_data()
+native lua
+    print(res)
+end

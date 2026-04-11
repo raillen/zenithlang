@@ -1,0 +1,38 @@
+import std.test
+
+test.describe("Ascension Phase 1: Lexer (Soberania de Tokens)", () => do
+    test.test("Literais Numéricos Avançados", () => do
+        -- Testando se o motor aceita formatos variados
+        var a = 1_000_000 -- Underscores em números (se suportado)
+        var b = 0.00001
+        var c = 1.5e2     -- 150
+        
+        test.assert_eq(a, 1000000)
+        test.assert_eq(b, 0.00001)
+        test.assert_eq(c, 150)
+    end)
+
+    test.test("Strings Multi-linha e Escapes", () => do
+        var multi = "Linha 1
+Linha 2"
+        test.assert_true(text.contains(multi, "Linha 1"))
+        test.assert_true(text.contains(multi, "Linha 2"))
+        
+        var esc = "Tab\tVolta\n\"Aspas\""
+        test.assert_true(text.contains(esc, "\"Aspas\""))
+    end)
+
+    test.test("Operadores Compostos", () => do
+        var x = 10
+        x += 5
+        test.assert_eq(x, 15)
+        x *= 2
+        test.assert_eq(x, 30)
+        x -= 10
+        test.assert_eq(x, 20)
+        x /= 4
+        test.assert_eq(x, 5)
+    end)
+end)
+
+test.run_all()

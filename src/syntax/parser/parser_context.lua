@@ -194,4 +194,19 @@ function ParserContext:synchronize()
     end
 end
 
+--- Verifica se o token é um identificador ou uma palavra-chave (útil para nomes de campos).
+function ParserContext:is_name(token)
+    if not token then return false end
+    return token.kind == TokenKind.IDENTIFIER or token.kind:match("^KW_") ~= nil
+end
+
+--- Consome um identificador ou palavra-chave como nome de campo.
+function ParserContext:expect_field_name(error_msg)
+    local t = self:current()
+    if self:is_name(t) then
+        return self:advance()
+    end
+    return self:expect(TokenKind.IDENTIFIER, error_msg or "esperado nome do campo")
+end
+
 return ParserContext

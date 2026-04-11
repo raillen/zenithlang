@@ -56,6 +56,25 @@ pub struct MultiMap<K, V>
     end
 end
 
+pub struct Grid<T>
+    pub width: int
+    pub height: int
+
+    --- Retorna o valor na coordenada (x, y). 
+    --- Retorna Optional.Empty se a coordenada estiver fora dos limites.
+    pub func get(x: int, y: int) -> Optional<T>
+    end
+
+    --- Define o valor na coordenada (x, y).
+    --- Retorna true se a operação foi bem-sucedida.
+    pub func set(x: int, y: int, value: T) -> bool
+    end
+
+    --- Preenche todo o grid com o valor fornecido.
+    pub func fill(value: T)
+    end
+end
+
 -- 🏗️ OPERAÇÕES DE LISTA (Funcional)
 
 --- Filtra itens de uma lista baseada em uma condição.

@@ -1,0 +1,174 @@
+import std.fs
+import std.io
+import std.os
+import std.text
+import std.text.regex as re
+
+-- 🎨 CORES AURA
+func c_reset() -> text return "\e[0m" end
+func c_bold() -> text return "\e[1m" end
+func c_purple() -> text return "\e[38;5;93m" end
+func c_cyan() -> text return "\e[38;5;51m" end
+func c_green() -> text return "\e[38;5;46m" end
+func c_yellow() -> text return "\e[38;5;226m" end
+func c_gray() -> text return "\e[38;5;244m" end
+func c_blue() -> text return "\e[38;5;39m" end
+
+func clear_screen()
+    if os.get_platform() == "windows"
+        os.run_command("cls")
+    else
+        os.run_command("clear")
+    end
+end
+
+func show_root_menu()
+    clear_screen()
+    io.write_line(c_purple() + c_bold() + " ZENITH MANUAL EXPLORER - v0.3.0" + c_reset())
+    io.write_line(c_blue() + " ====================================================" + c_reset())
+    io.write_line("")
+    io.write_line(c_bold() + " SELECIONE UM DOMINIO PARA EXPLORAR:" + c_reset())
+    io.write_line("")
+    io.write_line("  [" + c_cyan() + "1" + c_reset() + "] std.core      " + c_reset() + c_gray() + "(Tipos Basicos, Optional, Outcome)" + c_reset())
+    io.write_line("  [" + c_cyan() + "2" + c_reset() + "] std.fs        " + c_reset() + c_gray() + "(Manipulacao de Arquivos e Pastas)" + c_reset())
+    io.write_line("  [" + c_cyan() + "3" + c_reset() + "] std.net       " + c_reset() + c_gray() + "(Rede e Sockets TCP/UDP)" + c_reset())
+    io.write_line("  [" + c_cyan() + "4" + c_reset() + "] std.crypto    " + c_reset() + c_gray() + "(Hashes, HMAC e Seguranca)" + c_reset())
+    io.write_line("  [" + c_cyan() + "5" + c_reset() + "] std.time      " + c_reset() + c_gray() + "(Medicao e Controle Temporal)" + c_reset())
+    io.write_line("  [" + c_cyan() + "6" + c_reset() + "] std.text      " + c_reset() + c_gray() + "(Manipulacao Avancada de Strings)" + c_reset())
+    io.write_line("  [" + c_cyan() + "7" + c_reset() + "] std.math      " + c_reset() + c_gray() + "(Trigonometria e Vetores)" + c_reset())
+    io.write_line("  [" + c_cyan() + "8" + c_reset() + "] std.log       " + c_reset() + c_gray() + "(Sinks e Niveis de Log)" + c_reset())
+    io.write_line("")
+end
+
+func colorize_code(line: text) -> text
+    var res = line
+    
+    -- Usando o novo sistema de Regex do Zenith para colorir sem native lua visível
+    var re_pub = re.new_builder().literal("pub ").build()
+    res = re_pub.replace(res, "{c_purple()}pub {c_reset()}")
+    
+    var re_func = re.new_builder().literal("func ").build()
+    res = re_func.replace(res, "{c_purple()}func {c_green()}")
+    
+    var re_paren = re.new_builder().literal("(").build()
+    res = re_paren.replace(res, "{c_reset()}(")
+    
+    var re_text = re.new_builder().literal("text").build()
+    res = re_text.replace(res, "{c_cyan()}text{c_reset()}")
+    
+    var re_int = re.new_builder().literal("int").build()
+    res = re_int.replace(res, "{c_cyan()}int{c_reset()}")
+    
+    var re_bool = re.new_builder().literal("bool").build()
+    res = re_bool.replace(res, "{c_cyan()}bool{c_reset()}")
+    
+    var re_outcome = re.new_builder().literal("Outcome").build()
+    res = re_outcome.replace(res, "{c_cyan()}Outcome{c_reset()}")
+    
+    var re_arrow = re.new_builder().literal("->").build()
+    res = re_arrow.replace(res, "{c_purple()}->{c_reset()}")
+    
+    return res
+end
+
+func render_markdown(filepath: text, title: text)
+    clear_screen()
+    io.write_line(c_blue() + " ====================================================" + c_reset())
+    io.write_line(c_blue() + c_bold() + " MODULO: " + title + c_reset())
+    io.write_line(c_blue() + " ====================================================" + c_reset())
+    
+    var content_res = fs.read_text_file(filepath)
+    if content_res.is_success()
+        var content = content_res.unwrap()
+        var lines = text.lines(content)
+        
+        for i, line in lines do
+            if text.starts_with(line, "### ")
+                var t = text.to_upper(text.trim(text.slice(line, 4)))
+                io.write_line("\n " + c_yellow() + "BLOCK: " + t + c_reset())
+            elif text.starts_with(line, "## ")
+                var t = text.to_upper(text.trim(text.slice(line, 3)))
+                io.write_line("\n " + c_cyan() + "TOOL: " + t + c_reset())
+            elif text.starts_with(line, "# ")
+                -- Skip title
+            elif text.starts_with(line, "pub func") or text.starts_with(line, "pub struct")
+                io.write_line("   " + colorize_code(line))
+            elif text.starts_with(line, "- ")
+                io.write_line("  " + c_cyan() + "*" + c_reset() + " " + text.slice(line, 2))
+            else
+                if not (line == "")
+                    io.write_line(" " + c_gray() + line + c_reset())
+                else
+                    io.write_line("")
+                end
+            end
+        end
+    else
+        io.write_line(c_yellow() + " [!] A documentacao para este modulo nao foi encontrada ou nao pode ser lida." + c_reset())
+    end
+    
+    io.write_line("")
+    io.write_line(" -> Pressione ENTER para voltar ao menu principal...")
+    io.read_line()
+end
+
+func main()
+    var running = true
+    
+    while running
+        show_root_menu()
+        io.write(" -> Digite o numero ou nome do modulo (ou 'q' para sair): " + c_cyan())
+        var input_res = io.read_line()
+        io.write(c_reset())
+        
+        var val = input_res.unwrap_or("")
+        if val != ""
+            var choice = text.trim(val)
+            choice = text.to_lower(choice)
+            
+            if choice == "q" or choice == "quit" or choice == "exit"
+                running = false
+                clear_screen()
+                io.write_line(" " + c_purple() + "Desconectando Zenith Manual Explorer. Ate logo!" + c_reset())
+            else
+                var path = ""
+                var name = ""
+                
+                if choice == "1" or choice == "std.core" or choice == "core"
+                    path = "docs/api/std-core.md"
+                    name = "std.core"
+                elif choice == "2" or choice == "std.fs" or choice == "fs"
+                    path = "docs/api/std-fs.md"
+                    name = "std.fs"
+                elif choice == "3" or choice == "std.net" or choice == "net"
+                    path = "docs/api/std-net.md"
+                    name = "std.net"
+                elif choice == "4" or choice == "std.crypto" or choice == "crypto"
+                    path = "docs/api/std-text-regex.md"
+                    name = "std.text.regex"
+                elif choice == "5" or choice == "std.time" or choice == "time"
+                    path = "docs/api/std-time.md"
+                    name = "std.time"
+                elif choice == "6" or choice == "std.text" or choice == "text"
+                    path = "docs/api/std-text.md"
+                    name = "std.text"
+                elif choice == "7" or choice == "std.math" or choice == "math"
+                    path = "docs/api/std-math.md"
+                    name = "std.math"
+                elif choice == "8" or choice == "std.log" or choice == "log"
+                    path = "docs/api/std-log.md"
+                    name = "std.log"
+                end
+                
+                if not (path == "")
+                    render_markdown(path, name)
+                else
+                    io.write_line(c_yellow() + " Modulo nao reconhecido na orbita atual." + c_reset())
+                    os.run_command("timeout /t 2 > nul")
+                end
+            end
+        else
+            running = false
+        end
+    end
+end

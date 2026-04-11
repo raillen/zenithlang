@@ -17,10 +17,11 @@ local DiagnosticBag = require("src.diagnostics.diagnostic_bag")
 local Binder = {}
 Binder.__index = Binder
 
-function Binder.new(diagnostics, module_manager)
+function Binder.new(diagnostics, module_manager, target_platform)
     local self = setmetatable({}, Binder)
     self.diagnostics = diagnostics or DiagnosticBag.new()
     self.module_manager = module_manager
+    self.target_platform = target_platform or "windows"
     self.skip_prelude = false -- Flag para evitar recursão no std.core
     
     -- Escopo raiz inicial
@@ -46,6 +47,29 @@ function Binder:bind(unit, module_name)
             end
         end
     end
+
+    -- FILTRAGEM DE PLATAFORMA (v0.3 Ascension)
+    local filtered_decls = {}
+    for _, decl in ipairs(unit.declarations) do
+        local keep = true
+        if decl.attributes then
+            local has_platform_attr = false
+            local matches_platform = false
+            for _, attr in ipairs(decl.attributes) do
+                if attr.name == "windows" or attr.name == "linux" or attr.name == "macos" then
+                    has_platform_attr = true
+                    if attr.name == self.target_platform then
+                        matches_platform = true
+                    end
+                end
+            end
+            if has_platform_attr and not matches_platform then
+                keep = false
+            end
+        end
+        if keep then table.insert(filtered_decls, decl) end
+    end
+    unit.declarations = filtered_decls
 
     -- Se não houver namespace explícito, usamos o nome do módulo/arquivo
     self.current_namespace = module_name
@@ -84,6 +108,14 @@ function Binder:bind(unit, module_name)
     for _, decl in ipairs(unit.declarations) do
         if decl.kind == SK.APPLY_DECL then
             self:_bind_node(decl)
+        end
+    end
+
+    -- Passagem ZDoc: Vincular comentários @target
+    for _, doc in ipairs(unit.doc_comments or {}) do
+        local sym = self.scope:lookup(doc.target)
+        if sym then
+            sym.doc_comment = doc.content
         end
     end
     

@@ -83,6 +83,7 @@ local TokenKind = {
     KW_TEST             = "KW_TEST",
     KW_ASSERT           = "KW_ASSERT",
     KW_NATIVE           = "KW_NATIVE",
+    KW_EXTERN           = "KW_EXTERN",
 
     -- Operadores aritméticos
     PLUS                = "PLUS",           -- +
@@ -132,6 +133,7 @@ local TokenKind = {
     UNDERSCORE          = "UNDERSCORE",     -- _
     
     NEWLINE             = "NEWLINE",
+    DOC_COMMENT         = "DOC_COMMENT",
     BAD_TOKEN           = "BAD_TOKEN",
 }
 

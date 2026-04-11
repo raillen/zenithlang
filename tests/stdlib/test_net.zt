@@ -20,10 +20,10 @@ pub async func main() -> int
     
     var res = await c_handle.connect("127.0.0.1", 8080)
     match res
-        case Success
+        case Success =>
             print("Conectado com sucesso!")
             client.close()
-        case Failure(err)
+        case Failure(err) =>
             print("Conexão falhou (Esperado): " + err)
     end
 

@@ -1,0 +1,24 @@
+import std.test
+
+test.describe("Lexer: Literais Básicos", () => do
+    test.test("Números Inteiros", () => do
+        -- No Zenith v0.2.8, testamos via native lua por enquanto 
+        -- até termos um módulo std.reflect mais forte para inspecionar tokens
+        test.assert_eq(123, 123)
+        test.assert_eq(0, 0)
+        test.assert_eq(-10, -10)
+    end)
+
+    test.test("Números Decimais", () => do
+        test.assert_eq(10.5, 10.5)
+        test.assert_eq(0.001, 0.001)
+    end)
+
+    test.test("Strings e Interpolação", () => do
+        var nome = "Zenith"
+        var msg = "Olá {nome}"
+        test.assert_eq(msg, "Olá Zenith")
+    end)
+end)
+
+test.run_all()

@@ -1,0 +1,15 @@
+pub struct TesteData
+    pub valor: int
+end
+
+pub func checar_global(t: TesteData) -> bool do
+    if t.valor == 10
+        return true
+    end
+    return false
+end
+
+pub func main() do
+    var d = TesteData { valor: 10 }
+    print(checar_global(d))
+end

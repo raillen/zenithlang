@@ -82,6 +82,7 @@ local SyntaxKind = {
     IMPORT_DECL             = "IMPORT_DECL",
     EXPORT_DECL             = "EXPORT_DECL",
     REDO_DECL               = "REDO_DECL",
+    EXTERN_DECL             = "EXTERN_DECL",
 
     -- Subnós de declaração
     PARAM_NODE              = "PARAM_NODE",            -- name: Type

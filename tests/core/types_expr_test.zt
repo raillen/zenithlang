@@ -1,0 +1,24 @@
+import std.test
+
+test.describe("Core: Tipos e Expressões", () => do
+    test.test("Operações Aritméticas", () => do
+        test.assert_eq(10 + 5 * 2, 20)
+        test.assert_eq((10 + 5) * 2, 30)
+        test.assert_eq(100 / 4, 25)
+    end)
+
+    test.test("Operações Lógicas", () => do
+        test.assert_true(true and true)
+        test.assert_false(true and false)
+        test.assert_true(false or true)
+        test.assert_true(not false)
+    end)
+
+    test.test("Strings", () => do
+        var s = "Zenith"
+        test.assert_eq(#s, 6)
+        test.assert_eq(s + " Lang", "Zenith Lang")
+    end)
+end)
+
+test.run_all()

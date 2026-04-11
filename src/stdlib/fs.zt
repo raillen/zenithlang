@@ -1,56 +1,107 @@
---- Biblioteca Padrão Zenith — Módulo FS (File System)
---- Manipulação atômica e de fluxo de arquivos e pastas.
-
 namespace std.fs
+
+import std.core
 
 -- 📦 ESTRUTURAS
 
 pub enum FileMode
-    Read, Write, Append
+    Read
+    Write
+    Append
 end
 
 pub struct FileHandle
-    -- Métodos do Handle serão implementados em Lua
-    pub func read_line() -> Optional<text>
+    pub internal_handle: any
+
+    pub func read_line() -> Optional
+        native lua
+            local line = self.internal_handle:read("*l")
+            if line then return Optional.Present(line) else return Optional.Empty end
+        end
     end
-    pub func write(content: text) -> Outcome<void, text>
+
+    pub func write(content: text) -> Outcome
+        native lua
+            local ok, err = self.internal_handle:write(content)
+            if ok then return Outcome.Success(true) else return Outcome.Failure(err) end
+        end
     end
+
     pub func close()
+        native lua
+            self.internal_handle:close()
+        end
     end
 end
 
--- 🏗️ NÍVEL ATÔMICO (Simples)
-
 --- Lê todo o conteúdo de um arquivo de texto.
-pub func read_text_file(path: text) -> Outcome<text, text>
+pub func read_text_file(path: text) -> Outcome
+    native lua
+        local f, err = io.open(path, "r")
+        if not f then return Outcome.Failure(err) end
+        local content = f:read("*a")
+        f:close()
+        return Outcome.Success(content)
+    end
 end
 
 --- Escreve um texto em um arquivo, sobrescrevendo o anterior.
-pub func write_text_file(path: text, content: text) -> Outcome<void, text>
-end
-
---- Adiciona texto ao final de um arquivo.
-pub func append_text(path: text, content: text) -> Outcome<void, text>
-end
-
---- Adiciona texto ao início de um arquivo (otimizado via arquivo temporário).
-pub func prepend_text(path: text, content: text) -> Outcome<void, text>
+pub func write_text_file(path: text, content: text) -> Outcome
+    native lua
+        local f, err = io.open(path, "w")
+        if not f then return Outcome.Failure(err) end
+        f:write(content)
+        f:close()
+        return Outcome.Success(true)
+    end
 end
 
 --- Verifica se um arquivo ou pasta existe.
 pub func exists(path: text) -> bool
+    native lua
+        local f = io.open(path, "r")
+        if f then f:close() return true end
+        return false
+    end
 end
 
 --- Remove um arquivo do disco.
-pub func remove_file(path: text) -> Outcome<void, text>
+pub func remove_file(path: text) -> Outcome
+    native lua
+        local ok, err = os.remove(path)
+        if ok then return Outcome.Success(true) else return Outcome.Failure(err) end
+    end
 end
 
---- Remove uma pasta (opcionalmente de forma recursiva).
-pub func remove_folder(path: text, recursive: bool) -> Outcome<void, text>
+--- Lista os arquivos e pastas dentro de um diretório.
+pub func list_directory(path: text) -> list<text>
+    native lua
+        local is_windows = package.config:sub(1,1) == "\\"
+        local cmd = is_windows and ("dir /b " .. path:gsub("/", "\\") .. " 2>nul") or ("ls " .. path .. " 2>/dev/null")
+        local handle = io.popen(cmd)
+        local files = {}
+        if handle then
+            for line in handle:lines() do
+                table.insert(files, line)
+            end
+            handle:close()
+        end
+        return files
+    end
 end
-
--- 🚀 NÍVEL DE FLUXO (Avançado)
 
 --- Abre um arquivo para operações manuais de leitura/escrita.
-pub func open_file(path: text, mode: FileMode) -> Outcome<FileHandle, text>
+pub func open_file(path: text, mode: FileMode) -> Outcome
+    var m = "r"
+    match mode
+        case FileMode.Read => m = "r"
+        case FileMode.Write => m = "w"
+        case FileMode.Append => m = "a"
+    end
+    
+    native lua
+        local f, err = io.open(path, m)
+        if not f then return Outcome.Failure(err) end
+        return Outcome.Success(FileHandle { internal_handle = f })
+    end
 end

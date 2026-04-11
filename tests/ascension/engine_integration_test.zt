@@ -1,0 +1,87 @@
+import std.test
+
+-- ============================================================================
+-- ZENITH ASCENSION ENGINE — INTEGRATION TESTS
+-- Validando as Fases da Soberania (Fase 1 a 7)
+-- ============================================================================
+
+test.describe("Ascension Phase 1 & 2: Genesis & Estrutura", () => do
+    test.test("Tokenização de Literais e Operadores", () => do
+        -- Validando se o motor entende a gramática básica
+        var x = 100 + 50 * 2
+        test.assert_eq(x, 200)
+        
+        var s = "Rhythm" + " " + "Zenith"
+        test.assert_eq(s, "Rhythm Zenith")
+    end)
+end)
+
+test.describe("Ascension Phase 3: A Dança dos Blocos (Parser)", () => do
+    test.test("Controle de Fluxo Complexo", () => do
+        var cont = 0
+        var status = ""
+        
+        while cont < 3
+            if cont == 0
+                status = status + "A"
+            elif cont == 1
+                status = status + "B"
+            else
+                status = status + "C"
+            end
+            cont += 1
+        end
+        
+        test.assert_eq(status, "ABC")
+    end)
+
+    test.test("Match Expressions", () => do
+        var val = 10
+        var res = match val
+            case 5 => "erro"
+            case 10 => "sucesso"
+            case _ => "outro"
+        end
+        test.assert_eq(res, "sucesso")
+    end)
+end)
+
+test.describe("Ascension Phase 4: Identidade & Contexto (Binding)", () => do
+    struct Entidade
+        id: int
+        nome: text
+    end
+
+    test.test("Resolução de Membros de Struct", () => do
+        var e = Entidade { id = 1, nome = "Core" }
+        test.assert_eq(e.id, 1)
+        test.assert_eq(e.nome, "Core")
+    end)
+end)
+
+test.describe("Ascension Phase 5 & 6: Emitter & Autonomia Modular", () => do
+    test.test("Interoperabilidade com Stdlib (Import)", () => do
+        -- Fase 6 garante que 'import' funcione e resolva símbolos
+        import std.math
+        var raiz = math.sqrt(16)
+        test.assert_eq(raiz, 4)
+    end)
+end)
+
+test.describe("Ascension Phase 8: Soberania Nativa", () => do
+    test.test("Blocos Native Lua", () => do
+        var valor = 0
+        native lua
+            valor = 42
+        end
+        test.assert_eq(valor, 42)
+    end)
+
+    test.test("Tipagem Genérica (Outcome/Optional)", () => do
+        -- Fase 8 resolveu o desafio de parse_type para genéricos
+        var opt: Optional<text> = Present("Zenith")
+        test.assert_eq(opt.unwrap_or("vazio"), "Zenith")
+    end)
+end)
+
+test.run_all()

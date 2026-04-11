@@ -1,0 +1,15 @@
+pub struct Probe
+    pub a: int
+    pub b: int
+end
+
+func test()
+    -- Teste de Struct Initializer (com vírgula)
+    var p = Probe { a: 1, b: 2 }
+    
+    -- Teste de While (sem do)
+    var i = 0
+    while i < 10
+        i = i + 1
+    end
+end

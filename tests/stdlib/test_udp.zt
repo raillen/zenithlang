@@ -1,0 +1,41 @@
+-- tests/stdlib/test_udp.zt
+import std.net.socket
+
+pub async func main() -> int
+    print("--- Testando Módulo std.net UDP (FFI) ---")
+
+    var port = 12345
+    var msg = "Sinal de rádio das estrelas!"
+
+    -- 1. Criar Socket para Escuta
+    var receiver = socket.udp_socket()
+    match receiver.bind(port)
+        case Success =>
+            print("Escuta UDP ativa na porta " + port)
+        case Failure(e) =>
+            print("Falha no bind: " + e)
+            return 1
+    end
+
+    -- 2. Criar Socket para Envio
+    var sender = socket.udp_socket()
+    print("Enviando datagrama...")
+    sender.send_to(msg, "127.0.0.1", port)
+
+    -- 3. Receber Assincronamente
+    print("Aguardando sinal...")
+    match await receiver.receive_from(1024)
+        case Success(packet) =>
+            var p: any = packet
+            print("\nSinal recebido!")
+            print("Remetente: " + p.host + ":" + p.port)
+            print("Dados:     " + p.data)
+        case Failure(e) =>
+            print("Erro no recebimento: " + e)
+    end
+
+    receiver.close()
+    sender.close()
+    print("\n--- Fim dos testes de UDP ---")
+    return 0
+end

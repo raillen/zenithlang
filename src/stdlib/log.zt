@@ -1,52 +1,64 @@
 --- Biblioteca Padrão Zenith — Módulo Log
---- Sistema de registro visual estruturado com suporte a níveis e cores Aura.
+--- Sistema de registro visual e estruturado com múltiplos destinos (Sinks).
 
 namespace std.log
 
---- Níveis de severidade do log.
-pub enum LogLevel
+-- 📦 ENUMS E ESTRUTURAS
+
+pub enum Level
     Trace
     Debug
     Info
-    Warning
+    Warn
     Error
     Panic
 end
 
---- Formatos de saída suportados.
-pub enum LogFormat
-    Text
-    Json
+pub struct LogEntry
+    pub level: Level
+    pub message: text
+    pub timestamp: float
+    pub file: text?
+    pub line: int?
+    pub context: map<text, any>
 end
 
---- Define o nível mínimo de log a ser exibido.
-pub func set_level(level: LogLevel)
+-- 🏗️ CONFIGURAÇÃO
+
+--- Define o nível mínimo para exibição de logs.
+pub func set_level(level: Level)
 end
 
---- Define o formato de saída (Text ou Json).
-pub func set_format(format: LogFormat)
+--- Adiciona contexto global que será incluído em todos os logs seguintes.
+pub func with_context(data: map<text, any>)
 end
 
---- Registra uma mensagem de nível TRACE (extrema verbosidade).
-pub func trace(msg: text)
+--- Adiciona um novo destino (Sink) para processar as entradas de log.
+pub func add_sink(handler: (LogEntry) => void)
 end
 
---- Registra uma mensagem de nível DEBUG (útil para desenvolvimento).
-pub func debug(msg: text)
+-- 🚀 EMISSÃO
+
+pub func log_trace(msg: text)
 end
 
---- Registra uma mensagem de nível INFO (informações gerais de fluxo).
-pub func info(msg: text)
+pub func log_debug(msg: text)
 end
 
---- Registra um aviso (algo inesperado, mas não fatal).
-pub func warn(msg: text)
+pub func log_info(msg: text)
 end
 
---- Registra um erro (falha em uma operação).
-pub func err(msg: text)
+pub func log_warn(msg: text)
 end
 
---- Registra um erro crítico e encerra o programa com status 1.
-pub func panic(msg: text)
+pub func log_error(msg: text)
+end
+
+pub func log_panic(msg: text)
+end
+
+-- 🕒 UTILITÁRIOS
+
+--- Mede o tempo de execução de uma tarefa e loga o resultado.
+pub func time_task(name: text, callback: () => void)
 end

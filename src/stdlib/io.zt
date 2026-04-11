@@ -1,16 +1,28 @@
---- Biblioteca Padrão Zenith — Módulo IO
---- Entrada e saída básica via terminal.
-
 namespace std.io
 
-pub func write(value: any)
-    -- Mapeado nativamente para io.write
-end
+import std.core
 
-pub func read_line(): text
-    return "" -- Mapeado nativamente para io.read("*l")
+pub func write(value: any)
+    native lua
+        io.write(tostring(value))
+    end
 end
 
 pub func write_line(value: any)
-    -- Mapeado nativamente para print ou io.write(v, "\n")
+    native lua
+        print(tostring(value))
+    end
+end
+
+pub func read_line() -> Optional
+    native lua
+        local line = io.read("*l")
+        if line then
+            return Optional.Present(line)
+        else
+            return Optional.Empty
+        end
+    end
+    -- No Zenith Ascension, o corpo da função deve terminar, 
+    -- mas o native lua acima já retornou se estiver no motor v0.6.
 end

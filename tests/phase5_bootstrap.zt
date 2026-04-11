@@ -1,0 +1,13 @@
+func test_gate()
+    var list = [1, 2, 3]
+    var map = { "status": 200 }
+    var ok = not (1 == 2) and (list[0] == 1)
+    
+    if ok
+        return map["status"]
+    end
+    return 0
+end
+
+var final_status = test_gate()
+print(final_status)

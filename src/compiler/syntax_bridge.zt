@@ -1,0 +1,1389 @@
+pub enum TokenKind
+    Identifier IntegerLiteral StringLiteral Plus Minus Star Slash Percent Caret PlusEqual MinusEqual StarEqual SlashEqual Equal EqualEqual BangEqual Less LessEqual Greater GreaterEqual And Or Bang LParen RParen LBrace RBrace LBracket RBracket Comma Dot Colon Semicolon Arrow FatArrow DotDot Pipe At KwFunc KwVar KwIf KwElse KwElif KwWhile KwReturn KwPub KwStruct KwEnum KwSelf KwAnd KwOr KwNot KwDo KwEnd KwFor KwIn KwRepeat KwMatch KwCase KwBreak KwContinue KwNamespace KwImport KwExport KwAs EOF BAD
+end
+
+pub enum NodeKind
+    CompilationUnit FuncDecl VarDecl StructDecl EnumDecl Block IfStmt WhileStmt ReturnStmt AssignStmt ExprStmt MatchStmt MatchCase ForInStmt RepeatStmt BinaryExpr UnaryExpr IdentifierExpr LiteralExpr CallExpr MemberExpr IndexExpr ListLiteral MapLiteral StructInitExpr SelfExpr ImportDecl NamespaceDecl
+end
+
+pub struct Symbol
+    pub kind: int
+    pub name: text
+    pub type_name: text
+    pub is_pub: bool
+    pub declaration: any
+    pub module_scope: any
+end
+
+pub struct CompilationUnit
+    pub ns: text
+    pub imports: any
+    pub declarations: any
+    pub span: any
+end
+
+pub struct DeclNode
+    pub kind: NodeKind
+    pub name: text
+    pub params: any
+    pub body: any
+    pub fields: any
+    pub methods: any
+    pub members: any
+    pub is_pub: bool
+    pub span: any
+    pub symbol: any
+end
+
+pub struct StmtNode
+    pub kind: NodeKind
+    pub condition: any
+    pub body: any
+    pub value: any
+    pub target: any
+    pub cases: any
+    pub patterns: any
+    pub variables: any
+    pub iterable: any
+    pub count_expr: any
+    pub span: any
+end
+
+pub struct ExprNode
+    pub kind: NodeKind
+    pub left: any
+    pub right: any
+    pub operator: any
+    pub value: any
+    pub name: text
+    pub callee: any
+    pub args: any
+    pub object: any
+    pub index: any
+    pub items: any
+    pub keys: any
+    pub values: any
+    pub span: any
+    pub symbol: any
+end
+
+pub struct Token
+    pub kind: TokenKind
+    pub text: text
+    pub span: any
+end
+
+pub struct Lexer
+    pub source: text
+    pub pos: int
+    pub tokens: any
+
+    pub func tokenize() -> any
+        var count = 0
+        while true do
+            var t = @scan_token()
+            @tokens[count] = t
+            count = count + 1
+            if t.kind == TokenKind.EOF break end
+        end
+        return @tokens
+    end
+
+    func scan_token() -> Token
+        @skip_whitespace()
+        var start = @pos
+        if @is_at_end()
+            return Token { kind: TokenKind.EOF text: "" span: null }
+        end
+
+        var c = @peek()
+        @advance()
+
+        if @is_alpha(c) return @scan_identifier(start) end
+        if @is_digit(c) return @scan_number(start) end
+        if c == "\"" return @scan_string(start) end
+
+        var op2 = c + @peek()
+        var k2 = @lookup_operator_double(op2)
+        if k2 != null
+            @advance()
+            return Token { kind: k2 text: op2 span: null }
+        end
+
+        var k1 = @lookup_operator_single(c)
+        if k1 != null
+            return Token { kind: k1 text: c span: null }
+        end
+
+        return Token { kind: TokenKind.BAD text: c span: null }
+    end
+
+    func skip_whitespace()
+        while not @is_at_end() do
+            var c = @peek()
+            if c == " " or c == "\r" or c == "\t" or c == "\n"
+                @advance()
+            elif c == "-" and @peek_next() == "-"
+                while not @is_at_end() and @peek() != "\n" do
+                    @advance()
+                end
+            else
+                break
+            end
+        end
+    end
+
+    func is_alpha(c: text) -> bool
+        return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+    end
+
+    func is_digit(c: text) -> bool
+        return c >= "0" and c <= "9"
+    end
+
+    func scan_identifier(start: int) -> Token
+        while @is_alpha(@peek()) or @is_digit(@peek()) do
+            @advance()
+        end
+        var txt = @source[start..@pos-1]
+        var kind = @lookup_keyword(txt)
+        return Token { kind: kind text: txt span: null }
+    end
+
+    func scan_number(start: int) -> Token
+        while @is_digit(@peek()) do
+            @advance()
+        end
+        return Token { kind: TokenKind.IntegerLiteral text: @source[start..@pos-1] span: null }
+    end
+
+    func scan_string(start: int) -> Token
+        while @peek() != "\"" and not @is_at_end() do
+            @advance()
+        end
+        @advance()
+        return Token { kind: TokenKind.StringLiteral text: @source[start..@pos-1] span: null }
+    end
+
+    func lookup_keyword(txt: text) -> TokenKind
+        if txt == "func" return TokenKind.KwFunc end
+        if txt == "var" return TokenKind.KwVar end
+        if txt == "if" return TokenKind.KwIf end
+        if txt == "else" return TokenKind.KwElse end
+        if txt == "elif" return TokenKind.KwElif end
+        if txt == "while" return TokenKind.KwWhile end
+        if txt == "return" return TokenKind.KwReturn end
+        if txt == "pub" return TokenKind.KwPub end
+        if txt == "struct" return TokenKind.KwStruct end
+        if txt == "enum" return TokenKind.KwEnum end
+        if txt == "self" return TokenKind.KwSelf end
+        if txt == "and" return TokenKind.KwAnd end
+        if txt == "or" return TokenKind.KwOr end
+        if txt == "not" return TokenKind.KwNot end
+        if txt == "do" return TokenKind.KwDo end
+        if txt == "end" return TokenKind.KwEnd end
+        if txt == "for" return TokenKind.KwFor end
+        if txt == "in" return TokenKind.KwIn end
+        if txt == "repeat" return TokenKind.KwRepeat end
+        if txt == "match" return TokenKind.KwMatch end
+        if txt == "case" return TokenKind.KwCase end
+        if txt == "break" return TokenKind.KwBreak end
+        if txt == "continue" return TokenKind.KwContinue end
+        if txt == "namespace" return TokenKind.KwNamespace end
+        if txt == "import" return TokenKind.KwImport end
+        if txt == "export" return TokenKind.KwExport end
+        if txt == "as" return TokenKind.KwAs end
+        return TokenKind.Identifier
+    end
+
+    func lookup_operator_double(op: text) -> any
+        if op == "==" return TokenKind.EqualEqual end
+        if op == "!=" return TokenKind.BangEqual end
+        if op == "<=" return TokenKind.LessEqual end
+        if op == ">=" return TokenKind.GreaterEqual end
+        if op == "+=" return TokenKind.PlusEqual end
+        if op == "-=" return TokenKind.MinusEqual end
+        if op == "*=" return TokenKind.StarEqual end
+        if op == "/=" return TokenKind.SlashEqual end
+        if op == "->" return TokenKind.Arrow end
+        if op == "=>" return TokenKind.FatArrow end
+        if op == ".." return TokenKind.DotDot end
+        return null
+    end
+
+    func lookup_operator_single(op: text) -> any
+        if op == "+" return TokenKind.Plus end
+        if op == "-" return TokenKind.Minus end
+        if op == "*" return TokenKind.Star end
+        if op == "/" return TokenKind.Slash end
+        if op == "^" return TokenKind.Caret end
+        if op == "%" return TokenKind.Percent end
+        if op == "=" return TokenKind.Equal end
+        if op == "<" return TokenKind.Less end
+        if op == ">" return TokenKind.Greater end
+        if op == "(" return TokenKind.LParen end
+        if op == ")" return TokenKind.RParen end
+        
+        if op == (native lua string.char(123) end) return TokenKind.LBrace end
+        if op == (native lua string.char(125) end) return TokenKind.RBrace end
+        
+        if op == "[" return TokenKind.LBracket end
+        if op == "]" return TokenKind.RBracket end
+        if op == "," return TokenKind.Comma end
+        if op == "." return TokenKind.Dot end
+        if op == ":" return TokenKind.Colon end
+        if op == ";" return TokenKind.Semicolon end
+        if op == "|" return TokenKind.Pipe end
+        if op == "@" return TokenKind.At end
+        return null
+    end
+
+    func peek() -> text
+        if @is_at_end() return "" end
+        return @source[@pos..@pos]
+    end
+
+    func peek_next() -> text
+        if @pos + 1 >= #@source return "" end
+        return @source[@pos+1..@pos+1]
+    end
+
+    func advance()
+        @pos = @pos + 1
+    end
+    
+    func is_at_end() -> bool
+        return @pos >= #@source
+    end
+end
+
+pub struct Parser
+    pub tokens: any
+    pub pos: int
+
+    pub func parse() -> CompilationUnit
+        var ns = ""
+        if @peek().kind == TokenKind.KwNamespace
+            @advance()
+            ns = @expect(TokenKind.Identifier "esperado namespace").text
+        end
+
+        var imps = []
+        var ic = 0
+        while @peek().kind == TokenKind.KwImport do
+            imps[ic] = @parse_import_decl()
+            ic = ic + 1
+        end
+
+        var decls = []
+        var count = 0
+        while not @is_at_end() do
+            var d = @parse_declaration()
+            if d != null
+                decls[count] = d
+                count = count + 1
+            else
+                @advance()
+            end
+        end
+        return CompilationUnit { ns: ns imports: imps declarations: decls span: null }
+    end
+
+    func parse_import_decl() -> any
+        var t = @peek()
+        @advance()
+        var path = ""
+        while true do
+            path = path + @expect(TokenKind.Identifier "esperado nome").text
+            if @peek().kind == TokenKind.Dot
+                @advance()
+                path = path + "."
+            else
+                break
+            end
+        end
+        var alias = path
+        if @peek().kind == TokenKind.KwAs
+            @advance()
+            alias = @expect(TokenKind.Identifier "esperado alias").text
+        end
+        return DeclNode { kind: NodeKind.ImportDecl name: alias body: path span: t.span is_pub: false params: null fields: null methods: null members: null symbol: null }
+    end
+
+    func parse_declaration() -> any
+        var is_pub = false
+        if @peek().kind == TokenKind.KwPub or @peek().kind == TokenKind.KwExport
+            @advance()
+            is_pub = true
+        end
+
+        var t = @peek()
+        if t.kind == TokenKind.KwFunc return @parse_func_decl(is_pub)
+        elif t.kind == TokenKind.KwVar return @parse_var_decl(is_pub)
+        elif t.kind == TokenKind.KwStruct return @parse_struct_decl(is_pub)
+        elif t.kind == TokenKind.KwEnum return @parse_enum_decl(is_pub)
+        end
+        return null
+    end
+
+    func parse_func_decl(is_pub: bool) -> any
+        @advance()
+        var name_t = @expect(TokenKind.Identifier "esperado nome da função")
+        var params = @parse_params()
+        if @peek().kind == TokenKind.Arrow
+            @advance()
+            @expect(TokenKind.Identifier "esperado tipo")
+        end
+        var body = @parse_block()
+        return DeclNode { kind: NodeKind.FuncDecl name: name_t.text params: params body: body is_pub: is_pub span: name_t.span symbol: null fields: null methods: null members: null }
+    end
+
+    func parse_var_decl(is_pub: bool) -> any
+        @advance()
+        var name_t = @expect(TokenKind.Identifier "esperado nome")
+        var init = null
+        if @peek().kind == TokenKind.Equal
+            @advance()
+            init = @parse_expression(0)
+        end
+        return DeclNode { kind: NodeKind.VarDecl name: name_t.text is_pub: is_pub body: init span: name_t.span params: null symbol: null fields: null methods: null members: null }
+    end
+
+    func parse_struct_decl(is_pub: bool) -> any
+        @advance()
+        var name_t = @expect(TokenKind.Identifier "esperado nome da struct")
+        var fields = []
+        var methods = []
+        var fc = 0
+        var mc = 0
+        while @peek().kind != TokenKind.KwEnd and not @is_at_end() do
+            var is_fpub = false
+            if @peek().kind == TokenKind.KwPub
+                @advance()
+                is_fpub = true
+            end
+            if @peek().kind == TokenKind.KwFunc
+                methods[mc] = @parse_func_decl(is_fpub)
+                mc = mc + 1
+            else
+                var f_name = @expect(TokenKind.Identifier "esperado nome do campo").text
+                @expect(TokenKind.Colon "esperado ':'")
+                var f_type = @expect(TokenKind.Identifier "esperado tipo").text
+                var f_init = null
+                if @peek().kind == TokenKind.Equal
+                    @advance()
+                    f_init = @parse_expression(0)
+                end
+                fields[fc] = DeclNode { kind: NodeKind.VarDecl name: f_name type_name: f_type is_pub: is_fpub body: f_init span: null params: null symbol: null fields: null methods: null members: null }
+                fc = fc + 1
+            end
+        end
+        @expect(TokenKind.KwEnd "esperado 'end'")
+        return DeclNode { kind: NodeKind.StructDecl name: name_t.text fields: fields methods: methods is_pub: is_pub span: name_t.span params: null body: null members: null symbol: null }
+    end
+
+    func parse_enum_decl(is_pub: bool) -> any
+        @advance()
+        var name_t = @expect(TokenKind.Identifier "esperado nome do enum")
+        var members = []
+        var mc = 0
+        while @peek().kind != TokenKind.KwEnd and not @is_at_end() do
+            members[mc] = @expect(TokenKind.Identifier "esperado nome do membro").text
+            mc = mc + 1
+            if @peek().kind == TokenKind.Comma @advance() end
+        end
+        @expect(TokenKind.KwEnd "esperado 'end'")
+        return DeclNode { kind: NodeKind.EnumDecl name: name_t.text members: members is_pub: is_pub span: name_t.span params: null body: null fields: null methods: null symbol: null }
+    end
+
+    func parse_params() -> any
+        @expect(TokenKind.LParen "esperado '('")
+        var ps = []
+        var c = 0
+        if @peek().kind != TokenKind.RParen
+            ps[c] = @expect(TokenKind.Identifier "esperado parâmetro").text
+            c = c + 1
+            if @peek().kind == TokenKind.Colon
+                @advance()
+                @expect(TokenKind.Identifier "esperado tipo")
+            end
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                ps[c] = @expect(TokenKind.Identifier "esperado parâmetro").text
+                c = c + 1
+                if @peek().kind == TokenKind.Colon
+                    @advance()
+                    @expect(TokenKind.Identifier "esperado tipo")
+                end
+            end
+        end
+        @expect(TokenKind.RParen "esperado ')'")
+        return ps
+    end
+
+    func parse_block() -> any
+        var body = []
+        var c = 0
+        while @peek().kind != TokenKind.KwEnd and @peek().kind != TokenKind.KwElse and @peek().kind != TokenKind.KwElif and @peek().kind != TokenKind.KwCase and not @is_at_end() do
+            body[c] = @parse_statement()
+            c = c + 1
+        end
+        @expect(TokenKind.KwEnd "esperado 'end'")
+        return body
+    end
+
+    func parse_statement() -> any
+        var t = @peek()
+        if t.kind == TokenKind.KwIf return @parse_if_stmt()
+        elif t.kind == TokenKind.KwWhile return @parse_while_stmt()
+        elif t.kind == TokenKind.KwReturn return @parse_return_stmt()
+        elif t.kind == TokenKind.KwVar return @parse_var_decl(false)
+        elif t.kind == TokenKind.KwMatch return @parse_match_stmt()
+        elif t.kind == TokenKind.KwFor return @parse_for_in_stmt()
+        elif t.kind == TokenKind.KwRepeat return @parse_repeat_stmt()
+        end
+        
+        var expr = @parse_expression(0)
+        if @peek().kind == TokenKind.Equal
+            @advance()
+            var val = @parse_expression(0)
+            return StmtNode { kind: NodeKind.AssignStmt target: expr value: val span: null condition: null body: null }
+        end
+        return StmtNode { kind: NodeKind.ExprStmt value: expr span: null condition: null body: null }
+    end
+
+    func parse_if_stmt() -> any
+        @advance()
+        var cond = @parse_expression(0)
+        if @peek().kind == TokenKind.KwDo @advance() end
+        var body = @parse_block_no_end()
+        var else_body = null
+        if @peek().kind == TokenKind.KwElse
+            @advance()
+            else_body = @parse_block_no_end()
+        end
+        @expect(TokenKind.KwEnd "esperado 'end'")
+        return StmtNode { kind: NodeKind.IfStmt condition: cond body: body cases: else_body span: null value: null target: null }
+    end
+
+    func parse_block_no_end() -> any
+        var body = []
+        var c = 0
+        while @peek().kind != TokenKind.KwEnd and @peek().kind != TokenKind.KwElse and @peek().kind != TokenKind.KwElif and not @is_at_end() do
+            body[c] = @parse_statement()
+            c = c + 1
+        end
+        return body
+    end
+
+    func parse_while_stmt() -> any
+        @advance()
+        var cond = @parse_expression(0)
+        if @peek().kind == TokenKind.KwDo @advance() end
+        var body = @parse_block()
+        return StmtNode { kind: NodeKind.WhileStmt condition: cond body: body span: null value: null target: null }
+    end
+
+    func parse_return_stmt() -> any
+        var t = @peek()
+        @advance()
+        var val = null
+        if @peek().kind != TokenKind.KwEnd and @peek().kind != TokenKind.Semicolon
+            val = @parse_expression(0)
+        end
+        return StmtNode { kind: NodeKind.ReturnStmt value: val span: t.span condition: null body: null }
+    end
+
+    func parse_for_in_stmt() -> any
+        @advance()
+        var vars = []
+        var vc = 0
+        vars[vc] = @expect(TokenKind.Identifier "esperado variável").text
+        vc = vc + 1
+        while @peek().kind == TokenKind.Comma do
+            @advance()
+            vars[vc] = @expect(TokenKind.Identifier "esperado variável").text
+            vc = vc + 1
+        end
+        @expect(TokenKind.KwIn "esperado 'in'")
+        var iterable = @parse_expression(0)
+        if @peek().kind == TokenKind.KwDo @advance() end
+        var body = @parse_block()
+        return StmtNode { kind: NodeKind.ForInStmt variables: vars iterable: iterable body: body span: null condition: null value: null target: null }
+    end
+
+    func parse_repeat_stmt() -> any
+        @advance()
+        var count = @parse_expression(0)
+        if @peek().kind == TokenKind.KwDo @advance() end
+        var body = @parse_block()
+        return StmtNode { kind: NodeKind.RepeatStmt count_expr: count body: body span: null condition: null value: null target: null }
+    end
+
+    func parse_match_stmt() -> any
+        @advance()
+        var cond = @parse_expression(0)
+        var cases = []
+        var cc = 0
+        while @peek().kind == TokenKind.KwCase do
+            @advance()
+            var patterns = []
+            var pc = 0
+            patterns[pc] = @parse_expression(0)
+            pc = pc + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                patterns[pc] = @parse_expression(0)
+                pc = pc + 1
+            end
+            @expect(TokenKind.FatArrow "esperado '=>'")
+            var body = @parse_block_no_match_end()
+            cases[cc] = StmtNode { kind: NodeKind.MatchCase patterns: patterns body: body span: null condition: null value: null target: null }
+            cc = cc + 1
+        end
+        var else_body = null
+        if @peek().kind == TokenKind.KwElse
+            @advance()
+            @expect(TokenKind.FatArrow "esperado '=>'")
+            else_body = @parse_block_no_match_end()
+        end
+        @expect(TokenKind.KwEnd "esperado 'end'")
+        return StmtNode { kind: NodeKind.MatchStmt condition: cond cases: cases value: else_body span: null body: null target: null }
+    end
+
+    func parse_block_no_match_end() -> any
+        var body = []
+        var c = 0
+        while @peek().kind != TokenKind.KwEnd and @peek().kind != TokenKind.KwCase and @peek().kind != TokenKind.KwElse and not @is_at_end() do
+            body[c] = @parse_statement()
+            c = c + 1
+        end
+        return body
+    end
+
+    func parse_expression(precedence: int) -> ExprNode
+        var left = @parse_primary()
+        while true do
+            var p = @get_precedence(@peek().kind)
+            if p <= precedence break end
+            @advance()
+            var op = @previous()
+            var right = @parse_expression(p)
+            left = ExprNode { kind: NodeKind.BinaryExpr left: left right: right operator: op span: null name: "" callee: null object: null value: null symbol: null }
+        end
+        return left
+    end
+
+    func parse_primary() -> ExprNode
+        var t = @peek()
+        if t.kind == TokenKind.Identifier
+            @advance()
+            var node = ExprNode { kind: NodeKind.IdentifierExpr name: t.text span: t.span symbol: null left: null right: null operator: null value: null callee: null object: null }
+            return @parse_postfix(node)
+        elif t.kind == TokenKind.IntegerLiteral or t.kind == TokenKind.StringLiteral
+            @advance()
+            return ExprNode { kind: NodeKind.LiteralExpr value: t.text span: t.span left: null right: null operator: null name: "" callee: null object: null symbol: null }
+        elif t.kind == TokenKind.LParen
+            @advance()
+            var expr = @parse_expression(0)
+            @expect(TokenKind.RParen "esperado ')'")
+            return expr
+        elif t.kind == TokenKind.KwSelf
+            @advance()
+            return ExprNode { kind: NodeKind.SelfExpr name: "self" span: t.span left: null right: null operator: null value: null callee: null object: null symbol: null }
+        elif t.kind == (native lua string.char(123) end)
+            return @parse_map_or_list()
+        elif t.kind == TokenKind.LBracket
+            return @parse_list_literal()
+        end
+        @advance()
+        return ExprNode { kind: NodeKind.BAD name: t.text span: t.span left: null right: null operator: null value: null callee: null object: null symbol: null }
+    end
+
+    func parse_postfix(node: ExprNode) -> ExprNode
+        var res = node
+        while true do
+            if @peek().kind == TokenKind.LParen
+                res = @parse_call_expr(res)
+            elif @peek().kind == TokenKind.Dot
+                @advance()
+                var name = @expect(TokenKind.Identifier "esperado nome do membro").text
+                res = ExprNode { kind: NodeKind.MemberExpr object: res name: name span: null left: null right: null operator: null value: null callee: null symbol: null }
+            elif @peek().kind == TokenKind.LBracket
+                @advance()
+                var idx = @parse_expression(0)
+                @expect(TokenKind.RBracket "esperado ']'")
+                res = ExprNode { kind: NodeKind.IndexExpr object: res index: idx span: null left: null right: null operator: null value: null callee: null name: "" symbol: null }
+            elif @peek().kind == (native lua string.char(123) end)
+                res = @parse_struct_init(res)
+            else
+                break
+            end
+        end
+        return res
+    end
+
+    func parse_call_expr(callee: ExprNode) -> ExprNode
+        @advance()
+        var args = []
+        var c = 0
+        if @peek().kind != TokenKind.RParen
+            args[c] = @parse_expression(0)
+            c = c + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                args[c] = @parse_expression(0)
+                c = c + 1
+            end
+        end
+        @expect(TokenKind.RParen "esperado ')'")
+        return ExprNode { kind: NodeKind.CallExpr callee: callee args: args span: null left: null right: null operator: null value: null object: null name: "" symbol: null }
+    end
+
+    func parse_struct_init(callee: ExprNode) -> ExprNode
+        @advance()
+        var keys = []
+        var vals = []
+        var c = 0
+        if @peek().kind != (native lua string.char(125) end)
+            keys[c] = @expect(TokenKind.Identifier "esperado chave").text
+            @expect(TokenKind.Colon "esperado ':'")
+            vals[c] = @parse_expression(0)
+            c = c + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                keys[c] = @expect(TokenKind.Identifier "esperado chave").text
+                @expect(TokenKind.Colon "esperado ':'")
+                vals[c] = @parse_expression(0)
+                c = c + 1
+            end
+        end
+        @expect((native lua string.char(125) end) "esperado '}'")
+        return ExprNode { kind: NodeKind.StructInitExpr name: callee.name keys: keys values: vals span: null left: null right: null operator: null value: null callee: null object: null symbol: null }
+    end
+
+    func parse_map_or_list() -> any
+        @advance()
+        var keys = []
+        var vals = []
+        var c = 0
+        if @peek().kind == (native lua string.char(125) end)
+            @advance()
+            return ExprNode { kind: NodeKind.MapLiteral keys: keys values: vals span: null left: null right: null operator: null value: null callee: null object: null symbol: null items: null name: "" }
+        end
+        
+        var first = @parse_expression(0)
+        if @peek().kind == TokenKind.Colon
+            @advance()
+            var first_v = @parse_expression(0)
+            keys[c] = first
+            vals[c] = first_v
+            c = c + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                keys[c] = @parse_expression(0)
+                @expect(TokenKind.Colon "esperado ':'")
+                vals[c] = @parse_expression(0)
+                c = c + 1
+            end
+            @expect((native lua string.char(125) end) "esperado '}'")
+            return ExprNode { kind: NodeKind.MapLiteral keys: keys values: vals span: null left: null right: null operator: null value: null callee: null object: null symbol: null items: null name: "" }
+        else
+            var items = []
+            var ic = 0
+            items[ic] = first
+            ic = ic + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                items[ic] = @parse_expression(0)
+                ic = ic + 1
+            end
+            @expect((native lua string.char(125) end) "esperado '}'")
+            return ExprNode { kind: NodeKind.ListLiteral items: items span: null left: null right: null operator: null value: null callee: null object: null symbol: null keys: null values: null name: "" }
+        end
+    end
+
+    func parse_list_literal() -> ExprNode
+        @advance()
+        var items = []
+        var c = 0
+        if @peek().kind != TokenKind.RBracket
+            items[c] = @parse_expression(0)
+            c = c + 1
+            while @peek().kind == TokenKind.Comma do
+                @advance()
+                items[c] = @parse_expression(0)
+                c = c + 1
+            end
+        end
+        @expect(TokenKind.RBracket "esperado ']'")
+        return ExprNode { kind: NodeKind.ListLiteral items: items span: null left: null right: null operator: null value: null callee: null object: null symbol: null keys: null values: null name: "" }
+    end
+
+    func get_precedence(k: TokenKind) -> int
+        if k == TokenKind.Or or k == TokenKind.KwOr return 1
+        elif k == TokenKind.And or k == TokenKind.KwAnd return 2
+        elif k == TokenKind.EqualEqual or k == TokenKind.BangEqual return 3
+        elif k == TokenKind.Less or k == TokenKind.LessEqual or k == TokenKind.Greater or k == TokenKind.GreaterEqual return 4
+        elif k == TokenKind.Plus or k == TokenKind.Minus return 5
+        elif k == TokenKind.Star or k == TokenKind.Slash or k == TokenKind.Percent return 6
+        elif k == TokenKind.Caret return 7
+        end
+        return 0
+    end
+
+    func expect(k: TokenKind msg: text) -> Token
+        if @peek().kind == k
+            var t = @peek()
+            @advance()
+            return t
+        end
+        return Token { kind: TokenKind.BAD text: msg span: null }
+    end
+
+    func peek() -> Token
+        return @tokens[@pos]
+    end
+
+    func previous() -> Token
+        return @tokens[@pos-1]
+    end
+
+    func advance()
+        @pos = @pos + 1
+    end
+
+    func is_at_end() -> bool
+        return @tokens[@pos].kind == TokenKind.EOF
+    end
+end
+
+pub func scope_lookup(sc: any name: text) -> any
+    var cur = sc
+    while cur != null do
+        native lua
+            local sym = cur.symbols[name]
+            if sym then return sym end
+        end
+        cur = cur.parent
+    end
+    return null
+end
+
+pub struct Scope
+    pub parent: any
+    pub symbols: any
+
+    pub func define(sym: Symbol)
+        native lua
+            self.symbols[sym.name] = sym
+        end
+    end
+end
+
+pub struct ModuleManager
+    pub project_root: text
+    pub cache: any
+
+    pub func resolve_path(module_name: text) -> text
+        var path = ""
+        native lua
+            if module_name:sub(1, 4) == "std." then
+                path = "src/stdlib/" .. module_name:sub(5):gsub("%.", "/") .. ".zt"
+            else
+                path = self.project_root .. "/" .. module_name:gsub("%.", "/") .. ".zt"
+            end
+        end
+        return path
+    end
+
+    pub func get_ast(module_name: text) -> CompilationUnit
+        native lua
+            local cached = self.cache[module_name]
+            if cached then return cached end
+        end
+        
+        var path = @resolve_path(module_name)
+        var src = ""
+        native lua
+            local f = io.open(path, "r")
+            if f then
+                src = f:read("*a")
+                f:close()
+            else
+                f = io.open(module_name, "r")
+                if f then
+                    src = f:read("*a")
+                    f:close()
+                end
+            end
+        end
+        
+        if src == "" return null end
+
+        var l = Lexer { source: src pos: 0 tokens: [] }
+        var ts = l.tokenize()
+        var p = Parser { tokens: ts pos: 0 }
+        var unit = p.parse()
+        
+        native lua
+            self.cache[module_name] = unit
+        end
+        return unit
+    end
+end
+
+pub struct Binder
+    pub current_scope: Scope
+    pub module_manager: ModuleManager
+    pub module_scopes: any
+
+    pub func bind_unit(u: CompilationUnit)
+        var imps = u.imports
+        if imps != null
+            var i = 0
+            while imps[i] != null do
+                var imp = imps[i]
+                var module_ast = @module_manager.get_ast(imp.body)
+                if module_ast != null
+                    native lua
+                        local cached_scope = self.module_scopes[imp.body]
+                        if not cached_scope then
+                            local mod_binder = Binder.new({
+                                current_scope = Scope.new({ parent = nil, symbols = {} }),
+                                module_manager = self.module_manager,
+                                module_scopes = self.module_scopes
+                            })
+                            mod_binder:bind_unit(module_ast)
+                            cached_scope = mod_binder.current_scope
+                            self.module_scopes[imp.body] = cached_scope
+                        end
+                        
+                        local sym = Symbol.new({
+                            kind = 4,
+                            name = imp.name,
+                            type_name = "module",
+                            is_pub = false,
+                            declaration = imp,
+                            module_scope = cached_scope
+                        })
+                        self.current_scope:define(sym)
+                    end
+                end
+                i = i + 1
+            end
+        end
+
+        var decls = u.declarations
+        if decls != null
+            var j = 0
+            while decls[j] != null do
+                @_declare(decls[j])
+                j = j + 1
+            end
+            var k = 0
+            while decls[k] != null do
+                @_bind_node(decls[k])
+                k = k + 1
+            end
+        end
+    end
+
+    func _declare(n: any)
+        if n.kind == NodeKind.FuncDecl or n.kind == NodeKind.VarDecl or n.kind == NodeKind.StructDecl or n.kind == NodeKind.EnumDecl
+            var k = 0
+            if n.kind == NodeKind.VarDecl k = 1 end
+            if n.kind == NodeKind.StructDecl k = 2 end
+            if n.kind == NodeKind.EnumDecl k = 2 end
+            var sym = Symbol { kind: k name: n.name type_name: "any" is_pub: n.is_pub declaration: n module_scope: null }
+            @current_scope.define(sym)
+        end
+    end
+
+    func _bind_node(n: any)
+        if n == null return end
+        if n.kind == NodeKind.FuncDecl
+            var prev = @current_scope
+            @current_scope = Scope { parent: prev symbols: (native lua {} end) }
+            var ps = n.params
+            if ps != null
+                var i = 0
+                while ps[i] != null do
+                    var sym = Symbol { kind: 3 name: ps[i] type_name: "any" is_pub: false declaration: n module_scope: null }
+                    @current_scope.define(sym)
+                    i = i + 1
+                end
+            end
+            var body = n.body
+            if body != null
+                var j = 0
+                while body[j] != null do
+                    @_bind_node(body[j])
+                    j = j + 1
+                end
+            end
+            @current_scope = prev
+        elif n.kind == NodeKind.VarDecl
+            @_bind_node(n.body)
+        elif n.kind == NodeKind.IdentifierExpr
+            n.symbol = scope_lookup(@current_scope n.name)
+        elif n.kind == NodeKind.BinaryExpr
+            @_bind_node(n.left)
+            @_bind_node(n.right)
+        elif n.kind == NodeKind.ReturnStmt
+            @_bind_node(n.value)
+        elif n.kind == NodeKind.ExprStmt
+            @_bind_node(n.value)
+        elif n.kind == NodeKind.AssignStmt
+            @_bind_node(n.target)
+            @_bind_node(n.value)
+        elif n.kind == NodeKind.ForInStmt
+            @_bind_node(n.iterable)
+            var fb = n.body
+            if fb != null
+                var i = 0
+                while fb[i] != null do
+                    @_bind_node(fb[i])
+                    i = i + 1
+                end
+            end
+        elif n.kind == NodeKind.RepeatStmt
+            @_bind_node(n.count_expr)
+            var rb = n.body
+            if rb != null
+                var i = 0
+                while rb[i] != null do
+                    @_bind_node(rb[i])
+                    i = i + 1
+                end
+            end
+        elif n.kind == NodeKind.MatchStmt
+            @_bind_node(n.condition)
+            var mcs = n.cases
+            if mcs != null
+                var i = 0
+                while mcs[i] != null do
+                    var c = mcs[i]
+                    var ps = c.patterns
+                    if ps != null
+                        var k = 0
+                        while ps[k] != null do
+                            @_bind_node(ps[k])
+                            k = k + 1
+                        end
+                    end
+                    var cb = c.body
+                    if cb != null
+                        var j = 0
+                        while cb[j] != null do
+                            @_bind_node(cb[j])
+                            j = j + 1
+                        end
+                    end
+                    i = i + 1
+                end
+            end
+            if n.value != null
+                var eb = n.value
+                var k = 0
+                while eb[k] != null do
+                    @_bind_node(eb[k])
+                    k = k + 1
+                end
+            end
+        elif n.kind == NodeKind.MemberExpr
+            @_bind_node(n.object)
+            if n.object.kind == NodeKind.IdentifierExpr and n.object.symbol != null
+                var sym = n.object.symbol
+                if sym.kind == 4
+                    var mod_scope = sym.module_scope
+                    n.symbol = scope_lookup(mod_scope n.name)
+                end
+            end
+        end
+    end
+end
+
+pub struct Emitter
+    pub output: any
+    pub indent_level: int
+    pub line_count: int
+
+    pub func emit(txt: text)
+        var indent = ""
+        var i = 0
+        while @indent_level > i do
+            indent = indent + "    "
+            i = i + 1
+        end
+        @output[@line_count] = indent + txt
+        @line_count = @line_count + 1
+    end
+
+    pub func indent() @indent_level = @indent_level + 1 end
+    pub func dedent() @indent_level = @indent_level - 1 end
+
+    pub func generate(u: CompilationUnit) -> text
+        @emit("-- Transpilado por Zenith Ascension (Bridge v0.5.2)")
+        @emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
+        
+        var imps = u.imports
+        if imps != null
+            var i = 0
+            while imps[i] != null do
+                var imp = imps[i]
+                var lua_path = imp.body
+                native lua
+                    if lua_path:sub(1, 4) == "std." then
+                        lua_path = "src.stdlib." .. lua_path:sub(5)
+                    end
+                end
+                @emit("local " + imp.name + " = require(\"" + lua_path + "\")")
+                i = i + 1
+            end
+        end
+        @emit("")
+        
+        var decls = u.declarations
+        if decls != null
+            var j = 0
+            while decls[j] != null do
+                @_bind_node_emit(decls[j])
+                j = j + 1
+            end
+        end
+
+        @emit("")
+        @emit("return " + (native lua string.char(123) end))
+        @indent()
+        if decls != null
+            var k = 0
+            while decls[k] != null do
+                var d = decls[k]
+                if d.is_pub
+                    @emit(d.name + " = " + d.name + ",")
+                end
+                k = k + 1
+            end
+        end
+        @dedent()
+        @emit((native lua string.char(125) end))
+
+        var res = ""
+        var l = 0
+        while @line_count > l do
+            res = res + @output[l] + "\n"
+            l = l + 1
+        end
+        return res
+    end
+
+    func _bind_node_emit(n: any)
+        if n == null return end
+        if n.kind == NodeKind.FuncDecl
+            var h = "function " + n.name + "("
+            var ps = n.params
+            if ps != null
+                var i = 0
+                while ps[i] != null do
+                    h = h + ps[i]
+                    if ps[i+1] != null h = h + ", " end
+                    i = i + 1
+                end
+            end
+            @emit(h + ")")
+            @indent()
+            var body = n.body
+            if body != null
+                var j = 0
+                while body[j] != null do
+                    @_bind_node_emit(body[j])
+                    j = j + 1
+                end
+            end
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.VarDecl
+            @emit("local " + n.name + " = " + @expr_to_lua(n.body))
+        elif n.kind == NodeKind.ReturnStmt
+            @emit("return " + @expr_to_lua(n.value))
+        elif n.kind == NodeKind.AssignStmt
+            @emit(@expr_to_lua(n.target) + " = " + @expr_to_lua(n.value))
+        elif n.kind == NodeKind.IfStmt
+            @emit("if (" + @expr_to_lua(n.condition) + ") then")
+            @indent()
+            var body = n.body
+            if body != null
+                var i = 0
+                while body[i] != null do
+                    @_bind_node_emit(body[i])
+                    i = i + 1
+                end
+            end
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.WhileStmt
+            @emit("while (" + @expr_to_lua(n.condition) + ") do")
+            @indent()
+            var body = n.body
+            if body != null
+                var i = 0
+                while body[i] != null do
+                    @_bind_node_emit(body[i])
+                    i = i + 1
+                end
+            end
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.ForInStmt
+            var vars = n.variables
+            var v_str = vars[0]
+            @emit("for _, " + v_str + " in zt.iter(" + @expr_to_lua(n.iterable) + ") do")
+            @indent()
+            var body = n.body
+            if body != null
+                var i = 0
+                while body[i] != null do
+                    @_bind_node_emit(body[i])
+                    i = i + 1
+                end
+            end
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.RepeatStmt
+            @emit("for _ = 1, " + @expr_to_lua(n.count_expr) + " do")
+            @indent()
+            var body = n.body
+            if body != null
+                var i = 0
+                while body[i] != null do
+                    @_bind_node_emit(body[i])
+                    i = i + 1
+                end
+            end
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.MatchStmt
+            @emit("do")
+            @indent()
+            @emit("local _m = " + @expr_to_lua(n.condition))
+            var cases = n.cases
+            var i = 0
+            while cases[i] != null do
+                var c = cases[i]
+                var cond = ""
+                var ps = c.patterns
+                var j = 0
+                while ps[j] != null do
+                    var p_str = @expr_to_lua(ps[j])
+                    if j > 0 cond = cond + " or " end
+                    cond = cond + "(_m == " + p_str + ")"
+                    j = j + 1
+                end
+                if i == 0
+                    @emit("if " + cond + " then")
+                else
+                    @emit("elseif " + cond + " then")
+                end
+                @indent()
+                var cbody = c.body
+                var k = 0
+                while cbody[k] != null do
+                    @_bind_node_emit(cbody[k])
+                    k = k + 1
+                end
+                @dedent()
+                i = i + 1
+            end
+            if n.value != null
+                @emit("else")
+                @indent()
+                var ebody = n.value
+                var k = 0
+                while ebody[k] != null do
+                    @_bind_node_emit(ebody[k])
+                    k = k + 1
+                end
+                @dedent()
+            end
+            @emit("end")
+            @dedent()
+            @emit("end")
+        elif n.kind == NodeKind.ExprStmt
+            @emit(@expr_to_lua(n.value))
+        elif n.kind == NodeKind.StructDecl
+            @emit("local " + n.name + " = " + (native lua string.char(123) end) + (native lua string.char(125) end))
+            @emit(n.name + ".__index = " + n.name)
+            @emit("function " + n.name + ".new(fields)")
+            @indent()
+            @emit("local self = setmetatable(" + (native lua string.char(123) end) + (native lua string.char(125) end) + ", " + n.name + ")")
+            var fs = n.fields
+            if fs != null
+                var i = 0
+                while fs[i] != null do
+                    var f = fs[i]
+                    var init = "nil"
+                    if f.body != null init = @expr_to_lua(f.body) end
+                    @emit("self." + f.name + " = fields." + f.name + " or " + init)
+                    i = i + 1
+                end
+            end
+            @emit("return self")
+            @dedent()
+            @emit("end")
+            var ms = n.methods
+            if ms != null
+                var i = 0
+                while ms[i] != null do
+                    @_emit_method(ms[i] n.name)
+                    i = i + 1
+                end
+            end
+        elif n.kind == NodeKind.EnumDecl
+            @emit("local " + n.name + " = " + (native lua string.char(123) end))
+            @indent()
+            var mems = n.members
+            if mems != null
+                var i = 0
+                while mems[i] != null do
+                    @emit(mems[i] + " = " + (native lua string.char(34) end) + mems[i] + (native lua string.char(34) end) + ",")
+                    i = i + 1
+                end
+            end
+            @dedent()
+            @emit((native lua string.char(125) end))
+        end
+    end
+
+    func _emit_method(n: any struct_name: text)
+        var h = "function " + struct_name + ":" + n.name + "("
+        var ps = n.params
+        if ps != null
+            var i = 0
+            while ps[i] != null do
+                h = h + ps[i]
+                if ps[i+1] != null h = h + ", " end
+                i = i + 1
+            end
+        end
+        @emit(h + ")")
+        @indent()
+        var body = n.body
+        if body != null
+            var j = 0
+            while body[j] != null do
+                @_bind_node_emit(body[j])
+                j = j + 1
+            end
+        end
+        @dedent()
+        @emit("end")
+    end
+
+    func expr_to_lua(n: any) -> text
+        if n == null return "nil" end
+        if n.kind == NodeKind.LiteralExpr return n.value end
+        if n.kind == NodeKind.IdentifierExpr return n.name end
+        if n.kind == NodeKind.BinaryExpr
+            return "(" + @expr_to_lua(n.left) + " " + n.operator.text + " " + @expr_to_lua(n.right) + ")"
+        elif n.kind == NodeKind.CallExpr
+            var c = @expr_to_lua(n.callee)
+            var a = "("
+            var args = n.args
+            if args != null
+                var i = 0
+                while args[i] != null do
+                    a = a + @expr_to_lua(args[i])
+                    if args[i+1] != null a = a + ", " end
+                    i = i + 1
+                end
+            end
+            return c + a + ")"
+        elif n.kind == NodeKind.MemberExpr
+            return @expr_to_lua(n.object) + "." + n.name
+        elif n.kind == NodeKind.IndexExpr
+            return @expr_to_lua(n.object) + "[" + @expr_to_lua(n.index) + "]"
+        elif n.kind == NodeKind.UnaryExpr
+            var op = n.operator.text
+            if n.operator.kind == TokenKind.KwNot op = "not" end
+            return "(" + op + " " + @expr_to_lua(n.right) + ")"
+        elif n.kind == NodeKind.ListLiteral
+            var res = (native lua string.char(123) end)
+            var items = n.items
+            if items != null
+                var i = 0
+                while items[i] != null do
+                    res = res + @expr_to_lua(items[i])
+                    if items[i+1] != null res = res + ", " end
+                    i = i + 1
+                end
+            end
+            return res + (native lua string.char(125) end)
+        elif n.kind == NodeKind.MapLiteral
+            var res = (native lua string.char(123) end)
+            var keys = n.keys
+            var vals = n.values
+            if keys != null
+                var i = 0
+                while keys[i] != null do
+                    res = res + "[" + @expr_to_lua(keys[i]) + "] = " + @expr_to_lua(vals[i])
+                    if keys[i+1] != null res = res + ", " end
+                    i = i + 1
+                end
+            end
+            return res + (native lua string.char(125) end)
+        elif n.kind == NodeKind.StructInitExpr
+            var res = n.name + ".new(" + (native lua string.char(123) end)
+            var keys = n.keys
+            var vals = n.values
+            if keys != null
+                var i = 0
+                while keys[i] != null do
+                    res = res + "[" + (native lua string.char(34) end) + keys[i] + (native lua string.char(34) end) + "] = " + @expr_to_lua(vals[i])
+                    if keys[i+1] != null res = res + " " end
+                    i = i + 1
+                end
+            end
+            return res + (native lua string.char(125) end) + ")"
+        elif n.kind == NodeKind.SelfExpr
+            return "self"
+        end
+        return "nil"
+    end
+end
+
+pub func compile(src: text) -> text
+    var l = Lexer { source: src pos: 0 tokens: [] }
+    var ts = l.tokenize()
+    var p = Parser { tokens: ts pos: 0 }
+    var unit = p.parse()
+    
+    var mm = ModuleManager { project_root: "." cache: (native lua {} end) }
+    var b = Binder { 
+        current_scope: Scope { parent: null symbols: (native lua {} end) }
+        module_manager: mm
+        module_scopes: (native lua {} end)
+    }
+    var e = Emitter { output: [] indent_level: 0 line_count: 0 }
+    
+    b.bind_unit(unit)
+    return e.generate(unit)
+end
+
+native lua
+    if arg and #arg > 0 then
+        local src_file = arg[1]
+        local f = io.open(src_file, "r")
+        if f then
+            local content = f:read("*a")
+            f:close()
+            local success, result = pcall(compile, content)
+            if success then
+                io.write(result)
+            else
+                io.stderr:write("Erro na compilação: " .. tostring(result) .. "\n")
+                os.exit(1)
+            end
+        end
+    end
+end

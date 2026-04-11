@@ -107,6 +107,10 @@ function TEXT.lines(t)
     return l
 end
 
+function TEXT.slice(t, start_idx, end_idx)
+    return t:sub(start_idx or 1, end_idx or -1)
+end
+
 -- 🛡️ SEGURANÇA E UI
 
 function TEXT.mask(t, v_start, v_end, char)
@@ -141,6 +145,14 @@ function TEXT.truncate(t, max_len, suffix)
         if count >= max_len then break end
     end
     return res .. suffix
+end
+
+function TEXT.format(fmt, args)
+    if type(args) == "table" then
+        return string.format(fmt, unpack(args))
+    else
+        return string.format(fmt, args)
+    end
 end
 
 return TEXT

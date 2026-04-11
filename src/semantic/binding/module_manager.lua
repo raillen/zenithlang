@@ -50,6 +50,23 @@ function ModuleManager:get_or_load_ast(module_name)
     if diags:has_errors() then
         return nil, "Erro de parser no módulo " .. module_name .. ":\n" .. diags:format(source)
     end
+
+    -- DESCOBERTA DE ZDOC (v0.3.1)
+    local zdoc_path = path:gsub("%.zt$", ".zdoc")
+    local zdoc_file = io.open(zdoc_path, "r")
+    if zdoc_file then
+        local zdoc_content = zdoc_file:read("*all")
+        zdoc_file:close()
+        local zdoc_source = SourceText.new(zdoc_content, zdoc_path)
+        local zdoc_unit, zdoc_diags = Parser.parse(zdoc_source)
+        
+        if not zdoc_diags:has_errors() then
+            -- Mescla doc_comments do .zdoc no unit principal
+            for _, dc in ipairs(zdoc_unit.doc_comments or {}) do
+                table.insert(unit.doc_comments, dc)
+            end
+        end
+    end
     
     self.cache[module_name] = {
         ast = unit,

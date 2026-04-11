@@ -90,3 +90,15 @@ end
 --- Corta o texto se ele ultrapassar o limite, adicionando um sufixo.
 pub func truncate(t: text, max_len: int, suffix: text = "...") -> text
 end
+
+--- Formata uma string usando padrões estilo printf.
+pub func format(fmt: text, args: any) -> text
+    native lua
+        -- Em Lua v0.2/v0.3, tratamos args como uma lista/tabela para string.format
+        if type(args) == "table" then
+            return string.format(fmt, unpack(args))
+        else
+            return string.format(fmt, args)
+        end
+    end
+end

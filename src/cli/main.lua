@@ -50,26 +50,26 @@ local function main(args)
         print_help()
         return 0
     elseif command == "build" then
-        print("⚠️  Comando 'build' ainda não implementado.")
+        io.stderr:write("⚠️  Comando 'build' ainda não implementado.\n")
         return 1
     elseif command == "run" then
-        print("⚠️  Comando 'run' ainda não implementado.")
+        io.stderr:write("⚠️  Comando 'run' ainda não implementado.\n")
         return 1
     elseif command == "check" then
-        print("⚠️  Comando 'check' ainda não implementado.")
+        io.stderr:write("⚠️  Comando 'check' ainda não implementado.\n")
         return 1
     elseif command == "transpile" then
         local filename = args[2]
         if not filename then
-            print("❌ Erro: transpile exige um arquivo de entrada.")
-            print("   Exemplo: zt transpile main.zt")
+            io.stderr:write("❌ Erro: transpile exige um arquivo de entrada.\n")
+            io.stderr:write("   Exemplo: zt transpile main.zt\n")
             return 1
         end
 
         -- Ler arquivo
         local f = io.open(filename, "r")
         if not f then
-            print(string.format("❌ Erro: arquivo '%s' não encontrado.", filename))
+            io.stderr:write(string.format("❌ Erro: arquivo '%s' não encontrado.\n", filename))
             return 1
         end
         local code = f:read("*a")
@@ -80,7 +80,7 @@ local function main(args)
         -- 1. Parsing
         local unit, diagnostics = Parser.parse(source)
         if diagnostics:has_errors() then
-            print(diagnostics:format(source))
+            io.stderr:write(diagnostics:format(source) .. "\n")
             return 1
         end
 
@@ -90,7 +90,7 @@ local function main(args)
         local binder = Binder.new(diagnostics, module_manager)
         local _, binder_diags = binder:bind(unit, filename)
         if binder_diags:has_errors() then
-            print(binder_diags:format(source))
+            io.stderr:write(binder_diags:format(source) .. "\n")
             return 1
         end
 
@@ -110,18 +110,18 @@ local function main(args)
         if out_f then
             out_f:write(lua_code)
             out_f:close()
-            print(string.format("✅ Sucesso: '%s' -> '%s'", filename, out_name))
+            io.stderr:write(string.format("✅ Sucesso: '%s' -> '%s'\n", filename, out_name))
             return 0
         else
-            print(string.format("❌ Erro ao gravar arquivo de saída '%s'", out_name))
+            io.stderr:write(string.format("❌ Erro ao gravar arquivo de saída '%s'\n", out_name))
             return 1
         end
     elseif command == "test" then
-        print("⚠️  Comando 'test' ainda não implementado.")
+        io.stderr:write("⚠️  Comando 'test' ainda não implementado.\n")
         return 1
     else
-        print(string.format("❌ Comando desconhecido: '%s'", command))
-        print("   Use 'zt help' para ver os comandos disponíveis.")
+        io.stderr:write(string.format("❌ Comando desconhecido: '%s'\n", command))
+        io.stderr:write("   Use 'zt help' para ver os comandos disponíveis.\n")
         return 1
     end
 end

@@ -1,0 +1,13 @@
+pub struct Teste
+    pub func checar(val: int) -> bool do
+        if val == 10 then
+            return true
+        end
+        return false
+    end
+end
+
+pub func main() do
+    var t = Teste {}
+    print(t.checar(10))
+end

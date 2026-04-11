@@ -98,6 +98,53 @@ end
 
 function Lexer:_skip_comment()
     self:advance(2)
+    
+    -- Se for ---, tratamos como Doc Comment
+    if self:current() == "-" then
+        self:advance(1)
+        local start = self.pos - 3
+        local content = ""
+        
+        -- Descobre se é bloco ou linha única
+        -- Se houver apenas espaços e newline após ---, é bloco
+        local is_block = false
+        local p = 0
+        while true do
+            local next_c = self:peek(p)
+            if next_c == " " or next_c == "\t" or next_c == "\r" then
+                p = p + 1
+            elseif next_c == "\n" or next_c == "\0" then
+                is_block = true
+                break
+            else
+                break
+            end
+        end
+
+        if is_block then
+            -- Pula o resto da linha de abertura
+            while not self:is_at_end() and self:current() ~= "\n" do self:advance() end
+            if self:current() == "\n" then self:advance() end
+
+            while not self:is_at_end() do
+                if self:current() == "-" and self:peek(1) == "-" and self:peek(2) == "-" then
+                    self:advance(3)
+                    break
+                end
+                content = content .. self:current()
+                self:advance()
+            end
+        else
+            -- Linha única: até o fim da linha
+            while not self:is_at_end() and self:current() ~= "\n" do
+                content = content .. self:current()
+                self:advance()
+            end
+        end
+        table.insert(self.buffer, Token.new(TokenKind.DOC_COMMENT, content, content, Span.new(start, self.pos - start)))
+        return
+    end
+
     while not self:is_at_end() and self:current() ~= "\n" do self:advance() end
 end
 
@@ -163,9 +210,34 @@ function Lexer:_read_string()
         elseif c == "\\" then
             self:advance()
             local esc = self:current()
-            local map = { n="\n", t="\t", r="\r", ['"']='"', ["\\"]="\\", ["{"]="{", ["}"]="}" }
-            current_fragment = current_fragment .. (map[esc] or esc)
-            self:advance()
+            local map = { n="\n", t="\t", r="\r", e="\27", ['"']='"', ["\\"]="\\", ["{"]="{", ["}"]="}" }
+            
+            if map[esc] then
+                current_fragment = current_fragment .. map[esc]
+                self:advance()
+            elseif esc == "x" then
+                -- Hex escape \xHH
+                self:advance()
+                local hex = self.text:sub(self.pos, self.pos + 1)
+                local val = tonumber(hex, 16)
+                if val then
+                    current_fragment = current_fragment .. string.char(val)
+                    self:advance(2)
+                else
+                    current_fragment = current_fragment .. "x"
+                end
+            elseif esc:match("%d") then
+                -- Decimal escape \DDD (up to 3 digits)
+                local start_d = self.pos
+                while self:current():match("%d") and (self.pos - start_d) < 3 do
+                    self:advance()
+                end
+                local dec = self.text:sub(start_d, self.pos - 1)
+                current_fragment = current_fragment .. string.char(tonumber(dec))
+            else
+                current_fragment = current_fragment .. esc
+                self:advance()
+            end
         else
             current_fragment = current_fragment .. c
             self:advance()

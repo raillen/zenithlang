@@ -1,0 +1,5 @@
+namespace math_utils
+
+export func add(a: int, b: int) -> int
+    return a + b
+end

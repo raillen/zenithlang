@@ -1,0 +1,5 @@
+pub func main() do
+    var t = "hello"
+    var c = t[0]
+    print(c)
+end

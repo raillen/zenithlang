@@ -109,6 +109,12 @@ function COLLECTIONS.new_stack()
     return self
 end
 
+-- 📦 GRID (Matriz 2D Eficiente)
+
+function COLLECTIONS.new_grid(width, height, default)
+    return zt.grid_new(width, height, default)
+end
+
 -- 🏗️ UTILITÁRIOS FUNCIONAIS (Embutidos)
 
 function COLLECTIONS.filter_items(list, predicate)

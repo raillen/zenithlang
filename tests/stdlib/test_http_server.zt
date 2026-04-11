@@ -1,0 +1,34 @@
+-- tests/stdlib/test_http_server.zt
+import std.http
+
+pub async func main() -> int
+    var app = http.server(port: 8888)
+
+    print("--- Iniciando Servidor Web Zenith ---")
+
+    -- 1. Rota de Boas-vindas
+    app.on_get("/", (req, res) => {
+        res.send_html("<html><body style='background:#0f0f1a;color:#00f2ff;padding:50px;'><h1>🔭 Estação Zenith</h1><p>Órbita estável.</p><a href='/cadastro' style='color:#ff00ff;'>Cadastro</a></body></html>")
+    })
+
+    -- 2. Rota de Cadastro
+    app.on_get("/cadastro", (req, res) => {
+        res.send_html("<html><body style='background:#0f0f1a;color:white;padding:50px;'><h2>🚀 Cadastro</h2><form action='/confirmar' method='POST'><input type='text' name='nome'><button type='submit'>OK</button></form></body></html>")
+    })
+
+    -- 3. Rota de Confirmação
+    app.on_post("/confirmar", (req, res) => {
+        print("Recebida nova tentativa de acoplamento!")
+        res.status(201).send_json({
+            "status": "sucesso",
+            "mensagem": "Explorador registrado na base de dados Zenith."
+        })
+    })
+
+    print("🛰️ Servidor rodando em http://localhost:8888")
+    
+    -- Inicia o servidor (este comando bloqueia pois é o loop infinito)
+    await app.start()
+    
+    return 0
+end

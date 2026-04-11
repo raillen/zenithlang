@@ -1,0 +1,24 @@
+import std.test
+import std.os
+
+test.describe("Ascension Phase 6 & 7: Autonomia & CLI", () => do
+    test.test("Resolução de Namespaces", () => do
+        -- Validando se o motor entende o carregamento soberano
+        import std.math
+        import std.text
+        
+        var n = math.abs(-10)
+        var t = text.to_upper("zenith")
+        
+        test.assert_eq(n, 10)
+        test.assert_eq(t, "ZENITH")
+    end)
+
+    test.test("Execução CLI (ztc)", () => do
+        -- Testando se o compilador principal responde via OS
+        var res = os.run_command("lua ztc.lua --version")
+        test.assert_outcome_success(res)
+    end)
+end)
+
+test.run_all()

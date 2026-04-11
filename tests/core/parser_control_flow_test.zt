@@ -1,0 +1,38 @@
+import std.test
+
+test.describe("Parser: Controle de Fluxo", () => do
+    test.test("Estrutura If/Elif/Else", () => do
+        var x = 10
+        var res = ""
+        if x > 20
+            res = "maior"
+        elif x == 10
+            res = "igual"
+        else
+            res = "menor"
+        end
+        test.assert_eq(res, "igual")
+    end)
+
+    test.test("Loop While", () => do
+        var i = 0
+        var soma = 0
+        while i < 5
+            soma += i
+            i += 1
+        end
+        test.assert_eq(soma, 10) -- 0+1+2+3+4 = 10
+    end)
+
+    test.test("Match Statement", () => do
+        var val = 2
+        var msg = match val
+            case 1 => "um"
+            case 2 => "dois"
+            case _ => "outro"
+        end
+        test.assert_eq(msg, "dois")
+    end)
+end)
+
+test.run_all()

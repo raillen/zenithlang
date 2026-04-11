@@ -5,26 +5,64 @@ namespace std.http
 
 -- 📦 ESTRUTURAS
 
-pub struct Response
-    pub status: int
-    pub body: text
+pub struct Request
+    pub method: text
+    pub url: text
     pub headers: map<text, text>
+    pub body: text
     
-    --- Converte o corpo da resposta em um objeto Zenith (JSON).
+    --- Converte o corpo da requisição em um objeto Zenith (JSON).
     pub func json() -> any
     end
 end
 
--- 🚀 HTTP CLIENT (Async)
-
---- Realiza uma requisição GET.
-pub async func get(url: text, timeout: int = 30000) -> Outcome<Response, text>
+pub struct Response
+    pub status_code: int
+    
+    --- Define o código de status HTTP.
+    pub func status(code: int) -> Response
+    end
+    
+    --- Envia um texto puro.
+    pub func send_text(content: text)
+    end
+    
+    --- Envia um conteúdo HTML.
+    pub func send_html(content: text)
+    end
+    
+    --- Envia um objeto serializado como JSON.
+    pub func send_json(obj: any)
+    end
 end
 
---- Realiza uma requisição POST.
-pub async func post(url: text, body: any, headers: map<text, text> = {}, timeout: int = 30000) -> Outcome<Response, text>
+pub struct Server
+    pub port: int
+    pub max_payload_size: int -- em bytes
+    
+    --- Registra uma rota GET.
+    pub func on_get(path: text, handler: (Request, Response) => void)
+    end
+    
+    --- Registra uma rota POST.
+    pub func on_post(path: text, handler: (Request, Response) => void)
+    end
+    
+    --- Registra um middleware global.
+    pub func use(handler: (Request, Response) => void)
+    end
+    
+    --- Inicia o servidor e bloqueia (ou roda em background via task).
+    pub async func start()
+    end
 end
 
---- Baixa um arquivo diretamente para o disco com feedback de progresso.
-pub async func download_file(url: text, destination: text) -> Outcome<void, text>
+-- 🚀 CORE
+
+--- Cria um novo cliente/servidor HTTP.
+pub func server(port: int = 8080) -> Server
+end
+
+--- Realiza uma requisição GET assíncrona.
+pub async func get(url: text, timeout: int = 30000) -> Outcome<any, text>
 end

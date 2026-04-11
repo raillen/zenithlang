@@ -1,0 +1,32 @@
+-- Teste de Controle de Fluxo: Zenith Ascension (v0.5)
+
+func test_control() -> int
+    var sum = 0
+    
+    -- Teste repeat: soma 5
+    repeat 5 times
+        sum = (sum + 1)
+    end
+    
+    -- Teste for in: soma elementos da lista
+    var list = [10, 20, 30]
+    for x in list
+        sum = (sum + x)
+    end
+    
+    -- Teste match: decisão por padrão
+    var val = 20
+    var res = 0
+    match val
+        case 10 =>
+            res = 1
+        case 20, 30 =>
+            res = 2
+        else =>
+            res = 3
+    end
+    
+    return (sum + res) -- Expectativa: 5 + 60 + 2 = 67
+end
+
+var total = test_control()

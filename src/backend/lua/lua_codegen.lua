@@ -109,7 +109,7 @@ function LuaCodegen:_emit_compilation_unit(node)
     -- Passagem 1: Declarar nomes locais do módulo (forward declaration)
     local locals = {}
     for _, decl in ipairs(node.declarations) do
-        if decl.name then
+        if decl.name and decl.kind ~= SK.NAMESPACE_DECL and decl.kind ~= SK.IMPORT_DECL then
             table.insert(locals, decl.name)
         end
     end
@@ -274,6 +274,12 @@ function LuaCodegen:_emit_namespace_decl(node)
     self:emit(string.format("-- Namespace: %s", node.name))
 end
 
+function LuaCodegen:_emit_extern_decl(node)
+    if node.is_pub then table.insert(self.pub_members, node.name) end
+    -- Gera vinculação FFI (LuaJIT pattern)
+    self:emit(string.format("local %s = zt.ffi_bind(%q)", node.name, node.name))
+end
+
 function LuaCodegen:_emit_type_alias_decl(node)
 end
 
@@ -292,7 +298,7 @@ function LuaCodegen:_emit_import_decl(node)
         lua_path = "src/stdlib/" .. lua_path:sub(5)
     end
 
-    local name = node.alias or parts[#parts]
+    local name = (node.alias or parts[#parts]):gsub("%.", "_")
     self.imports[name] = true
 
     if name == "fast_add" then
@@ -307,6 +313,7 @@ function LuaCodegen:_emit_import_decl(node)
 end
 
 function LuaCodegen:_emit_func_decl(node, struct_name)
+    if node.is_pub and not struct_name then table.insert(self.pub_members, node.name) end
     local name = node.name
     if struct_name then
         name = struct_name .. ":" .. name
@@ -324,6 +331,7 @@ function LuaCodegen:_emit_func_decl(node, struct_name)
 end
 
 function LuaCodegen:_emit_async_func_decl(node)
+    if node.is_pub then table.insert(self.pub_members, node.name) end
     local names = {}
     for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
     local params_str = table.concat(names, ", ")
@@ -341,6 +349,7 @@ function LuaCodegen:_emit_async_func_decl(node)
 end
 
 function LuaCodegen:_emit_struct_decl(node)
+    if node.is_pub then table.insert(self.pub_members, node.name) end
     local name = node.name
     self:emit(string.format("local %s = {}", name))
     self:emit(string.format("%s.__index = %s", name, name))
@@ -399,6 +408,7 @@ end
 function LuaCodegen:_emit_trait_decl(node) end
 
 function LuaCodegen:_emit_enum_decl(node)
+    if node.is_pub then table.insert(self.pub_members, node.name) end
     self:emit(string.format("local %s = {", node.name))
     self:indent()
     for _, member in ipairs(node.members) do
@@ -416,6 +426,17 @@ function LuaCodegen:_emit_assign_stmt(node)
     self:emit(string.format("%s = %s", self:_eval(node.target), self:_eval(node.value)))
 end
 
+function LuaCodegen:_emit_break_stmt(node)
+    self:emit("break")
+end
+
+function LuaCodegen:_emit_continue_stmt(node)
+    -- Lua 5.1/LuaJIT não tem continue nativo. O compilador Zenith deveria usar goto ou um wrapper.
+    -- Por enquanto, vamos usar goto se disponível ou dar erro se for crítico.
+    self:emit("-- [Aviso: Continue não suportado nativamente no Lua 5.1/Luajit]")
+    self:emit("goto continue")
+end
+
 function LuaCodegen:_emit_compound_assign_stmt(node)
     local op_map = { ["+="] = "+", ["-="] = "-", ["*="] = "*", ["/="] = "/" }
     local op = op_map[node.operator.lexeme]
@@ -428,6 +449,14 @@ function LuaCodegen:_emit_check_stmt(node)
     self:emit(string.format("if not (%s) then", cond))
     self:indent()
     for _, stmt in ipairs(node.else_body) do self:_emit_node(stmt) end
+    self:dedent()
+    self:emit("end")
+end
+
+function LuaCodegen:_emit_while_stmt(node)
+    self:emit(string.format("while %s do", self:_eval(node.condition)))
+    self:indent()
+    for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
     self:emit("end")
 end
@@ -555,6 +584,9 @@ function LuaCodegen:_eval(node)
             local is_module = obj_name and self.imports[obj_name]
             if is_module then return string.format("%s.%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", "))
             else return string.format("%s:%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", ")) end
+        elseif node.callee.kind == SK.SELF_FIELD_EXPR then
+            -- Chamadas usando @name(args) ou self.name(args)
+            return string.format("self:%s(%s)", node.callee.field_name, table.concat(args, ", "))
         else return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", ")) end
     elseif node.kind == SK.MEMBER_EXPR then return string.format("%s.%s", self:_eval(node.object), node.member_name)
     elseif node.kind == SK.LEN_EXPR then return string.format("#(%s)", self:_eval(node.expression))
@@ -574,7 +606,12 @@ function LuaCodegen:_eval(node)
         end
         return string.format("%s.new({%s})", node.type_name, table.concat(fields, ", "))
 
-    elseif node.kind == SK.INDEX_EXPR then return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+    elseif node.kind == SK.INDEX_EXPR then
+        if node.index_expr and node.index_expr.kind == SK.RANGE_EXPR then
+            return string.format("zt.slice(%s, %s, %s)", self:_eval(node.object), self:_eval(node.index_expr.start_expr), self:_eval(node.index_expr.end_expr))
+        else
+            return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+        end
     elseif node.kind == SK.BANG_EXPR then return self:_eval(node.expression)
     elseif node.kind == SK.NATIVE_LUA_EXPR then return "(" .. node.lua_code .. ")"
     elseif node.kind == SK.AWAIT_EXPR then return string.format("zt.await(%s)", self:_eval(node.expression))
@@ -613,6 +650,8 @@ function LuaCodegen:_eval(node)
              
              local sub = LuaCodegen.new()
              sub.indent_level = self.indent_level + 1
+             sub.imports = self.imports
+             sub.pub_members = self.pub_members
              for _, stmt in ipairs(node.body) do sub:_emit_node(stmt) end
              
              local body_code = table.concat(sub.output, "\n")
@@ -629,6 +668,8 @@ function LuaCodegen:_eval(node)
             return string.format("zt.async_run(%s)", final_code)
         end
         return final_code
+    elseif node.kind == SK.GROUP_EXPR then
+        return "(" .. self:_eval(node.expression) .. ")"
     end
     return "-- [[Expr:" .. node.kind .. "]]"
 end

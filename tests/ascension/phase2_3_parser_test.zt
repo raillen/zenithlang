@@ -1,0 +1,46 @@
+import std.test
+
+test.describe("Ascension Phase 3: Parser (A Dança dos Blocos)", () => do
+    test.test("Aninhamento de Controle de Fluxo", () => do
+        var total = 0
+        var i = 0
+        while i < 10
+            if i % 2 == 0
+                total += i
+            else
+                total -= 1
+            end
+            i += 1
+        end
+        -- i: 0 (0), 1 (-1), 2 (2), 3 (-1), 4 (4), 5 (-1), 6 (6), 7 (-1), 8 (8), 9 (-1)
+        -- Total: 0 - 1 + 2 - 1 + 4 - 1 + 6 - 1 + 8 - 1 = 15
+        test.assert_eq(total, 15)
+    end)
+
+    test.test("Match Expression com Guardas", () => do
+        func classificar(n: int) -> text
+            return match n
+                case x if x < 0 => "negativo"
+                case 0          => "zero"
+                case x if x > 0 => "positivo"
+                case _          => "erro"
+            end
+        end
+
+        test.assert_eq(classificar(-5), "negativo")
+        test.assert_eq(classificar(0), "zero")
+        test.assert_eq(classificar(10), "positivo")
+    end)
+
+    test.test("Balanceamento de Blocos do/end", () => do
+        -- Testando se o parser aceita blocos vazios ou com múltiplas instruções
+        var x = do
+            var a = 10
+            var b = 20
+            a + b
+        end
+        test.assert_eq(x, 30)
+    end)
+end)
+
+test.run_all()

@@ -1,0 +1,11 @@
+pub func main() do
+    var l = [10, 20]
+    l[0] = 100
+    print("Item 0: " + l[0])
+    
+    -- Tentar expandir (Cuidado: Lua é 1-based, Zenith 0-based?)
+    -- No zenith_rt.lua, zt.slice usa start + 1, sugerindo que Zenith é 0-based.
+    l[2] = 300
+    print("Item 2: " + l[2])
+    print("Tamanho: " + #l)
+end

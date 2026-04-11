@@ -11,9 +11,10 @@ local DeclSyntax = require("src.syntax.ast.decl_syntax")
 local Lowerer = {}
 Lowerer.__index = Lowerer
 
-function Lowerer.new(diagnostics)
+function Lowerer.new(diagnostics, target_platform)
     local self = setmetatable({}, Lowerer)
     self.diagnostics = diagnostics
+    self.target_platform = target_platform or "windows" -- Default
     self.tmp_count = 0
     return self
 end
@@ -26,6 +27,24 @@ end
 function Lowerer:_lower_node(node)
     if not node then return nil end
     
+    -- Verificação de Atributos de Plataforma
+    if node.attributes then
+        local has_platform_attr = false
+        local matches_platform = false
+        for _, attr in ipairs(node.attributes) do
+            if attr.name == "windows" or attr.name == "linux" or attr.name == "macos" then
+                has_platform_attr = true
+                if attr.name == self.target_platform then
+                    matches_platform = true
+                end
+            end
+        end
+        -- Se tem atributo de plataforma mas nenhum bate com o alvo, descarta o nó
+        if has_platform_attr and not matches_platform then
+            return nil
+        end
+    end
+
     local method_name = "_lower_" .. node.kind:lower()
     local lowered
     

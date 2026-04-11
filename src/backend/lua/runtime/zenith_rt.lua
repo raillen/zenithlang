@@ -1,206 +1,59 @@
 -- ============================================================================
 -- Zenith Runtime (zenith_rt.lua)
--- Suporte para reatividade e tipos do Zenith v0.2.0
+-- Suporte para tipos e operações fundamentais do Zenith no Lua.
 -- ============================================================================
 
 local zt = {}
-local unpack = table.unpack or unpack
-
--- Inicializa semente aleatória para o sistema
-math.randomseed(os.time())
 
 -- ----------------------------------------------------------------------------
--- Reatividade (Core do ZenEngine)
--- ----------------------------------------------------------------------------
-
-local active_listener = nil
-local listener_stack = {}
-
-local function push_listener(listener)
-    table.insert(listener_stack, active_listener)
-    active_listener = listener
-end
-
-local function pop_listener()
-    active_listener = table.remove(listener_stack)
-end
-
---- Cria um novo estado reativo.
-function zt.state(initial_value)
-    local internal = {
-        value = initial_value,
-        observers = {}
-    }
-    
-    local proxy = {}
-    setmetatable(proxy, {
-        __index = function(_, k)
-            if k == "get" then
-                if active_listener then
-                    internal.observers[active_listener] = true
-                end
-                return internal.value
-            end
-        end,
-        __newindex = function(_, k, v)
-            if k == "set" then
-                if internal.value ~= v then
-                    internal.value = v
-                    -- Notificar observadores
-                    for obs, _ in pairs(internal.observers) do
-                        obs()
-                    end
-                end
-            end
-        end,
-        __tostring = function() return tostring(internal.value) end
-    })
-    
-    return proxy
-end
-
---- Cria um valor computado.
-function zt.computed(fn)
-    local internal = {
-        value = nil,
-        dirty = true,
-        observers = {}
-    }
-    
-    local function update()
-        if not internal.dirty then
-            internal.dirty = true
-            -- Notificar observadores deste computed
-            for obs, _ in pairs(internal.observers) do
-                obs()
-            end
-        end
-    end
-    
-    local proxy = {}
-    setmetatable(proxy, {
-        __index = function(_, k)
-            if k == "get" then
-                if internal.dirty then
-                    push_listener(update)
-                    internal.value = fn()
-                    pop_listener()
-                    internal.dirty = false
-                end
-                
-                if active_listener then
-                    internal.observers[active_listener] = true
-                end
-                
-                return internal.value
-            end
-        end,
-        __tostring = function() return tostring(internal.value) end
-    })
-    
-    return proxy
-end
-
---- Observa uma expressão ou valor reativo.
-function zt.watch(fn)
-    local function runner()
-        push_listener(runner)
-        fn()
-        pop_listener()
-    end
-    runner() -- Execução inicial
-end
-
---- Verificação de tipo 'is'
-function zt.is(val, target_type)
-    -- Suporte a União de tipos (passada como array de strings ou structs)
-    if type(target_type) == "table" and not getmetatable(target_type) and #target_type > 0 then
-        for i = 1, #target_type do
-            if zt.is(val, target_type[i]) then return true end
-        end
-        return false
-    end
-
-    if val == nil then return target_type == "null" or target_type == "any" end
-    if target_type == "any" then return true end
-
-    local t = type(val)
-    if target_type == "table" then return t == "table" end
-
-    if target_type == "int" or target_type == "float" or target_type == "number" then
-        return t == "number"
-    elseif target_type == "text" or target_type == "string" then
-        return t == "string"
-    elseif target_type == "bool" or target_type == "boolean" then
-        return t == "boolean"
-    end
-    
-    -- Para structs, comparamos a metatabela
-    if type(target_type) == "table" then
-        return getmetatable(val) == target_type
-    end
-    
-    return false
-end
-
--- ----------------------------------------------------------------------------
--- String Extensions (Zenith Text Methods)
--- ----------------------------------------------------------------------------
-
-local string_mt = getmetatable("")
-string_mt.__index.starts_with = function(self, prefix)
-    return self:sub(1, #prefix) == prefix
-end
-
-string_mt.__index.ends_with = function(self, suffix)
-    return suffix == "" or self:sub(-#suffix) == suffix
-end
-
-string_mt.__index.contains = function(self, search)
-    return self:find(search, 1, true) ~= nil
-end
-
--- ----------------------------------------------------------------------------
--- Utilitários
+-- TIPOS CORE
 -- ----------------------------------------------------------------------------
 
 zt.Optional = {
     Present = function(value)
         local obj = { _tag = "Present", value = value, _1 = value }
-        setmetatable(obj, { 
+        setmetatable(obj, {
             __tostring = function() return tostring(value) end,
             __index = {
-                unwrap_or = function(self, default) return self.value end
+                unwrap_or = function(self, default) return self.value end,
+                is_present = function(self) return true end,
+                is_empty = function(self) return false end,
             }
         })
         return obj
     end,
     Empty = { _tag = "Empty" },
 }
-setmetatable(zt.Optional.Empty, { 
+setmetatable(zt.Optional.Empty, {
     __tostring = function() return "null" end,
     __index = {
-        unwrap_or = function(self, default) return default end
+        unwrap_or = function(self, default) return default end,
+        is_present = function(self) return false end,
+        is_empty = function(self) return true end,
     }
 })
 
 zt.Outcome = {
     Success = function(value)
         local obj = { _tag = "Success", value = value, _1 = value }
-        setmetatable(obj, { 
+        setmetatable(obj, {
             __tostring = function() return tostring(value) end,
             __index = {
-                unwrap_or = function(self, default) return self.value end
+                unwrap_or = function(self, default) return self.value end,
+                is_success = function(self) return true end,
+                is_failure = function(self) return false end,
             }
         })
         return obj
     end,
     Failure = function(err)
         local obj = { _tag = "Failure", error = err, _1 = err }
-        setmetatable(obj, { 
+        setmetatable(obj, {
             __tostring = function() return "Error: " .. tostring(err) end,
             __index = {
-                unwrap_or = function(self, default) return default end
+                unwrap_or = function(self, default) return default end,
+                is_success = function(self) return false end,
+                is_failure = function(self) return true end,
             }
         })
         return obj
@@ -215,66 +68,62 @@ function zt.bang(val, msg)
     return val
 end
 
+--- Vinculação FFI (Foreign Function Interface)
+function zt.ffi_bind(name)
+    local ok, ffi = pcall(require, "ffi")
+    if not ok then
+        return function() error("FFI não suportado nesta VM (use LuaJIT)") end
+    end
+    -- Heurística simples: tenta buscar no C global
+    return ffi.C[name]
+end
+
 --- Verifica uma condição ou resultado.
---- Se for um booleano, false dispara erro.
---- Se for outro tipo, nil dispara erro (bubble up).
 function zt.check(val, msg)
     if val == nil or val == false then
-        zt.error(msg or "verificação de 'check' falhou")
+        error(msg or "verificação de 'check' falhou", 2)
     end
     return val
 end
 
---- Helper para Listas (Indexação 1-based nativa do Lua)
-function zt.list(...)
-    return {...}
-end
+-- ----------------------------------------------------------------------------
+-- OPERAÇÕES
+-- ----------------------------------------------------------------------------
 
---- Cria uma nova lista espalhando elementos de outras listas (Spread)
-function zt.list_spread(...)
-    local res = {}
-    local args = {...}
-    for _, arg in ipairs(args) do
-        if type(arg) == "table" and not getmetatable(arg) then
-            for _, v in ipairs(arg) do table.insert(res, v) end
-        else
-            table.insert(res, arg)
-        end
+function zt.add(a, b)
+    if type(a) == "string" or type(b) == "string" then
+        return tostring(a) .. tostring(b)
     end
-    return res
+    return a + b
 end
 
---- Helper para Mapas
-function zt.map(t)
-    return t or {}
-end
-
---- Cria um novo mapa espalhando entradas de outros mapas (Spread)
-function zt.map_spread(...)
-    local res = {}
-    local args = {...}
-    for _, arg in ipairs(args) do
-        if type(arg) == "table" then
-            for k, v in pairs(arg) do res[k] = v end
+function zt.unwrap_or(val, default)
+    if type(val) == "table" and val._tag then
+        if val._tag == "Present" or val._tag == "Success" then
+            return val.value
         end
+        return default
     end
-    return res
+    return val or default
 end
 
---- Retorna uma subparte de uma lista ou string (Slicing)
-function zt.slice(obj, start, finish)
+function zt.is(val, target_type)
+    local t = type(val)
+    if t == target_type then return true end
+    if target_type == "int" and t == "number" and math.floor(val) == val then return true end
+    if target_type == "float" and t == "number" then return true end
+    if target_type == "text" and t == "string" then return true end
+    if target_type == "bool" and t == "boolean" then return true end
+    if t == "table" and val._metadata and val._metadata.name == target_type then return true end
+    return false
+end
+
+function zt.slice(obj, start_v, end_v)
     if type(obj) == "string" then
-        if finish == nil then
-            finish = #obj - 1
-        end
-        -- Zenith expõe fatias zero-based e inclusivas.
-        return obj:sub(start + 1, finish + 1)
+        return obj:sub(start_v or 1, end_v or -1)
     elseif type(obj) == "table" then
-        if finish == nil then
-            finish = #obj - 1
-        end
         local res = {}
-        for i = start + 1, finish + 1 do
+        for i = (start_v or 1), (end_v or #obj) do
             table.insert(res, obj[i])
         end
         return res
@@ -282,137 +131,70 @@ function zt.slice(obj, start, finish)
     return obj
 end
 
---- Helper para Range (Retorna um iterador ou tabela)
-function zt.range(start, finish)
-    local current = start - 1
-    return function()
-        current = current + 1
-        if current <= finish then
-            return current
-        end
-    end
-end
-
---- Converte um objeto Iterable do Zenith para um iterador Lua.
---- Desembrulha um Optional ou Outcome, ou retorna o padrão.
-function zt.unwrap_or(obj, default)
-    if type(obj) == "table" and (obj._tag == "Present" or obj._tag == "Success") then
-        return obj.value
-    end
-    return default
-end
-
---- Se o objeto tiver :iterator(), usa-o. Se for função, usa diretamente.
---- Se for lista, usa ipairs.
 function zt.iter(obj)
-    if type(obj) == "function" then return obj end
-    
     if type(obj) == "table" then
-        if obj.iterator then
-            local it = obj:iterator()
-            return function()
-                local res = it()
-                if res and res._tag == "Present" then
-                    return res.value
-                end
-                return nil
-            end
-        end
-        -- Para listas comuns, retornamos um iterador que dá apenas os valores
-        local i = 0
-        local n = #obj
-        return function()
-            i = i + 1
-            if i <= n then return obj[i] end
-        end
+        if obj._iter then return obj:_iter() end
+        return ipairs(obj)
     end
-    
-    return function() return nil end
+    error("objeto não iterável")
 end
 
--- ----------------------------------------------------------------------------
--- Standard Library Support
--- ----------------------------------------------------------------------------
-
---- Implementação do print() do Zenith que retorna o valor impresso como texto.
-function zt.print(...)
-    print(...)
-end
-
---- Implementação de assert()
-function zt.assert(condition, message, ...)
-    assert(condition, message, ...)
-end
-
---- Inicia uma tarefa assíncrona.
 function zt.async_run(fn, ...)
     local co = coroutine.create(fn)
-    local args = {...}
-    local task = { co = co }
-    
-    -- Função que executa um passo da corrotina
-    local function step(...)
-        if coroutine.status(co) == "dead" then return task.result end
-        local ok, res = coroutine.resume(co, unpack({...}))
-        if not ok then error(res, 0) end
-        
-        -- Se a corrotina terminou, grava o resultado final
-        if coroutine.status(co) == "dead" then
-            task.result = res
-            return res
-        end
-        
-        -- Se a corrotina yieldou (await), retornamos o controle
-        return res
-    end
-    
-    task.step = step
-    task.is_done = function() return coroutine.status(co) == "dead" end
-    
-    -- Execução inicial
-    task.result = step(unpack(args))
-    
+    local task = { co = co, status = "running" }
+    local ok, res = coroutine.resume(co, ...)
+    if not ok then error(res) end
     return task
 end
 
---- Aguarda a conclusão de uma tarefa assíncrona.
 function zt.await(task)
     if type(task) ~= "table" or not task.co then return task end
-    
-    while not task.is_done() do
-        -- Se estivermos dentro de uma corrotina, cedemos o controle
+    while coroutine.status(task.co) ~= "dead" do
         coroutine.yield()
-        task.step() -- Tenta avançar a tarefa que estamos esperando
     end
+    return task
+end
+
+-- ----------------------------------------------------------------------------
+-- MOTOR GRID (Flat Array 2D)
+-- ----------------------------------------------------------------------------
+
+local GridMT = {}
+GridMT.__index = GridMT
+
+function GridMT:get(x, y)
+    if x < 0 or x >= self.width or y < 0 or y >= self.height then
+        return zt.Optional.Empty
+    end
+    local idx = (y * self.width) + x + 1 -- Lua é 1-indexed
+    return zt.Optional.Present(self.data[idx])
+end
+
+function GridMT:set(x, y, val)
+    if x < 0 or x >= self.width or y < 0 or y >= self.height then
+        return false
+    end
+    local idx = (y * self.width) + x + 1
+    self.data[idx] = val
+    return true
+end
+
+function GridMT:fill(val)
+    for i = 1, #self.data do self.data[i] = val end
+end
+
+function zt.grid_new(w, h, default)
+    local data = {}
+    local total = w * h
+    for i = 1, total do data[i] = default end
     
-    return task.result
-end
-
---- Driver principal para rodar o ponto de entrada assíncrono.
-function zt.drive(task)
-    if type(task) ~= "table" or not task.co then return task end
-    while not task.is_done() do
-        task.step()
-        if not task.is_done() then
-            -- Pequena pausa para não consumir 100% de CPU em loops vazios
-            -- (Em cenários reais de IO isso seria controlado por eventos)
-        end
-    end
-    return task.result
-end
-
---- Implementação de + (sobrecarregado para soma e concatenação)
-function zt.add(a, b)
-    if type(a) == "number" and type(b) == "number" then
-        return a + b
-    end
-    -- Se um for string ou não puder somar, concatena
-    return tostring(a) .. tostring(b)
-end
-
---- Lança um erro formatado.
-function zt.error(msg)
-    error({ message = msg }, 2)
+    local obj = {
+        width = w,
+        height = h,
+        data = data,
+        _tag = "Grid"
+    }
+    return setmetatable(obj, GridMT)
 end
 
 return zt

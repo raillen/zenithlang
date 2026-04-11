@@ -1,0 +1,34 @@
+import std.test
+
+trait Descrevivel
+    func descrever() -> text
+end
+
+struct Pessoa
+    nome: text
+    idade: int
+end
+
+apply Descrevivel for Pessoa
+    func descrever() -> text
+        return "{self.nome}, {self.idade} anos"
+    end
+end
+
+test.describe("Core: Traits e Polimorfismo", () => do
+    test.test("Implementação Básica", () => do
+        var p = Pessoa { nome = "Alice", idade = 30 }
+        test.assert_eq(p.descrever(), "Alice, 30 anos")
+    end)
+
+    test.test("Trait como parâmetro", () => do
+        func imprimir_descricao(d: Descrevivel) -> text
+            return d.descrever()
+        end
+
+        var p = Pessoa { nome = "Bob", idade = 25 }
+        test.assert_eq(imprimir_descricao(p), "Bob, 25 anos")
+    end)
+end)
+
+test.run_all()

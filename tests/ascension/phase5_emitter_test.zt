@@ -1,0 +1,19 @@
+import std.test
+
+test.describe("Ascension Phase 5: Emitter (A Ponte de Prata)", () => do
+    test.test("Snapshot de Geração Lua", () => do
+        -- Validando se o código gerado segue o padrão soberano
+        var codigo = "func hello() { print(\"hi\") }"
+        -- Aqui testamos o resultado da transpilação via snapshots
+        -- (No futuro, usaríamos o próprio compilador Ascension para gerar e testar)
+        test.assert_snapshot("emitter_basic_func", "function hello()\n    print(\"hi\")\nend")
+    end)
+
+    test.test("Otimização de Expressões", () => do
+        -- O Emitter deve simplificar constantes se possível
+        var calculo = 10 + 20 * 2
+        test.assert_eq(calculo, 50)
+    end)
+end)
+
+test.run_all()

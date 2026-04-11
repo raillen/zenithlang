@@ -1,0 +1,16 @@
+import std.test
+
+test.describe("Snapshot Testing", () => do
+    test.test("Snapshot de Estrutura JSON", () => do
+        var data = {
+            "linguagem": "Zenith",
+            "versao": "0.2.8",
+            "fase": 6
+        }
+        -- A primeira execução cria o arquivo em tests/snapshots/json_snap.snap
+        -- A segunda execução compara o valor
+        test.assert_snapshot("json_snap", data)
+    end)
+end)
+
+test.run_all()

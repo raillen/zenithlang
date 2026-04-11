@@ -1,0 +1,37 @@
+import std.io
+import std.os
+import std.time
+
+func main()
+    io.write_line("🕒 Teste de Compatibilidade (Fase 8) — Zenith")
+    
+    -- 1. Teste de Tempo
+    var start = time.get_cpu_time()
+    var timestamp = time.get_timestamp()
+    var date_str = time.format_date(timestamp, "%d/%m/%Y %H:%M:%S")
+    io.write_line("Timestamp: " + timestamp)
+    io.write_line("Data: " + date_str)
+    
+    -- 2. Teste de OS e Sleep
+    var platform = os.get_platform()
+    io.write_line("Plat: " + platform)
+    
+    io.write_line("Pausa de 300ms...")
+    os.sleep(300)
+    
+    var end_time = time.get_cpu_time()
+    io.write_line("✅ Delta CPU: " + (end_time - start) + "s")
+    
+    -- 3. Teste de Ambiente (Via verificação rítmica simples)
+    var path_opt = os.get_env("PATH")
+    native lua
+        local opt = path_opt
+        if opt and opt._tag == "Present" then
+            print("✅ PATH encontrado (Via Native Lua Bridge)")
+        else
+            print("❌ PATH não encontrado")
+        end
+    end
+end
+
+main()

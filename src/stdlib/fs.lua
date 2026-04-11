@@ -69,12 +69,30 @@ end
 function FS.exists(path)
     local f = io.open(path, "r")
     if f then f:close(); return true end
-    return false
+    
+    -- Fallback para diretórios
+    local cmd = is_windows and ("dir \"" .. path .. "\" >nul 2>&1") or ("ls \"" .. path .. "\" >/dev/null 2>&1")
+    local ok = os.execute(cmd)
+    return ok == 0 or ok == true
 end
 
 function FS.remove_file(path)
     local ok, err = os.remove(path)
     if ok then return zt.Outcome.Success(nil) else return zt.Outcome.Failure(err) end
+end
+
+function FS.list_directory(path)
+    local is_windows = package.config:sub(1,1) == "\\"
+    local cmd = is_windows and ("dir /b " .. path:gsub("/", "\\") .. " 2>nul") or ("ls " .. path .. " 2>/dev/null")
+    local handle = io.popen(cmd)
+    local files = {}
+    if handle then
+        for line in handle:lines() do
+            table.insert(files, line)
+        end
+        handle:close()
+    end
+    return files
 end
 
 function FS.remove_folder(path, recursive)

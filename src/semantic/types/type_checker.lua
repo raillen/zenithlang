@@ -54,9 +54,12 @@ function TypeChecker.get_binary_result(left, operator, right)
         end
     end
     
-    -- Comparação: Sempre retorna bool
-    local comparators = { ["=="]=1, ["!="]=1, ["<"]=1, ["<="]=1, [">"]=1, [">="]=1 }
-    if comparators[operator] then
+    -- Comparação e Lógica: Sempre retorna bool
+    local bool_ops = { 
+        ["=="]=1, ["!="]=1, ["<"]=1, ["<="]=1, [">"]=1, [">="]=1,
+        ["and"]=1, ["or"]=1
+    }
+    if bool_ops[operator] then
         return BuiltinTypes.BOOL
     end
     

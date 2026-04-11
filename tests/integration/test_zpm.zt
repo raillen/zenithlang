@@ -1,0 +1,39 @@
+import std.os
+import std.io
+
+func test_zpm_version()
+    io.write_line("--- Testando ZPM Version ---")
+    var exit_code = os.run_command("lua ztc.lua zpm version")
+    if exit_code.is_success()
+        io.write_line("✅ ZPM Version OK!")
+    else
+        io.write_line("❌ Falha ao executar ZPM Version")
+    end
+end
+
+func test_zpm_help()
+    io.write_line("--- Testando ZPM Help ---")
+    var exit_code = os.run_command("lua ztc.lua zpm help")
+    if exit_code.is_success()
+        io.write_line("✅ ZPM Help OK!")
+    else
+        io.write_line("❌ Falha ao executar ZPM Help")
+    end
+end
+
+func test_zpm_doctor()
+    io.write_line("--- Testando ZPM Doctor ---")
+    var exit_code = os.run_command("lua ztc.lua zpm doctor")
+    if exit_code.is_success()
+        io.write_line("✅ ZPM Doctor OK!")
+    else
+        io.write_line("❌ Falha ao executar ZPM Doctor")
+    end
+end
+
+-- Como não podemos sujar a raiz (já que tem um zenith.ztproj) para testar init,
+-- testamos apenas comandos safe / de leitura.
+
+test_zpm_version()
+test_zpm_help()
+test_zpm_doctor()

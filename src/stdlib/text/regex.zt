@@ -1,0 +1,55 @@
+namespace std.text.regex
+
+import std.core
+
+pub struct Match
+    pub value: text
+    pub start_pos: int
+    pub end_pos: int
+    pub groups: map<text, text>
+end
+
+pub struct Regex
+    pub pattern: text
+    internal_handle: any
+
+    --- Verifica se o padrão existe dentro do texto informado.
+    pub func test(input: text) -> bool
+        native lua
+            return self:test(input)
+        end
+    end
+
+    --- Retorna a primeira ocorrência encontrada.
+    pub func find(input: text) -> Optional<Match>
+        native lua
+            local res = self:find(input)
+            if res then
+                -- Embrulha o resultado no formato que o Zenith espera para a struct Match
+                local match_obj = {
+                    value = res.value,
+                    start_pos = res.start_pos,
+                    end_pos = res.end_pos,
+                    groups = res.groups
+                }
+                return zt.Optional.Present(match_obj)
+            else
+                return zt.Optional.Empty
+            end
+        end
+    end
+
+    --- Substitui as ocorrências do padrão por um novo texto.
+    pub func replace(input: text, replacement: text) -> text
+        native lua
+            return self:replace(input, replacement)
+        end
+    end
+end
+
+pub func new_builder() -> any
+    native lua
+        local core_regex = require("src/stdlib/text/regex")
+        return core_regex.new_builder()
+    end
+end

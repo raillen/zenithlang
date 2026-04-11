@@ -205,6 +205,16 @@ function DeclSyntax.redo_decl(type_name, func_decl, span)
     }, span)
 end
 
+--- extern func name(params) -> ReturnType
+function DeclSyntax.extern_decl(name, params, return_type, is_pub, span)
+    return SyntaxNode.new(SK.EXTERN_DECL, {
+        name = name,
+        params = params,
+        return_type = return_type,
+        is_pub = is_pub or false,
+    }, span)
+end
+
 --- group "name" ... end (testes)
 function DeclSyntax.group_decl(name, body, span)
     return SyntaxNode.new(SK.GROUP_DECL, {
