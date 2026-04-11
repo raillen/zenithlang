@@ -1,4 +1,4 @@
-# 📋 Backlog e Pendências Futuras (Zenith IDE)
+# 📋 Backlog e Pendências Futuras (Zenith Keter)
 
 Este documento rastreia features arquitetadas, mas que exigem validações futuras, polimento nativo ou infraestrutura complementar.
 
@@ -14,5 +14,7 @@ Este documento rastreia features arquitetadas, mas que exigem validações futur
 **Pendência / UI:**
 - **Tarefa Futura:** Na tela de configurações (`SettingsDialog.tsx`), adicionar a Nova Aba "Keybinds". Essa aba será uma tabela iterativa visual mapendo a `keymap` gravada em SQLite. O usuário poderá clicar num comando (Ex: `zenith.workbench.action.quickOpen`) e pressionar uma nova combinação visual para reverter o atalho padrão.
 
-## 🧠 LSP (Language Server Protocol) e Inteligência de Semântica
-- **Nativo (Em Breve):** Acoplar a infraestrutura de comunicação de LSP nativa usando o motor que estipulamos na aba *Extensões* do modal de configurações para fornecer Auto Complete semântico do Zenith Lang no Monaco Editor.
+## LSP (Language Server Protocol) e Inteligencia Semantica
+- **Implementado (v1):** Monaco agora usa linguagem real por arquivo e registra autocomplete semantico local para Zenith, TypeScript/JavaScript, C#/.NET, Rust, Lua e Ruby.
+- **Configuracao ativa:** O campo "LSP Server Path" da aba *Extensoes* foi liberado para cada runtime e ja aparece no contexto do provider semantico.
+- **Proximo passo:** Implementar o bridge nativo JSON-RPC para iniciar servidores LSP externos, sincronizar documentos e consumir respostas reais de textDocument/completion.

@@ -4,6 +4,7 @@ import std.os
 import std.text
 import std.time
 import std.json
+import std.collections
 
 -- 🎨 CORES AURA
 func c_reset() -> text return "\e[0m" end
@@ -44,10 +45,10 @@ func main()
     var files = []
     var folders = ["tests/core", "tests/stdlib", "tests/integration", "tests/ascension"]
     
-    for folder in folders do
+    for folder in folders
         if fs.exists(folder)
             var dir_files = fs.list_directory(folder)
-            for f in dir_files do
+            for f in dir_files
                 -- Verificamos se o arquivo segue o padrão de teste
                 if text.contains(f, "_test.zt") or (text.starts_with(f, "test_") and text.ends_with(f, ".zt"))
                     var path = folder + "/" + f

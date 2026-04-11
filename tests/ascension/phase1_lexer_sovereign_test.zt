@@ -1,0 +1,34 @@
+import std.test
+import source
+import syntax.tokens
+import syntax.lexer
+
+test.describe("Ascension v0.3.2: Lexer Soberano", () => do
+    test.test("Tokenizacao de Declaracao Simples", () => do
+        var code = "var x = 10"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+
+        -- Expecting: KW_VAR, IDENTIFIER, EQUAL, INTEGER_LITERAL, EOF
+        test.assert_eq(tokens_list.length(), 5)
+        test.assert_eq(tokens_list[1].kind, tokens.TokenKind.KW_VAR)
+        test.assert_eq(tokens_list[2].lexeme, "x")
+        test.assert_eq(tokens_list[3].kind, tokens.TokenKind.EQUAL)
+        test.assert_eq(tokens_list[4].kind, tokens.TokenKind.INTEGER_LITERAL)
+    end)
+
+    test.test("Identificacao de Keywords e Operadores", () => do
+        var code = "if true => return"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+
+        test.assert_eq(tokens_list[1].kind, tokens.TokenKind.KW_IF)
+        test.assert_eq(tokens_list[2].kind, tokens.TokenKind.KW_TRUE)
+        test.assert_eq(tokens_list[3].kind, tokens.TokenKind.FAT_ARROW)
+        test.assert_eq(tokens_list[4].kind, tokens.TokenKind.KW_RETURN)
+    end)
+end)
+
+test.run_all()

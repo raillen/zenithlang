@@ -1,6 +1,6 @@
 # Rust/Tauri Migration Plan
 
-Este documento registra os principais candidatos de migracao de logica e infraestrutura da Zenith IDE para Rust/Tauri com foco em performance, escalabilidade e reducao de overhead entre frontend e backend.
+Este documento registra os principais candidatos de migracao de logica e infraestrutura da Zenith Keter para Rust/Tauri com foco em performance, escalabilidade e reducao de overhead entre frontend e backend.
 
 ## Objetivo
 

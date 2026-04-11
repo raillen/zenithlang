@@ -1,4 +1,4 @@
-# Zenith IDE (Retina v2) Implementation Plan
+# Zenith Keter Implementation Plan
 
 Este plano detalha a arquitetura, stack tecnológica e funcionalidades para a construção da nova IDE da linguagem Zenith, com foco em uma experiência premium inspirada no Xcode do macOS.
 
@@ -46,7 +46,7 @@ O objetivo é capturar a essência do design da Apple (Human Interface Guideline
 
 ## 🎨 Temas e Acessibilidade Cognitiva
 
-A Zenith IDE será uma das primeiras focadas ativamente em neurodiversidade, oferecendo uma gama de temas estéticos e funcionais:
+A Zenith Keter será uma das primeiras focadas ativamente em neurodiversidade, oferecendo uma gama de temas estéticos e funcionais:
 
 ### 1. Lista de Temas Base
 - **Zenith (Light/Dark)**: O tema oficial, otimizado para a identidade visual da linguagem.
@@ -156,7 +156,7 @@ A IDE será dividida em 4 áreas principais, seguindo o layout do Xcode 15/16:
 
 ---
 
-## 🛠️ Meta-Desenvolvimento: Zenith IDE Skills
+## 🛠️ Meta-Desenvolvimento: Zenith Keter Skills
 
 Para garantir a qualidade do projeto, desenvolveremos 4 skills especializadas:
 

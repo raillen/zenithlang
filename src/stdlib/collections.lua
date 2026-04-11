@@ -115,6 +115,20 @@ function COLLECTIONS.new_grid(width, height, default)
     return zt.grid_new(width, height, default)
 end
 
+-- 🏗️ OPERAÇÕES DE LISTA (Mutação)
+
+function COLLECTIONS.add(l, item)
+    table.insert(l, item)
+end
+
+function COLLECTIONS.remove_at(l, index)
+    return table.remove(l, index)
+end
+
+function COLLECTIONS.length(l)
+    return #l
+end
+
 -- 🏗️ UTILITÁRIOS FUNCIONAIS (Embutidos)
 
 function COLLECTIONS.filter_items(list, predicate)

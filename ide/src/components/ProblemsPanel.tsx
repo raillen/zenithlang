@@ -19,14 +19,20 @@ export function ProblemsPanel() {
     );
   }
 
-  const handleDiagnosticClick = (path: string, line: number) => {
-    console.log(`[Zenith IDE] Jumping to ${path}:${line}`);
+  const handleDiagnosticClick = (path: string, line: number, col: number) => {
     const fileStub: FileEntry = {
         name: path.split(/[\\/]/).pop() || "file",
         path: path,
         is_directory: false
     };
     openFile(fileStub, true);
+
+    // Jump to precision
+    setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('zenith://editor-jump', {
+            detail: { line, col }
+        }));
+    }, 100);
   };
 
   return (
@@ -34,7 +40,7 @@ export function ProblemsPanel() {
       {allDiagnostics.map((d, i) => (
         <div 
           key={i}
-          onClick={() => handleDiagnosticClick(d.path, d.line)}
+          onClick={() => handleDiagnosticClick(d.path, d.line, d.col)}
           className="group flex items-start py-2 px-4 border-b border-zinc-50 hover:bg-zinc-50 cursor-pointer transition-colors"
         >
           <div className="mt-0.5 mr-3">

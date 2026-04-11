@@ -11,6 +11,7 @@
   --color-ide-border: var(--z-border, rgba(0, 0, 0, 0.08));
   --color-ide-text: var(--z-text-main, #1d1d1f);
   --color-ide-text-dim: var(--z-text-muted, #86868b);
+  --color-ide-bg-sanctuary: var(--z-bg-sanctuary, #f9f9f9);
 }
 
 @layer base {
@@ -95,4 +96,84 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.2);
+}
+
+/* Monaco Breakpoint Glyph */
+.zenith-breakpoint-glyph {
+  background: #ef4444;
+  border-radius: 50%;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: 5px;
+  margin-top: 2px;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.1s ease-in-out;
+}
+
+.zenith-breakpoint-glyph:hover {
+  transform: scale(1.2);
+  background: #f87171;
+}
+
+/* Monaco overlay widgets must float above the IDE chrome without beating modal layers */
+.monaco-editor .overflowingContentWidgets,
+.monaco-editor .fixedOverflowWidgets,
+.monaco-hover,
+.monaco-editor-hover,
+.context-view,
+.suggest-widget,
+.parameter-hints-widget,
+.rename-box {
+  z-index: 1200 !important;
+}
+
+.terminal-surface,
+.terminal-surface * {
+  user-select: text;
+}
+
+.terminal-surface .xterm,
+.terminal-surface .xterm-viewport,
+.terminal-surface .xterm-screen {
+  height: 100%;
+}
+
+.terminal-surface .xterm {
+  cursor: text;
+}
+
+.terminal-surface .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.terminal-surface .xterm-helper-textarea {
+  opacity: 0;
+}
+
+/* Zenith Sanctuary Styles */
+.bg-ide-bg-sanctuary {
+  background: radial-gradient(circle at 50% 50%, var(--color-ide-bg) 0%, var(--color-ide-bg-sanctuary) 100%);
+  position: relative;
+}
+
+.bg-ide-bg-sanctuary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+/* Focus Mode: Dimming inactive lines */
+.zenith-focus-dimmed {
+  opacity: 0.4 !important;
+  transition: opacity 0.5s ease;
+}
+
+/* Centered Editor Shadow */
+.zenith-sanctuary-editor {
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.08), 0 18px 36px -18px rgba(0, 0, 0, 0.05);
 }

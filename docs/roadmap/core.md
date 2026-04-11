@@ -40,18 +40,18 @@ Foco: blindar a plataforma antes do self-hosting.
 - [X] relatórios visuais e exportacao de dados
 - [X] execucao paralela e isolamento de suites
 - [X] snapshot testing e ampliacao de cobertura global
+## 6. Fase 7: Zenith Ascension (v0.3.0 - v0.3.5) - Em Aberto
 
-## 6. Fase 7: Zenith Ascension (v0.3.0) - Concluído
+Foco: auto-hospedagem, otimização e soberania total do pipeline.
 
-Foco: auto-hospedagem, otimização e distribuição moderna.
+- [X] **v0.3.0 (Soberano)**: Motor Ascension Finalizado (FFI, Multi-target, Bundle).
+- [X] **v0.3.1 (ZDoc)**: Suporte a arquivos .zdoc e Pureza CLI consolidada.
+- [ ] **v0.3.2 (Lexer)**: Analisador léxico reescrito em Zenith puro.
+- [ ] **v0.3.3 (Parser)**: Algoritmo Pratt Parser portado para Zenith.
+- [ ] **v0.3.4 (Binder)**: Tabela de símbolos e resolução semântica nativa.
+- [ ] **v0.3.5 (Emitter)**: Gerador de código (Codegen) operando em Zenith.
 
-- [X] compilador self-hosted em Zenith
-- [X] bootstrapping completo
-- [X] otimizações aplicadas no próprio motor
-- [X] FFI nativo para C e C++
-- [X] distribuição multiplataforma
-- [X] modos standalone e bundle
-
+---
 ## 7. Estudos que continuam depois de Ascension
 
 Esses itens registram a transição para o ecossistema Zenith v0.3.1:

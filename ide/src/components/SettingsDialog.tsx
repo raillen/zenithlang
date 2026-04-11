@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Globe, Palette, Check, Blocks, ChevronRight, ChevronDown, Keyboard, Pencil } from "lucide-react";
+import { X, Globe, Palette, Check, Blocks, ChevronRight, ChevronDown, Keyboard, Pencil, Shield } from "lucide-react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
-import { useCommandStore } from "../store/useCommandStore";
+import { useCommandStore, type SettingsTab } from "../store/useCommandStore";
 import { useTranslation } from "../utils/i18n";
 import { THEMES } from "../themes";
 import { SearchableDropdown, DropdownOption } from "./ui/SearchableDropdown";
 import { ToggleSwitch } from "./ui/ToggleSwitch";
+import { getRuntimeProfileForSettingsKey } from "../utils/runtimeProfiles";
 
 interface SettingsDialogProps {
   onClose: () => void;
 }
 
 export function SettingsDialog({ onClose }: SettingsDialogProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'editor' | 'keymap' | 'extensions'>('general');
+  const settingsTab = useCommandStore((state) => state.settingsTab);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(settingsTab);
   const { settings, updateSettings } = useWorkspaceStore();
   const { t } = useTranslation();
 
@@ -26,9 +28,22 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
     updateSettings({ language: lang });
   };
 
+  useEffect(() => {
+    setActiveTab(settingsTab);
+  }, [settingsTab]);
+
+  const updateToolbarSetting = (key: keyof typeof settings.toolbar, value: boolean) => {
+    updateSettings({
+      toolbar: {
+        ...settings.toolbar,
+        [key]: value,
+      },
+    });
+  };
+
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-[850px] h-[600px] max-w-[90vw] max-h-[85vh] border border-ide-border bg-ide-bg rounded-2xl shadow-2xl flex overflow-hidden animate-in zoom-in-95 duration-300">
+      <div data-testid="settings-dialog" className="w-[850px] h-[600px] max-w-[90vw] max-h-[85vh] border border-ide-border bg-ide-bg rounded-2xl shadow-2xl flex overflow-hidden animate-in zoom-in-95 duration-300">
         
         {/* Sidebar */}
         <div className="w-56 bg-ide-panel border-r border-ide-border p-6 flex flex-col gap-2">
@@ -58,12 +73,18 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             icon={<Blocks size={14} />} 
             label="Extensões" 
           />
+          <TabButton 
+            active={activeTab === 'sanctuary'} 
+            onClick={() => setActiveTab('sanctuary')} 
+            icon={<Shield size={14} />} 
+            label="Sanctuary" 
+          />
         </div>
 
         {/* Content */}
         <div className="flex-1 flex flex-col min-w-0 bg-ide-bg text-ide-text">
           <div className="h-12 flex items-center justify-end px-4 border-b border-ide-border">
-            <button onClick={onClose} className="p-1.5 hover:bg-black/5 rounded-full text-ide-text-dim hover:text-ide-text transition-colors">
+            <button data-testid="settings-close" onClick={onClose} className="p-1.5 hover:bg-black/5 rounded-full text-ide-text-dim hover:text-ide-text transition-colors">
               <X size={18} />
             </button>
           </div>
@@ -122,6 +143,87 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                        <option value="afterDelay">After Delay</option>
                      </select>
                    </div>
+                </section>
+
+                <section className="flex flex-col gap-2">
+                  <label className="text-[11px] font-bold text-ide-text-dim uppercase tracking-widest mb-1">
+                    Toolbar Modules
+                  </label>
+                  <p className="text-[11px] text-ide-text-dim opacity-70 mb-2">
+                    Show or hide secondary toolbar functions without changing the core workbench flow.
+                  </p>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Workspace Selector</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Show the current workspace and saved contexts switcher.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showWorkspaceSelector} onChange={(val) => updateToolbarSetting('showWorkspaceSelector', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Git Branch</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Keep the active branch visible near the project context.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showGitBranch} onChange={(val) => updateToolbarSetting('showGitBranch', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Quick Open</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Keep the command-style file launcher in the header.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showQuickOpen} onChange={(val) => updateToolbarSetting('showQuickOpen', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Problems Counter</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Show diagnostics totals beside the run controls.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showDiagnostics} onChange={(val) => updateToolbarSetting('showDiagnostics', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Runtime Target</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Display the active runtime profile and run target selector.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showRuntimeTarget} onChange={(val) => updateToolbarSetting('showRuntimeTarget', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Panel Toggles</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Show controls for the left sidebar, inspector and bottom panel.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showPanelToggles} onChange={(val) => updateToolbarSetting('showPanelToggles', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Layout Controls</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Keep split layout buttons visible in the header.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showLayoutControls} onChange={(val) => updateToolbarSetting('showLayoutControls', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Focus Hints</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Show the editor focus shortcut chips in the toolbar.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showFocusHints} onChange={(val) => updateToolbarSetting('showFocusHints', val)} />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] text-ide-text">Settings Button</span>
+                      <span className="text-[10px] text-ide-text-dim opacity-70">Keep a direct shortcut to preferences in the toolbar.</span>
+                    </div>
+                    <ToggleSwitch checked={settings.toolbar.showSettingsButton} onChange={(val) => updateToolbarSetting('showSettingsButton', val)} />
+                  </div>
                 </section>
               </div>
             )}
@@ -194,6 +296,37 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                      </div>
                      <ToggleSwitch checked={settings.editorMinimap} onChange={(val) => updateSettings({ editorMinimap: val })} />
                    </div>
+
+                   <div className="flex items-center justify-between py-2 border-b border-ide-border">
+                     <div className="flex flex-col">
+                       <span className="text-[12px] text-ide-text">Format on Save</span>
+                       <span className="text-[10px] text-ide-text-dim opacity-70">Run the active formatter before every save.</span>
+                     </div>
+                     <ToggleSwitch checked={settings.editorFormatOnSave} onChange={(val) => updateSettings({ editorFormatOnSave: val })} />
+                   </div>
+
+                   <div className="flex items-center justify-between gap-4 py-2 border-b border-ide-border">
+                     <div className="flex flex-col">
+                       <span className="text-[12px] text-ide-text">UI Scale</span>
+                       <span className="text-[10px] text-ide-text-dim opacity-70">Scale the entire workbench without changing your window size.</span>
+                     </div>
+
+                     <div className="flex items-center gap-3 w-56">
+                       <input
+                         type="range"
+                         min="0.85"
+                         max="1.35"
+                         step="0.05"
+                         value={settings.uiScale}
+                         onChange={(e) => updateSettings({ uiScale: Number(e.target.value) })}
+                         aria-label="User interface scale"
+                         className="flex-1 accent-primary"
+                       />
+                       <span className="w-12 text-right text-[11px] font-semibold text-ide-text-dim">
+                         {Math.round(settings.uiScale * 100)}%
+                       </span>
+                     </div>
+                   </div>
                  </section>
                </div>
             )}
@@ -230,6 +363,66 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                 </section>
               </div>
             )}
+
+            {activeTab === 'sanctuary' && (
+              <div className="flex flex-col gap-8 animate-in fade-in duration-300">
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <Shield size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-[14px] font-bold text-ide-text">History & Protection</h3>
+                      <p className="text-[11px] text-ide-text-dim opacity-70">Configure local file versioning and database health.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 border-t border-ide-border pt-6">
+                    <div className="flex items-center justify-between py-3 border-b border-ide-border/50">
+                      <div className="flex flex-col">
+                        <span className="text-[12px] text-ide-text">Retention Period</span>
+                        <span className="text-[10px] text-ide-text-dim opacity-70">How many days should we keep local snapshots?</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="number" 
+                          min="1"
+                          max="365"
+                          value={settings.historyRetentionDays}
+                          onChange={(e) => updateSettings({ historyRetentionDays: Number(e.target.value) })}
+                          className="w-20 bg-ide-panel border border-ide-border rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:border-primary/50 text-center"
+                        />
+                        <span className="text-[11px] text-ide-text-dim w-10 text-center">days</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between py-3 border-b border-ide-border/50">
+                      <div className="flex flex-col">
+                        <span className="text-[12px] text-ide-text">Max Snapshots per File</span>
+                        <span className="text-[10px] text-ide-text-dim opacity-70">Limit total versions stored for a single path.</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="number" 
+                          min="5"
+                          max="500"
+                          value={settings.historyMaxSnapshots}
+                          onChange={(e) => updateSettings({ historyMaxSnapshots: Number(e.target.value) })}
+                          className="w-20 bg-ide-panel border border-ide-border rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:border-primary/50 text-center"
+                        />
+                        <span className="text-[11px] text-ide-text-dim w-10 text-center">qty</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
+                      <p className="text-[10px] text-orange-500/80 leading-relaxed italic">
+                        <strong>Note:</strong> Auto-cleanup runs on every file save. Setting very high values might increase the database size over time. Default values (30 days / 50 snapshots) are recommended for most projects.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -252,9 +445,9 @@ function TabButton({ active, icon, label, onClick }: { active: boolean, icon: Re
 }
 
 function ExtensionAccordion({ id, config, onUpdate }: { id: string, config: any, onUpdate: (cfg: any) => void }) {
-  const [open, setOpen] = useState(id === 'zenith'); // Open zenith by default
-
-  const headerLabel = id.charAt(0).toUpperCase() + id.slice(1) + " Language";
+  const [open, setOpen] = useState(id === 'zenith');
+  const profile = getRuntimeProfileForSettingsKey(id);
+  const headerLabel = profile.settingsLabel;
 
   return (
     <div className="border border-ide-border rounded-xl overflow-hidden bg-ide-bg transition-all">
@@ -285,20 +478,27 @@ function ExtensionAccordion({ id, config, onUpdate }: { id: string, config: any,
                  value={config.compilerPath || ""}
                  onChange={(e) => onUpdate({ compilerPath: e.target.value })}
                  className="w-full bg-ide-panel border border-ide-border rounded-lg px-3 py-2 text-[11px] font-mono text-ide-text focus:outline-none focus:border-ide-text-dim"
-                 placeholder="e.g. ztc.lua"
+                 placeholder={`e.g. ${profile.compilerPlaceholder}`}
                />
             </div>
             
             <div>
-               <label className="text-[10px] font-bold text-ide-text-dim uppercase mb-1 block">LSP Server Path</label>
+               <div className="flex items-center justify-between gap-3 mb-1">
+                 <label className="text-[10px] font-bold text-ide-text-dim uppercase block">LSP Server Path</label>
+                 <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${config.lspPath ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600' : 'border-ide-border bg-ide-panel text-ide-text-dim'}`}>
+                   {config.lspPath ? 'Configured' : 'Local semantic fallback'}
+                 </span>
+               </div>
                <input 
                  type="text" 
                  value={config.lspPath || ""}
                  onChange={(e) => onUpdate({ lspPath: e.target.value })}
-                 className="w-full bg-ide-panel border border-ide-border rounded-lg px-3 py-2 text-[11px] font-mono text-ide-text focus:outline-none focus:border-ide-text-dim opacity-70 cursor-not-allowed"
-                 placeholder="Language Server Path (Coming Soon)"
-                 disabled
+                 className="w-full bg-ide-panel border border-ide-border rounded-lg px-3 py-2 text-[11px] font-mono text-ide-text focus:outline-none focus:border-ide-text-dim"
+                 placeholder={profile.lspPlaceholder || "Language Server Path"}
                />
+               <p className="mt-1 text-[10px] leading-4 text-ide-text-dim opacity-70">
+                 Used by semantic autocomplete context now; the external JSON-RPC LSP bridge can attach to this binary next.
+               </p>
             </div>
 
             <div>
@@ -308,7 +508,7 @@ function ExtensionAccordion({ id, config, onUpdate }: { id: string, config: any,
                  value={config.buildCommand || ""}
                  onChange={(e) => onUpdate({ buildCommand: e.target.value })}
                  className="w-full bg-ide-panel border border-ide-border rounded-lg px-3 py-2 text-[11px] font-mono text-ide-text focus:outline-none focus:border-ide-text-dim"
-                 placeholder="e.g. lua ztc.lua build"
+                 placeholder={`e.g. ${profile.buildPlaceholder}`}
                />
             </div>
          </div>
@@ -503,4 +703,3 @@ function formatShortcutVisual(combo: string) {
         return k.length === 1 ? k.toUpperCase() : k;
     }).join(' + ');
 }
-

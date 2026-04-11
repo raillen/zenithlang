@@ -52,7 +52,6 @@ export function CommandPalette() {
            const timer = setTimeout(async () => {
                try {
                    const res: FileNameResult[] = await invoke("search_file_names", { 
-                        rootPath: useWorkspaceStore.getState().currentProjectRoot,
                         query: cleanQuery 
                     });
                    setFileResults(res);
@@ -173,9 +172,9 @@ export function CommandPalette() {
                       onClick={() => {
                           setPaletteOpen(false);
                           openFile({ name: file.name, path: file.path, is_directory: false }, false);
-                      }}
-                      onMouseEnter={() => setSelectedIndex(i)}
-                      className={`flex items-center justify-between px-4 py-2 mx-2 rounded-lg cursor-pointer transition-colors ${isActive ? 'bg-primary text-white' : 'text-ide-text hover:bg-ide-panel hover:text-white'}`}
+                       }}
+                       onMouseEnter={() => setSelectedIndex(i)}
+                       className={`flex items-center justify-between px-4 py-2 mx-2 rounded-lg cursor-pointer transition-colors ${isActive ? 'bg-primary text-white' : 'text-ide-text hover:bg-ide-panel hover:text-white'}`}
                    >
                        <div className="flex items-center gap-2 truncate">
                           <FileText size={14} className={`${isActive ? 'text-white/70' : 'text-ide-text-dim'}`} />

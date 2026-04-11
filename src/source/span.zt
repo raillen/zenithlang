@@ -1,0 +1,16 @@
+namespace source
+
+pub struct Span
+    pub start: int
+    pub length: int
+
+    pub func end_pos() -> int
+        return self.start + self.length
+    end
+
+    pub func merge(other: Span) -> Span
+        var start = if self.start < other.start then self.start else other.start
+        var end_p = if self.end_pos() > other.end_pos() then self.end_pos() else other.end_pos()
+        return Span { start = start, length = end_p - start }
+    end
+end

@@ -1,6 +1,6 @@
 {
   "hub": {
-    "title": "ZENITH HUB",
+    "title": "ZENITH KETER",
     "version": "Versão 0.2.0-Alpha",
     "categories": {
       "file": "Arquivo",
@@ -17,7 +17,7 @@
       "check": "Verificar Diagnósticos",
       "preferences": "Preferências",
       "docs": "Documentação",
-      "about": "Sobre Zenith"
+      "about": "Sobre Zenith Keter"
     }
   },
   "toolbar": {
@@ -29,7 +29,7 @@
     "no_file": "Nenhum arquivo selecionado"
   },
   "settings": {
-    "title": "Preferências da Retina",
+    "title": "Preferências do Zenith Keter",
     "tabs": {
         "general": "Geral",
         "editor": "Editor",

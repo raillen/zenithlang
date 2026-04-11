@@ -1,3 +1,5 @@
+mod lsp;
+
 use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -5,8 +7,21 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tauri::{AppHandle, Emitter, Manager};
+use notify::{Watcher, RecursiveMode, Config};
+use sysinfo::System;
+use crate::lsp::{
+    LspState,
+    lsp_completion,
+    lsp_definition,
+    lsp_hover,
+    lsp_latest_diagnostics,
+    lsp_references,
+    lsp_rename,
+    lsp_shutdown,
+    lsp_sync_document,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileEntry {
@@ -14,6 +29,33 @@ pub struct FileEntry {
     path: String,
     is_directory: bool,
     children: Option<Vec<FileEntry>>,
+}
+
+#[derive(Serialize, Clone)]
+struct HistorySnapshot {
+    id: i32,
+    timestamp: u64,
+    content: String,
+}
+
+pub struct WorkspaceIndex {
+    pub root: RwLock<PathBuf>,
+    pub files: RwLock<Vec<String>>,
+    pub watcher: Mutex<Option<notify::RecommendedWatcher>>,
+    history: RwLock<HashMap<String, Vec<HistorySnapshot>>>,
+    next_history_id: AtomicU32,
+}
+
+impl Default for WorkspaceIndex {
+    fn default() -> Self {
+        Self {
+            root: RwLock::new(PathBuf::new()),
+            files: RwLock::new(Vec::new()),
+            watcher: Mutex::new(None),
+            history: RwLock::new(HashMap::new()),
+            next_history_id: AtomicU32::new(1),
+        }
+    }
 }
 
 type PtyHandler = u32;
@@ -97,31 +139,27 @@ fn scan_dir(path: &Path) -> Result<Vec<FileEntry>, String> {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
 
-            if name == ".git"
-                || name == "node_modules"
-                || name == "target"
-                || name == "dist"
-                || name == ".tauri"
-            {
+            if should_skip_workspace_entry(&name) {
                 continue;
             }
 
-            let is_directory = path.is_dir();
-            let children = if is_directory {
-                Some(scan_dir(&path)?)
-            } else {
-                None
-            };
-
-            entries.push(FileEntry {
-                name,
-                path: path.to_string_lossy().to_string(),
-                is_directory,
-                children,
-            });
+            entries.push(file_entry_from_path(&path)?);
         }
     }
 
+    sort_file_entries(&mut entries);
+
+    Ok(entries)
+}
+
+fn should_skip_workspace_entry(name: &str) -> bool {
+    matches!(
+        name,
+        ".git" | "node_modules" | "target" | "dist" | ".tauri"
+    )
+}
+
+fn sort_file_entries(entries: &mut [FileEntry]) {
     entries.sort_by(|a, b| {
         if a.is_directory != b.is_directory {
             b.is_directory.cmp(&a.is_directory)
@@ -129,8 +167,134 @@ fn scan_dir(path: &Path) -> Result<Vec<FileEntry>, String> {
             a.name.to_lowercase().cmp(&b.name.to_lowercase())
         }
     });
+}
 
-    Ok(entries)
+fn file_entry_from_path(path: &Path) -> Result<FileEntry, String> {
+    let metadata = fs::metadata(path).map_err(|e| format!("{} ({})", e, path.display()))?;
+    let name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.to_string_lossy().to_string());
+    let is_directory = metadata.is_dir();
+    let children = if is_directory {
+        Some(scan_dir(path)?)
+    } else {
+        None
+    };
+
+    Ok(FileEntry {
+        name,
+        path: path.to_string_lossy().to_string(),
+        is_directory,
+        children,
+    })
+}
+
+fn child_path(parent: &Path, name: &str, allow_nested: bool) -> Result<PathBuf, String> {
+    use std::path::Component;
+
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+
+    let requested = Path::new(trimmed);
+    if requested.is_absolute() {
+        return Err("Use a relative name inside the workspace".to_string());
+    }
+
+    let mut destination = parent.to_path_buf();
+    let mut segment_count = 0;
+
+    for component in requested.components() {
+        match component {
+            Component::Normal(segment) => {
+                if segment.to_string_lossy().trim().is_empty() {
+                    return Err("Name cannot contain empty path segments".to_string());
+                }
+
+                destination.push(segment);
+                segment_count += 1;
+            }
+            _ => return Err("Name cannot contain path traversal or root markers".to_string()),
+        }
+    }
+
+    if segment_count == 0 {
+        return Err("Name cannot be empty".to_string());
+    }
+
+    if !allow_nested && segment_count > 1 {
+        return Err("Rename accepts only a single file or folder name".to_string());
+    }
+
+    Ok(destination)
+}
+
+fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination).map_err(|e| format!("{} ({})", e, destination.display()))?;
+
+    for entry in fs::read_dir(source).map_err(|e| format!("{} ({})", e, source.display()))? {
+        let entry = entry.map_err(|e| format!("{} ({})", e, source.display()))?;
+        let entry_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+
+        if entry_path.is_dir() {
+            copy_dir_recursive(&entry_path, &destination_path)?;
+        } else {
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("{} ({})", e, parent.display()))?;
+            }
+
+            fs::copy(&entry_path, &destination_path).map_err(|e| {
+                format!(
+                    "{} ({} -> {})",
+                    e,
+                    entry_path.display(),
+                    destination_path.display()
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+fn split_file_name(name: &str) -> (String, String) {
+    if let Some((stem, extension)) = name.rsplit_once('.') {
+        if !stem.is_empty() && !extension.is_empty() {
+            return (stem.to_string(), format!(".{extension}"));
+        }
+    }
+
+    (name.to_string(), String::new())
+}
+
+fn next_available_child_path(parent: &Path, preferred_name: &str) -> PathBuf {
+    let candidate = parent.join(preferred_name);
+    if !candidate.exists() {
+        return candidate;
+    }
+
+    let (stem, extension) = split_file_name(preferred_name);
+    for index in 2..1000 {
+        let next_name = if extension.is_empty() {
+            format!("{stem} {index}")
+        } else {
+            format!("{stem} {index}{extension}")
+        };
+        let next_path = parent.join(next_name);
+        if !next_path.exists() {
+            return next_path;
+        }
+    }
+
+    candidate
+}
+
+fn is_same_or_child_path(path: &Path, root: &Path) -> bool {
+    path == root || path.starts_with(root)
 }
 
 #[tauri::command]
@@ -141,9 +305,277 @@ fn read_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn write_file(path: String, content: String) -> Result<(), String> {
+fn write_file(
+    app_handle: AppHandle,
+    state: tauri::State<'_, WorkspaceIndex>,
+    path: String,
+    content: String,
+) -> Result<(), String> {
     let resolved_path = resolve_path(&path)?;
-    fs::write(&resolved_path, content).map_err(|e| format!("{} ({})", e, resolved_path.display()))
+    if let Some(parent) = resolved_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("{} ({})", e, parent.display()))?;
+    }
+
+    fs::write(&resolved_path, content).map_err(|e| format!("{} ({})", e, resolved_path.display()))?;
+    refresh_active_index(&state);
+    let _ = app_handle.emit("zenith://fs-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn create_file(
+    state: tauri::State<'_, WorkspaceIndex>,
+    parent_path: String,
+    name: String,
+    content: Option<String>,
+) -> Result<FileEntry, String> {
+    let parent = resolve_path(&parent_path)?;
+    if !parent.is_dir() {
+        return Err(format!("Parent is not a folder: {}", parent.display()));
+    }
+
+    let path = child_path(&parent, &name, true)?;
+    if path.exists() {
+        return Err(format!("File already exists: {}", path.display()));
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("{} ({})", e, parent.display()))?;
+    }
+
+    fs::write(&path, content.unwrap_or_default()).map_err(|e| format!("{} ({})", e, path.display()))?;
+    let entry = file_entry_from_path(&path)?;
+    refresh_active_index(&state);
+    Ok(entry)
+}
+
+#[tauri::command]
+fn create_folder(
+    state: tauri::State<'_, WorkspaceIndex>,
+    parent_path: String,
+    name: String,
+) -> Result<FileEntry, String> {
+    let parent = resolve_path(&parent_path)?;
+    if !parent.is_dir() {
+        return Err(format!("Parent is not a folder: {}", parent.display()));
+    }
+
+    let path = child_path(&parent, &name, true)?;
+    if path.exists() {
+        return Err(format!("Folder already exists: {}", path.display()));
+    }
+
+    fs::create_dir_all(&path).map_err(|e| format!("{} ({})", e, path.display()))?;
+    let entry = file_entry_from_path(&path)?;
+    refresh_active_index(&state);
+    Ok(entry)
+}
+
+#[tauri::command]
+fn copy_path(
+    state: tauri::State<'_, WorkspaceIndex>,
+    source_path: String,
+    destination_parent_path: String,
+) -> Result<FileEntry, String> {
+    let source = resolve_path(&source_path)?;
+    if !source.exists() {
+        return Err(format!("Path does not exist: {}", source.display()));
+    }
+
+    let destination_parent = resolve_path(&destination_parent_path)?;
+    if !destination_parent.is_dir() {
+        return Err(format!(
+            "Destination is not a folder: {}",
+            destination_parent.display()
+        ));
+    }
+
+    if source.is_dir() && is_same_or_child_path(&destination_parent, &source) {
+        return Err("Cannot copy a folder into itself or one of its children".to_string());
+    }
+
+    let source_name = source
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .ok_or_else(|| "Unable to determine source name".to_string())?;
+    let destination = next_available_child_path(&destination_parent, &source_name);
+
+    if source.is_dir() {
+        copy_dir_recursive(&source, &destination)?;
+    } else {
+        fs::copy(&source, &destination)
+            .map_err(|e| format!("{} ({} -> {})", e, source.display(), destination.display()))?;
+    }
+
+    let entry = file_entry_from_path(&destination)?;
+    refresh_active_index(&state);
+    Ok(entry)
+}
+
+#[tauri::command]
+fn move_path(
+    state: tauri::State<'_, WorkspaceIndex>,
+    source_path: String,
+    destination_parent_path: String,
+) -> Result<FileEntry, String> {
+    let source = resolve_path(&source_path)?;
+    if !source.exists() {
+        return Err(format!("Path does not exist: {}", source.display()));
+    }
+
+    let destination_parent = resolve_path(&destination_parent_path)?;
+    if !destination_parent.is_dir() {
+        return Err(format!(
+            "Destination is not a folder: {}",
+            destination_parent.display()
+        ));
+    }
+
+    if source.is_dir() && is_same_or_child_path(&destination_parent, &source) {
+        return Err("Cannot move a folder into itself or one of its children".to_string());
+    }
+
+    let source_name = source
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .ok_or_else(|| "Unable to determine source name".to_string())?;
+    let destination = next_available_child_path(&destination_parent, &source_name);
+
+    fs::rename(&source, &destination)
+        .map_err(|e| format!("{} ({} -> {})", e, source.display(), destination.display()))?;
+
+    let entry = file_entry_from_path(&destination)?;
+    refresh_active_index(&state);
+    Ok(entry)
+}
+
+#[tauri::command]
+fn rename_path(
+    state: tauri::State<'_, WorkspaceIndex>,
+    path: String,
+    new_name: String,
+) -> Result<FileEntry, String> {
+    let source = resolve_path(&path)?;
+    if !source.exists() {
+        return Err(format!("Path does not exist: {}", source.display()));
+    }
+
+    let parent = source
+        .parent()
+        .ok_or_else(|| "Cannot rename a filesystem root".to_string())?;
+    let destination = child_path(parent, &new_name, false)?;
+
+    if destination.exists() {
+        return Err(format!("Destination already exists: {}", destination.display()));
+    }
+
+    fs::rename(&source, &destination)
+        .map_err(|e| format!("{} ({} -> {})", e, source.display(), destination.display()))?;
+    let entry = file_entry_from_path(&destination)?;
+    refresh_active_index(&state);
+    Ok(entry)
+}
+
+#[tauri::command]
+fn delete_path(
+    state: tauri::State<'_, WorkspaceIndex>,
+    path: String,
+    recursive: bool,
+) -> Result<(), String> {
+    let target = resolve_path(&path)?;
+    if !target.exists() {
+        return Ok(());
+    }
+
+    let metadata = fs::metadata(&target).map_err(|e| format!("{} ({})", e, target.display()))?;
+    if metadata.is_dir() {
+        if recursive {
+            fs::remove_dir_all(&target).map_err(|e| format!("{} ({})", e, target.display()))?;
+        } else {
+            fs::remove_dir(&target).map_err(|e| format!("{} ({})", e, target.display()))?;
+        }
+    } else {
+        fs::remove_file(&target).map_err(|e| format!("{} ({})", e, target.display()))?;
+    }
+
+    refresh_active_index(&state);
+    Ok(())
+}
+
+#[tauri::command]
+fn reveal_in_system_explorer(path: String) -> Result<(), String> {
+    let target = resolve_path(&path)?;
+    if !target.exists() {
+        return Err(format!("Path does not exist: {}", target.display()));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(format!("/select,{}", target.display()))
+            .spawn()
+            .map_err(|e| format!("Failed to reveal file in Explorer: {e}"))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(&target)
+            .spawn()
+            .map_err(|e| format!("Failed to reveal file in Finder: {e}"))?;
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let parent = target.parent().unwrap_or(&target);
+        std::process::Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|e| format!("Failed to reveal file in file manager: {e}"))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn open_in_system_explorer(path: String) -> Result<(), String> {
+    let target = resolve_path(&path)?;
+    if !target.exists() {
+        return Err(format!("Path does not exist: {}", target.display()));
+    }
+
+    let folder = if target.is_dir() {
+        target
+    } else {
+        target.parent().unwrap_or(&target).to_path_buf()
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder in Explorer: {e}"))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&folder)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder in Finder: {e}"))?;
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&folder)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder in file manager: {e}"))?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -235,11 +667,11 @@ fn run_diagnostics(_path: String, content: String) -> Result<Vec<Diagnostic>, St
     let combined = format!("{}{}", stdout, stderr);
 
     let mut diagnostics = Vec::new();
-    
+
     // Regex for: ÔØî Erro [ZT-P002]: express├úo esperada, encontrado RPAREN
     // and --> test_error.zt:1:13
     let error_re = Regex::new(r"Erro \[(?P<code>[^\]]+)\]:\s+(?P<msg>.+?)\r?\n\s+-->\s+.+:(?P<line>\d+):(?P<col>\d+)").unwrap();
-    
+
     // Clean-up temp file
     let _ = fs::remove_file(&temp_path);
 
@@ -257,30 +689,223 @@ fn run_diagnostics(_path: String, content: String) -> Result<Vec<Diagnostic>, St
 }
 
 #[tauri::command]
-fn get_git_status() -> Result<HashMap<String, String>, String> {
+fn get_git_status(state: tauri::State<'_, WorkspaceIndex>) -> Result<HashMap<String, String>, String> {
     use std::process::Command;
-    
+
+    let root = active_workspace_root(&state)?;
     let output = Command::new("git")
         .arg("status")
         .arg("--porcelain")
-        .current_dir(workspace_root())
+        .current_dir(&root)
         .output()
-        .map_err(|e| format!("Failed to execute git: {}", e))?;
+        .map_err(|e| format!("Failed to execute git status: {}", e))?;
+
+    if !output.status.success() {
+        // Might not be a git repo
+        return Ok(HashMap::new());
+    }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut status_map = HashMap::new();
 
     for line in stdout.lines() {
         if line.len() > 3 {
-            let status = line[..2].trim().to_string();
-            let path = line[3..].trim().to_string();
-            // Resolve relative path to absolute to match file tree
-            let abs_path = workspace_root().join(path).to_string_lossy().to_string();
+            let status = line[..2].to_string(); // Keep Both XY status
+            let path = line[3..].trim().trim_matches('"').to_string();
+            let abs_path = root.join(path).to_string_lossy().to_string();
             status_map.insert(abs_path, status);
         }
     }
 
     Ok(status_map)
+}
+
+#[tauri::command]
+fn git_stage(state: tauri::State<'_, WorkspaceIndex>, path: String) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("add")
+        .arg(path)
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to stage file: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_unstage(state: tauri::State<'_, WorkspaceIndex>, path: String) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("reset")
+        .arg("HEAD")
+        .arg(path)
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to unstage file: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_commit(state: tauri::State<'_, WorkspaceIndex>, message: String) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("commit")
+        .arg("-m")
+        .arg(message)
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to commit: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_stage_all(state: tauri::State<'_, WorkspaceIndex>) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("add")
+        .arg(".")
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to stage all: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_unstage_all(state: tauri::State<'_, WorkspaceIndex>) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("reset")
+        .arg("HEAD")
+        .arg(".")
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to unstage all: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_discard_changes(state: tauri::State<'_, WorkspaceIndex>, path: String) -> Result<(), String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    let output = Command::new("git")
+        .arg("checkout")
+        .arg("--")
+        .arg(path)
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to discard changes: {}", e))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn git_read_original(state: tauri::State<'_, WorkspaceIndex>, path: String) -> Result<String, String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    
+    // Resolve relative path for git show
+    let abs_path = PathBuf::from(&path);
+    let relative_path = abs_path.strip_prefix(&root)
+        .map_err(|_| "Path is outside workspace root".to_string())?
+        .to_string_lossy()
+        .replace("\\", "/");
+
+    let output = Command::new("git")
+        .arg("show")
+        .arg(format!("HEAD:{}", relative_path))
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to read original file: {}", e))?;
+
+    if !output.status.success() {
+        // If file is new, return empty string instead of error
+        return Ok(String::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+async fn history_save_snapshot(
+    state: tauri::State<'_, WorkspaceIndex>,
+    path: String,
+    content: String,
+    max_snapshots: i32,
+    retention_days: i32
+) -> Result<(), String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_millis() as u64;
+    let max_entries = max_snapshots.max(1) as usize;
+    let retention_ms = (retention_days.max(0) as u64)
+        .saturating_mul(24)
+        .saturating_mul(60)
+        .saturating_mul(60)
+        .saturating_mul(1000);
+    let snapshot = HistorySnapshot {
+        id: state.next_history_id.fetch_add(1, Ordering::Relaxed) as i32,
+        timestamp: now,
+        content,
+    };
+
+    let mut history = state
+        .history
+        .write()
+        .map_err(|_| "Failed to lock file history".to_string())?;
+    let entries = history.entry(path).or_default();
+    entries.insert(0, snapshot);
+
+    if retention_ms > 0 {
+        entries.retain(|entry| now.saturating_sub(entry.timestamp) <= retention_ms);
+    }
+
+    if entries.len() > max_entries {
+        entries.truncate(max_entries);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn history_get_snapshots(
+    state: tauri::State<'_, WorkspaceIndex>,
+    path: String,
+) -> Result<Vec<HistorySnapshot>, String> {
+    let history = state
+        .history
+        .read()
+        .map_err(|_| "Failed to read file history".to_string())?;
+
+    Ok(history.get(&path).cloned().unwrap_or_default())
 }
 
 #[derive(Serialize)]
@@ -297,79 +922,145 @@ struct FileResult {
 
 #[tauri::command]
 fn search_in_files(
-    root_path: Option<String>,
-    query: String, 
-    is_regex: bool, 
-    match_case: bool
+    state: tauri::State<'_, WorkspaceIndex>,
+    query: String,
+    is_regex: bool,
+    match_case: bool,
+    whole_word: bool,
+    path_filter: Option<String>,
 ) -> Result<Vec<FileResult>, String> {
     let mut all_results = Vec::new();
-    let root = match root_path {
-        Some(p) if !p.is_empty() => resolve_path(&p)?,
-        _ => workspace_root(),
-    };
+    let root = state.root.read().map_err(|_| "Failed to lock root")?;
+    let files = state.files.read().map_err(|_| "Failed to lock index")?;
+
+    let filter_path = path_filter.map(|p| root.join(p.replace("\\", "/")));
 
     let query_lower = if !match_case { query.to_lowercase() } else { query.clone() };
 
-    let mut dirs_to_visit = vec![root.clone()];
-    
-    let re = if is_regex {
-        // We reuse the regex dependency
-        match regex::RegexBuilder::new(&query).case_insensitive(!match_case).build() {
+    // Prepare Regex for either explicit regex search or whole word search
+    let re = if is_regex || whole_word {
+        let pattern = if is_regex {
+            query.clone()
+        } else {
+            // Escape literal for safe inclusion in regex
+            format!(r"\b{}\b", regex::escape(&query))
+        };
+
+        match regex::RegexBuilder::new(&pattern).case_insensitive(!match_case).build() {
             Ok(r) => Some(r),
-            Err(e) => return Err(format!("Invalid regex: {}", e)),
+            Err(e) => return Err(format!("Invalid search pattern: {}", e)),
         }
     } else {
         None
     };
 
-    while let Some(current_dir) = dirs_to_visit.pop() {
-        if let Ok(entries) = fs::read_dir(&current_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                let name = entry.file_name().to_string_lossy().to_string();
+    for path_str in files.iter() {
+        let path = Path::new(path_str);
 
-                if name == ".git" || name == "node_modules" || name == "target" || name == "dist" || name == ".tauri" || name.ends_with(".db") || name.ends_with(".png") || name.ends_with(".jpg") || name.ends_with(".woff2") {
-                    continue; 
-                }
+        // Path filtering
+        if let Some(ref filter) = filter_path {
+            if !path.starts_with(filter) {
+                continue;
+            }
+        }
 
-                if path.is_dir() {
-                    dirs_to_visit.push(path);
+        // Skip common binary types or very large files for now
+        let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        if name.ends_with(".db") || name.ends_with(".png") || name.ends_with(".jpg") || name.ends_with(".woff2") || name.ends_with(".exe") {
+            continue;
+        }
+
+        if let Ok(content) = fs::read_to_string(&path) {
+            let mut file_matches = Vec::new();
+            for (i, line) in content.lines().enumerate() {
+                let matched = if let Some(ref r) = re {
+                    r.is_match(line)
+                } else if match_case {
+                    line.contains(&query)
                 } else {
-                    if let Ok(content) = fs::read_to_string(&path) {
-                        let mut file_matches = Vec::new();
-                        for (i, line) in content.lines().enumerate() {
-                            let matched = if let Some(ref r) = re {
-                                r.is_match(line)
-                            } else if match_case {
-                                line.contains(&query)
-                            } else {
-                                line.to_lowercase().contains(&query_lower)
-                            };
+                    line.to_lowercase().contains(&query_lower)
+                };
 
-                            if matched {
-                                file_matches.push(SearchMatch {
-                                    line_number: i + 1,
-                                    line_content: line.trim().to_string(), // Trimming whitespace limits frontend rendering mess
-                                });
-                            }
-                        }
-
-                        if !file_matches.is_empty() {
-                            let clean_path = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy().to_string();
-                            all_results.push(FileResult {
-                                file_path: clean_path.replace("\\", "/"),
-                                matches: file_matches,
-                            });
-                        }
-                    }
+                if matched {
+                    file_matches.push(SearchMatch {
+                        line_number: i + 1,
+                        line_content: line.trim().to_string(),
+                    });
                 }
+
+                if file_matches.len() >= 100 { break; } // Limit per file
+            }
+
+            if !file_matches.is_empty() {
+                let clean_path = path.strip_prefix(&*root).unwrap_or(&path).to_string_lossy().to_string();
+                all_results.push(FileResult {
+                    file_path: clean_path.replace("\\", "/"),
+                    matches: file_matches,
+                });
+            }
+        }
+
+        if all_results.len() >= 200 { break; } // Total result limit
+    }
+
+    all_results.sort_by(|a, b| a.file_path.cmp(&b.file_path));
+    Ok(all_results)
+}
+
+#[tauri::command]
+fn replace_in_files(
+    state: tauri::State<'_, WorkspaceIndex>,
+    query: String,
+    replacement: String,
+    is_regex: bool,
+    match_case: bool,
+    whole_word: bool,
+    target_files: Vec<String>,
+) -> Result<usize, String> {
+    let root = state.root.read().map_err(|_| "Failed to lock root")?;
+    let mut replaced_count = 0;
+
+    let re = if is_regex || whole_word {
+        let pattern = if is_regex {
+            query.clone()
+        } else {
+            format!(r"\b{}\b", regex::escape(&query))
+        };
+
+        match regex::RegexBuilder::new(&pattern).case_insensitive(!match_case).build() {
+            Ok(r) => Some(r),
+            Err(e) => return Err(format!("Invalid search pattern: {}", e)),
+        }
+    } else {
+        None
+    };
+
+    for rel_path in target_files {
+        let abs_path = root.join(rel_path.replace("\\", "/"));
+        if !abs_path.exists() { continue; }
+
+        if let Ok(content) = fs::read_to_string(&abs_path) {
+            let new_content = if let Some(ref r) = re {
+                r.replace_all(&content, &*replacement).to_string()
+            } else if match_case {
+                content.replace(&query, &replacement)
+            } else {
+                // For case-insensitive literal replace, we still use regex but escaped
+                let r_lite = regex::RegexBuilder::new(&regex::escape(&query))
+                    .case_insensitive(true)
+                    .build()
+                    .map_err(|e| e.to_string())?;
+                r_lite.replace_all(&content, &*replacement).to_string()
+            };
+
+            if new_content != content {
+                fs::write(&abs_path, new_content).map_err(|e| format!("Failed to write to file: {}", e))?;
+                replaced_count += 1;
             }
         }
     }
 
-    all_results.sort_by(|a, b| a.file_path.cmp(&b.file_path));
-    
-    Ok(all_results)
+    Ok(replaced_count)
 }
 
 #[derive(Serialize)]
@@ -379,45 +1070,37 @@ struct FileNameResult {
 }
 
 #[tauri::command]
-fn search_file_names(root_path: Option<String>, query: String) -> Result<Vec<FileNameResult>, String> {
-    let mut all_results = Vec::new();
-    let root = match root_path {
-        Some(p) if !p.is_empty() => resolve_path(&p)?,
-        _ => workspace_root(),
-    };
-
+fn search_file_names(
+    state: tauri::State<'_, WorkspaceIndex>,
+    query: String
+) -> Result<Vec<FileNameResult>, String> {
     let query_lower = query.to_lowercase();
-    let mut dirs_to_visit = vec![root.clone()];
-    
-    while let Some(current_dir) = dirs_to_visit.pop() {
-        if let Ok(entries) = fs::read_dir(&current_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                let name = entry.file_name().to_string_lossy().to_string();
+    let files = state.files.read().map_err(|_| "Failed to lock index")?;
+    let root = state.root.read().map_err(|_| "Failed to lock root")?;
 
-                if name == ".git" || name == "node_modules" || name == "target" || name == "dist" || name == ".tauri" || name.ends_with(".db") || name.ends_with(".png") || name.ends_with(".jpg") || name.ends_with(".woff2") {
-                    continue; 
-                }
+    let mut results = Vec::new();
 
-                if path.is_dir() {
-                    dirs_to_visit.push(path);
-                } else {
-                    if query_lower.is_empty() || name.to_lowercase().contains(&query_lower) {
-                         let clean_path = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy().to_string();
-                         all_results.push(FileNameResult {
-                             name,
-                             path: clean_path.replace("\\", "/"),
-                         });
-                    }
-                }
-            }
+    for path_str in files.iter() {
+        let path = Path::new(path_str);
+        let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+
+        if query_lower.is_empty() || name.to_lowercase().contains(&query_lower) {
+            let relative_path = path.strip_prefix(&*root).unwrap_or(path).to_string_lossy().to_string();
+            results.push(FileNameResult {
+                name,
+                path: relative_path.replace("\\", "/"),
+            });
+        }
+
+        if results.len() >= 100 {
+            break;
         }
     }
 
-    all_results.sort_by(|a, b| a.name.cmp(&b.name));
-    all_results.truncate(100);
-    Ok(all_results)
+    results.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(results)
 }
+
 
 #[derive(Serialize, Clone, Debug)]
 pub enum SymbolKind {
@@ -439,9 +1122,9 @@ pub struct Symbol {
 #[tauri::command]
 fn get_file_symbols(content: String) -> Result<Vec<Symbol>, String> {
     use regex::Regex;
-    
+
     let mut symbols = Vec::new();
-    
+
     // Patterns for Zenith v0.2
     let func_re = Regex::new(r"(?m)^func\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap();
     let struct_re = Regex::new(r"(?m)^struct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*").unwrap();
@@ -462,11 +1145,11 @@ fn get_file_symbols(content: String) -> Result<Vec<Symbol>, String> {
         for cap in re.captures_iter(&content) {
             let name = cap[1].to_string();
             let pos = cap.get(1).unwrap().start();
-            
+
             // Calculate line and col from byte position
             let line = content[..pos].lines().count();
             let col = content[..pos].lines().last().map(|l| l.len() + 1).unwrap_or(1);
-            
+
             symbols.push(Symbol {
                 name,
                 kind: kind.clone(),
@@ -478,7 +1161,7 @@ fn get_file_symbols(content: String) -> Result<Vec<Symbol>, String> {
 
     // Sort by line number
     symbols.sort_by_key(|s| s.line);
-    
+
     Ok(symbols)
 }
 
@@ -574,6 +1257,71 @@ fn terminal_write(
 }
 
 #[tauri::command]
+fn workspace_index_bootstrap(
+    app_handle: AppHandle,
+    state: tauri::State<'_, WorkspaceIndex>,
+    root_path: String,
+) -> Result<(), String> {
+    let root = resolve_path(&root_path)?;
+
+    // Update root in state
+    {
+        let mut root_lock = state.root.write().map_err(|_| "Failed to lock root")?;
+        *root_lock = root.clone();
+    }
+
+    // Initialize Watcher
+    let app_handle_inner = app_handle.clone();
+    let mut watcher = notify::RecommendedWatcher::new(move |res: notify::Result<notify::Event>| {
+        if let Ok(event) = res {
+            // Only emit if it's a data change or structural change
+            if event.kind.is_modify() || event.kind.is_create() || event.kind.is_remove() {
+                let _ = app_handle_inner.emit("zenith://fs-changed", ());
+            }
+        }
+    }, Config::default()).map_err(|e| e.to_string())?;
+
+    watcher.watch(&root, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+
+    // Store watcher
+    {
+        let mut watcher_lock = state.watcher.lock().map_err(|_| "Failed to lock watcher")?;
+        *watcher_lock = Some(watcher);
+    }
+
+    // Perform initial index
+    refresh_index_internal(&state, &root)?;
+
+    let _ = app_handle.emit("zenith://index-ready", ());
+    Ok(())
+}
+
+fn refresh_index_internal(state: &WorkspaceIndex, root: &Path) -> Result<(), String> {
+    use walkdir::WalkDir;
+
+    let mut new_files = Vec::new();
+
+    // We use a simple walkdir for now, but we could use 'ignore' crate for .gitignore awareness
+    for entry in WalkDir::new(root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let name = e.file_name().to_string_lossy();
+            !name.starts_with('.') && name != "node_modules" && name != "target" && name != "dist"
+        })
+    {
+        if entry.file_type().is_file() {
+            new_files.push(entry.path().to_string_lossy().to_string());
+        }
+    }
+
+    let mut files_lock = state.files.write().map_err(|_| "Failed to lock index files")?;
+    *files_lock = new_files;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn terminal_resize(
     session_id: PtyHandler,
     cols: u16,
@@ -629,6 +1377,21 @@ fn workspace_root() -> PathBuf {
     ide_root.parent().map(Path::to_path_buf).unwrap_or(ide_root)
 }
 
+fn active_workspace_root(state: &WorkspaceIndex) -> Result<PathBuf, String> {
+    let root = state.root.read().map_err(|_| "Failed to lock root")?;
+    if root.as_os_str().is_empty() {
+        Ok(workspace_root())
+    } else {
+        Ok(root.clone())
+    }
+}
+
+fn refresh_active_index(state: &WorkspaceIndex) {
+    if let Ok(root) = active_workspace_root(state) {
+        let _ = refresh_index_internal(state, &root);
+    }
+}
+
 fn resolve_shell(shell: Option<String>) -> String {
     if let Some(shell) = shell.filter(|value| !value.trim().is_empty()) {
         return shell;
@@ -663,6 +1426,7 @@ fn build_shell_command(shell: &str, cwd: &Path) -> CommandBuilder {
 
     if shell_lower.ends_with("powershell.exe") || shell_lower.ends_with("pwsh.exe") {
         command.arg("-NoLogo");
+        command.arg("-NoProfile");
     } else if shell_lower.ends_with("/bash")
         || shell_lower.ends_with("/zsh")
         || shell_lower.ends_with("/fish")
@@ -760,6 +1524,47 @@ fn spawn_terminal_waiter(app_handle: AppHandle, session_id: PtyHandler, session:
         );
     });
 }
+#[derive(Serialize)]
+struct SysInfo {
+    cpu: f32,
+    memory: u64,      // total bytes
+    memory_used: u64, // used bytes
+}
+
+#[tauri::command]
+fn get_sys_info() -> Result<SysInfo, String> {
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    
+    // Average CPU usage across all cores
+    let cpu_sum: f32 = sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum();
+    let cpu_avg = if sys.cpus().len() > 0 { cpu_sum / sys.cpus().len() as f32 } else { 0.0 };
+    
+    Ok(SysInfo {
+        cpu: cpu_avg,
+        memory: sys.total_memory(),
+        memory_used: sys.used_memory(),
+    })
+}
+
+#[tauri::command]
+fn get_git_branch(state: tauri::State<'_, WorkspaceIndex>) -> Result<String, String> {
+    use std::process::Command;
+    let root = active_workspace_root(&state)?;
+    
+    let output = Command::new("git")
+        .arg("branch")
+        .arg("--show-current")
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("Failed to execute git: {}", e))?;
+
+    if !output.status.success() {
+        return Ok(String::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -768,22 +1573,42 @@ pub fn run() {
             tauri_plugin_sql::Builder::default()
                 .add_migrations(
                     "sqlite:zenith.db",
-                    vec![tauri_plugin_sql::Migration {
-                        version: 1,
-                        description: "create initial tables",
-                        sql: "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                              CREATE TABLE IF NOT EXISTS extension_data (ext_id TEXT, key TEXT, value TEXT, PRIMARY KEY(ext_id, key));",
-                        kind: tauri_plugin_sql::MigrationKind::Up,
-                    }],
+                    vec![
+                        tauri_plugin_sql::Migration {
+                            version: 1,
+                            description: "create initial tables",
+                            sql: "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                                  CREATE TABLE IF NOT EXISTS extension_data (ext_id TEXT, key TEXT, value TEXT, PRIMARY KEY(ext_id, key));",
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
+                        tauri_plugin_sql::Migration {
+                            version: 2,
+                            description: "add workspaces and file history",
+                            sql: "CREATE TABLE IF NOT EXISTS workspaces (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, snapshot TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+                                  CREATE TABLE IF NOT EXISTS file_history (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL, content_blob BLOB NOT NULL, hash TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+                                  CREATE INDEX IF NOT EXISTS idx_file_history_path ON file_history(path);",
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        }
+                    ],
                 )
                 .build(),
         )
         .manage(TerminalState::default())
+        .manage(WorkspaceIndex::default())
+        .manage(LspState::default())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_file_tree,
             read_file,
             write_file,
+            create_file,
+            create_folder,
+            rename_path,
+            delete_path,
+            copy_path,
+            move_path,
+            reveal_in_system_explorer,
+            open_in_system_explorer,
             run_compiler,
             pick_file,
             pick_folder,
@@ -791,12 +1616,33 @@ pub fn run() {
             run_diagnostics,
             get_git_status,
             search_in_files,
+            replace_in_files,
             search_file_names,
             get_file_symbols,
+            workspace_index_bootstrap,
             terminal_create,
             terminal_write,
             terminal_resize,
-            terminal_kill
+            terminal_kill,
+            git_stage,
+            git_unstage,
+            git_commit,
+            git_read_original,
+            history_save_snapshot,
+            history_get_snapshots,
+            get_git_branch,
+            get_sys_info,
+            git_stage_all,
+            git_unstage_all,
+            git_discard_changes,
+            lsp_sync_document,
+            lsp_completion,
+            lsp_hover,
+            lsp_definition,
+            lsp_references,
+            lsp_rename,
+            lsp_latest_diagnostics,
+            lsp_shutdown
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,4 +1,4 @@
-# Zenith IDE (Retina) - Guia de Uso
+# Zenith Keter - Guia de Uso
 
 Bem-vindo à sua nova IDE premium. Este guia cobre as principais funcionalidades e atalhos para você extrair o máximo de performance no desenvolvimento com a linguagem Zenith.
 
@@ -18,7 +18,7 @@ Bem-vindo à sua nova IDE premium. Este guia cobre as principais funcionalidades
 
 ## 🎨 Temas e Acessibilidade
 
-A Zenith IDE foi pensada para ser inclusiva e esteticamente agradável:
+A Zenith Keter foi pensada para ser inclusiva e esteticamente agradável:
 
 1.  **Temas Dinâmicos**: Localizados no rodapé da Sidebar. Oferecemos Zenith (Official), Nord, Neon, Dracula e Neuro.
 2.  **Suporte a Dislexia**: No rodapé da Sidebar, você encontrará o toggle **Dyslexic Font**. Ele ativa a fonte **OpenDyslexic**, que possui bases mais pesadas para facilitar a leitura.
@@ -41,4 +41,4 @@ A Zenith IDE foi pensada para ser inclusiva e esteticamente agradável:
 - **Documentação**: Markdown (.md) com suporte a GFM.
 
 ---
-*Zenith Retina v0.2-alpha - Criado para desenvolvedores exigentes.*
+*Zenith Keter v0.2-alpha - Criado para desenvolvedores exigentes.*

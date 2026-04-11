@@ -75,6 +75,29 @@ pub struct Grid<T>
     end
 end
 
+-- 🏗️ OPERAÇÕES DE LISTA (Mutação)
+
+--- Adiciona um item ao final da lista.
+pub func add<T>(l: list<T>, item: T)
+    native lua
+        table.insert(l, item)
+    end
+end
+
+--- Remove um item de uma posição específica.
+pub func remove_at<T>(l: list<T>, index: int) -> T
+    native lua
+        return table.remove(l, index)
+    end
+end
+
+--- Retorna o número de itens na lista.
+pub func length<T>(l: list<T>) -> int
+    native lua
+        return #l
+    end
+end
+
 -- 🏗️ OPERAÇÕES DE LISTA (Funcional)
 
 --- Filtra itens de uma lista baseada em uma condição.

@@ -1,6 +1,10 @@
 import { ZENITH_BUILTINS } from "./zenithDocs";
 
+let isZenithLanguageRegistered = false;
+
 export function registerZenithLanguage(monaco: any) {
+  if (isZenithLanguageRegistered) return;
+  isZenithLanguageRegistered = true;
   // 1. Syntax Tokens (Monarch)
   monaco.languages.register({ id: 'zenith' });
   monaco.languages.setMonarchTokensProvider('zenith', {

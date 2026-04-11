@@ -1,0 +1,103 @@
+namespace syntax.tokens
+
+pub enum TokenKind
+    -- Literais
+    IDENTIFIER
+    INTEGER_LITERAL
+    FLOAT_LITERAL
+    STRING_LITERAL
+    DOC_COMMENT
+
+    -- Palavras-Chave (Declaração)
+    KW_VAR
+    KW_CONST
+    KW_GLOBAL
+    KW_FUNC
+    KW_ASYNC
+    KW_STRUCT
+    KW_ENUM
+    KW_TRAIT
+    KW_APPLY
+    KW_PUB
+    KW_EXPORT
+    KW_IMPORT
+    KW_NAMESPACE
+    KW_REDO
+    KW_EXTERN
+
+    -- Palavras-Chave (Fluxo)
+    KW_IF
+    KW_ELIF
+    KW_ELSE
+    KW_WHILE
+    KW_FOR
+    KW_IN
+    KW_REPEAT
+    KW_TIMES
+    KW_MATCH
+    KW_CASE
+    KW_BREAK
+    KW_CONTINUE
+    KW_RETURN
+    KW_DO
+    KW_END
+
+    -- Palavras-Chave (Lógica/Tipos)
+    KW_AND
+    KW_OR
+    KW_NOT
+    KW_WHERE
+    KW_TYPE
+    KW_UNION
+    KW_AS
+    KW_IS
+    KW_TO
+
+    -- Literais Especiais
+    KW_TRUE
+    KW_FALSE
+    KW_NULL
+    KW_SELF
+    KW_IT
+
+    -- Operadores
+    PLUS                -- +
+    MINUS               -- -
+    STAR                -- *
+    SLASH               -- /
+    PERCENT             -- %
+    EQUAL               -- =
+    EQUAL_EQUAL         -- ==
+    BANG_EQUAL          -- !=
+    LESS                -- <
+    LESS_EQUAL          -- <=
+    GREATER             -- >
+    GREATER_EQUAL       -- >=
+    PLUS_EQUAL          -- +=
+    MINUS_EQUAL         -- -=
+    STAR_EQUAL          -- *=
+    SLASH_EQUAL         -- /=
+    ARROW               -- ->
+    FAT_ARROW           -- =>
+    DOT                 -- .
+    DOT_DOT             -- ..
+    COMMA               -- ,
+    COLON               -- :
+    SEMICOLON           -- ;
+    LPAREN              -- (
+    RPAREN              -- )
+    LBRACKET            -- [
+    RBRACKET            -- ]
+    LBRACE              -- {
+    RBRACE              -- }
+    PIPE                -- |
+    QUESTION            -- ?
+    BANG                -- !
+    HASH                -- #
+    AT                  -- @
+
+    -- Especiais
+    NEWLINE
+    EOF
+    BAD_TOKEN
+end

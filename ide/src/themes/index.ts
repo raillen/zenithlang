@@ -22,7 +22,7 @@ export interface ZenithTheme {
 }
 
 export const defaultLight: ZenithTheme = {
-  id: 'light-retina',
+  id: 'light-prism',
   name: 'Standard Light',
   type: 'light',
   ui: {
@@ -68,6 +68,6 @@ export const defaultDark: ZenithTheme = {
 };
 
 export const THEMES: Record<string, ZenithTheme> = {
-  'light-retina': defaultLight,
+  'light-prism': defaultLight,
   'dark-modern': defaultDark,
 };

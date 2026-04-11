@@ -1,6 +1,6 @@
-# Zenith IDE: Roadmap de Sprints
+# Zenith Keter: Roadmap de Sprints
 
-Este documento define a estratégia de desenvolvimento incremental da Zenith IDE, organizada em 7 sprints (2-3 dias cada) focadas em entregar valor funcional e estabilidade em cada etapa.
+Este documento define a estratégia de desenvolvimento incremental da Zenith Keter, organizada em 7 sprints (2-3 dias cada) focadas em entregar valor funcional e estabilidade em cada etapa.
 
 ---
 

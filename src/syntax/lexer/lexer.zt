@@ -1,0 +1,260 @@
+namespace syntax.lexer
+
+import source
+import syntax.tokens
+import std.text
+import std.collections
+
+pub struct Lexer
+    pub source: source.SourceText
+    pub pos: int
+    pub buffer: list<tokens.Token>
+
+    pub func is_at_end() -> bool
+        return self.pos > self.source.length()
+    end
+
+    pub func current() -> text
+        if self.is_at_end()
+            return "\0"
+        end
+        -- Usando native lua por enquanto para acesso direto a bytes/sub do Lua
+        -- até que a std.text tenha acesso por índice consolidado.
+        native lua
+            return self.source.text:sub(self.pos, self.pos)
+        end
+    end
+
+    pub func peek(offset: int = 1) -> text
+        var target = self.pos + offset
+        if target > self.source.length()
+            return "\0"
+        end
+        native lua
+            return self.source.text:sub(target, target)
+        end
+    end
+
+    pub func advance(n: int = 1)
+        self.pos += n
+    end
+
+    --- Motor principal de tokenização.
+    pub func tokenize() -> list<tokens.Token>
+        var result = []
+        while not self.is_at_end() or self.buffer.length() > 0
+            var token = self.next_token()
+            match token
+                case Present(t) => result.add(t)
+                case Empty      => -- Ignora tokens nulos (espaços/comentários)
+            end
+        end
+        
+        result.add(tokens.Token {
+            kind = tokens.TokenKind.EOF,
+            lexeme = "",
+            value = null,
+            span = source.Span { start = self.pos, length = 0 }
+        })
+        
+        return result
+    end
+
+    func next_token() -> Optional<tokens.Token>
+        if self.buffer.length() > 0
+            return Present(self.buffer.remove_at(1))
+        end
+
+        var c = self.current()
+        
+        -- Ignorar espaços
+        if c == " " or c == "\t" or c == "\r"
+            self.advance()
+            return Empty
+        end
+
+        if c == "\n"
+            var t = tokens.Token {
+                kind = tokens.TokenKind.NEWLINE,
+                lexeme = "\n",
+                value = null,
+                span = source.Span { start = self.pos, length = 1 }
+            }
+            self.advance()
+            return Present(t)
+        end
+
+        -- Números
+        if text.is_numeric(c)
+            return Present(self.read_number())
+        end
+
+        -- Identificadores e Keywords
+        if self.is_alpha(c)
+            return Present(self.read_identifier())
+        end
+
+        -- Strings
+        if c == "\""
+            return Present(self.read_string())
+        end
+
+        -- Comentários e Operadores
+        if c == "-" and self.peek() == "-"
+            self.skip_comment()
+            return Empty
+        end
+
+        return Present(self.read_operator())
+    end
+
+    func is_alpha(c: text) -> bool
+        native lua
+            return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+        end
+    end
+
+    func read_identifier() -> tokens.Token
+        var start = self.pos
+        while not self.is_at_end() and (self.is_alpha(self.current()) or text.is_numeric(self.current()))
+            self.advance()
+        end
+        
+        var lexeme = ""
+        native lua
+            lexeme = self.source.text:sub(start, self.pos - 1)
+        end
+        
+        var kind_opt = tokens.get_keyword_kind(lexeme)
+        var kind = kind_opt or tokens.TokenKind.IDENTIFIER
+        
+        return tokens.Token {
+            kind = kind,
+            lexeme = lexeme,
+            value = lexeme,
+            span = source.Span { start = start, length = self.pos - start }
+        }
+    end
+
+    func read_number() -> tokens.Token
+        var start = self.pos
+        var has_dot = false
+        
+        while not self.is_at_end() and (text.is_numeric(self.current()) or self.current() == ".")
+            if self.current() == "."
+                if self.peek() == "." or has_dot
+                    break
+                end
+                has_dot = true
+            end
+            self.advance()
+        end
+        
+        var lexeme = ""
+        native lua
+            lexeme = self.source.text:sub(start, self.pos - 1)
+        end
+        
+        var kind = if has_dot then tokens.TokenKind.FLOAT_LITERAL else tokens.TokenKind.INTEGER_LITERAL
+        
+        return tokens.Token {
+            kind = kind,
+            lexeme = lexeme,
+            value = null, -- TODO: parse number no Zenith
+            span = source.Span { start = start, length = self.pos - start }
+        }
+    end
+
+    func read_string() -> tokens.Token
+        var start = self.pos
+        self.advance() -- "
+        var content = ""
+        
+        while not self.is_at_end() and self.current() != "\""
+            -- TODO: Implementar escapes e interpolação completa
+            content += self.current()
+            self.advance()
+        end
+        
+        if not self.is_at_end()
+            self.advance() -- "
+        end
+        
+        return tokens.Token {
+            kind = tokens.TokenKind.STRING_LITERAL,
+            lexeme = "\"{content}\"",
+            value = content,
+            span = source.Span { start = start, length = self.pos - start }
+        }
+    end
+
+    func skip_comment()
+        self.advance(2) -- --
+        while not self.is_at_end() and self.current() != "\n"
+            self.advance()
+        end
+    end
+
+    func read_operator() -> tokens.Token
+        var start = self.pos
+        var c = self.current()
+        var n = self.peek()
+        var lexeme = c
+        var kind = tokens.TokenKind.BAD_TOKEN
+
+        -- Lógica de 2 caracteres
+        var pair = c + n
+        var found_pair = false
+        
+        native lua
+            local map = {
+                ["=="] = "EQUAL_EQUAL", ["!="] = "BANG_EQUAL",
+                ["<="] = "LESS_EQUAL", [">="] = "GREATER_EQUAL",
+                ["+="] = "PLUS_EQUAL", ["-="] = "MINUS_EQUAL",
+                ["*="] = "STAR_EQUAL", ["/="] = "SLASH_EQUAL",
+                ["->"] = "ARROW", ["=>"] = "FAT_ARROW", [".."] = "DOT_DOT"
+            }
+            if map[pair] then
+                kind = zt.syntax.tokens.TokenKind[map[pair]]
+                lexeme = pair
+                found_pair = true
+            end
+        end
+
+        if found_pair
+            self.advance(2)
+        else
+            native lua
+                local map = {
+                    ["+"] = "PLUS", ["-"] = "MINUS", ["*"] = "STAR",
+                    ["/"] = "SLASH", ["%"] = "PERCENT", ["="] = "EQUAL",
+                    ["<"] = "LESS", [">"] = "GREATER", ["("] = "LPAREN",
+                    [")"] = "RPAREN", ["["] = "LBRACKET", ["]"] = "RBRACKET",
+                    ["{"] = "LBRACE", ["}"] = "RBRACE", ["."] = "DOT",
+                    [","] = "COMMA", [":"] = "COLON", [";"] = "SEMICOLON",
+                    ["|"] = "PIPE", ["!"] = "BANG", ["?"] = "QUESTION",
+                    ["#"] = "HASH", ["@"] = "AT"
+                }
+                if map[c] then
+                    kind = zt.syntax.tokens.TokenKind[map[c]]
+                end
+            end
+            self.advance(1)
+        end
+
+        return tokens.Token {
+            kind = kind,
+            lexeme = lexeme,
+            value = null,
+            span = source.Span { start = start, length = #lexeme }
+        }
+    end
+end
+
+pub func create(source_t: source.SourceText) -> Lexer
+    return Lexer {
+        source = source_t,
+        pos = 1,
+        buffer = []
+    }
+end

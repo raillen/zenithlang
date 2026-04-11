@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import React from 'react';
 
+export type SettingsTab = 'general' | 'editor' | 'keymap' | 'extensions' | 'sanctuary';
+
 export interface Command {
     id: string;
     title: string;
@@ -14,12 +16,15 @@ interface CommandState {
     isPaletteOpen: boolean;
     initialQuery: string;
     isSettingsOpen: boolean;
+    settingsTab: SettingsTab;
+    isHubOpen: boolean;
     
     registerCommand: (command: Command) => void;
     unregisterCommand: (id: string) => void;
     executeCommand: (id: string) => void;
     setPaletteOpen: (open: boolean, initialQuery?: string) => void;
-    setSettingsOpen: (open: boolean) => void;
+    setSettingsOpen: (open: boolean, tab?: SettingsTab) => void;
+    setHubOpen: (open: boolean) => void;
 }
 
 export const useCommandStore = create<CommandState>((set, get) => ({
@@ -27,6 +32,8 @@ export const useCommandStore = create<CommandState>((set, get) => ({
     isPaletteOpen: false,
     initialQuery: "",
     isSettingsOpen: false,
+    settingsTab: "general",
+    isHubOpen: false,
     
     registerCommand: (command) => set((state) => ({
         commands: { ...state.commands, [command.id]: command }
@@ -50,5 +57,10 @@ export const useCommandStore = create<CommandState>((set, get) => ({
     },
 
     setPaletteOpen: (open, initialQuery = "") => set({ isPaletteOpen: open, initialQuery }),
-    setSettingsOpen: (open) => set({ isSettingsOpen: open })
+    setSettingsOpen: (open, tab = "general") =>
+        set((state) => ({
+            isSettingsOpen: open,
+            settingsTab: open ? tab : state.settingsTab,
+        })),
+    setHubOpen: (open) => set({ isHubOpen: open }),
 }));
