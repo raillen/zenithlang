@@ -29,6 +29,7 @@ Fatia ja entregue:
 - `lookup_operator_double` e `lookup_operator_single` usam `TokenKind.BAD` em vez de `null`.
 - Slots sequenciais de tabelas internas foram centralizados em `has_slot(items, index)`.
 - `Optional` e `Outcome` foram alinhados com tags reais do runtime.
+- Lookup de simbolos foi encapsulado com `symbol_is_present`, `symbol_is_missing` e `scope_has_local_symbol`.
 
 ## 2. Regras de Decisao
 
@@ -133,7 +134,7 @@ Criterio de aceite:
 - Erro de simbolo ausente continua emitindo `ZT-2001`.
 - Bootstrap stage2/stage3 continua deterministico.
 
-Status: pendente.
+Status: em andamento. Primeira fatia compat entregue; retorno real `Optional<Symbol>` ainda pendente.
 
 ### N3 - Campos Opcionais de AST
 
