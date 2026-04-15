@@ -1,5 +1,0 @@
-struct Test
-    func test(n: any, struct_name: text)
-        return n
-    end
-end

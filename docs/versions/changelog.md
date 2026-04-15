@@ -6,29 +6,50 @@ Este e o changelog canonico do Zenith dentro da estrutura atual de documentacao.
 
 ### Changed
 
-- documentacao principal alinhada ao estado verificado da implementacao ativa
-- roadmap de estabilizacao promovido como referencia do estado real
-- narrativa de self-hosting completo removida dos docs centrais onde ela contradizia o repositorio atual
+- documentacao principal, portal e website alinhados ao estado oficial 100% self-hosted;
+- front door, bootstrap, release e auditoria passaram a ser descritos pela linha vigente, sem reapresentar a transicao como estado atual;
+- trilha Lua mantida como runtime, implementacao de referencia e recuperacao extraordinaria, sem disputar a face oficial do produto.
+
+### Added
+
+- consolidacao documental dos ciclos `selfhost-oficializacao`, `selfhost-100` e `selfhost-pos100`;
+- politica explicita de artefatos e fechamento editorial do corte pos-100;
+- sincronizacao do `zenith-website` com os docs canonicos atuais.
+
+## [0.3.6] - 2026-04-15
+
+### Added
+
+- produto oficial marcado como 100% self-hosted;
+- gate recorrente de release self-hosted e auditoria de legado sem eventos no caminho oficial;
+- politica de artefatos para `.selfhost-artifacts/`, `.ztc-tmp/` e limpeza oficial;
+- builtins oficiais endurecidos em modo estrito, com `zpm`, `zman` e `ztest` no fluxo suportado.
+
+### Changed
+
+- `ztc.lua` passou a operar em modo self-hosted estrito como front door oficial;
+- a documentacao central foi reescrita para refletir o corte definitivo do produto;
+- o website oficial passou a espelhar o estado atual da linguagem e dos compiladores.
 
 ## [0.3.0] - 2026-04-11
 
 ### Added
 
-- marco editorial Ascension para a linha 0.3.x
-- aceleracao da trilha self-hosted em Zenith
-- expansao de docs e narrativa de soberania tecnica
-- distribuicao multiplataforma para `@windows`, `@linux` e `@macos`
-- modos standalone e bundle
-- suporte nativo a FFI para C e C++
+- marco editorial Ascension para a linha 0.3.x;
+- aceleracao da trilha self-hosted em Zenith;
+- expansao de docs e narrativa de soberania tecnica;
+- distribuicao multiplataforma para `@windows`, `@linux` e `@macos`;
+- modos standalone e bundle;
+- suporte nativo a FFI para C e C++.
 
 ### Changed
 
-- a documentacao da epoca passou a tratar Ascension como linha principal
-- o bootstrap em Lua deixou de ser apresentado como unica narrativa do projeto
+- a documentacao da epoca passou a tratar Ascension como linha principal;
+- o bootstrap em Lua deixou de ser apresentado como unica narrativa do projeto.
 
 ### Note
 
-- o estado verificado atual do repositorio deve ser lido em `docs/roadmap_estabilizacao.md`
+- para o fechamento dessa historia, leia `docs/roadmap/selfhost-oficializacao.md`, `docs/roadmap/selfhost-100.md` e `docs/roadmap/selfhost-pos100.md`.
 
 ## [0.2.8] - 2026-04-10
 

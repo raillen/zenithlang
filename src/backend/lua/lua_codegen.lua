@@ -454,17 +454,19 @@ function LuaCodegen:_emit_struct_decl(node)
     self:emit(string.format("function %s.new(fields)", name))
     self:indent()
     self:emit(string.format("local self = setmetatable({}, %s)", name))
-    for _, field in ipairs(node.fields) do
+    for index, field in ipairs(node.fields) do
         local default_value = field.default_value or field.initializer
         local condition = field.condition or field.where_clause
         local init = default_value and self:_eval(default_value) or "nil"
+        local field_var = string.format("_field_%d", index)
+        self:emit(string.format("local %s = fields.%s", field_var, field.name))
+        self:emit(string.format("if %s == nil then %s = %s end", field_var, field_var, init))
         if condition then
-            self:emit(string.format("local _val = fields.%s or %s", field.name, init))
-            local cond = self:_eval_with_it(condition, "_val")
+            local cond = self:_eval_with_it(condition, field_var)
             self:emit(string.format("if not (%s) then error(\"violacao de contrato no campo '%s' da struct '%s'\") end", cond, field.name, name))
-            self:emit(string.format("self.%s = _val", field.name))
+            self:emit(string.format("self.%s = %s", field.name, field_var))
         else
-            self:emit(string.format("self.%s = fields.%s or %s", field.name, field.name, init))
+            self:emit(string.format("self.%s = %s", field.name, field_var))
         end
     end
     self:emit("return self")

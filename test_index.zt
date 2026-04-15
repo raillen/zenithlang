@@ -1,9 +1,0 @@
-pub func main()
-    var lista = [10, 20, 30]
-    var x = lista[0] -- Deve avisar ZT-W002
-    var y = lista[1] -- Primeiro elemento real
-    
-    var s = "Zenith"
-    var c = s[0..0] -- Deve avisar ZT-W002
-    var d = s[1..1] -- Primeiro char "Z"
-end

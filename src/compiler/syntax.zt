@@ -274,6 +274,17 @@ func text_alpha_only(v: text) -> text
     return text_replace(v, "[^%a]", "_")
 end
 
+func list_contains_text(items: any, target: text) -> bool
+    var index = 0
+    while has_slot(items, index)
+        if items[index] == target
+            return true
+        end
+        index = index + 1
+    end
+    return false
+end
+
 pub struct Lexer
     pub source: text
     pub pos: int
@@ -1290,9 +1301,10 @@ pub struct ModuleManager
 
         if src == "" return empty_value() end
 
-        var l = Lexer { source: src, pos: 0, tokens: [] }
+        var module_bag = DiagnosticBag { diagnostics: [], count: 0 }
+        var l = Lexer { source: src, pos: 0, line: 1, col: 1, file: path, tokens: [] }
         var ts = l.tokenize()
-        var p = Parser { tokens: ts, pos: 0 }
+        var p = Parser { tokens: ts, pos: 0, diagnostics: module_bag }
         var unit = p.parse()
         self.cache[module_name as any] = unit
         return unit
@@ -1431,9 +1443,13 @@ pub struct Binder
                 self.current_scope.define(sym)
             end
         elif n.kind == NodeKind.IdentifierExpr
-            n.symbol = scope_lookup(self.current_scope, n.name)
-            if symbol_is_missing(n.symbol)
-                report_error_if_possible(self.diagnostics, "ZT-2001", "Símbolo não encontrado: '" + n.name + "'", n.span)
+            if n.name == "Present" or n.name == "Empty" or n.name == "Success" or n.name == "Failure"
+                n.symbol = Symbol { kind: 0, name: n.name, type_name: "any", is_pub: false, declaration: empty_value() }
+            else
+                n.symbol = scope_lookup(self.current_scope, n.name)
+                if symbol_is_missing(n.symbol)
+                    report_error_if_possible(self.diagnostics, "ZT-2001", "Símbolo não encontrado: '" + n.name + "'", n.span)
+                end
             end
         elif n.kind == NodeKind.BinaryExpr
             self._bind_node(n.left)
@@ -1534,6 +1550,7 @@ pub struct Emitter
     pub line_count: int
     pub has_namespace: bool
     pub target_os: text
+    pub imports: any
 
     pub func emit(self, txt: text)
         var indent = ""
@@ -1565,6 +1582,10 @@ pub struct Emitter
         
         self.emit("-- Transpilado por Zenith Ascension (Transcendencia v0.10)")
         self.emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
+        self.emit("local Present = zt.Optional.Present")
+        self.emit("local Empty = zt.Optional.Empty")
+        self.emit("local Success = zt.Outcome.Success")
+        self.emit("local Failure = zt.Outcome.Failure")
         
         -- Emitir imports
         var imps = u.imports
@@ -1577,6 +1598,11 @@ pub struct Emitter
                     lua_path = "src.stdlib." + text_slice(lua_path, 5, text_len(lua_path))
                 end
                 var clean_name = text_to_binding_name(imp.name)
+                var import_index = 0
+                while has_slot(self.imports, import_index)
+                    import_index = import_index + 1
+                end
+                self.imports[import_index] = clean_name
                 self.emit("local " + clean_name + " = require(\"" + lua_path + "\")")
                 i = i + 1
             end
@@ -1816,7 +1842,10 @@ pub struct Emitter
                     var f = fs[i]
                     var init = "nil"
                     if value_is_present(f.body) init = self.expr_to_lua(f.body) end
-                    self.emit("self." + f.name + " = fields." + f.name + " or " + init)
+                    var field_var = "_field_" + f.name
+                    self.emit("local " + field_var + " = fields." + f.name)
+                    self.emit("if " + field_var + " == nil then " + field_var + " = " + init + " end")
+                    self.emit("self." + f.name + " = " + field_var)
                     i = i + 1
                 end
             end
@@ -1947,7 +1976,16 @@ pub struct Emitter
         elif n.kind == NodeKind.CallExpr
             var c = self.expr_to_lua(n.callee)
             if n.callee.kind == NodeKind.MemberExpr
-                c = self.expr_to_lua(n.callee.object) + ":" + n.callee.name
+                var sep = ":"
+                if n.callee.object.kind == NodeKind.IdentifierExpr
+                    var object_name = text_to_binding_name(n.callee.object.name)
+                    if list_contains_text(self.imports, object_name)
+                        sep = "."
+                    elif symbol_is_present(n.callee.object.symbol) and n.callee.object.symbol.kind == 4
+                        sep = "."
+                    end
+                end
+                c = self.expr_to_lua(n.callee.object) + sep + n.callee.name
             end
             var a = "("
             var args = n.args
@@ -2036,7 +2074,7 @@ pub func compile_ext(src: text, file: text, target: text) -> any
     b.bind_unit(u)
     if bag.count > 0 return bag end
 
-    var e = Emitter { output: [], indent_level: 0, line_count: 0, has_namespace: false, target_os: target }
+    var e = Emitter { output: [], indent_level: 0, line_count: 0, has_namespace: false, target_os: target, imports: [] }
     var lua = e.generate(u)
     return lua
 end

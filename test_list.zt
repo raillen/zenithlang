@@ -1,8 +1,0 @@
-pub func main()
-    var l: list<int> = []
-    l.push(1)
-    if l.is_empty()
-        print("vazia")
-    end
-    print(l.len())
-end

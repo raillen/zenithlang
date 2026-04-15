@@ -4,3 +4,17 @@ dist/
 bin/
 *.log
 .DS_Store
+
+.ztc-tmp/
+.selfhost-artifacts/
+.selfhost-bootstrap/*.log
+.selfhost-bootstrap/*.map
+.selfhost-bootstrap/*_strict.lua
+.selfhost-bootstrap/*_strict.lua.map
+.selfhost-bootstrap/alias_probe.zt
+.selfhost-bootstrap/selfhost-legacy-audit.txt
+.selfhost-bootstrap/token_progress*.log
+.selfhost-bootstrap/stage2_phase.log
+
+ztc_selfhost.lua
+src/compiler/syntax.lua.map

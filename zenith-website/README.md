@@ -16,7 +16,9 @@ O conteudo editorial nao mora aqui.
 A fonte oficial fica em `../docs`. O site consome essa biblioteca por meio de:
 
 - `docs/site-manifest.json`
-- `site/scripts/sync-docs.mjs`
+- `zenith-website/scripts/sync-docs.mjs`
+
+O fluxo atual do portal reflete o estado self-hosted oficial da linguagem, incluindo current-core, current, a trilha Lua ativa e os roadmaps historicos ja marcados como superados quando necessario.
 
 ## Comandos
 

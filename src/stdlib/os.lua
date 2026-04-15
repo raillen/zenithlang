@@ -15,6 +15,8 @@ function OS.get_env_variable(name)
     local val = os.getenv(name)
     return val and zt.Optional.Present(val) or zt.Optional.Empty
 end
+OS.get_env = OS.get_env_variable
+
 
 function OS.get_all_env_variables()
     -- Mock simples para compatibilidade

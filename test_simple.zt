@@ -1,4 +1,0 @@
-func main() -> int
-    print("Lexer Test")
-    return 0
-end

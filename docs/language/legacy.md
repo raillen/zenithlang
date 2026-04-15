@@ -1,27 +1,28 @@
 # Zenith Legacy
 
-> Status: `Deprecated`
-> Recomendado para: referência histórica, exploracao pessoal e preservacao de contexto.
+> Status: deprecated/historico
+> Recomendado para: referencia historica, exploracao pessoal e preservacao de contexto.
+> Linha atual da linguagem: `current.md`.
 
-Zenith Legacy e o nome dado ao conjunto de ideias, formas sintaticas e decisoes anteriores a consolidação da linha atual da linguagem.
+Zenith Legacy e o nome dado ao conjunto de ideias, formas sintaticas e decisoes anteriores a consolidacao da linha atual da linguagem.
 
-Eu mantenho essa camada visível por tres motivos:
+Essa camada continua visivel por tres motivos:
 
-- registra a história real da linguagem
-- preserva caminhos que ainda podem inspirar experimentos futuros
-- evita que a evolução do Zenith apague as suas próprias origens
+- registra a historia real da linguagem;
+- preserva caminhos que ainda podem inspirar experimentos futuros;
+- evita que a evolucao do Zenith apague as proprias origens do projeto.
 
 ## O que significa "deprecated" aqui
 
-Neste contexto, `deprecated` não significa "jogar fora". Para mim, significa:
+Neste contexto, `deprecated` nao significa "jogar fora". Significa:
 
-- não e o caminho principal para novos usuarios
-- não deve disputar espaco com a documentação current
-- continua preservado como arquivo vivo da linguagem
+- nao e o caminho principal para novos usuarios;
+- nao deve disputar espaco com a documentacao current;
+- continua preservado como arquivo vivo da linguagem.
 
 ## Quando o legado ainda faz sentido
 
-- pesquisa pessoal
-- prototipos paralelos
-- estudo da evolução da linguagem
-- recuperacao de ideias que talvez merecam voltar em outro formato
+- pesquisa pessoal;
+- prototipos paralelos;
+- estudo da evolucao da linguagem;
+- recuperacao de ideias que talvez merecam voltar em outro formato.

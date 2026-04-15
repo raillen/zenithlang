@@ -1,8 +1,0 @@
--- Zenith Source Map
--- Source: test_params.zt
-return {
-  source = "test_params.zt",
-  mappings = {
-    [29] = {line=3, col=9},
-  }
-}

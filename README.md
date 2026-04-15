@@ -6,42 +6,45 @@
 
 > Uma linguagem de programacao legivel, explicita, estavel visualmente e cognitivamente acessivel.
 
-> Estado atual: trilha ativa estabilizada em `v0.3.5`
-> O compilador ativo em Lua (`ztc.lua`) tem Fases 1-11 concluidas e testadas. A Fase 12 segue parcial: `demo.zt` compila sem `native lua`, mas stdlib e trilha self-hosted ainda dependem de escapes.
+> Estado atual: produto 100% self-hosted com fechamento operacional/editorial concluido em `selfhost-pos100`.
+> Front door oficial: `ztc.lua` em caminho self-hosted estrito.
+> Base de runtime/backend: Lua 5.1 / LuaJIT / Lua 5.4.
 
-**Versao:** v0.3.5  
-**Target:** Lua 5.1 / LuaJIT / Lua 5.4  
-**Compilador ativo:** `ztc.lua` + parser/binder/codegen em Lua  
-**Trilha self-hosted:** parcial, sem paridade total com a trilha ativa
+**Versao do front door:** v0.3.6
+**Target:** Lua 5.1 / LuaJIT / Lua 5.4
+**Compilador oficial:** `ztc.lua` + core self-hosted canonico em `src/compiler/syntax.zt`
+**Trilha Lua ativa:** referencia operacional para parser, binder, lowering, codegen e runtime
+**Status self-hosted:** oficializado, corte 100% fechado e residual pos-100 encerrado
 
 ## O que e Zenith?
 
-Zenith e uma linguagem que transpila para Lua. Ela combina sintaxe propria, sistema de tipos explicito, reatividade, lowering de IR e um runtime pequeno o suficiente para manter a linguagem previsivel.
+Zenith e uma linguagem que transpila para Lua. Ela combina sintaxe propria, sistema de tipos explicito, lowering, um runtime pequeno e um compilador que hoje se apresenta por um front door self-hosted, sem fallback legado no caminho oficial.
 
-## Recursos estaveis na trilha ativa
+## Estado tecnico atual
+
+- Fases 1-12 concluidas no recorte estabilizado;
+- front door oficial 100% self-hosted;
+- bootstrap deterministico e gate recorrente de release;
+- CLI oficial com `zpm`, `zman` e `ztest` em modo estrito;
+- politica de artefatos explicita para bootstrap, release, auditoria e smokes locais;
+- trilha legada isolada apenas para recuperacao extraordinaria.
+
+## Recursos estaveis
 
 - Variaveis e constantes: `var`, `const`, tipagem explicita e inferencia basica
 - Controle de fluxo: `if/elif/else`, `while`, `for in`, `repeat`, `match`
 - Funcoes: `pub func`, parametros tipados, retorno `-> T`, async/await
 - Structs: campos tipados, defaults, contratos `where` e `validate`
 - Enums: membros simples e sum types
-- Traits e `apply`: composicao de comportamento validada
-- Genericos reais: type erasure, constraints e chamadas genericas explicitas
-- UFCS: metodo > global > virtual runtime
+- Traits e `apply`
+- Genericos reais
+- UFCS
 - Interpolacao de string
-- Optional/Outcome e operador `?`
-- Atributos de declaracao com `#[...]`
+- `Optional` / `Outcome` e operador `?`
+- Atributos com `#[...]`
 - Sugar de self com `@campo`
 - Indexacao 1-based para sequencias com `ZT-W002` e `ZT-R011`
 - Diagnosticos com arquivo, linha, coluna e trecho de codigo
-- Escape hatch `native lua` para interop controlada
-
-## Em aberto / hardening
-
-- Fase 12: reduzir `native lua` em `src/stdlib` e `src/compiler`
-- Self-hosting: alinhar `src/compiler/*.zt` com a linguagem ativa
-- `after` / defer: ainda fora do conjunto estabilizado
-- Refinar docs e catalogo de diagnosticos
 
 ## Exemplo moderno
 
@@ -83,14 +86,21 @@ end
 lua ztc.lua build <arquivo.zt>             # Compila para out.lua
 lua ztc.lua build <arquivo.zt> saida.lua   # Compila com saida explicita
 lua ztc.lua run <arquivo.zt>               # Compila e executa
-lua ztc.lua check <arquivo.zt>             # Analise sem gerar codigo
+lua ztc.lua check <arquivo.zt>             # Analisa sem gerar codigo
+
+lua ztc.lua zpm help
+lua ztc.lua zman list
+lua ztc.lua ztest --help
 ```
 
 ## Documentacao recomendada
 
-- `docs/roadmap_estabilizacao.md`: estado verificado da implementacao ativa
-- `docs/specification/decisions/001-self-attrs-validate.md`: sintaxe atual de `@`, `#[...]` e `validate`
-- `docs/api/std-core.md`: Optional, Outcome e helpers atuais de runtime/UFCS
+- `docs/language/current.md`: linha correta da linguagem atual
+- `docs/specification/current-core.md`: contrato curto do core atual
+- `docs/roadmap/selfhost-pos100.md`: fechamento do residual pos-100
+- `docs/specification/selfhost-abi.md`: contrato de host ABI do corte self-hosted
+- `docs/specification/selfhost-artifacts.md`: politica de artefatos
+- `docs/roadmap/MASTER.md`: mapa editorial/historico da evolucao
 
 ## Estrutura do projeto
 
@@ -101,6 +111,7 @@ src/
   semantic/       # Binder, tipos e simbolos
   backend/lua/    # Codegen e runtime
   stdlib/         # Modulos padrao
+  compiler/       # Core self-hosted canonico
 ```
 
 ## Licenca

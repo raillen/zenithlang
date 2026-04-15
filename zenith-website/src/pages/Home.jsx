@@ -65,7 +65,7 @@ const Home = ({ onNavigate }) => {
                 className="h-[1px] w-6 bg-black/10 md:w-8"
               />
               <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral/40 md:text-[11px]">
-                v0.3.0 Ascension Final
+                v0.3.6 Self-Hosted
               </span>
             </motion.div>
 

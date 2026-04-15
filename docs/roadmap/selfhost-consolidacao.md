@@ -1,5 +1,8 @@
 # Roadmap: Consolidacao Self-Hosted
 
+> Estado: historico.
+> Superado por `selfhost-oficializacao.md`, `selfhost-100.md` e `selfhost-pos100.md` na ordem de leitura do ciclo self-hosted.
+
 Atualizado em: 2026-04-15
 
 Este plano cobriu o ciclo posterior ao fechamento da Trilha B.
@@ -43,7 +46,7 @@ Tarefas:
 - inventariar cada uso de `native lua` em `src/compiler`;
 - classificar por grupo: interop inevitavel, helper temporario, debito de abstracao;
 - eliminar primeiro os casos que podem virar Zenith puro sem reabrir o bootstrap;
-- manter contagem de ocorrencias no `roadmap_estabilizacao.md`.
+- manter contagem de ocorrencias no `selfhost-pos100.md`.
 
 Criterio de aceite:
 

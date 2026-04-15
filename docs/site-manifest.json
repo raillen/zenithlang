@@ -1,8 +1,8 @@
 {
   "site": {
     "title": "Zenith",
-    "tagline": "Clareza cognitiva, trilha ativa estabilizada e evolucao documentada.",
-    "version": "0.3.0 Ascension Final"
+    "tagline": "Produto 100% self-hosted, trilha Lua ativa e evolucao documentada.",
+    "version": "0.3.6 Self-Hosted"
   },
   "navigation": [
     {
@@ -80,13 +80,13 @@
               "label": "Ascension Compiler (Zenith)",
               "file": "compiler/ascension-zenith.md",
               "state": "current",
-              "summary": "Linha self-hosted em paridade parcial; consulte o roadmap de estabilizacao."
+              "summary": "Linha self-hosted oficial; consulte current-core e selfhost-pos100."
             },
             {
               "label": "Bootstrap Compiler (Lua)",
               "file": "compiler/bootstrap-lua.md",
               "state": "current",
-              "summary": "Implementacao ativa oficial baseada em Lua e ztc.lua."
+              "summary": "Implementacao de referencia da trilha Lua ativa, nao a face oficial do produto."
             },
             {
               "label": "Alvos de Compilação",
@@ -109,7 +109,7 @@
               "label": "0.3.x Ascension",
               "file": "versions/0.3.x-ascension.md",
               "state": "current",
-              "summary": "Linha editorial da estabilizacao ativa; self-hosting ainda parcial."
+              "summary": "Linha editorial que culminou no produto self-hosted oficial."
             },
             {
               "label": "0.2.x Milestone",
@@ -144,13 +144,13 @@
               "label": "Cronograma Mestre",
               "file": "roadmap/MASTER.md",
               "state": "current",
-              "summary": "Visão unificada da evolução Zenith."
+              "summary": "Visao editorial/historica da evolucao Zenith."
             },
             {
               "label": "Ascension",
               "file": "roadmap/ascension.md",
               "state": "stable",
-              "summary": "Registro historico da fase Ascension; consulte o roadmap de estabilizacao."
+              "summary": "Registro historico da fase Ascension; consulte selfhost-pos100 para o estado atual."
             },
             {
               "label": "Core",

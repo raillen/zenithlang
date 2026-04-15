@@ -2,21 +2,25 @@
 
 Este e o ponto de entrada principal da documentacao tecnica do Zenith.
 
-## 1. Estado Real do Projeto
+## 1. Estado Atual
 
-- [Roadmap de Estabilizacao](roadmap_estabilizacao.md): estado verificado da implementacao ativa, com fases concluidas, fases parciais e trilha self-hosted separada
+- [Zenith Current](language/current.md): linha correta da linguagem atual
+- [Core Atual Estabilizado](specification/current-core.md): contrato curto do core e do produto atual
+- [Self-Hosted Pos-100](roadmap/selfhost-pos100.md): fechamento do residual operacional/editorial
 - [Cronograma Mestre](roadmap/MASTER.md): visao editorial e historica da evolucao do projeto
 
-## 2. Fundacao e Visao
+## 2. Compilador e Runtime
 
-- [Manifesto Zenith](MANIFESTO.md): filosofia, pilares tecnicos e compromisso com acessibilidade
-- [Mapa de Intencoes Visuais](specification/intent-map.md): dicionario de simbolos e operadores
+- [Ascension Compiler](compiler/ascension-zenith.md): estado atual da linha self-hosted oficial
+- [Bootstrap Compiler (Lua)](compiler/bootstrap-lua.md): papel atual da trilha Lua ativa
+- [Self-Hosted Host ABI](specification/selfhost-abi.md): fronteira minima entre compilador e host
+- [Politica de Artefatos Self-Hosted](specification/selfhost-artifacts.md): destino correto de bootstrap, release, auditoria e temporarios
 
 ## 3. Guia de Aprendizado
 
 - [Manual de Sintaxe](learn/handbook/syntax.md): guia pratico da surface syntax atual
-- [Manual de Idiomatismos](learn/handbook/idioms.md): melhores praticas para a trilha ativa
-- [Teoria do Compilador](learn/): lexer, parser, binder e runtime
+- [Manual de Idiomatismos](learn/handbook/idioms.md): melhores praticas para a linguagem atual
+- [Teoria do Compilador](learn/): lexer, parser, binder, lowering e runtime
 
 ## 4. Especificacao Tecnica
 
@@ -26,17 +30,12 @@ Este e o ponto de entrada principal da documentacao tecnica do Zenith.
 - [Regras de Transpilacao](specification/transpilation.md): mapeamento de Zenith para Lua
 - [Sistema de Projeto](specification/project-system.md): modulos, pacotes e organizacao
 - [RFC 001 - Self, Atributos e Validate](specification/decisions/001-self-attrs-validate.md): decisao implementada para @, #[...] e validate
+- [Catalogo de Erros](support/error-catalog.md): diagnosticos de compilacao, warnings e runtime
 
-## 5. Engine e Runtime
-
-- [Visao do Motor](engine/01-vision.md): pipeline geral de compilacao
-- [Plano de Testes Ascension](roadmap/ascension-tests.md): suites e metas de validacao
-- [Ascension Compiler](compiler/ascension-zenith.md): estado atual da trilha self-hosted
-
-## 6. API e Suporte
+## 5. API e Suporte
 
 - [Biblioteca Padrao](api/): referencia dos modulos std.*, incluindo std.core, std.text e std.validation
-- [Catalogo de Erros](support/error-catalog.md): diagnosticos de compilacao, warnings e runtime
+- [Zenith Legacy](language/legacy.md): contexto historico preservado
 - [Zenith Crowbar e suporte](support/): manutencao, depuracao e IDE
 
 ---

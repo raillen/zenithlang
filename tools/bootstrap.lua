@@ -63,14 +63,15 @@ end
 
 local function usage()
     print("Zenith self-host bootstrap verifier")
-    print("Usage: lua tools/bootstrap.lua [--promote] [--target <path>] [--output-dir <dir>]")
+    print("Usage: lua tools/bootstrap.lua [--promote] [--target <path>] [--output-dir <dir>] [--audit-legacy <path>]")
     print("")
     print("Defaults:")
-    print("  output-dir: .selfhost-bootstrap")
+    print("  output-dir: .selfhost-artifacts/bootstrap")
     print("  target:     ztc_selfhost.lua")
     print("")
     print("Behavior:")
     print("  - verifies the canonical self-hosted sources first")
+    print("  - uses the promoted self-hosted compiler as the default seed")
     print("  - writes stage artifacts into an isolated directory")
     print("  - compares stage2 and stage3 for deterministic output")
     print("  - only copies the resulting compiler when --promote is passed")
@@ -79,8 +80,9 @@ end
 local function parse_args(argv)
     local options = {
         promote = false,
-        output_dir = ".selfhost-bootstrap",
+        output_dir = ".selfhost-artifacts/bootstrap",
         target = "ztc_selfhost.lua",
+        audit_legacy = nil,
     }
 
     local i = 1
@@ -96,6 +98,9 @@ local function parse_args(argv)
         elseif arg == "--output-dir" then
             i = i + 1
             options.output_dir = argv[i]
+        elseif arg == "--audit-legacy" then
+            i = i + 1
+            options.audit_legacy = argv[i]
         else
             error("unknown argument: " .. tostring(arg))
         end
@@ -116,8 +121,16 @@ local function detect_host_os()
     return is_windows() and "windows" or "linux"
 end
 
-local function build_stage1(source_path, output_path)
-    run("lua ztc.lua build " .. quote(source_path) .. " " .. quote(output_path))
+local function ztc_command(options, suffix)
+    local cmd = "lua ztc.lua"
+    if options and options.audit_legacy and options.audit_legacy ~= "" then
+        cmd = cmd .. " --audit-legacy " .. quote(options.audit_legacy)
+    end
+    return cmd .. " " .. suffix
+end
+
+local function build_stage1(source_path, output_path, options)
+    run(ztc_command(options, "--strict-selfhost build " .. quote(source_path) .. " " .. quote(output_path)))
 end
 
 local function load_stage_module(path)
@@ -153,11 +166,11 @@ local function self_compile(stage_path, source_path, output_path)
     write_file(output_path, result)
 end
 
-local function verify_canonical_sources(source_path, legacy_bridge_path)
+local function verify_canonical_sources(source_path, legacy_bridge_path, options)
     print("--- Verifying canonical self-hosted sources ---")
-    run("lua ztc.lua check " .. quote(source_path))
+    run(ztc_command(options, "--strict-selfhost check " .. quote(source_path)))
     if legacy_bridge_path and file_exists(legacy_bridge_path) then
-        run("lua ztc.lua check " .. quote(legacy_bridge_path))
+        run(ztc_command(options, "--strict-selfhost check " .. quote(legacy_bridge_path)))
     end
 end
 
@@ -180,7 +193,7 @@ local function main(argv)
     end
 
     ensure_dir(options.output_dir)
-    verify_canonical_sources(source_path, legacy_bridge_path)
+    verify_canonical_sources(source_path, legacy_bridge_path, options)
 
     local stage1 = path_join(options.output_dir, "syntax_stage1.lua")
     local stage2 = path_join(options.output_dir, "syntax_stage2.lua")
@@ -208,7 +221,7 @@ local function main(argv)
 
     print("--- Stage 1: bootstrap from active compiler ---")
     local stage1_ok = run_step("stage1_build", function()
-        build_stage1(source_path, stage1)
+        build_stage1(source_path, stage1, options)
     end)
 
     local stage1_load_ok = false

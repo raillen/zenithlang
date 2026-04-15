@@ -5,6 +5,14 @@
 
 local zt = {}
 
+local runtime_source = debug.getinfo(1, "S").source or ""
+if runtime_source:sub(1, 1) == "@" then
+    runtime_source = runtime_source:sub(2)
+end
+runtime_source = runtime_source:gsub("\\", "/")
+local runtime_dir = runtime_source:match("^(.*)/[^/]+$") or "."
+local runtime_repo_root = runtime_dir .. "/../../../.."
+
 -- ----------------------------------------------------------------------------
 -- TIPOS CORE
 -- ----------------------------------------------------------------------------
@@ -203,18 +211,20 @@ zt.selfhost = {
         return nil
     end,
     read_module_source = function(path, module_name)
-        local f = io.open(path, "r")
-        if f then
-            local src = f:read("*a")
-            f:close()
-            return src
-        end
+        local candidates = {
+            path,
+            module_name,
+            runtime_repo_root .. "/" .. tostring(path or ""),
+            runtime_repo_root .. "/" .. tostring(module_name or ""),
+        }
 
-        f = io.open(module_name, "r")
-        if f then
-            local src = f:read("*a")
-            f:close()
-            return src
+        for _, candidate in ipairs(candidates) do
+            local f = io.open(candidate, "r")
+            if f then
+                local src = f:read("*a")
+                f:close()
+                return src
+            end
         end
 
         return ""

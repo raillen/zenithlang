@@ -1,6 +1,0 @@
-import std.io
-
-func main()
-    io.write_line("Zenith v0.3 FFI Test")
-    io.write_line("Este código agora usa Zenith puro na std.io!")
-end

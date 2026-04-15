@@ -78,7 +78,7 @@ Objetivo: impedir novas ocorrencias sem classificacao.
 Tarefas:
 
 - Manter inventario por familia neste documento.
-- Manter metricas em `docs/roadmap_estabilizacao.md`.
+- Manter metricas em `docs/roadmap/selfhost-pos100.md`.
 - Manter teste de regressao para `Optional`/`Outcome`.
 - Documentar excecoes permitidas.
 

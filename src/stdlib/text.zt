@@ -83,6 +83,10 @@ end
 pub func lines(t: text) -> list<text>
 end
 
+--- Recorta o texto por indice.
+pub func slice(t: text, start_idx: int, end_idx: int = -1) -> text
+end
+
 -- 🛡️ SEGURANÇA E UI
 
 --- Esconde parte do texto (ex: cartões, senhas).

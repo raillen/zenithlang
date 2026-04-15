@@ -1,166 +1,282 @@
-import std.fs
-import std.io
-import std.os
-import std.text
-import std.json
+import std.fs as fs
+import std.io as io
+import std.os as os
+import std.text as text
 
--- 🎨 CORES AURA
-func c_reset() -> text return "\e[0m" end
-func c_bold() -> text return "\e[1m" end
-func c_purple() -> text return "\e[38;5;93m" end
-func c_blue() -> text return "\e[38;5;39m" end
-func c_green() -> text return "\e[38;5;46m" end
-func c_red() -> text return "\e[38;5;196m" end
-func c_gray() -> text return "\e[38;5;244m" end
-func c_cyan() -> text return "\e[38;5;51m" end
+extern func "zt.len" runtime_len(v: any) -> int
 
-const VERSION: text = "0.5.0"
-const CORE_VERSION: text = "0.3.1"
-
-func print_header()
-    io.write_line("\n " + c_purple() + "🔭 " + c_bold() + "ZENITH MISSION CONTROL" + c_reset() + c_gray() + " — v" + VERSION + c_reset())
-    io.write_line(c_blue() + "====================================" + c_reset() + "\n")
+func version_text() -> text
+    return "0.5.0"
 end
 
-func print_info(msg: text) io.write_line(c_blue() + " ➜ " + c_reset() + msg) end
-func print_success(msg: text) io.write_line(c_green() + " 🚀 " + msg + c_reset()) end
-func print_error(msg: text) io.write_line(c_red() + " ✘ " + c_bold() + "ERRO: " + c_reset() + msg) end
+func core_version_text() -> text
+    return "0.3.1"
+end
+
+func fail(msg: text)
+    io.write_line("ERRO: " + msg)
+    os.exit_process(1)
+end
 
 func show_help()
-    print_header()
-    io.write_line(c_bold() + " [ Orbita (Gestao) ]" + c_reset())
-    io.write_line("  " + c_cyan() + "add <url>" + c_reset() + " ........ Acopla uma nova dependencia.")
-    io.write_line("  " + c_cyan() + "install" + c_reset() + " .......... Sincroniza todos os satelites.")
-    io.write_line("  " + c_cyan() + "remove <nome>" + c_reset() + " .... Desorbita um pacote.")
-    io.write_line("  " + c_cyan() + "update" + c_reset() + " .......... Busca novas versoes nas estrelas.\n")
-
-    io.write_line(c_bold() + " [ Propulsao (Scripts) ]" + c_reset())
-    io.write_line("  " + c_cyan() + "run <nome>" + c_reset() + " ....... Executa um script do .ztproj.")
-    io.write_line("  " + c_cyan() + "list" + c_reset() + " ............. Mapeia todos os pacotes ativos.\n")
-
-    io.write_line(c_bold() + " [ Manutencao (Higiene) ]" + c_reset())
-    io.write_line("  " + c_cyan() + "publish" + c_reset() + " .......... Publica seu modulo no Git.")
-    io.write_line("  " + c_cyan() + "doctor" + c_reset() + " ........... Diagnostica seu ambiente.")
-    io.write_line("  " + c_cyan() + "clean" + c_reset() + " ............ Remove destricos temporarios.\n")
-
-    io.write_line(c_gray() + " Use 'zpm <comando> --help' para detalhes de um setor." + c_reset())
+    io.write_line("Zenith Package Manager v" + version_text())
+    io.write_line("Uso: zpm <comando>")
     io.write_line("")
+    io.write_line("Comandos:")
+    io.write_line("  help         Mostra esta ajuda")
+    io.write_line("  version      Mostra a versao do ZPM")
+    io.write_line("  doctor       Verifica ferramentas basicas e o projeto atual")
+    io.write_line("  init         Cria um zenith.ztproj minimo")
+    io.write_line("  clean        Remove artefatos locais seguros")
+    io.write_line("  scripts      Lista scripts mapeados em zenith.ztproj")
+    io.write_line("  run <nome>   Executa um script mapeado em zenith.ztproj")
+    io.write_line("")
+    io.write_line("Exemplos:")
+    io.write_line("  zpm doctor")
+    io.write_line("  zpm scripts")
+    io.write_line("  zpm run hello")
+    io.write_line("")
+    io.write_line("Core da linguagem: " + core_version_text())
+end
+
+func print_probe(name: text, command: text)
+    var result = os.run_command(command)
+    if result.is_success()
+        io.write_line("[OK] " + name)
+    else
+        io.write_line("[FAIL] " + name)
+    end
+end
+
+func load_manifest() -> text
+    if not fs.exists("zenith.ztproj")
+        fail("manifesto zenith.ztproj nao encontrado")
+    end
+
+    var content_res = fs.read_text_file("zenith.ztproj")
+    if content_res.is_failure()
+        fail("nao foi possivel ler o manifesto")
+    end
+
+    return content_res.unwrap_or("")
 end
 
 func run_doctor()
-    print_header()
-    
-    var c_ztc = os.run_command("lua ztc.lua --version")
-    var ztc_ok = ""
-    if c_ztc.is_success()
-        ztc_ok = c_green() + "[✔] OK"
+    io.write_line("Zenith Doctor")
+    io.write_line("Platform: " + os.get_platform())
+
+    if fs.exists("zenith.ztproj")
+        io.write_line("[OK] manifesto zenith.ztproj")
     else
-        ztc_ok = c_red() + "[✘] Falha"
+        io.write_line("[INFO] manifesto zenith.ztproj nao encontrado")
     end
-    io.write_line(" " + ztc_ok + " Compilador ZTC")
-    
-    var c_lua = os.run_command("lua -v")
-    var lua_ok = ""
-    if c_lua.is_success()
-        lua_ok = c_green() + "[✔] OK"
+
+    print_probe("ztc", "lua ztc.lua --version")
+    print_probe("lua", "lua -v")
+    print_probe("git", "git --version")
+end
+
+func init_project()
+    if fs.exists("zenith.ztproj")
+        fail("ja existe um manifesto zenith.ztproj neste diretorio")
+    end
+
+    var template = "project novo_projeto\n    version: 0.1.0\nend\n\nscripts\n    hello: zt run main.zt\nend\n"
+    var write_res = fs.write_text_file("zenith.ztproj", template)
+    if write_res.is_failure()
+        fail("nao foi possivel escrever zenith.ztproj")
+    end
+
+    var main_file = "func main()\n    print(\"Hello from Zenith\")\nend\n"
+    var main_res = fs.write_text_file("main.zt", main_file)
+    if main_res.is_failure()
+        fail("nao foi possivel escrever main.zt")
+    end
+
+    io.write_line("Projeto inicializado.")
+end
+
+func purge_local_dir(path: text)
+    var platform = os.get_platform()
+    if platform == "windows"
+        os.run_command("rmdir /s /q \"" + path + "\" >nul 2>nul")
     else
-        lua_ok = c_red() + "[✘] Falha"
+        os.run_command("rm -rf \"" + path + "\" >/dev/null 2>&1")
     end
-    io.write_line(" " + lua_ok + " Motor Lua")
-    
-    var c_git = os.run_command("git --version")
-    var git_ok = ""
-    if c_git.is_success()
-        git_ok = c_green() + "[✔] OK"
-    else
-        git_ok = c_red() + "[✘] Falha"
+end
+
+func clean_project()
+    fs.remove_file("out.lua")
+    fs.remove_file("out.lua.map")
+    fs.remove_file("zenith.lock")
+    purge_local_dir(".ztc-tmp")
+    purge_local_dir(".selfhost-artifacts")
+    io.write_line("Limpeza concluida.")
+end
+
+func normalize_script_command(command: text) -> text
+    var normalized = text.trim(command)
+    if runtime_len(normalized) >= 2 and text.starts_with(normalized, "\"") and text.ends_with(normalized, "\"")
+        normalized = text.slice(normalized, 2, runtime_len(normalized) - 1)
     end
-    io.write_line(" " + git_ok + " Conexao Git")
-    
-    io.write_line("\n " + c_blue() + "🚀 Orbita estavel." + c_reset() + "\n")
+    return text.trim(normalized)
+end
+
+func print_scripts_from_manifest(content: text)
+    var lines = text.lines(content)
+    var in_scripts = false
+    var index = 1
+    var found = false
+
+    io.write_line("Scripts do projeto:")
+    while index <= runtime_len(lines)
+        var trimmed = text.trim(lines[index])
+
+        if trimmed == "scripts"
+            in_scripts = true
+        elif in_scripts
+            if trimmed == "end"
+                in_scripts = false
+            elif text.contains(trimmed, ":")
+                var parts = text.split(trimmed, ":")
+                if runtime_len(parts) >= 2
+                    io.write_line("  " + text.trim(parts[1]) + ": " + normalize_script_command(parts[2]))
+                else
+                    io.write_line("  " + trimmed)
+                end
+                found = true
+            end
+        end
+
+        index = index + 1
+    end
+
+    if not found
+        io.write_line("  nenhum script encontrado")
+    end
+end
+
+func extract_script_command(content: text, script_name: text) -> text
+    var lines = text.lines(content)
+    var in_scripts = false
+    var index = 1
+    var found = ""
+
+    while index <= runtime_len(lines)
+        var trimmed = text.trim(lines[index])
+
+        if trimmed == "scripts"
+            in_scripts = true
+        elif in_scripts
+            if trimmed == "end"
+                in_scripts = false
+            else
+                if text.starts_with(trimmed, script_name + ":")
+                    var colon_parts = text.split(trimmed, ":")
+                    if runtime_len(colon_parts) >= 2
+                        found = text.trim(colon_parts[2])
+                    end
+                end
+            end
+        end
+
+        index = index + 1
+    end
+
+    return found
+end
+
+func list_scripts()
+    print_scripts_from_manifest(load_manifest())
+end
+
+func resolve_zt_runner() -> text
+    var frontdoor = os.get_env("ZTC_FRONTDOOR_PATH").unwrap_or("")
+    if frontdoor != ""
+        return "lua " + frontdoor + " --strict-selfhost "
+    end
+
+    if fs.exists("ztc.lua")
+        return "lua ztc.lua --strict-selfhost "
+    end
+    if fs.exists("../../ztc.lua")
+        return "lua ../../ztc.lua --strict-selfhost "
+    end
+    if fs.exists("../../../ztc.lua")
+        return "lua ../../../ztc.lua --strict-selfhost "
+    end
+    return "zt "
+end
+
+func run_script(script_name: text)
+    if script_name == ""
+        fail("informe o nome do script")
+    end
+
+    var command = normalize_script_command(extract_script_command(load_manifest(), script_name))
+    if command == ""
+        io.write_line("Dica: use 'zpm scripts' para listar os scripts disponiveis.")
+        fail("script '" + script_name + "' nao mapeado")
+    end
+
+    if text.starts_with(command, "zt ")
+        command = resolve_zt_runner() + text.slice(command, 4)
+    end
+
+    io.write_line("$ " + command)
+    var run_res = os.run_command(command)
+    if run_res.is_failure()
+        fail("falha ao executar o script '" + script_name + "'")
+    end
 end
 
 func main()
     var args = os.get_args()
-    if #args == 0
+    if runtime_len(args) == 0
         show_help()
         return
     end
 
-    var cmd = args[1]
-    
-    match cmd
-        case "help"    => show_help()
-        case "--help"  => show_help()
-        case "version" => io.write_line("ZPM Engine: " + VERSION)
-        case "doctor"  => run_doctor()
-        case "init":
-            if fs.exists("zenith.ztproj")
-                print_error("Ja existe um manifesto zenith.ztproj neste setor.")
-            else
-                var template = "project novo_projeto\n    version: 0.1.0\nend\n\ndependencies\n    std: official\nend\n"
-                fs.write_text_file("zenith.ztproj", template)
-                print_success("Projeto inicializado!")
-            end
-        case "clean":
-            print_header()
-            io.write_line("Limpando destrocos...")
-            fs.remove_file("out.lua")
-            fs.remove_file("zenith.lock")
-            print_success("Limpeza concluida.")
-        case "run":
-            var script_name = ""
-            if #args >= 2
-                script_name = args[2]
-            end
-            
-            if script_name == ""
-                print_error("Informe o nome do script.")
-            else
-                if not fs.exists("zenith.ztproj")
-                    print_error("Manifesto zenith.ztproj nao encontrado.")
-                else
-                    var content_res = fs.read_text_file("zenith.ztproj")
-                    if content_res.is_failure()
-                        print_error("Nao foi possivel ler o manifesto.")
-                    else
-                        var content = content_res.unwrap_or("")
-                        var lines = text.lines(content)
-                        var command = ""
-                        var in_scripts = false
-                        
-                        for i, line in lines
-                            if text.contains(line, "scripts")
-                                in_scripts = true
-                            elif text.contains(line, "end") and in_scripts
-                                in_scripts = false
-                            elif in_scripts
-                                if text.contains(line, script_name + ":")
-                                    var parts = text.split(line, "\"")
-                                    if #parts >= 2
-                                        command = parts[2]
-                                    end
-                                end
-                            end
-                        end
-                        
-                        if command == ""
-                            print_error("Script '" + script_name + "' nao mapeado.")
-                        else
-                            if text.starts_with(command, "zt ")
-                                command = "lua ztc.lua " + text.slice(command, 3)
-                            end
-                            
-                            print_header()
-                            io.write_line(c_purple() + " ⚡ PROPULSAO: " + c_reset() + c_bold() + script_name + c_reset())
-                            io.write_line(c_gray() + " $ " + command + c_reset() + "\n")
-                            os.run_command(command)
-                            io.write_line("\n" + c_gray() + "------------------------------------" + c_reset())
-                        end
-                    end
-                end
-            end
-        case _:
-            print_error("Comando estelar desconhecido: " + cmd)
+    var cmd = text.trim(text.to_lower(args[1]))
+
+    if cmd == "help" or cmd == "--help"
+        show_help()
+        return
     end
+
+    if cmd == "version" or cmd == "--version"
+        io.write_line("ZPM Engine: " + version_text())
+        return
+    end
+
+    if cmd == "doctor"
+        run_doctor()
+        return
+    end
+
+    if cmd == "init"
+        init_project()
+        return
+    end
+
+    if cmd == "clean"
+        clean_project()
+        return
+    end
+
+    if cmd == "scripts"
+        list_scripts()
+        return
+    end
+
+    if cmd == "run"
+        if runtime_len(args) >= 2
+            run_script(args[2])
+        else
+            fail("informe o nome do script")
+        end
+        return
+    end
+
+    fail("comando desconhecido: " + cmd)
 end

@@ -1,28 +1,41 @@
 # Roadmap de Ascensao: Linha Self-Hosted
 
-> Nota: este documento nao deve mais ser lido como prova de self-hosting concluido.
-> Estado verificado atual: ../roadmap_estabilizacao.md
+> Estado: historico concluido e superado pelo corte oficial.
+> Leitura corrente: `selfhost-100.md`, `selfhost-pos100.md` e `../specification/current-core.md`.
 
-Ascension continua sendo a trilha self-hosted do projeto, mas hoje ela deve ser tratada como programa de paridade e bootstrap, nao como motor concluido em substituicao ao caminho ativo.
+Ascension foi a trilha que tirou o compilador self-hosted do campo experimental e preparou a troca do produto oficial. Este arquivo nao mede mais maturidade atual; ele preserva a fase de transicao que antecedeu a oficializacao e o corte 100% self-hosted.
 
-## Status real
+## O que Ascension entregou
 
-- trilha ativa oficial: `ztc.lua`
-- trilha self-hosted: `src/compiler/*.zt`
-- maturidade atual da trilha self-hosted: parcial
+- consolidacao de `src/compiler/syntax.zt` como compilador self-hosted canonico;
+- fechamento do bootstrap deterministico e da paridade minima do core;
+- reducao estrutural de `native lua` no core e na stdlib canonica;
+- base para o corte posterior do front door oficial.
 
-## Objetivos desta trilha
+## O que veio depois
 
-- aproximar o compilador em Zenith da linguagem ativa
-- reduzir hacks de `native lua`
-- permitir bootstrap verificavel no futuro
-- transformar testes de soberania em validacao de paridade real
+- `selfhost-oficializacao.md`: promoveu a linha self-hosted a face oficial do produto;
+- `selfhost-100.md`: eliminou fallback legado do caminho oficial;
+- `selfhost-pos100.md`: limpou artefatos, endureceu builtins e fechou a leitura institucional.
 
-## Criterios de progresso
+## Como ler este documento agora
 
-- `ztc check src/compiler/syntax.zt` com falhas controladas ou eliminadas
-- reducao estrutural de `native lua`
-- compatibilidade semantica entre a linguagem ativa e a base self-hosted
-- caminho confiavel de build para a propria trilha self-hosted
+Use Ascension como registro de transicao, nao como status page.
 
-*Atualizado em: 2026-04-14*
+Se a pergunta for "qual e o estado atual da linguagem e do compilador?", leia primeiro:
+
+- `../specification/current-core.md`
+- `selfhost-100.md`
+- `selfhost-pos100.md`
+- `../compiler/ascension-zenith.md`
+
+## Resultado historico preservado
+
+Ascension deixou de ser promessa. Ela virou a fase que permitiu:
+
+- oficializacao do compilador em Zenith;
+- gate de release self-hosted;
+- auditoria de legado no caminho oficial;
+- reposicionamento da trilha Lua como runtime e implementacao de referencia.
+
+*Atualizado em: 2026-04-15*

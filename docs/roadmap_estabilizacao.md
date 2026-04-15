@@ -1,13 +1,16 @@
 # Zenith Compiler - Roadmap de Estabilizacao Real
 
+> Nota: documento editorial/historico de estabilizacao.
+> Para o estado corrente do produto self-hosted, consulte `roadmap/selfhost-pos100.md`, `specification/current-core.md` e `language/current.md`.
+
 Atualizado em: 2026-04-15
 
 Este documento registra o estado verificado da implementacao ativa do Zenith.
 
 Ha duas trilhas diferentes no repositorio:
 
-- Trilha ativa: `ztc.lua`, parser/binder/codegen em Lua e runtime Lua. Esta e a trilha que compila os exemplos e testes principais hoje.
-- Trilha self-hosted: arquivos `.zt` do proprio compilador. O core canonico ja esta operacional em `src/compiler/syntax.zt`; o trabalho restante agora e consolidacao industrial e editorial.
+- Trilha ativa: parser/binder/codegen em Lua e runtime Lua. Esta continua sendo a referencia operacional da bateria principal e do backend atual.
+- Trilha self-hosted: arquivos `.zt` do proprio compilador. O core canonico foi oficializado, o corte 100% self-hosted foi fechado e o residual pos-100 foi encerrado em roadmaps especificos.
 
 ## Leitura Rapida
 
@@ -290,7 +293,7 @@ Estas etapas nao substituem as Fases 1-12. Elas existem porque a base `.zt` do c
 | SH-2 | Remover hacks de bootstrap como `native lua string.char(...)` | Concluida | `syntax.zt` e `syntax_bridge.zt` tem 0 ocorrencias de `string.char` |
 | SH-3 | Alinhar a sintaxe usada pelo compilador self-hosted com a linguagem ativa | Concluida | `syntax.zt` e o caminho canonico; `syntax_bridge.zt` foi congelado explicitamente como legado parseavel |
 | SH-4 | Reduzir `null`, tabelas Lua cruas e escapes excessivos | Concluida na trilha segura | A migracao massiva de `null` foi evitada; ausencia foi encapsulada por helpers; `syntax.zt` nao emite `ZT-W001` |
-| SH-5 | Definir caminho verificavel de bootstrap confiavel | Concluida | `tools/bootstrap.lua` verifica `syntax.zt`, gera `stage1`, `stage2` e `stage3`, valida load e confirma determinismo em `.selfhost-bootstrap\\summary.txt` |
+| SH-5 | Definir caminho verificavel de bootstrap confiavel | Concluida | `tools/bootstrap.lua` verifica `syntax.zt`, gera `stage1`, `stage2` e `stage3`, valida load e confirma determinismo no fluxo atual de `.selfhost-artifacts/bootstrap/summary.txt` |
 
 Leitura consolidada:
 
@@ -368,7 +371,7 @@ Status: concluida.
 Evidencias:
 
 - `tools/bootstrap.lua` e um verificador nao-destrutivo, orientado a `src/compiler/syntax.zt`.
-- O script gera `syntax_stage1.lua`, `syntax_stage2.lua` e `syntax_stage3.lua`, valida `loadfile` em cada etapa e grava resumo em `.selfhost-bootstrap/summary.txt`.
+- O script gera `syntax_stage1.lua`, `syntax_stage2.lua` e `syntax_stage3.lua`, valida `loadfile` em cada etapa e grava resumo no fluxo atual de `.selfhost-artifacts/bootstrap/summary.txt`.
 - `stage2` e `stage3` sao identicos, portanto o bootstrap esta deterministico.
 
 Residuo:
