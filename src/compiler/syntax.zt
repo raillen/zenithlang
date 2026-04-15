@@ -1,5 +1,17 @@
 namespace compiler.syntax
 
+extern func "zt.selfhost.has_slot" zt_selfhost_has_slot(items: any, index: int) -> bool
+extern func "zt.selfhost.text_len" zt_selfhost_text_len(v: any) -> int
+extern func "zt.selfhost.text_slice" zt_selfhost_text_slice(v: text, start_index: int, finish_index: int) -> text
+extern func "zt.selfhost.text_replace" zt_selfhost_text_replace(v: text, pattern: text, replacement: text) -> text
+extern func "zt.selfhost.value_is_present" zt_selfhost_value_is_present(v: any) -> bool
+extern func "zt.selfhost.empty_value" zt_selfhost_empty_value() -> any
+extern func "zt.selfhost.read_module_source" zt_selfhost_read_module_source(path: text, module_name: text) -> text
+extern func "zt.selfhost.fold_number_binary" zt_selfhost_fold_number_binary(left: text, right: text, op_kind: any) -> any
+extern func "zt.selfhost.host_os" zt_selfhost_host_os() -> text
+extern func "zt.selfhost.compile_result_text" zt_selfhost_compile_result_text(res: any) -> text
+extern func "zt.selfhost.run_cli" zt_selfhost_run_cli(compiler: any)
+
 pub enum TokenKind
     Identifier
     IntegerLiteral
@@ -170,6 +182,7 @@ pub struct DeclNode
     pub attributes: any
     pub span: Span
     pub symbol: any
+    pub native_name: text
 end
 
 pub struct StmtNode
@@ -226,19 +239,19 @@ func any_key(v: any) -> any
 end
 
 func has_slot(items: any, index: int) -> bool
-    native lua return not (type(items) == "nil") and not (type(items[index]) == "nil") end
+    return zt_selfhost_has_slot(items, index)
 end
 
 func text_len(v: any) -> int
-    native lua return #v end
+    return zt_selfhost_text_len(v)
 end
 
 func text_slice(v: text, start_index: int, finish_index: int) -> text
-    native lua return v:sub(start_index, finish_index) end
+    return zt_selfhost_text_slice(v, start_index, finish_index)
 end
 
 func text_replace(v: text, pattern: text, replacement: text) -> text
-    native lua return v:gsub(pattern, replacement) end
+    return zt_selfhost_text_replace(v, pattern, replacement)
 end
 
 func text_prefix(v: text, count: int) -> text
@@ -675,7 +688,24 @@ pub struct Parser
     end
 
     func parse_extern_decl(self) -> any
-        self.advance() -- extern
+        var start_t = self.advance() -- extern
+
+        if self.peek().kind == TokenKind.KwFunc
+            self.advance() -- func
+            var native_t = self.expect(TokenKind.StringLiteral, "esperado nome nativo da função externa")
+            var native_name = text_strip_quotes(native_t.text)
+            var name_t = self.expect_name("esperado nome da função externa")
+            var params = self.parse_params()
+            if self.peek().kind == TokenKind.Arrow
+                self.advance()
+                self.parse_type()
+            end
+
+            var methods: any = []
+            methods[0] = DeclNode { kind: NodeKind.FuncDecl, name: name_t.text, params: params, body: empty_value(), is_pub: true, attributes: empty_value(), span: name_t.span, symbol: empty_value(), fields: empty_value(), methods: empty_value(), members: empty_value(), native_name: native_name }
+            return DeclNode { kind: NodeKind.ExternDecl, name: name_t.text, native_name: native_name, methods: methods, is_pub: false, attributes: empty_value(), span: start_t.span, params: empty_value(), body: empty_value(), fields: empty_value(), members: empty_value(), symbol: empty_value() }
+        end
+
         var lib_t = self.expect(TokenKind.StringLiteral, "esperado nome da biblioteca (string)")
         var lib_name = text_strip_quotes(lib_t.text)
 
@@ -691,7 +721,7 @@ pub struct Parser
             end
         end
         self.expect(TokenKind.KwEnd, "esperado 'end' no bloco extern")
-        return DeclNode { kind: NodeKind.ExternDecl, name: lib_name, methods: methods, is_pub: true, attributes: empty_value(), span: lib_t.span, params: empty_value(), body: empty_value(), fields: empty_value(), members: empty_value(), symbol: empty_value() }
+        return DeclNode { kind: NodeKind.ExternDecl, name: lib_name, native_name: "", methods: methods, is_pub: true, attributes: empty_value(), span: lib_t.span, params: empty_value(), body: empty_value(), fields: empty_value(), members: empty_value(), symbol: empty_value() }
     end
 
     func parse_block(self) -> any
@@ -1157,7 +1187,7 @@ pub func scope_lookup(sc: any, name: text) -> any
 end
 
 pub func value_is_present(v: any) -> bool
-    native lua return not (type(v) == "nil") end
+    return zt_selfhost_value_is_present(v)
 end
 
 pub func value_is_missing(v: any) -> bool
@@ -1165,7 +1195,7 @@ pub func value_is_missing(v: any) -> bool
 end
 
 pub func empty_value() -> any
-    native lua return nil end
+    return zt_selfhost_empty_value()
 end
 
 pub func node_is_present(n: any) -> bool
@@ -1256,22 +1286,8 @@ pub struct ModuleManager
         if module_cache_has(self.cache, module_name) return module_cache_get(self.cache, module_name) end
         
         var path = self.resolve_path(module_name)
-        var src = ""
-        native lua
-            local f = io.open(path, "r")
-            if f then
-                src = f:read("*a")
-                f:close()
-            else
-                -- Tentar com o próprio nome como fallback se não for dot-separated
-                f = io.open(module_name, "r")
-                if f then
-                    src = f:read("*a")
-                    f:close()
-                end
-            end
-        end
-        
+        var src = zt_selfhost_read_module_source(path, module_name)
+
         if src == "" return empty_value() end
 
         var l = Lexer { source: src, pos: 0, tokens: [] }
@@ -1829,6 +1845,15 @@ pub struct Emitter
             self.dedent()
             self.emit(rbrace_text())
         elif n.kind == NodeKind.ExternDecl
+            if value_is_present(n.native_name) and n.native_name != ""
+                var runtime_methods = n.methods
+                if has_slot(runtime_methods, 0)
+                    var rm = runtime_methods[0]
+                    self.emit("local " + rm.name + " = zt.ffi_bind(\"" + n.native_name + "\")")
+                end
+                return
+            end
+
             self.emit("local ffi = require(\"ffi\")")
             var cdef = "ffi.cdef[["
             var methods = n.methods
@@ -1865,7 +1890,7 @@ pub struct Emitter
                 i = i + 1
             end
         elif n.kind == NodeKind.NativeLuaStmt
-            self.emit("-- native lua")
+            self.emit("-- native" + " lua")
             self.emit(n.lua_code)
         end
     end
@@ -1908,18 +1933,7 @@ pub struct Emitter
         if n.kind == NodeKind.BinaryExpr
             var l = self.expr_to_lua(n.left)
             var r = self.expr_to_lua(n.right)
-            var folded: any = empty_value()
-            native lua
-                local nl = tonumber(l)
-                local nr = tonumber(r)
-                if nl and nr then
-                    local k = n.operator.kind
-                    if k == 7 then folded = tostring(nl + nr) end -- Plus
-                    if k == 8 then folded = tostring(nl - nr) end -- Minus
-                    if k == 9 then folded = tostring(nl * nr) end -- Star
-                    if k == 10 then folded = tostring(nl / nr) end -- Slash
-                end
-            end
+            var folded: any = zt_selfhost_fold_number_binary(l, r, n.operator.kind)
             if value_is_present(folded) return folded end
 
             var op = n.operator.text
@@ -2028,108 +2042,11 @@ pub func compile_ext(src: text, file: text, target: text) -> any
 end
 
 pub func compile(src: text) -> text
-    var host_os = "windows"
-    native lua
-        local sep = package.config:sub(1,1)
-        if sep == "/" then host_os = "linux" end
-    end
+    var host_os = zt_selfhost_host_os()
     var res = compile_ext(src, "main.zt", host_os)
-    native lua
-        if type(res) == "string" then return res end
-        return "Erro: Falha na compilação (" .. (res.count or 0) .. " erros)"
-    end
+    return zt_selfhost_compile_result_text(res)
 end
+
 
 -- CLI Entry Point (Premium v0.9)
-native lua
-    local function split_lines(text)
-        local lines = {}
-        for line in text:gmatch("([^\n]*)\n?") do
-            table.insert(lines, line)
-        end
-        return lines
-    end
-
-    local function print_diag(bag, source)
-        local lines = source and split_lines(source) or {}
-        for i=0, (bag.count or 0)-1 do
-            local d = bag.diagnostics[i]
-            local sp = d.span
-            local color = d.level == 0 and "\27[31m" or "\27[33m" 
-            local reset = "\27[0m"
-            
-            io.stderr:write(string.format("%s[%s] %s%s\n", color, d.id, d.message, reset))
-            
-            if sp then
-                io.stderr:write(string.format("  at %s:%d:%d\n", sp.file or "main.zt", sp.line, sp.column))
-                local line_text = lines[sp.line]
-                if line_text then
-                    io.stderr:write(string.format("   |\n %d | %s\n   | %s^\n", sp.line, line_text, string.rep(" ", sp.column - 1)))
-                end
-            end
-            io.stderr:write("\n")
-        end
-    end
-
-    if arg and #arg > 0 then
-        local first = arg[1]
-        local is_build = (first == "build")
-        local is_bundle = false
-        local src_file = nil
-        
-        if is_build then
-            if arg[2] == "--bundle" then
-                is_bundle = true
-                src_file = arg[3]
-            else
-                src_file = arg[2]
-            end
-        else
-            src_file = first
-        end
-
-        if not src_file then
-            io.stderr:write("Uso: zt <arquivo.zt> ou zt build [--bundle] <arquivo.zt>\n")
-            os.exit(1)
-        end
-
-        local out_name = src_file:gsub("%.zt$", "") .. ".lua"
-        if is_bundle then out_name = "dist/main.lua" end
-        
-        -- Detect OS Target
-        local host_os = "windows"
-        local sep = package.config:sub(1,1)
-        if sep == "/" then host_os = "linux" end
-
-        local f = io.open(src_file, "r")
-        if f then
-            local cnt = f:read("*a"):gsub("\r", "")
-            f:close()
-            local res = compile_ext(cnt, src_file, host_os)
-            if type(res) == "string" then
-                -- Criar pasta dist se for bundle
-                if is_bundle then
-                    if host_os == "windows" then os.execute("mkdir dist >nul 2>nul")
-                    else os.execute("mkdir -p dist") end
-                end
-
-                local out_f = io.open(out_name, "w")
-                if out_f then out_f:write(res) out_f:close() end
-                
-                local msg = "✅ Sucesso (Target: " .. host_os .. "): " .. src_file
-                if is_bundle then msg = msg .. " -> " .. out_name end
-                io.stderr:write(msg .. "\n")
-            else
-                if type(res) == "table" and res.diagnostics then
-                    print_diag(res, cnt)
-                else
-                    io.stderr:write("Erro fatal: " .. tostring(res) .. "\n")
-                end
-                os.exit(1)
-            end
-        else
-            io.stderr:write("Erro: Não foi possível abrir o arquivo " .. src_file .. "\n")
-            os.exit(1)
-        end
-    end
-end
+zt_selfhost_run_cli(compile_ext)

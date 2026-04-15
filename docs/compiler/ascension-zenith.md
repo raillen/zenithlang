@@ -12,7 +12,7 @@ Ascension continua sendo a linha self-hosted do projeto, mas nao deve ser descri
 ## O que e verdade hoje
 
 - a trilha ativa em Lua compila e testa as features principais da linguagem
-- a base `.zt` do compilador ja valida bootstrap canonico, mas ainda carrega escapes `native lua` remanescentes
+- a base `.zt` do compilador valida bootstrap canonico e nao carrega blocos `native lua` remanescentes
 - o core self-hosted ja e estado verificado; o residuo agora e consolidacao de produto e docs
 
 ## O que Ascension entrega hoje
@@ -23,7 +23,7 @@ Ascension continua sendo a linha self-hosted do projeto, mas nao deve ser descri
 
 ## O que ainda falta para chamar de self-hosting completo
 
-- classificacao e reducao adicional de `native lua` remanescente
+- manutencao do contrato sem `native lua` em `.zt`
 - especificacao curta do core estabilizado
 - limpeza documental definitiva do `syntax_bridge.zt` como legado
 - hardening pontual fora do bootstrap, sem reabrir o core

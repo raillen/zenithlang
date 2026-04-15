@@ -183,6 +183,157 @@ function zt.assert(condition, msg)
     end
     return condition
 end
+zt.selfhost = {
+    has_slot = function(items, index)
+        return type(items) ~= "nil" and type(items[index]) ~= "nil"
+    end,
+    text_len = function(v)
+        return #v
+    end,
+    text_slice = function(v, start_index, finish_index)
+        return v:sub(start_index, finish_index)
+    end,
+    text_replace = function(v, pattern, replacement)
+        return v:gsub(pattern, replacement)
+    end,
+    value_is_present = function(v)
+        return type(v) ~= "nil"
+    end,
+    empty_value = function()
+        return nil
+    end,
+    read_module_source = function(path, module_name)
+        local f = io.open(path, "r")
+        if f then
+            local src = f:read("*a")
+            f:close()
+            return src
+        end
+
+        f = io.open(module_name, "r")
+        if f then
+            local src = f:read("*a")
+            f:close()
+            return src
+        end
+
+        return ""
+    end,
+    fold_number_binary = function(l, r, op_kind)
+        local nl = tonumber(l)
+        local nr = tonumber(r)
+        if not nl or not nr then return nil end
+        if op_kind == "Plus" then return tostring(nl + nr) end
+        if op_kind == "Minus" then return tostring(nl - nr) end
+        if op_kind == "Star" then return tostring(nl * nr) end
+        if op_kind == "Slash" then return tostring(nl / nr) end
+        if op_kind == 7 then return tostring(nl + nr) end
+        if op_kind == 8 then return tostring(nl - nr) end
+        if op_kind == 9 then return tostring(nl * nr) end
+        if op_kind == 10 then return tostring(nl / nr) end
+        return nil
+    end,
+    host_os = function()
+        return package.config:sub(1, 1) == "/" and "linux" or "windows"
+    end,
+    compile_result_text = function(res)
+        if type(res) == "string" then return res end
+        return "Erro: Falha na compilação (" .. tostring((res and res.count) or 0) .. " erros)"
+    end,
+    run_cli = function(compile_ext)
+        local function split_lines(text)
+            local lines = {}
+            for line in text:gmatch("([^\n]*)\n?") do
+                table.insert(lines, line)
+            end
+            return lines
+        end
+
+        local function print_diag(bag, source)
+            local lines = source and split_lines(source) or {}
+            for i = 0, (bag.count or 0) - 1 do
+                local d = bag.diagnostics[i]
+                local sp = d.span
+                local color = d.level == 0 and "\27[31m" or "\27[33m"
+                local reset = "\27[0m"
+
+                io.stderr:write(string.format("%s[%s] %s%s\n", color, d.id, d.message, reset))
+
+                if sp then
+                    io.stderr:write(string.format("  at %s:%d:%d\n", sp.file or "main.zt", sp.line, sp.column))
+                    local line_text = lines[sp.line]
+                    if line_text then
+                        io.stderr:write(string.format("   |\n %d | %s\n   | %s^\n", sp.line, line_text, string.rep(" ", sp.column - 1)))
+                    end
+                end
+                io.stderr:write("\n")
+            end
+        end
+
+        if not arg or #arg == 0 then return end
+
+        local first = arg[1]
+        local is_build = (first == "build")
+        local is_bundle = false
+        local src_file = nil
+
+        if is_build then
+            if arg[2] == "--bundle" then
+                is_bundle = true
+                src_file = arg[3]
+            else
+                src_file = arg[2]
+            end
+        else
+            src_file = first
+        end
+
+        if not src_file then
+            io.stderr:write("Uso: zt <arquivo.zt> ou zt build [--bundle] <arquivo.zt>\n")
+            os.exit(1)
+        end
+
+        local out_name = src_file:gsub("%.zt$", "") .. ".lua"
+        if is_bundle then out_name = "dist/main.lua" end
+
+        local host_os = zt.selfhost.host_os()
+        local f = io.open(src_file, "r")
+        if not f then
+            io.stderr:write("Erro: Não foi possível abrir o arquivo " .. src_file .. "\n")
+            os.exit(1)
+        end
+
+        local cnt = f:read("*a"):gsub("\r", "")
+        f:close()
+
+        local res = compile_ext(cnt, src_file, host_os)
+        if type(res) == "string" then
+            if is_bundle then
+                if host_os == "windows" then os.execute("mkdir dist >nul 2>nul")
+                else os.execute("mkdir -p dist") end
+            end
+
+            local out_f = io.open(out_name, "w")
+            if out_f then
+                out_f:write(res)
+                out_f:close()
+            end
+
+            local msg = "✅ Sucesso (Target: " .. host_os .. "): " .. src_file
+            if is_bundle then msg = msg .. " -> " .. out_name end
+            io.stderr:write(msg .. "\n")
+            return
+        end
+
+        if type(res) == "table" and res.diagnostics then
+            print_diag(res, cnt)
+        else
+            io.stderr:write("Erro fatal: " .. tostring(res) .. "\n")
+        end
+        os.exit(1)
+    end,
+}
+
 zt.os = {
     get_env_variable = function(name)
         local val = os.getenv(name)

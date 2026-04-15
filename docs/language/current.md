@@ -26,7 +26,7 @@ Zenith Current representa o recorte mais fiel do Zenith de hoje, mas esse "hoje"
 
 - o compilador ativo oficial ainda e `ztc.lua`
 - o core self-hosted canonico existe em `src/compiler/syntax.zt`; a paridade ampla fora do core nao e mais o bloqueio principal
-- Fase 12 segue parcial por causa de `native lua` restante no compilador self-hosted; a stdlib `.zt` esta limpa
+- Fase 12 esta concluida no recorte `.zt`: demo, stdlib e compilador self-hosted sem blocos `native lua`
 
 ## Para quem esta chegando agora
 

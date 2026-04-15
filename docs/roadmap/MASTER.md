@@ -8,8 +8,8 @@
 O estado real do repositorio em 2026-04-14 e:
 
 - trilha ativa em Lua estabilizada nas Fases 1-11
-- Fase 12 parcial
-- trilha self-hosted canonica consolidada operacionalmente; residuos restantes viraram debito pontual de Fase 12
+- Fase 12 concluida no recorte `.zt`
+- trilha self-hosted canonica consolidada operacionalmente; residuos restantes viraram hardening incremental
 
 ## 2. Proximo Ciclo: Maturidade Industrial (v0.4 -> v0.9)
 

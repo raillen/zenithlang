@@ -16,7 +16,7 @@ Ha duas trilhas diferentes no repositorio:
 | Fases 1-6 | Concluidas na trilha ativa |
 | Fase 7 | Concluida na trilha ativa com politica de compatibilidade |
 | Fases 8-11 | Concluidas e validadas na trilha ativa |
-| Fase 12 | Parcial: demo limpo; stdlib/compiler ainda usam `native lua` |
+| Fase 12 | Concluida: demo, stdlib e compilador self-hosted sem `native lua` em `.zt` |
 | Self-hosting | Operacional: SH-1 a SH-5 concluidas; core canonico verde e bootstrap stage2/stage3 deterministico |
 
 ## Matriz de Status
@@ -34,7 +34,7 @@ Ha duas trilhas diferentes no repositorio:
 | 9 | Pattern matching | Concluida | Destructuring, guards, `Color.Red` e exaustividade cobertos |
 | 10 | Generics reais | Concluida | Type erasure, constraints e chamadas genericas funcionais |
 | 11 | Indice 0 vs 1 | Concluida | Sequencias 1-based com `ZT-W002` e erro runtime `ZT-R011` |
-| 12 | Reduzir `native lua` | Parcial | `demo.zt` limpo; stdlib/compiler ainda dependem de escapes |
+| 12 | Reduzir `native lua` | Concluida | `demo.zt`, `src/stdlib` e `src/compiler` com 0 ocorrencias em `.zt` |
 
 ## Verificacao Executada
 
@@ -256,7 +256,7 @@ Residuo:
 
 ## Fase 12 - Reduzir native lua
 
-Status: parcial.
+Status: concluida.
 
 Entregue:
 
@@ -265,13 +265,14 @@ Entregue:
 - Helpers UFCS reduziram a necessidade de escapes no caminho de demonstracao.
 - Primeira fatia de stdlib essencial limpa: `std.core`, `std.collections` e `std.time` sem blocos `native lua`; `extern` top-level corrigido para bindings de runtime.
 - Segunda fatia concluida: `std.test`, `std.os`, `std.text` e `std.text.regex` tambem ficaram sem blocos `native lua`; a stdlib `.zt` esta em 0 ocorrencias.
+- Terceira fatia concluida: helpers e CLI self-hosted foram movidos para `extern`/runtime; `src/compiler` tambem esta em 0 ocorrencias de `native lua` em `.zt`.
 
 Medicao atual:
 
 - `demo.zt`: 0 ocorrencias de `native lua`.
 - `src/stdlib`: 0 ocorrencias de `native lua` em arquivos `.zt`.
-- `src/compiler`: 12 ocorrencias de `native lua` em arquivos `.zt`.
-- Total medido em `src/stdlib src/compiler`: 12 ocorrencias em arquivos `.zt`.
+- `src/compiler`: 0 ocorrencias de `native lua` em arquivos `.zt`.
+- Total medido em `src/stdlib src/compiler`: 0 ocorrencias em arquivos `.zt`.
 
 Criterio para concluir a fase inteira:
 
@@ -392,7 +393,7 @@ Entregue na trilha ativa:
 
 Parcial:
 
-- Fase 12
+- Nenhuma fase ativa neste recorte.
 
 Trilha separada:
 
@@ -410,7 +411,7 @@ Concluida na Trilha B:
 
 O ciclo posterior ao fechamento da Trilha B foi consolidado em `docs/roadmap/selfhost-consolidacao.md`.
 
-1. Reduzir `native lua` remanescente no compilador self-hosted.
+1. Reduzir `native lua` remanescente no compilador self-hosted: concluido.
 2. Consolidar docs e cleanup apos a promocao de `ZT-S106`.
 3. Limpar o legado documental de `syntax_bridge.zt`.
 4. Escrever a especificacao curta do core estabilizado.
@@ -418,8 +419,8 @@ O ciclo posterior ao fechamento da Trilha B foi consolidado em `docs/roadmap/sel
 
 ## Resumo Executivo
 
-O compilador ativo tem Fases 1-11 concluidas e testadas. A Fase 12 esta concluida apenas para o demo/caminho de demonstracao, mas ainda nao para a stdlib e para o compilador self-hosted.
+O compilador ativo tem Fases 1-12 concluidas e testadas no recorte `.zt`: demo, stdlib e compilador self-hosted estao sem blocos `native lua`.
 
 Na Trilha B, SH-1, SH-2, SH-3, SH-4 e SH-5 deixaram de ser problema: `src/compiler/syntax.zt` passa no `check` sem `ZT-W001`, `syntax_bridge.zt` foi congelado como legado explicito, os hacks `string.char` foram removidos e o bootstrap self-hosted passa com stage2/stage3 deterministico.
 
-O principal trabalho restante nao e reabrir UFCS, generics, match, indexacao, bootstrap ou saneamento de `null` da base self-hosted. O ciclo de consolidacao foi fechado; `std.events`, `std.fs`, `std.os`, `std.os.process` e o shim legado `src/cli/ztc.zt` tambem foram estabilizados em checks locais. O residuo agora volta a ser debito pontual de Fase 12 e manutencao normal.
+O principal trabalho restante nao e reabrir UFCS, generics, match, indexacao, bootstrap, saneamento de `null` ou Fase 12. O ciclo de consolidacao foi fechado; `std.events`, `std.fs`, `std.os`, `std.os.process` e o shim legado `src/cli/ztc.zt` tambem foram estabilizados em checks locais. O residuo agora volta a ser manutencao normal e hardening incremental.

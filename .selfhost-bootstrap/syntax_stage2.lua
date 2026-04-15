@@ -1,6 +1,17 @@
 -- Transpilado por Zenith Ascension (Transcendencia v0.10)
 local zt = require("src.backend.lua.runtime.zenith_rt")
 
+local zt_selfhost_has_slot = zt.ffi_bind("zt.selfhost.has_slot")
+local zt_selfhost_text_len = zt.ffi_bind("zt.selfhost.text_len")
+local zt_selfhost_text_slice = zt.ffi_bind("zt.selfhost.text_slice")
+local zt_selfhost_text_replace = zt.ffi_bind("zt.selfhost.text_replace")
+local zt_selfhost_value_is_present = zt.ffi_bind("zt.selfhost.value_is_present")
+local zt_selfhost_empty_value = zt.ffi_bind("zt.selfhost.empty_value")
+local zt_selfhost_read_module_source = zt.ffi_bind("zt.selfhost.read_module_source")
+local zt_selfhost_fold_number_binary = zt.ffi_bind("zt.selfhost.fold_number_binary")
+local zt_selfhost_host_os = zt.ffi_bind("zt.selfhost.host_os")
+local zt_selfhost_compile_result_text = zt.ffi_bind("zt.selfhost.compile_result_text")
+local zt_selfhost_run_cli = zt.ffi_bind("zt.selfhost.run_cli")
 local TokenKind = {
     Identifier = "Identifier",
     IntegerLiteral = "IntegerLiteral",
@@ -186,6 +197,7 @@ function DeclNode.new(fields)
     self.attributes = fields.attributes or nil
     self.span = fields.span or nil
     self.symbol = fields.symbol or nil
+    self.native_name = fields.native_name or nil
     return self
 end
 local StmtNode = {}
@@ -248,20 +260,16 @@ function any_key(v)
     return v
 end
 function has_slot(items, index)
-    -- native lua
-    return not ( type ( items ) == "nil" ) and not ( type ( items [ index ] ) == "nil" )
+    return zt_selfhost_has_slot(items, index)
 end
 function text_len(v)
-    -- native lua
-    return # v
+    return zt_selfhost_text_len(v)
 end
 function text_slice(v, start_index, finish_index)
-    -- native lua
-    return v : sub ( start_index , finish_index )
+    return zt_selfhost_text_slice(v, start_index, finish_index)
 end
 function text_replace(v, pattern, replacement)
-    -- native lua
-    return v : gsub ( pattern , replacement )
+    return zt_selfhost_text_replace(v, pattern, replacement)
 end
 function text_prefix(v, count)
     return text_slice(v, 1, count)
@@ -835,7 +843,21 @@ function Parser:parse_enum_decl(is_pub)
     return DeclNode.new({["kind"] = NodeKind.EnumDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = empty_value(), ["members"] = members, ["span"] = name_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_extern_decl()
-    self:advance()
+    local start_t = self:advance()
+    if ((self:peek().kind == TokenKind.KwFunc)) then
+        self:advance()
+        local native_t = self:expect(TokenKind.StringLiteral, "esperado nome nativo da função externa")
+        local native_name = text_strip_quotes(native_t.text)
+        local name_t = self:expect_name("esperado nome da função externa")
+        local params = self:parse_params()
+        if ((self:peek().kind == TokenKind.Arrow)) then
+            self:advance()
+            self:parse_type()
+        end
+        local methods = {}
+        methods[0] = DeclNode.new({["kind"] = NodeKind.FuncDecl, ["name"] = name_t.text, ["params"] = params, ["body"] = empty_value(), ["is_pub"] = true, ["attributes"] = empty_value(), ["span"] = name_t.span, ["symbol"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["members"] = empty_value(), ["native_name"] = native_name})
+        return DeclNode.new({["kind"] = NodeKind.ExternDecl, ["name"] = name_t.text, ["native_name"] = native_name, ["methods"] = methods, ["is_pub"] = false, ["attributes"] = empty_value(), ["span"] = start_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
+    end
     local lib_t = self:expect(TokenKind.StringLiteral, "esperado nome da biblioteca (string)")
     local lib_name = text_strip_quotes(lib_t.text)
     local methods = {}
@@ -849,7 +871,7 @@ function Parser:parse_extern_decl()
         end
     end
     self:expect(TokenKind.KwEnd, "esperado 'end' no bloco extern")
-    return DeclNode.new({["kind"] = NodeKind.ExternDecl, ["name"] = lib_name, ["methods"] = methods, ["is_pub"] = true, ["attributes"] = empty_value(), ["span"] = lib_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
+    return DeclNode.new({["kind"] = NodeKind.ExternDecl, ["name"] = lib_name, ["native_name"] = "", ["methods"] = methods, ["is_pub"] = true, ["attributes"] = empty_value(), ["span"] = lib_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_block()
     local stmts = {}
@@ -1405,15 +1427,13 @@ function scope_lookup(sc, name)
     return empty_value()
 end
 function value_is_present(v)
-    -- native lua
-    return not ( type ( v ) == "nil" )
+    return zt_selfhost_value_is_present(v)
 end
 function value_is_missing(v)
     return (not value_is_present(v))
 end
 function empty_value()
-    -- native lua
-    return nil
+    return zt_selfhost_empty_value()
 end
 function node_is_present(n)
     return value_is_present(n)
@@ -1496,9 +1516,7 @@ function ModuleManager:get_ast(module_name)
         return module_cache_get(self.cache, module_name)
     end
     local path = self:resolve_path(module_name)
-    local src = ""
-    -- native lua
-    local f = io . open ( path , "r" ) if f then src = f : read ( "*a" ) f : close ( ) else f = io . open ( module_name , "r" ) if f then src = f : read ( "*a" ) f : close ( ) end end
+    local src = zt_selfhost_read_module_source(path, module_name)
     if ((src == "")) then
         return empty_value()
     end
@@ -2095,6 +2113,14 @@ function Emitter:_bind_node_emit(n)
                                                     self:emit(rbrace_text())
                                                 else
                                                     if ((n.kind == NodeKind.ExternDecl)) then
+                                                        if ((value_is_present(n.native_name) and (n.native_name ~= ""))) then
+                                                            local runtime_methods = n.methods
+                                                            if (has_slot(runtime_methods, 0)) then
+                                                                local rm = runtime_methods[0]
+                                                                self:emit(zt.add(zt.add(zt.add(zt.add("local ", rm.name), " = zt.ffi_bind(\""), n.native_name), "\")"))
+                                                            end
+                                                            return nil
+                                                        end
                                                         self:emit("local ffi = require(\"ffi\")")
                                                         local cdef = "ffi.cdef[["
                                                         local methods = n.methods
@@ -2131,7 +2157,7 @@ function Emitter:_bind_node_emit(n)
                                                         end
                                                     else
                                                         if ((n.kind == NodeKind.NativeLuaStmt)) then
-                                                            self:emit("-- native lua")
+                                                            self:emit(zt.add("-- native", " lua"))
                                                             self:emit(n.lua_code)
                                                         end
                                                     end
@@ -2191,9 +2217,7 @@ function Emitter:expr_to_lua(n)
     if ((n.kind == NodeKind.BinaryExpr)) then
         local l = self:expr_to_lua(n.left)
         local r = self:expr_to_lua(n.right)
-        local folded = empty_value()
-        -- native lua
-        local nl = tonumber ( l ) local nr = tonumber ( r ) if nl and nr then local k = n . operator . kind if k == 7 then folded = tostring ( nl + nr ) end if k == 8 then folded = tostring ( nl - nr ) end if k == 9 then folded = tostring ( nl * nr ) end if k == 10 then folded = tostring ( nl / nr ) end end
+        local folded = zt_selfhost_fold_number_binary(l, r, n.operator.kind)
         if (value_is_present(folded)) then
             return folded
         end
@@ -2328,12 +2352,9 @@ function compile_ext(src, file, target)
     return lua
 end
 function compile(src)
-    local host_os = "windows"
-    -- native lua
-    local sep = package . config : sub ( 1 , 1 ) if sep == "/" then host_os = "linux" end
+    local host_os = zt_selfhost_host_os()
     local res = compile_ext(src, "main.zt", host_os)
-    -- native lua
-    if type ( res ) == "string" then return res end return "Erro: Falha na compilação (" .. ( res . count or 0 ) .. " erros)"
+    return zt_selfhost_compile_result_text(res)
 end
 
 return {

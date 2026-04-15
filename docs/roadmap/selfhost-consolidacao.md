@@ -15,7 +15,7 @@ Base verificada:
 | Core self-hosted | Verde | `lua ztc.lua check src\\compiler\\syntax.zt` |
 | Bootstrap | Deterministico | `lua tools\\bootstrap.lua` |
 | `null` em `syntax.zt` | 1 ocorrencia textual do literal `"null"`; 0 warnings `ZT-W001` | `rg "\\bnull\\b" src\\compiler\\syntax.zt` |
-| `native lua` no compilador | 12 ocorrencias em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
+| `native lua` no compilador | 0 ocorrencias em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
 | `native lua` na stdlib | 0 ocorrencias em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
 | Bridge legado | Congelado como stub parseavel | `lua ztc.lua check src\\compiler\\syntax_bridge.zt` |
 
@@ -120,7 +120,7 @@ Criterio de aceite:
 
 ## 4. Ordem Recomendada
 
-1. Reducao de `native lua` no compilador: concluida nesta rodada (`18 -> 12`).
+1. Reducao de `native lua` no compilador: concluida (`18 -> 0` no recorte `.zt`).
 2. Consolidacao de `ZT-S106`: concluida em binder, docs e testes.
 3. Limpeza documental de `syntax_bridge.zt`: concluida nos docs principais.
 4. Especificacao curta do core: concluida com `docs/specification/current-core.md`.
@@ -142,7 +142,7 @@ Status final: concluido operacionalmente.
 
 Entregue nesta rodada:
 
-- `src/compiler/syntax.zt`: `native lua` caiu de `18` para `12` ocorrencias, sem reabrir o bootstrap.
+- `src/compiler/syntax.zt`: `native lua` caiu de `18` para `0` ocorrencias em `.zt`, sem reabrir o bootstrap.
 - `ZT-S106`: politica de `null` consolidada em binder, testes e docs.
 - `syntax_bridge.zt`: legado documental limpo nos docs principais; caminho canonico reforcado como `src/compiler/syntax.zt`.
 - `docs/specification/current-core.md`: especificacao curta criada para o core estabilizado.
@@ -152,5 +152,5 @@ Entregue nesta rodada:
 
 Residuo apos o fechamento deste roadmap:
 
-- `native lua` remanescente na stdlib e no compilador segue como debito de Fase 12, nao mais como bloqueio de consolidacao self-hosted.
+- `native lua` remanescente em `.zt` foi zerado na stdlib e no compilador; interop legitima ficou concentrada no runtime Lua.
 - falsos negativos fora do core canonico foram reduzidos; os que sobrarem devem ser tratados como manutencao pontual, nao como reabertura da trilha.
