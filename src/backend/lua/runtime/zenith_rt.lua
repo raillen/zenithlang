@@ -132,6 +132,20 @@ end
 
 --- Vinculação FFI (Foreign Function Interface) ou Globais Lua
 function zt.ffi_bind(name)
+    if name == "zt" then return zt end
+    if name:sub(1, 3) == "zt." then
+        local current = zt
+        for part in name:sub(4):gmatch("[^%.]+") do
+            if type(current) == "table" then
+                current = current[part]
+            else
+                current = nil
+                break
+            end
+        end
+        if current then return current end
+    end
+
     -- 1. Tenta buscar em tabela global Lua (suporta pontos como "io.write")
     local current = _G
     for part in name:gmatch("[^%.]+") do
@@ -162,6 +176,13 @@ function zt.check(val, msg)
     return val
 end
 
+
+function zt.assert(condition, msg)
+    if condition == nil or condition == false then
+        error(msg or "assertion failed", 2)
+    end
+    return condition
+end
 -- ----------------------------------------------------------------------------
 -- REATIVIDADE MINIMA
 -- ----------------------------------------------------------------------------
@@ -291,6 +312,11 @@ end
 
 function zt.pop(obj)
     if type(obj) == "table" then return table.remove(obj) end
+    return nil
+end
+
+function zt.remove_at(obj, index)
+    if type(obj) == "table" then return table.remove(obj, index) end
     return nil
 end
 

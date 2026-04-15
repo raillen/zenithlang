@@ -58,6 +58,8 @@ function ParseStatements.parse_statement(ctx)
         return ParseStatements._parse_check(ctx)
     elseif k == TokenKind.KW_AFTER then
         return ParseStatements._parse_after(ctx)
+    elseif k == TokenKind.KW_ASSERT then
+        return ParseStatements._parse_assert(ctx)
     elseif k == TokenKind.KW_NATIVE then
         return ParseStatements._parse_native_lua(ctx, true)
     end
@@ -277,6 +279,24 @@ function ParseStatements._parse_throw(ctx)
     local start = ctx:advance() -- 'throw'
     local expr = ParseExpressions.parse_expression(ctx)
     return StmtSyntax.throw_stmt(expr, start.span:merge(expr.span))
+end
+
+function ParseStatements._parse_assert(ctx)
+    local start = ctx:advance() -- 'assert'
+    local condition
+    local message = nil
+
+    if ctx:match(TokenKind.LPAREN) then
+        condition = ParseExpressions.parse_expression(ctx)
+        if ctx:match(TokenKind.COMMA) then
+            message = ParseExpressions.parse_expression(ctx)
+        end
+        local close_t = ctx:expect(TokenKind.RPAREN, "esperado ')' apos assert")
+        return StmtSyntax.assert_stmt(condition, message, start.span:merge(close_t.span))
+    end
+
+    condition = ParseExpressions.parse_expression(ctx)
+    return StmtSyntax.assert_stmt(condition, nil, start.span:merge(condition.span))
 end
 
 function ParseStatements._parse_check(ctx)

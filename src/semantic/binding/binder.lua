@@ -1783,6 +1783,9 @@ end
 
 function Binder:_bind_assert_stmt(node)
     self:_bind_node(node.expression)
+    if node.message then
+        self:_bind_node(node.message)
+    end
     return BuiltinTypes.VOID
 end
 

@@ -263,13 +263,14 @@ Entregue:
 - `demo.zt` nao contem `native lua`.
 - `demo.zt` compila com `ztc.lua build`.
 - Helpers UFCS reduziram a necessidade de escapes no caminho de demonstracao.
+- Primeira fatia de stdlib essencial limpa: `std.core`, `std.collections` e `std.time` sem blocos `native lua`; `extern` top-level corrigido para bindings de runtime.
 
 Medicao atual:
 
 - `demo.zt`: 0 ocorrencias de `native lua`.
-- `src/stdlib`: 38 ocorrencias de `native lua` em arquivos `.zt`.
+- `src/stdlib`: 24 ocorrencias de `native lua` em arquivos `.zt`.
 - `src/compiler`: 12 ocorrencias de `native lua` em arquivos `.zt`.
-- Total medido em `src/stdlib src/compiler`: 50 ocorrencias em arquivos `.zt`.
+- Total medido em `src/stdlib src/compiler`: 36 ocorrencias em arquivos `.zt`.
 
 Criterio para concluir a fase inteira:
 

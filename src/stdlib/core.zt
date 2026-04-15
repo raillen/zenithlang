@@ -8,8 +8,13 @@ extern func "error"  lua_error(v: text)
 extern func "tostring" tostring(v: any) -> text
 extern func "zt.is_present" zt_is_present(v: any) -> bool
 extern func "zt.is_empty" zt_is_empty(v: any) -> bool
+extern func "zt.is_success" zt_is_success(v: any) -> bool
+extern func "zt.is_failure" zt_is_failure(v: any) -> bool
 extern func "zt.unwrap" zt_unwrap(v: any) -> any
 extern func "zt.unwrap_or" zt_unwrap_or(v: any, fallback: any) -> any
+extern func "zt.push" zt_push(target: any, value: any)
+extern func "zt.pop" zt_pop(target: any) -> any
+extern func "zt.len" zt_len(target: any) -> int
 
 --- Representa um valor que pode ou nao estar presente.
 pub struct Optional<T>
@@ -33,10 +38,10 @@ end
 --- Representa o resultado de uma operacao que pode falhar.
 pub struct Outcome<T>
     pub func is_success() -> bool
-        native lua return self._tag == "Success" end
+        return zt_is_success(self)
     end
     pub func is_failure() -> bool
-        native lua return self._tag == "Failure" end
+        return zt_is_failure(self)
     end
     pub func is_present() -> bool
         return zt_is_present(self)
@@ -45,7 +50,7 @@ pub struct Outcome<T>
         return zt_is_empty(self)
     end
     pub func unwrap() -> T
-        native lua return self.value end
+        return zt_unwrap(self)
     end
     pub func unwrap_or(fallback: T) -> T
         return zt_unwrap_or(self, fallback)
@@ -55,19 +60,19 @@ end
 --- Tipo fundamental de lista (built-in).
 pub struct list<T>
     pub func add(item: T)
-        native lua self:add(item) end
+        zt_push(self, item)
     end
     pub func push(item: T)
-        native lua self:push(item) end
+        zt_push(self, item)
     end
     pub func pop() -> T
-        native lua return self:pop() end
+        return zt_pop(self)
     end
     pub func len() -> int
-        native lua return self:len() end
+        return zt_len(self)
     end
     pub func is_empty() -> bool
-        native lua return self:is_empty() end
+        return zt_is_empty(self)
     end
 end
 

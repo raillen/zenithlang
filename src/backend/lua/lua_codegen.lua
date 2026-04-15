@@ -337,7 +337,8 @@ function LuaCodegen:_emit_extern_decl(node)
     -- Gera vinculação FFI (LuaJIT pattern) ou Global Lua
     local escaped_name = self:_escape_id(node.name)
     local symbol_name = node.native_name or node.name
-    self:emit(string.format("local %s = zt.ffi_bind(%q)", escaped_name, symbol_name))
+    local prefix = self.is_top_level and "" or "local "
+    self:emit(string.format("%s%s = zt.ffi_bind(%q)", prefix, escaped_name, symbol_name))
 end
 
 function LuaCodegen:_emit_type_alias_decl(node)
@@ -573,7 +574,12 @@ function LuaCodegen:_emit_throw_stmt(node)
 end
 
 function LuaCodegen:_emit_assert_stmt(node)
-    self:emit(string.format("zt.assert(%s)", self:_eval(node.expression)))
+    local condition = self:_eval(node.expression)
+    if node.message then
+        self:emit(string.format("zt.assert(%s, %s)", condition, self:_eval(node.message)))
+    else
+        self:emit(string.format("zt.assert(%s)", condition))
+    end
 end
 
 function LuaCodegen:_emit_watch_stmt(node)

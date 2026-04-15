@@ -1,7 +1,14 @@
+extern func "zt.len" runtime_len(v: any) -> int
+
 func main()
-    -- print deve estar disponível via Prelude (std.core)
+    -- print deve estar disponivel via Prelude (std.core)
     print("Testando Prelude")
-    
-    -- assert também
+
+    -- assert tambem e statement da linguagem
     assert(true, "Isso deve passar")
+
+    var xs = [1, 2, 3]
+    if runtime_len(xs) != 3
+        panic("extern zt.len deve resolver o runtime interno")
+    end
 end

@@ -397,6 +397,12 @@ t:group("Statements de Controle", function()
         a.equal(decls[1].kind, SK.CONTINUE_STMT)
     end)
 
+    t:test("assert com mensagem", function()
+        local decls = parse("assert(x > 0, \"x deve ser positivo\")")
+        a.equal(decls[1].kind, SK.ASSERT_STMT)
+        a.is_not_nil(decls[1].message)
+    end)
+
 end)
 
 t:group("Atribuição", function()

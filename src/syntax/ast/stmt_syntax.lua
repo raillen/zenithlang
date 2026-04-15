@@ -126,9 +126,14 @@ function StmtSyntax.expr_stmt(expression, span)
 end
 
 --- Assert statement
-function StmtSyntax.assert_stmt(expression, span)
+function StmtSyntax.assert_stmt(expression, message, span)
+    if not span then
+        span = message
+        message = nil
+    end
     return SyntaxNode.new(SK.ASSERT_STMT, {
         expression = expression,
+        message = message,
     }, span)
 end
 
