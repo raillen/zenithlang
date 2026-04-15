@@ -1,170 +1,245 @@
--- Zenith Compiler CLI (ztc.lua)
-local Parser        = require("src.syntax.parser.parser")
-local Binder        = require("src.semantic.binding.binder")
-local ModuleManager = require("src.semantic.binding.module_manager")
-local Lowerer       = require("src.lowering.lowerer")
-local LuaCodegen    = require("src.backend.lua.lua_codegen")
-local DiagnosticBag = require("src.diagnostics.diagnostic_bag")
-local ProjectParser = require("src.project_system.project_parser")
-local SourceText    = require("src.source.source_text")
+-- ============================================================================
+-- Zenith Sovereign Compiler (ztc) — Entry Point
+-- Fase 1: Pipeline completo com DiagnosticBag e renderer de erros.
+-- ============================================================================
 
-local function compile_file(file_path, out_path, target_platform)
-    local file = io.open(file_path, "r")
-    if not file then
-        return nil, "Erro: Arquivo não encontrado: " .. file_path
-    end
-    local content = file:read("*all")
-    file:close()
+package.path = package.path .. ";./src/?.lua;./src/?/init.lua"
 
-    local diags = DiagnosticBag.new()
-    
-    print("--- 1. Parsing (" .. file_path .. ") ---")
-    local unit, p_diags, source = Parser.parse_string(content, file_path)
-    if p_diags:has_errors() then return nil, p_diags:format(source) end
+local zt = require("src.backend.lua.runtime.zenith_rt")
 
-    print("--- 2. Binding ---")
-    local mm = ModuleManager.new(".")
-    local binder = Binder.new(diags, mm, target_platform)
-    binder:bind(unit, "main")
-    if diags:has_errors() then return nil, diags:format(source) end
+-- ── Módulos do compilador ────────────────────────────────────────────────────
+local parser      = require("src.syntax.parser")
+local binder_mod  = require("src.semantic.binding.binder")
+local emitter_mod = require("src.backend.lua.lua_codegen")
+local source_mod  = require("src.source.source_text")
 
-    print("--- 2.5 Lowering and Otimizacao (" .. (target_platform or "host") .. ") ---")
-    local lowerer = Lowerer.new(diags, target_platform)
-    unit = lowerer:lower(unit)
+-- ── Stdlib ────────────────────────────────────────────────────────────────────
+local io_lib = require("src/stdlib/io")
+local os_lib = require("src/stdlib/os")
 
-    print("--- 3. Codegen ---")
-    local codegen = LuaCodegen.new()
-    local lua_code = codegen:generate(unit)
-    
-    -- Criar diretorios pai se necessario
-    local dir = out_path:match("(.*[/\\])")
-    if dir then 
-        -- Comando multiplataforma (mkdir -p no linux/mac, mkdir no win)
-        os.execute("mkdir " .. dir:gsub("/", "\\") .. " 2>nul") 
-    end
+-- ── Sistema de Diagnósticos ───────────────────────────────────────────────────
+local DiagnosticBag      = require("src.diagnostics.diagnostic_bag")
+local DiagnosticRenderer = require("src.diagnostics.diagnostic_renderer")
 
-    local out_file = io.open(out_path or "out.lua", "w")
-    out_file:write(lua_code)
-    out_file:close()
-    
-    return lua_code, nil, out_path or "out.lua"
+-- ============================================================================
+-- Helpers internos
+-- ============================================================================
+
+local function print_usage()
+    io.write("Zenith Sovereign Compiler v0.3.5\n")
+    io.write("Uso:  ztc <run|build|check> <arquivo.zt> [saida.lua]\n")
+    io.write("      ztc <arquivo.zt>                     -- build implícito\n")
+    io.write("\nModos:\n")
+    io.write("  build  Compila para Lua (padrão: out.lua)\n")
+    io.write("  run    Compila e executa imediatamente\n")
+    io.write("  check  Análise semântica sem gerar código\n")
 end
 
-local function compiler_main(args)
-    if not args or #args == 0 then
-        print("Zenith Compiler v0.3.0 (Ascension)")
-        print("Uso:")
-        print("  zt <arquivo.zt> [--run] [--target <os>]")
-        print("  zt build [--standalone | --bundle] [--target <os>]")
-        print("  zt test [--grep <pattern>]")
-        return
+--- Lê o conteúdo de um arquivo .zt ou aborta com mensagem clara.
+local function read_source(path, global_bag)
+    local f, err = io.open(path, "r")
+    if not f then
+        global_bag:report_error("ZT-C001",
+            string.format("não foi possível abrir o arquivo '%s': %s", path, err or "erro desconhecido"),
+            nil)
+        return nil
+    end
+    local content = f:read("*a")
+    f:close()
+    return content
+end
+
+--- Escreve o arquivo de saída ou aborta com mensagem clara.
+local function write_output(path, content, global_bag)
+    local f, err = io.open(path, "w")
+    if not f then
+        global_bag:report_error("ZT-C002",
+            string.format("não foi possível escrever em '%s': %s", path, err or "erro desconhecido"),
+            nil)
+        return false
+    end
+    f:write(content)
+    f:close()
+    return true
+end
+
+-- ============================================================================
+-- Pipeline principal de compilação
+-- ============================================================================
+
+--- Executa o pipeline completo: parse → bind → emit.
+--- Retorna:
+---   lua_code (string|nil), unit (AST|nil), source_text, global_bag
+local function run_pipeline(input_path)
+    local global_bag = DiagnosticBag.new()
+
+    -- ── 1. Leitura do arquivo ─────────────────────────────────────────────────
+    local content = read_source(input_path, global_bag)
+    if not content then
+        return nil, nil, nil, global_bag
     end
 
-    local command = args[1]
-    local target = "windows" -- Default
-    local mode = "normal"
-    local run_after = false
+    -- Objeto SourceText — usado para contextualizar diagnósticos
+    local source_text = source_mod.new(content, input_path)
 
-    -- Parse de flags
-    for i, v in ipairs(args) do
-        if v == "--target" and args[i+1] then target = args[i+1]
-        elseif v == "--standalone" then mode = "standalone"
-        elseif v == "--bundle" then mode = "bundle"
-        elseif v == "--run" then run_after = true
-        end
+    -- ── 2. Parsing ────────────────────────────────────────────────────────────
+    local unit, parse_diags
+    local ok, parse_err = pcall(function()
+        unit, parse_diags = parser.parse_string(content, input_path)
+    end)
+
+    if not ok then
+        global_bag:report_error("ZT-C010",
+            "erro interno no parser: " .. tostring(parse_err), nil)
+        return nil, nil, source_text, global_bag
     end
 
-    local lua_code, err, out_path
+    -- Mesclar diagnósticos do parser
+    if parse_diags and parse_diags.diagnostics then
+        global_bag:merge(parse_diags)
+    end
 
-    if command == "test" then
-        print("[TEST] Iniciando Zenith Test Orchestrator...")
-        lua_code, err, out_path = compile_file("src/cli/ztest.zt", "ztest.lua", target)
-        if not err then
-            local cmd_args = ""
-            for i=2, #args do cmd_args = cmd_args .. " " .. args[i] end
-            os.execute("lua ztest.lua" .. cmd_args)
-            return
-        end
-    elseif command == "zpm" then
-        print("[ZPM] Iniciando Zenith Package Manager...")
-        lua_code, err, out_path = compile_file("src/cli/zpm.zt", "zpm_engine.lua", target)
-        if not err then
-            local cmd_args = ""
-            for i=2, #args do cmd_args = cmd_args .. " " .. args[i] end
-            os.execute("lua zpm_engine.lua" .. cmd_args)
-            return
-        end
-    elseif command == "build" then
-        print("[BUILD] Iniciando build soberano (" .. mode .. ") para " .. target .. "...")
-        local config, p_err = ProjectParser.parse("zenith.ztproj")
-        if not config then
-            print("Erro no arquivo de projeto: " .. tostring(p_err))
-            return
-        end
-        
-        local final_out = config.build.out
-        if mode == "bundle" then
-            print("Preparando bundle em ./dist...")
-            os.execute("mkdir dist 2>nul")
-            os.execute("mkdir dist\\native 2>nul")
-            final_out = "dist/" .. (config.build.out or "app.lua")
-        end
+    -- Abortar cedo se o parser encontrou erros que impedem o binding
+    if global_bag:has_errors() then
+        return nil, unit, source_text, global_bag
+    end
 
-        lua_code, err, out_path = compile_file(config.build.main, final_out, target)
-        
-        if not err and mode == "standalone" then
-            print("Gerando standalone para " .. target .. "...")
-            -- Simulação de bundling da VM
-            print("Aviso: Standalone funcional requer zt-seed tool. Gerando wrapper Lua...")
-        end
-    elseif command == "compile" then
-        local filename = args[2]
-        if not filename then
-            print("Erro: compile exige um arquivo.zt")
-            return
-        end
-        lua_code, err, out_path = compile_file(filename, args[3] or "out.lua", target)
-        if not err then return end -- Finaliza sem executar
+    -- ── 3. Binding (análise semântica + type checking) ─────────────────────────
+    local ModuleManager = require("src.semantic.binding.module_manager")
+    local manager = ModuleManager.new(".")
+    
+    local binder = binder_mod.new(global_bag, manager)
+    local ok_bind, bind_err = pcall(function()
+        binder:bind(unit, "")
+    end)
+
+    if not ok_bind then
+        global_bag:report_error("ZT-C020",
+            "erro interno no binder: " .. tostring(bind_err), nil)
+        return nil, unit, source_text, global_bag
+    end
+
+    -- REGRA DE OURO: Nunca gerar código se há erros semânticos
+    if global_bag:has_errors() then
+        return nil, unit, source_text, global_bag
+    end
+
+    -- ── 4. Geração de código ──────────────────────────────────────────────────
+    local lua_code, source_map
+    local ok_emit, emit_err = pcall(function()
+        local emitter = emitter_mod.new()
+        lua_code, source_map = emitter:generate(unit, source_text)
+    end)
+
+    if not ok_emit then
+        global_bag:report_error("ZT-C030",
+            "erro interno no gerador de código: " .. tostring(emit_err), nil)
+        return nil, unit, source_text, global_bag
+    end
+
+    return lua_code, unit, source_text, global_bag, source_map
+end
+
+-- ============================================================================
+-- Ponto de entrada (main)
+-- ============================================================================
+
+local function main(args)
+    args = args or {}
+
+    -- ── Sem argumentos → ajuda ────────────────────────────────────────────────
+    if #args == 0 then
+        print_usage()
+        return 0
+    end
+
+    -- ── Parsing de argumentos ─────────────────────────────────────────────────
+    local mode       = "build"
+    local input_path = nil
+    local out_path   = "out.lua"
+
+    local first = args[1]
+    if first == "build" or first == "run" or first == "check" then
+        mode = first
+        input_path = args[2]
+        if args[3] then out_path = args[3] end
     else
-        if not command:match("%.zt$") then
-            print("Erro: Comando ou arquivo desconhecido: " .. command)
-            return
+        -- Fallback: ztc arquivo.zt [saida.lua]
+        input_path = args[1]
+        if args[2] then out_path = args[2] end
+    end
+
+    if not input_path then
+        io.stderr:write("Erro: especifique um arquivo de entrada.\n\n")
+        print_usage()
+        return 1
+    end
+
+    -- ── Modo 'check': apenas análise, sem geração ─────────────────────────────
+    if mode == "check" then
+        local _, _, source_text, bag = run_pipeline(input_path)
+        DiagnosticRenderer.print_all(bag, source_text)
+        local had_errors = DiagnosticRenderer.print_summary(bag)
+        if had_errors then return 1 end
+        io.write(string.format("✅ %s: sem erros\n", input_path))
+        return 0
+    end
+
+    -- ── Modos 'build' e 'run' ─────────────────────────────────────────────────
+    local lua_code, _, source_text, bag, source_map = run_pipeline(input_path)
+
+    -- Sempre exibir diagnósticos (erros E avisos)
+    if bag:count() > 0 then
+        DiagnosticRenderer.print_all(bag, source_text)
+    end
+
+    -- Se houve erros → abortar
+    local had_errors = DiagnosticRenderer.print_summary(bag)
+    if had_errors then
+        return 1
+    end
+
+    -- ── Nenhum erro: gravar ou executar ───────────────────────────────────────
+    if mode == "run" then
+        -- Arquivo temporário
+        local tmp = string.format(".ztc-run-%d-%d.lua", os.time(), math.random(1000000))
+        local tmp_bag = DiagnosticBag.new()
+        if not write_output(tmp, lua_code, tmp_bag) then
+            DiagnosticRenderer.print_all(tmp_bag, nil)
+            return 1
         end
-        lua_code, err, out_path = compile_file(command, "out.lua", target)
-    end
+        os.execute("lua " .. tmp)
+        os.remove(tmp)
 
-    if err then
-        print(err)
-        return
-    end
-
-    print("\n--- Build concluido com sucesso: " .. (out_path or "out.lua") .. " ---")
-    
-    -- Rodar opcionalmente
-    if run_after or (command ~= "build" and command ~= "test" and command ~= "compile") then
-        print("\n--- Executando ---")
-        local script_args = {}
-        for i=2, #args do table.insert(script_args, args[i]) end
-        local env = setmetatable({ arg = script_args }, { __index = _G })
-        local chunk, load_err = loadfile(out_path)
-        if not chunk then
-            print("Erro ao carregar Lua transpilado: " .. load_err)
-        else
-            setfenv(chunk, env)
-            local ok, exports = pcall(chunk)
-            if not ok then
-                print("Erro de execucao (chunk): " .. tostring(exports))
-            else
-                local main_func = (type(exports) == "table" and exports.main) or env.main
-                if main_func then
-                    local ok2, run_err2 = pcall(main_func)
-                    if not ok2 then
-                        print("Erro de execucao (main): " .. tostring(run_err2))
-                    end
-                end
+    else  -- build
+        local write_bag = DiagnosticBag.new()
+        if not write_output(out_path, lua_code, write_bag) then
+            DiagnosticRenderer.print_all(write_bag, nil)
+            return 1
+        end
+        -- Gravar source map se disponível
+        if source_map then
+            local map_path = out_path .. ".map"
+            local lines = {"-- Zenith Source Map", string.format("-- Source: %s", input_path), "return {"}
+            lines[#lines+1] = string.format("  source = %q,", input_path)
+            lines[#lines+1] = "  mappings = {"
+            for lua_line, loc in pairs(source_map) do
+                lines[#lines+1] = string.format("    [%d] = {line=%d, col=%d},", lua_line, loc.line, loc.col)
             end
+            lines[#lines+1] = "  }"
+            lines[#lines+1] = "}"
+            local mf = io.open(map_path, "w")
+            if mf then mf:write(table.concat(lines, "\n")); mf:close() end
         end
+        io.write(string.format("✅ Compilado: %s → %s\n", input_path, out_path))
     end
+
+    return 0
 end
 
-compiler_main(arg)
+-- ============================================================================
+-- Auto-execução
+-- ============================================================================
+
+local exit_code = main(arg or {})
+os.exit(exit_code or 0)

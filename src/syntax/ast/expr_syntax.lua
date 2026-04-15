@@ -49,11 +49,12 @@ function ExprSyntax.call(callee, arguments, span, generic_args)
     }, span)
 end
 
---- Acesso a membro: obj.campo
-function ExprSyntax.member(object, member_name, span)
+--- Acesso a membro: obj.campo ou obj?.campo
+function ExprSyntax.member(object, member_name, span, is_safe)
     return SyntaxNode.new(SK.MEMBER_EXPR, {
         object = object,
         member_name = member_name,  -- string
+        is_safe = is_safe or false,
     }, span)
 end
 
@@ -112,10 +113,11 @@ function ExprSyntax.self_field(field_name, span)
 end
 
 --- Struct init: Type { field: value }
-function ExprSyntax.struct_init(type_name, fields, span)
+function ExprSyntax.struct_init(type_name, fields, span, generic_args)
     return SyntaxNode.new(SK.STRUCT_INIT_EXPR, {
         type_name = type_name,
         fields = fields,  -- lista de { name = string, value = expr }
+        generic_args = generic_args, -- lista de type_nodes ou nil
     }, span)
 end
 

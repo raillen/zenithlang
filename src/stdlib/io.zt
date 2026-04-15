@@ -1,28 +1,21 @@
-namespace std.io
 
-import std.core
+
+extern func "io.write" lua_write(v: text)
+extern func "print"    lua_print(v: text)
+extern func "io.read"  lua_read(fmt: text) -> any
 
 pub func write(value: any)
-    native lua
-        io.write(tostring(value))
-    end
+    lua_write(tostring(value))
 end
 
 pub func write_line(value: any)
-    native lua
-        print(tostring(value))
-    end
+    lua_print(tostring(value))
 end
 
-pub func read_line() -> Optional
-    native lua
-        local line = io.read("*l")
-        if line then
-            return Optional.Present(line)
-        else
-            return Optional.Empty
-        end
+pub func read_line() -> Optional<text>
+    var line = lua_read("*l")
+    if line != nil
+        return Present(line)
     end
-    -- No Zenith Ascension, o corpo da função deve terminar, 
-    -- mas o native lua acima já retornou se estiver no motor v0.6.
+    return Empty
 end

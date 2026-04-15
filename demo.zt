@@ -1,0 +1,72 @@
+import std.core
+import std.io
+
+struct Task
+    id: int
+    title: text
+    done: bool
+end
+
+pub func main(args: list<text>)
+    io.write_line("=================================")
+    io.write_line("🌟 Zenith Task Manager 0.3.5 🌟")
+    io.write_line("=================================")
+
+    var tasks: list<Task> = []
+    var running = true
+    var next_id = 1
+
+    while running
+        io.write_line("\n--- Menu ---")
+        io.write_line("1. Adicionar Tarefa")
+        io.write_line("2. Listar Tarefas")
+        io.write_line("3. Sair")
+        io.write("-> ")
+
+        var input_opt = io.read_line()
+        var opt = "0"
+        
+        if input_opt.is_present()
+            opt = input_opt.unwrap()
+        end
+
+        if input_opt.is_empty()
+            running = false
+        end
+
+        if not running
+            break
+        end
+        
+        if opt == "1"
+            io.write("Titulo: ")
+            var title_opt = io.read_line()
+            
+            if title_opt.is_present()
+                var title = title_opt.unwrap()
+                var new_task = Task { id: next_id, title: title, done: false }
+                tasks.push(new_task)
+                next_id = next_id + 1
+                io.write_line("✅ Tarefa adicionada!")
+            end
+        elif opt == "2"
+            io.write_line("--- Suas Tarefas ---")
+            if tasks.is_empty()
+                io.write_line("📝 Nenhuma tarefa na lista.")
+            else
+                for t in tasks
+                    var status = "[ ]"
+                    if t.done
+                        status = "[X]"
+                    end
+                    io.write_line(t.id.to_text() + ". " + status + " " + t.title)
+                end
+            end
+        elif opt == "3"
+            io.write_line("Tchau!")
+            running = false
+        else
+            io.write_line("❌ Opcao invalida.")
+        end
+    end
+end

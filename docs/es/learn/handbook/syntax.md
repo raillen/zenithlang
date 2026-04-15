@@ -38,6 +38,23 @@ var config: map<text, int> = { "volumen": 80 }
 var mapa: grid<int> = collections.new_grid(10, 10, 0)
 ```
 
+## 2. Estruturas de Datos e Indexación
+
+Zenith utiliza colecciones de alto nivel con indexación segura.
+
+*   **list<T>**: Secuencias ordenadas. **Zenith es 1-based** (el índice comienza en 1).
+*   **map<K, V>**: Asociaciones clave-valor.
+
+```zt
+var items: list<text> = ["espada", "escudo"]
+var inventario: map<text, int> = { "oro": 100 }
+
+var primer_item = items[1] -- ¡Zenith es 1-based!
+var oro = inventario["oro"]
+```
+
+*Nota: Acceder al índice 0 en listas o textos generará un aviso (ZT-W002).*
+
 ---
 
 ## 3. Control de Flujo
@@ -126,7 +143,7 @@ trait Atacante
     func atacar(objetivo: Player)
 end
 
-apply Atacante for Player
+apply Atacante to Player
     func atacar(objetivo: Player)
         objetivo.hp -= 10
     end

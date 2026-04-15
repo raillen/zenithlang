@@ -1,75 +1,224 @@
-# Especificação Técnica: Gramática e Sintaxe
+# Especificacao: Gramatica da Trilha Ativa
 
-Este documento define as regras formais que governam a estrutura do código-fonte Zenith. O compilador utiliza um algoritmo Pratt Parser para resolver precedências de forma eficiente e previsível.
+Este documento descreve a gramatica implementada hoje na trilha ativa em Lua. Ele nao tenta cobrir ideias editoriais antigas; cobre o que o parser aceita agora.
 
-## 1. Conjunto de Caracteres e Lexer
+## 1. Palavras-chave reservadas
 
-Zenith utiliza codificação UTF-8. O analisador léxico (Lexer) ignora espaços em branco e comentários, transformando o texto em um fluxo de tokens.
+### Declaracao
 
-### Comentários
-- **Linha Única**: Iniciados por `--`. Todo o texto até o fim da linha é ignorado.
-- **Bloco**: Zenith não suporta nativamente comentários de bloco para manter a simplicidade visual.
+var, const, global, func, async, struct, enum, trait, apply, type, union, extern, namespace, import, pub
 
-### Identificadores
-Nomes de variáveis, funções e tipos devem:
-- Começar com uma letra (a-z, A-Z) ou underscore (`_`).
-- Seguir com letras, números ou underscores.
-- Não ser uma palavra-chave reservada.
+### Fluxo
 
----
+if, elif, else, match, case, while, for, in, repeat, times, break, continue, return, check, attempt, rescue, await
 
-## 2. Palavras-Chave Reservadas
+### Semantica
 
-| Categoria | Palavras-Chave |
-| :--- | :--- |
-| Declaração | var, const, global, func, async, struct, enum, trait, apply |
-| Fluxo | if, elif, else, match, case, while, for, in, repeat, times, break, continue, return |
-| Lógica | and, or, not, where |
-| Literais | true, false, null, self, it |
-| Módulos | namespace, import, export, as, to |
-| Escape | native, extern |
+and, or, not, where, validate, is, as
 
----
+### Literais especiais
 
-## 3. Operadores e Precedência
+true, false, null, self, it
 
-Os operadores são processados de acordo com os seguintes níveis de precedência (do menor para o maior):
+### Escape
 
-1.  Atribuição: =, +=, -=, *=, /=
-2.  Lógicos: or, and
-3.  Comparação: ==, !=, <, <=, >, >=
-4.  Adição/Concatenação: +, -, ..
-5.  Multiplicação: *, /, %
-6.  Unários: not, -, # (len), ? (optional), ! (bang)
-7.  Acesso: . (membro), [ (índice), ( (chamada)
+native, lua
 
----
+## 2. Operadores relevantes
 
-## 4. Estruturas de Bloco
+Da menor para a maior precedencia:
 
-Zenith utiliza o delimitador end para fechar todos os blocos de escopo.
+1. atribuicao: =, +=, -=, *=, /=
+2. logicos: or, and
+3. comparacao: ==, !=, <, <=, >, >=, is, as
+4. soma e concatenacao: +, -, ..
+5. multiplicativos: *, /, %
+6. unarios: not, -, #, ?, !
+7. acesso e chamada: ., [], ()
 
-### Regras de Escopo
-- Blocos do/end criam um novo escopo léxico.
-- Variáveis declaradas dentro de um bloco não são visíveis fora dele (shadowing é permitido).
+## 3. Declaracoes principais
 
-### Estrutura de Função
-```zenith
-func nome(parametro: tipo) -> tipo_retorno
-    -- corpo
-end
-```
+~~~ebnf
+declaration
+  ::= attribute_block* visibility? (
+          var_decl
+        | const_decl
+        | global_decl
+        | func_decl
+        | async_func_decl
+        | struct_decl
+        | enum_decl
+        | trait_decl
+        | apply_decl
+        | type_alias_decl
+        | union_decl
+        | extern_decl
+        | import_decl
+        | namespace_decl
+      )
 
-### Estrutura Condicional
-```zenith
-if condicao
-    -- código
-elif outra_condicao
-    -- código
-else
-    -- código
-end
-```
+visibility
+  ::= "pub"
+~~~
 
----
-*Zenith Specification v0.3.0*
+## 4. Atributos de declaracao
+
+A forma normativa e #[...].
+
+~~~ebnf
+attribute_block
+  ::= "#[" attribute_item ("," attribute_item)* "]"
+
+attribute_item
+  ::= qualified_name
+   |  qualified_name "(" argument_list? ")"
+
+qualified_name
+  ::= IDENTIFIER ("." IDENTIFIER)*
+~~~
+
+Compatibilidade:
+
+- @atributo ainda e aceito por compatibilidade
+- a forma legada emite warning ZT-W003
+- a gramatica oficial considera apenas #[...] como forma normativa
+
+## 5. Structs e contratos de campo
+
+~~~ebnf
+struct_decl
+  ::= "struct" IDENTIFIER generic_params? NEWLINE
+      struct_member*
+      "end"
+
+struct_member
+  ::= attribute_block* visibility? (
+          field_decl
+        | func_decl
+        | async_func_decl
+      )
+
+field_decl
+  ::= IDENTIFIER ":" type_expr field_initializer? field_contract*
+
+field_initializer
+  ::= "=" expression
+
+field_contract
+  ::= where_clause
+   |  validate_clause
+
+where_clause
+  ::= "where" expression
+
+validate_clause
+  ::= "validate" validator_ref ("," validator_ref)*
+
+validator_ref
+  ::= qualified_name
+   |  qualified_name "(" argument_list? ")"
+~~~
+
+Notas normativas:
+
+- where e validate podem aparecer em qualquer ordem
+- validate e exclusivo de campo de struct
+- validate e reescrito para predicados booleanos sobre it
+
+## 6. Funcoes, metodos e self
+
+~~~ebnf
+func_decl
+  ::= "func" IDENTIFIER generic_params? "(" parameter_list? ")" return_clause? block "end"
+
+async_func_decl
+  ::= "async" "func" IDENTIFIER generic_params? "(" parameter_list? ")" return_clause? block "end"
+
+parameter
+  ::= IDENTIFIER (":" type_expr)?
+
+return_clause
+  ::= ("->" | ":") type_expr
+~~~
+
+self e keyword reservada. No dominio de expressao, @campo e sugar para self.campo.
+
+~~~ebnf
+self_field_expr
+  ::= "@" IDENTIFIER
+~~~
+
+## 7. Traits e apply
+
+~~~ebnf
+trait_decl
+  ::= "trait" IDENTIFIER generic_params? NEWLINE
+      trait_member*
+      "end"
+
+apply_decl
+  ::= "apply" IDENTIFIER generic_args? "to" IDENTIFIER NEWLINE
+      func_decl*
+      "end"
+~~~
+
+A sintaxe implementada hoje e apply Trait to Struct.
+
+## 8. Genericos e restricoes
+
+~~~ebnf
+generic_params
+  ::= "<" generic_param ("," generic_param)* ">"
+
+generic_param
+  ::= IDENTIFIER ("where" IDENTIFIER "is" type_expr)?
+~~~
+
+Forma normativa:
+
+~~~zt
+func render<T where T is Printable>(value: T) -> text
+~~~
+
+## 9. Match e padroes
+
+~~~ebnf
+match_stmt
+  ::= "match" expression NEWLINE
+      match_case+
+      else_clause?
+      "end"
+
+match_case
+  ::= "case" pattern_list (":" | "=>") case_body
+
+pattern_list
+  ::= pattern ("," pattern)*
+
+pattern
+  ::= literal
+   |  "_"
+   |  IDENTIFIER
+   |  qualified_name
+   |  qualified_name "(" pattern_list? ")"
+   |  IDENTIFIER "{" field_pattern_list? "}"
+~~~
+
+Padroes qualificados como Color.Red fazem parte da trilha ativa.
+
+## 10. Indexacao e slices
+
+~~~ebnf
+index_expr
+  ::= expression "[" expression "]"
+   |  expression "[" range_expr "]"
+
+range_expr
+  ::= expression ".." expression
+~~~
+
+Semantica associada:
+
+- listas e texto sao 1-based
+- maps usam a chave declarada
+- slices e indexacao de sequencia podem gerar ZT-R011 em runtime quando fora dos limites

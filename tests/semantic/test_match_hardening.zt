@@ -1,0 +1,60 @@
+-- tests/semantic/test_match_hardening.zt
+-- Validação de Endurecimento da Fase 9 (Pattern Matching)
+
+-- Stubs para teste sem preludio completo
+func print(msg: any) end
+
+enum Color
+    Red
+    Green
+    Blue
+end
+
+struct Pos
+    x: int
+    y: int
+end
+
+struct Sprite
+    pos: Pos
+    color: Color
+end
+
+pub func main()
+    -- 1. Exaustividade (Deve gerar aviso ZT-W100 se faltar caso e não tiver else)
+    var c = Color.Red
+    match c
+        case Color.Red:   print("Vermelho")
+        case Color.Green: print("Verde")
+        -- Falta Blue! Deve avisar.
+    end
+
+    match c
+        case Color.Red:   print("Vermelho")
+        else:            print("Outro") -- Com else, não deve avisar.
+    end
+
+    -- 2. Desestruturação Aninhada (Deep Destructuring)
+    var s = Sprite { 
+        pos: Pos { x: 10, y: 20 },
+        color: Color.Blue
+    }
+
+    match s
+        case Sprite { pos: Pos { x, y }, color: Color.Blue } when x > 5:
+            print("Sprite Azul em (" + x + ", " + y + ")")
+        else:
+            print("Outro sprite")
+    end
+
+    -- 3. Guards (when / where) com capturas
+    var lista = [1, 2, 3]
+    match lista
+        case [head, ..tail] when head > 0:
+            print("Lista começa com positivo: " + head)
+        else:
+            print("Lista vazia ou começa com <= 0")
+    end
+
+    print("Pattern Matching Hardening Test Passed!")
+end

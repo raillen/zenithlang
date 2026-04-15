@@ -1,0 +1,11 @@
+-- Zenith Source Map
+-- Source: test_ufcs.zt
+return {
+  source = "test_ufcs.zt",
+  mappings = {
+    [21] = {line=10, col=5},
+    [19] = {line=8, col=5},
+    [15] = {line=4, col=5},
+    [20] = {line=9, col=5},
+  }
+}

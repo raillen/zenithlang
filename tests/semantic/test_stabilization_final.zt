@@ -1,0 +1,47 @@
+-- Final Stabilization Audit (v0.3)
+
+-- Stubs para permitir validação sem prelúdio carregado
+func print(s: text)
+end
+
+func len<T>(l: list<T>) -> int
+    return 0
+end
+
+struct Player
+    nome: text
+    vida: int
+    
+    func curar(self)
+        self.vida = 100
+    end
+end
+
+func top_level_func(p: Player)
+    print("UFCS curando player")
+end
+
+func main()
+    var p = Player { nome: "Heroi", vida: 50 }
+    
+    -- 1. Instance Access (Should Work)
+    p.curar()
+    var v = p.vida
+    
+    -- 2. Static Access to instance field (Should FAIL - uncommenting to test)
+    -- var err = Player.vida 
+    
+    -- 3. UFCS on Instance (Should Work)
+    p.top_level_func()
+    
+    -- 4. UFCS on Type Name (Should FAIL - uncomment para testar desabilitação de UFCS estático)
+    -- Player.top_level_func() 
+    
+    -- 5. Slicing preservation
+    var lista = [1, 2, 3, 4, 5]
+    var fatia = lista[0..2]
+    -- n deve funcionar via UFCS para len(fatia)
+    var n = fatia.len() 
+    
+    print("Stabilization Final: Audit passed")
+end

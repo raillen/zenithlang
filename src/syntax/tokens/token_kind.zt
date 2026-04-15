@@ -8,7 +8,7 @@ pub enum TokenKind
     STRING_LITERAL
     DOC_COMMENT
 
-    -- Palavras-Chave (Declaração)
+    -- Palavras-Chave (DeclaraÃ§Ã£o)
     KW_VAR
     KW_CONST
     KW_GLOBAL
@@ -42,11 +42,15 @@ pub enum TokenKind
     KW_DO
     KW_END
 
-    -- Palavras-Chave (Lógica/Tipos)
+    -- Palavras-Chave (LÃ³gica/Tipos)
     KW_AND
     KW_OR
     KW_NOT
     KW_WHERE
+    KW_VALIDATE
+    KW_GROUP
+    KW_TEST
+    KW_ASSERT
     KW_TYPE
     KW_UNION
     KW_AS

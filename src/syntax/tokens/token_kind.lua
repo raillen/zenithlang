@@ -1,5 +1,5 @@
 -- ============================================================================
--- Zenith Compiler — Token Kind
+-- Zenith Compiler â€” Token Kind
 -- Enum de todos os tipos de token da linguagem.
 -- ============================================================================
 
@@ -7,7 +7,7 @@ local TokenKind = {
     -- Fim de arquivo
     EOF                 = "EOF",
 
-    -- Literais básicos
+    -- Literais bÃ¡sicos
     INTEGER_LITERAL     = "INTEGER_LITERAL",
     FLOAT_LITERAL       = "FLOAT_LITERAL",
     STRING_LITERAL      = "STRING_LITERAL",
@@ -56,6 +56,7 @@ local TokenKind = {
     KW_CONTINUE         = "KW_CONTINUE",
     KW_MATCH            = "KW_MATCH",
     KW_CASE             = "KW_CASE",
+    KW_AFTER            = "KW_AFTER",
     
     KW_TRY              = "KW_TRY",
     KW_CATCH            = "KW_CATCH",
@@ -75,6 +76,7 @@ local TokenKind = {
     KW_OR               = "KW_OR",
     KW_NOT              = "KW_NOT",
     KW_WHERE            = "KW_WHERE",
+    KW_VALIDATE         = "KW_VALIDATE",
     KW_GRID             = "KW_GRID",
     KW_UNIQ             = "KW_UNIQ",
     KW_TO               = "KW_TO",
@@ -85,7 +87,7 @@ local TokenKind = {
     KW_NATIVE           = "KW_NATIVE",
     KW_EXTERN           = "KW_EXTERN",
 
-    -- Operadores aritméticos
+    -- Operadores aritmÃ©ticos
     PLUS                = "PLUS",           -- +
     MINUS               = "MINUS",          -- -
     STAR                = "STAR",           -- *
@@ -93,7 +95,7 @@ local TokenKind = {
     PERCENT             = "PERCENT",        -- %
     CARET               = "CARET",          -- ^
 
-    -- Operadores de comparação
+    -- Operadores de comparaÃ§Ã£o
     EQUAL_EQUAL         = "EQUAL_EQUAL",    -- ==
     BANG_EQUAL          = "BANG_EQUAL",     -- !=
     LESS                = "LESS",           -- <
@@ -101,7 +103,7 @@ local TokenKind = {
     GREATER             = "GREATER",        -- >
     GREATER_EQUAL       = "GREATER_EQUAL",  -- >=
 
-    -- Operadores de atribuição
+    -- Operadores de atribuiÃ§Ã£o
     EQUAL               = "EQUAL",          -- =
     PLUS_EQUAL          = "PLUS_EQUAL",     -- +=
     MINUS_EQUAL         = "MINUS_EQUAL",    -- -=
@@ -116,7 +118,7 @@ local TokenKind = {
     LBRACE              = "LBRACE",         -- {
     RBRACE              = "RBRACE",         -- }
 
-    -- Pontuação
+    -- PontuaÃ§Ã£o
     DOT                 = "DOT",            -- .
     DOT_DOT             = "DOT_DOT",        -- ..
     COMMA               = "COMMA",          -- ,
@@ -128,6 +130,7 @@ local TokenKind = {
     PIPE                = "PIPE",           -- |
     BANG                = "BANG",           -- !
     QUESTION            = "QUESTION",       -- ?
+    QUESTION_DOT        = "QUESTION_DOT",   -- ?.
     HASH                = "HASH",           -- #
     AT                  = "AT",             -- @
     UNDERSCORE          = "UNDERSCORE",     -- _

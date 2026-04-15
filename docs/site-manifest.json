@@ -1,7 +1,7 @@
 {
   "site": {
     "title": "Zenith",
-    "tagline": "Clareza cognitiva, auto-hospedagem real e evolução documentada.",
+    "tagline": "Clareza cognitiva, trilha ativa estabilizada e evolucao documentada.",
     "version": "0.3.0 Ascension Final"
   },
   "navigation": [
@@ -80,13 +80,13 @@
               "label": "Ascension Compiler (Zenith)",
               "file": "compiler/ascension-zenith.md",
               "state": "current",
-              "summary": "Motor auto-hospedado oficial, concluído e em uso real."
+              "summary": "Linha self-hosted em paridade parcial; consulte o roadmap de estabilizacao."
             },
             {
               "label": "Bootstrap Compiler (Lua)",
               "file": "compiler/bootstrap-lua.md",
-              "state": "deprecated",
-              "summary": "Compilador em Lua preservado como legado técnico."
+              "state": "current",
+              "summary": "Implementacao ativa oficial baseada em Lua e ztc.lua."
             },
             {
               "label": "Alvos de Compilação",
@@ -109,7 +109,7 @@
               "label": "0.3.x Ascension",
               "file": "versions/0.3.x-ascension.md",
               "state": "current",
-              "summary": "A linha em que Zenith se torna oficialmente auto-hospedado."
+              "summary": "Linha editorial da estabilizacao ativa; self-hosting ainda parcial."
             },
             {
               "label": "0.2.x Milestone",
@@ -150,7 +150,7 @@
               "label": "Ascension",
               "file": "roadmap/ascension.md",
               "state": "stable",
-              "summary": "Registro da conclusao do motor auto-hospedado."
+              "summary": "Registro historico da fase Ascension; consulte o roadmap de estabilizacao."
             },
             {
               "label": "Core",
@@ -191,13 +191,13 @@
               "label": "Sintaxe",
               "file": "learn/handbook/syntax.md",
               "state": "current",
-              "summary": "Guia rapido da surface syntax atual."
+              "summary": "Guia rapido da sintaxe atual, incluindo @self, #[...] e validate."
             },
             {
               "label": "Idioms",
               "file": "learn/handbook/idioms.md",
               "state": "current",
-              "summary": "Como escrever código com cara de Zenith."
+              "summary": "Padroes de uso para a trilha ativa estabilizada."
             }
           ]
         },
@@ -249,7 +249,7 @@
               "label": "std.core",
               "file": "api/std-core.md",
               "state": "current",
-              "summary": "Tipos básicos, Optional, Outcome e primitives."
+              "summary": "Prelude, Optional, Outcome e helpers UFCS reais da trilha ativa."
             },
             {
               "label": "std.io",
@@ -285,7 +285,13 @@
               "label": "std.text",
               "file": "api/std-text.md",
               "state": "current",
-              "summary": "Texto, UTF-8, cases e utilitarios de string."
+              "summary": "Texto, UTF-8, split e UFCS de string da trilha ativa."
+            },
+            {
+              "label": "std.validation",
+              "file": "api/std-validation.md",
+              "state": "current",
+              "summary": "Predicados declarativos para validate e where."
             },
             {
               "label": "std.time",

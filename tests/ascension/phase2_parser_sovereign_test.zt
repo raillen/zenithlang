@@ -1,0 +1,58 @@
+import std.test
+import source
+import syntax.lexer
+import syntax.parser
+import syntax.ast
+
+test.describe("Ascension v0.3.3: Parser Soberano", () => do
+    test.test("Parsing de Expressao Binaria (Precedencia)", () => do
+        var code = "1 + 2 * 3"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+        
+        var par = parser.create(tokens_list)
+        var node = par.parse_expression(0)
+
+        -- Esperamos que '*' tenha precedencia sobre '+'
+        -- AST: (1 + (2 * 3))
+        match node
+            case Binary(b): do
+                test.assert_eq(b.operator.lexeme, "+")
+                match b.right
+                    case Binary(b2): do
+                        test.assert_eq(b2.operator.lexeme, "*")
+                    end
+                    case _: test.assert_true(false)
+                end
+            end
+            case _: test.assert_true(false)
+        end
+    end)
+
+    test.test("Parsing de Declaracao de Variavel", () => do
+        var code = "var total = 100"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+        
+        var par = parser.create(tokens_list)
+        var node = par.parse_compilation_unit()
+
+        match node
+            case CompilationUnit(cu): do
+                test.assert_eq(cu.declarations.length(), 1)
+                match cu.declarations[1]
+                    case VarDecl(v): do
+                        test.assert_eq(v.name, "total")
+                        test.assert_false(v.is_const)
+                    end
+                    case _: test.assert_true(false)
+                end
+            end
+            case _: test.assert_true(false)
+        end
+    end)
+end)
+
+test.run_all()

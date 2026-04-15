@@ -1,0 +1,28 @@
+import std.test
+import source
+import syntax.lexer
+import syntax.parser
+import syntax.ast
+import backend.lua
+
+test.describe("Ascension v0.3.5: Emitter Soberano", () => do
+    test.test("Geracao de Codigo Lua (Fluxo Completo)", () => do
+        var code = "func soma() do return 1 + 2 end"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+        
+        var par = parser.create(tokens_list)
+        var ast_root = par.parse_compilation_unit()
+        
+        var emi = lua.create()
+        var output_lua = emi.generate(ast_root)
+
+        -- Verificamos se o output contém os elementos esperados do Lua
+        test.assert_true(text.contains(output_lua, "function soma()"))
+        test.assert_true(text.contains(output_lua, "return (1 + 2)"))
+        test.assert_true(text.contains(output_lua, "end"))
+    end)
+end)
+
+test.run_all()

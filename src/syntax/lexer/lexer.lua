@@ -26,7 +26,8 @@ function Lexer.new(source_text)
         ["<="] = TokenKind.LESS_EQUAL, [">="] = TokenKind.GREATER_EQUAL,
         ["+="] = TokenKind.PLUS_EQUAL, ["-="] = TokenKind.MINUS_EQUAL,
         ["*="] = TokenKind.STAR_EQUAL, ["/="] = TokenKind.SLASH_EQUAL,
-        ["->"] = TokenKind.ARROW, ["=>"] = TokenKind.FAT_ARROW, [".."] = TokenKind.DOT_DOT
+        ["->"] = TokenKind.ARROW, ["=>"] = TokenKind.FAT_ARROW, [".."] = TokenKind.DOT_DOT,
+        ["?."] = TokenKind.QUESTION_DOT
     }
 
     self.SINGLE_CHAR = {

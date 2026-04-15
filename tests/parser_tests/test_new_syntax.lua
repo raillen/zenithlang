@@ -46,7 +46,7 @@ t:group("Coleções e Modificadores", function()
 
 end)
 
-t:group("Structs Avançadas", function()
+t:group("Structs Avancadas", function()
 
     t:test("struct with where clause", function()
         local code = [[
@@ -61,10 +61,23 @@ end
         a.equal(field.condition.kind, SK.BINARY_EXPR)
     end)
 
-    t:test("struct with attributes", function()
+    t:test("declaration with hash attributes", function()
+        local code = [[
+#[windows, deprecated("use new_main")]
+func main()
+end
+]]
+        local decls, diags = parse(code)
+        a.is_false(diags:has_errors())
+        a.equal(#decls[1].attributes, 2)
+        a.equal(decls[1].attributes[1].name, "windows")
+        a.equal(decls[1].attributes[2].name, "deprecated")
+    end)
+
+    t:test("struct field with hash attributes", function()
         local code = [[
 struct User
-    @min(18) @max(120)
+    #[min(18), max(120)]
     age: int
 end
 ]]
@@ -73,6 +86,52 @@ end
         a.equal(#field.attributes, 2)
         a.equal(field.attributes[1].name, "min")
         a.equal(field.attributes[1].arguments[1].value, 18)
+    end)
+
+    t:test("struct field with validate clause", function()
+        local code = [[
+struct User
+    age: int validate min_value(18), max_value(120)
+end
+]]
+        local decls = parse(code)
+        local field = decls[1].fields[1]
+        a.is_not_nil(field.condition)
+        a.equal(field.condition.kind, SK.BINARY_EXPR)
+        a.equal(field.condition.operator.lexeme, "and")
+    end)
+
+    t:test("legacy @attribute emits migration warning", function()
+        local code = [[
+struct User
+    @min(18)
+    age: int
+end
+]]
+        local _, diags = parse(code)
+        local found = false
+        for _, d in ipairs(diags.diagnostics) do
+            if d.code == "ZT-W003" then found = true end
+        end
+        a.is_true(found)
+    end)
+
+    t:test("@field em metodo parseia como atribuicao para SELF_FIELD_EXPR", function()
+        local code = [[
+struct Player
+    health: int
+
+    func reset()
+        @health = 100
+    end
+end
+]]
+        local decls, diags = parse(code)
+        a.is_false(diags:has_errors())
+        local stmt = decls[1].methods[1].body[1]
+        a.equal(stmt.kind, SK.ASSIGN_STMT)
+        a.equal(stmt.target.kind, SK.SELF_FIELD_EXPR)
+        a.equal(stmt.target.field_name, "health")
     end)
 
 end)

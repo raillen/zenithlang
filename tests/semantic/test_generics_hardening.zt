@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Zenith Test — Generics Hardening
+-- Validação da Fase 10: Especialização profunda e funções genéricas.
+-- ============================================================================
+
+struct Box<T>
+    val: T
+    
+    func get() -> T
+        return self.val
+    end
+end
+
+struct Wrapper<U>
+    inner: Box<U>
+    
+    func unwrap() -> U
+        return self.inner.val
+    end
+end
+
+func main()
+    -- 1. Teste de especialização em profundidade
+    var b: Box<int> = Box { val: 42 }
+    var n: int = b.val -- Deve ser int, não T
+    var m: int = b.get() -- Deve ser int, não T
+    
+    -- 2. Teste de aninhamento genérico
+    var w: Wrapper<text> = Wrapper { inner: Box { val: "Zenith" } }
+    var s: text = w.inner.val -- Deve ser text, não U nem T
+    var t: text = w.unwrap() -- Deve ser text, não U
+    
+    -- 3. Teste de função genérica de alta ordem (simulado com callable)
+    -- var mapper: (int) => text = (n) => n.to_text() -- TODO: Melhorar suporte a lambdas
+    
+    print("Generics Hardening OK")
+end

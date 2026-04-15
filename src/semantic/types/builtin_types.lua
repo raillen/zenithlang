@@ -28,9 +28,11 @@ BuiltinTypes.map = {
     ["null"]  = BuiltinTypes.NULL,
 
     -- Bases Genéricas (para servir de lookup inicial)
-    ["list"]  = ZenithType.new(ZenithType.Kind.GENERIC, "list", { base_name = "list", type_args = {} }),
-    ["grid"]  = ZenithType.new(ZenithType.Kind.GENERIC, "grid", { base_name = "grid", type_args = {} }),
-    ["map"]   = ZenithType.new(ZenithType.Kind.GENERIC, "map",  { base_name = "map",  type_args = {} }),
+    ["list"]     = ZenithType.new(ZenithType.Kind.GENERIC, "list",     { base_name = "list",     type_args = {}, symbol = nil, is_instance = false }),
+    ["grid"]     = ZenithType.new(ZenithType.Kind.GENERIC, "grid",     { base_name = "grid",     type_args = {}, symbol = nil, is_instance = false }),
+    ["map"]      = ZenithType.new(ZenithType.Kind.GENERIC, "map",      { base_name = "map",      type_args = {}, symbol = nil, is_instance = false }),
+    ["Outcome"]  = ZenithType.new(ZenithType.Kind.GENERIC, "Outcome",  { base_name = "Outcome",  type_args = {}, symbol = nil, is_instance = false }),
+    ["Optional"] = ZenithType.new(ZenithType.Kind.GENERIC, "Optional", { base_name = "Optional", type_args = {}, symbol = nil, is_instance = false }),
 }
 
 --- Retorna o tipo pelo nome ou nil.

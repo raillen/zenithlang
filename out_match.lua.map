@@ -1,0 +1,21 @@
+-- Zenith Source Map
+-- Source: test_match.zt
+return {
+  source = "test_match.zt",
+  mappings = {
+    [24] = {line=13, col=5},
+    [25] = {line=14, col=5},
+    [37] = {line=22, col=31},
+    [28] = {line=15, col=30},
+    [15] = {line=5, col=5},
+    [16] = {line=6, col=5},
+    [45] = {line=27, col=1},
+    [18] = {line=7, col=20},
+    [34] = {line=21, col=5},
+    [20] = {line=8, col=20},
+    [40] = {line=23, col=32},
+    [22] = {line=9, col=20},
+    [33] = {line=20, col=5},
+    [31] = {line=16, col=30},
+  }
+}

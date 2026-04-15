@@ -1,45 +1,28 @@
-# Roadmap de Ascensão: O Compilador Nativo
+# Roadmap de Ascensao: Linha Self-Hosted
 
-Este documento registra a conclusao do motor Ascension, a implementação do compilador Zenith escrito em Zenith.
+> Nota: este documento nao deve mais ser lido como prova de self-hosting concluido.
+> Estado verificado atual: ../roadmap_estabilizacao.md
 
-## 1. Status Geral: 100% Concluído
+Ascension continua sendo a trilha self-hosted do projeto, mas hoje ela deve ser tratada como programa de paridade e bootstrap, nao como motor concluido em substituicao ao caminho ativo.
 
-- Data do marco oficial: `2026-04-11`
-- Versão atual: `0.3.0 (Ascension Final)`
-- Estado: motor auto-hospedado oficial
-- Saúde: suite ZTest integrada e passando em `tests/ascension`
+## Status real
 
-## 2. O que foi entregue
+- trilha ativa oficial: `ztc.lua`
+- trilha self-hosted: `src/compiler/*.zt`
+- maturidade atual da trilha self-hosted: parcial
 
-- lexer e tokenization completos
-- anatomia de AST para statements e expressoes
-- parser com controle de precedencia e blocos
-- symbols, binding e resolução de contexto
-- emitter nativo com codegen consolidado
-- sistema modular de import e export
-- CLI unificada para build, run e testes
-- diagnostics premium e auditoria de falhas
-- otimizações no pipeline, incluindo folding e inlining
-- FFI nativo para C e C++
-- distribuição multiplataforma para plataformas modernas
-- modos standalone e bundle
+## Objetivos desta trilha
 
-## 3. Resultado atual
+- aproximar o compilador em Zenith da linguagem ativa
+- reduzir hacks de `native lua`
+- permitir bootstrap verificavel no futuro
+- transformar testes de soberania em validacao de paridade real
 
-Hoje, Ascension significa que:
+## Criterios de progresso
 
-- Zenith compila Zenith
-- Zenith otimiza Zenith
-- Zenith se distribui para plataformas modernas
-- o bootstrap em Lua fica preservado como legado técnico separado
+- `ztc check src/compiler/syntax.zt` com falhas controladas ou eliminadas
+- reducao estrutural de `native lua`
+- compatibilidade semantica entre a linguagem ativa e a base self-hosted
+- caminho confiavel de build para a propria trilha self-hosted
 
-## 4. Validacao
-
-O motor foi validado por meio de:
-
-- testes de unidade por fase do pipeline
-- snapshot testing para saída gerada
-- stress tests com blocos e expressoes complexas
-- auditoria integrada via ZTest
-
-*Atualizado em: 2026-04-11*
+*Atualizado em: 2026-04-14*

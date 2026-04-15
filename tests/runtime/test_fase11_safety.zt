@@ -1,0 +1,38 @@
+-- Teste de Estabilização — Fase 11: Segurança em Runtime
+-- Valida se acessos dinâmicos fora dos limites disparam erros Zenith (ZT-R011)
+
+func test_list_safety()
+    var l = [10, 20, 30]
+    
+    -- Acesso dinâmico válido
+    var i = 1
+    print(l[i])
+    
+    -- Acesso fora do limite inferior (0) -> Deve lançar ZT-R011
+    var zero = 0
+    print(l[zero]) 
+end
+
+func test_text_safety()
+    var t = "Zenith"
+    var i = 1
+    print(t[i])
+    
+    -- t[7] -- Isso deve lançar ZT-R011
+    
+    -- Slice fora do limite
+    var s = t[0..10] -- Warning ZT-W002 + Runtime ZT-R011
+end
+
+func main()
+    print("Iniciando testes de segurança...")
+    
+    -- Como não temos 'try/catch' total no Zenith ainda para erros de runtime fatais,
+    -- este teste serve para ser executado manualmente ou via script de teste
+    -- que valide a saída do Lua.
+    
+    test_list_safety()
+    test_text_safety()
+    
+    print("Fase 11 (Runtime) validada com sucessos parciais (limites seguros).")
+end

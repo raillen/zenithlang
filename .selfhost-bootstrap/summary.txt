@@ -1,0 +1,19 @@
+Zenith self-host bootstrap summary
+canonical=src/compiler/syntax.zt
+stage1=.selfhost-bootstrap\syntax_stage1.lua
+stage2=.selfhost-bootstrap\syntax_stage2.lua
+stage3=.selfhost-bootstrap\syntax_stage3.lua
+deterministic=true
+promoted=false
+stage1_build=ok
+stage1_build_detail=ok
+stage1_load=ok
+stage1_load_detail=ok
+stage2_build=ok
+stage2_build_detail=ok
+stage2_load=ok
+stage2_load_detail=ok
+stage3_build=ok
+stage3_build_detail=ok
+stage3_load=ok
+stage3_load_detail=ok

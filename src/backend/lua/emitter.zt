@@ -1,0 +1,260 @@
+namespace backend.lua
+
+import syntax.ast
+import std.text
+import std.collections
+
+pub struct Emitter
+    pub output: list<text>
+    pub indent_level: int
+
+    func emit(t: text)
+        var line = ""
+        var i = 0
+        while i < self.indent_level
+            line += "    "
+            i += 1
+        end
+        self.output.add(line + t)
+    end
+
+    pub func generate(node: ast.Node) -> text
+        match node
+            case CompilationUnit(cu) => self.generate_compilation_unit(cu)
+            case _ => self.generate_node(node)
+        end
+        
+        return text.join(self.output, "\n")
+    end
+
+    func generate_compilation_unit(cu: ast.CompilationUnitNode)
+        self.emit("-- Transpilado por Zenith Soberano v0.3.5")
+        self.emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
+        self.emit("")
+        
+        -- Exportar namespace
+        if cu.ns_name != ""
+            self.emit("local _NS = {}")
+        end
+
+        for decl in cu.declarations
+            self.generate_node(decl)
+        end
+        
+        if cu.ns_name != ""
+            self.emit("return _NS")
+        end
+    end
+
+    func generate_node(node: ast.Node)
+        match node
+            case VarDecl(v)    => self.emit_var_decl(v)
+            case FuncDecl(f)   => self.emit_func_decl(f)
+            case StructDecl(s) => self.emit_struct_decl(s)
+            case EnumDecl(e)   => self.emit_enum_decl(e)
+            
+            case IfStmt(i)     => self.emit_if(i)
+            case WhileStmt(w)  => self.emit_while(w)
+            case ForInStmt(f)  => self.emit_for(f)
+            case RepeatStmt(r) => self.emit_repeat(r)
+            case MatchStmt(m)  => self.emit_match(m)
+            case ReturnStmt(r) => self.emit_return(r)
+            case ExprStmt(e)   => self.emit(self.eval_expr(e.expression))
+            case NativeLuaStmt(n) => self.emit(n.lua_code)
+            
+            case _ => -- Ignorar
+        end
+    end
+
+    func emit_var_decl(v: ast.VarDeclNode)
+        var val = "nil"
+        match v.initializer
+            case Present(init) => val = self.eval_expr(init)
+            case Empty => -- nil
+        end
+        
+        var prefix = if v.is_pub then "_NS." else "local "
+        self.emit(prefix + v.name + " = " + val)
+    end
+
+    func emit_func_decl(f: ast.FuncDeclNode)
+        var prefix = if f.is_pub then "_NS." else "local "
+        var params = []
+        for p in f.params
+            params.add(p.name)
+        end
+        
+        self.emit(prefix + "function " + f.name + "(" + text.join(params, ", ") + ")")
+        self.indent_level += 1
+        for stmt in f.body
+            self.generate_node(stmt)
+        end
+        self.indent_level -= 1
+        self.emit("end")
+    end
+
+    func emit_struct_decl(s: ast.StructDeclNode)
+        var prefix = if s.is_pub then "_NS." else "local "
+        self.emit(prefix + s.name + " = {}")
+        self.emit(prefix + s.name + ".__index = " + prefix + s.name)
+        self.emit("")
+        
+        -- Construtor simplificado
+        self.emit("function " + prefix + s.name + ".new(o)")
+        self.emit("    o = o or {}")
+        self.emit("    setmetatable(o, " + prefix + s.name + ")")
+        self.emit("    return o")
+        self.emit("end")
+        
+        -- Métodos
+        for m in s.methods
+            match m
+                case FuncDecl(f) => do
+                    var m_params = ["self"]
+                    for p in f.params m_params.add(p.name) end
+                    self.emit("function " + prefix + s.name + ":" + f.name + "(" + text.join(m_params, ", ") + ")")
+                    self.indent_level += 1
+                    for stmt in f.body self.generate_node(stmt) end
+                    self.indent_level -= 1
+                    self.emit("end")
+                end
+                case _ => -- OK
+            end
+        end
+    end
+
+    func emit_enum_decl(e: ast.EnumDeclNode)
+        var prefix = if e.is_pub then "_NS." else "local "
+        self.emit(prefix + e.name + " = {")
+        self.indent_level += 1
+        for m in e.members
+            self.emit(m + " = \"" + m + "\",")
+        end
+        self.indent_level -= 1
+        self.emit("}")
+    end
+
+    func emit_if(i: ast.IfStmtNode)
+        self.emit("if " + self.eval_expr(i.condition) + " then")
+        self.indent_level += 1
+        for stmt in i.then_body self.generate_node(stmt) end
+        self.indent_level -= 1
+        
+        for elif_c in i.elif_clauses
+            self.emit("elseif " + self.eval_expr(elif_c.condition) + " then")
+            self.indent_level += 1
+            for stmt in elif_c.body self.generate_node(stmt) end
+            self.indent_level -= 1
+        end
+        
+        match i.else_body
+            case Present(body) => do
+                self.emit("else")
+                self.indent_level += 1
+                for stmt in body self.generate_node(stmt) end
+                self.indent_level -= 1
+            end
+            case Empty => -- OK
+        end
+        
+        self.emit("end")
+    end
+
+    func emit_while(w: ast.WhileStmtNode)
+        self.emit("while " + self.eval_expr(w.condition) + " do")
+        self.indent_level += 1
+        for stmt in w.body self.generate_node(stmt) end
+        self.indent_level -= 1
+        self.emit("end")
+    end
+
+    func emit_for(f: ast.ForInStmtNode)
+        self.emit("for " + text.join(f.variables, ", ") + " in " + self.eval_expr(f.iterable) + " do")
+        self.indent_level += 1
+        for stmt in f.body self.generate_node(stmt) end
+        self.indent_level -= 1
+        self.emit("end")
+    end
+
+    func emit_repeat(r: ast.RepeatStmtNode)
+        self.emit("for _ = 1, " + self.eval_expr(r.count_expr) + " do")
+        self.indent_level += 1
+        for stmt in r.body self.generate_node(stmt) end
+        self.indent_level -= 1
+        self.emit("end")
+    end
+
+    func emit_match(m: ast.MatchStmtNode)
+        -- Transpilar Match para IF/ELSE (simples)
+        -- Em versões futuras, podemos usar lookup tables para performance
+        var target = self.eval_expr(m.expression)
+        var first = true
+        
+        for case_n in m.cases
+            var conds = []
+            for p in case_n.patterns
+                conds.add(target + " == " + self.eval_expr(p))
+            end
+            var prefix = if first then "if " else "elseif "
+            self.emit(prefix + text.join(conds, " or ") + " then")
+            self.indent_level += 1
+            for stmt in case_n.body self.generate_node(stmt) end
+            self.indent_level -= 1
+            first = false
+        end
+        
+        match m.else_case
+            case Present(body) => do
+                self.emit("else")
+                self.indent_level += 1
+                for stmt in body self.generate_node(stmt) end
+                self.indent_level -= 1
+            end
+            case Empty => -- OK
+        end
+        
+        if not first
+            self.emit("end")
+        end
+    end
+
+    func emit_return(r: ast.ReturnStmtNode)
+        match r.expression
+            case Present(e) => self.emit("return " + self.eval_expr(e))
+            case Empty      => self.emit("return")
+        end
+    end
+
+    func eval_expr(node: ast.Node) -> text
+        return match node
+            case Literal(l) => do
+                match l.literal_type
+                    case "text" => "\"" + l.value + "\""
+                    case _      => text.format("%s", [l.value])
+                end
+            end
+            case Identifier(id) => id.name
+            case Binary(b)      => "(" + self.eval_expr(b.left) + " " + b.operator.lexeme + " " + self.eval_expr(b.right) + ")"
+            case Call(c)        => self.eval_expr(c.callee) + "(" + self.eval_expr_list(c.arguments) + ")"
+            case Member(m)      => self.eval_expr(m.object) + "." + m.member_name
+            case Index(idx)     => self.eval_expr(idx.object) + "[" + self.eval_expr(idx.index) + "]"
+            case NativeLuaExpr(n) => n.lua_code
+            case _              => "nil"
+        end
+    end
+
+    func eval_expr_list(exprs: list<ast.Node>) -> text
+        var res = []
+        for e in exprs
+            res.add(self.eval_expr(e))
+        end
+        return text.join(res, ", ")
+    end
+end
+
+pub func create() -> Emitter
+    return Emitter {
+        output = [],
+        indent_level = 0
+    }
+end

@@ -1,0 +1,3 @@
+func main()
+    var y: int = null 
+end

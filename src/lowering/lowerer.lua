@@ -523,13 +523,13 @@ function Lowerer:_gen_pattern_logic(pattern, access_path_node)
             if el.kind == SK.REST_EXPR then
                 -- ..resto
                 if el.expression.kind == SK.IDENTIFIER_EXPR then
-                    -- local resto = zt.slice(access_path, i - 1)
-                    -- zt.slice usa faixas zero-based; o spread começa no elemento i (1-based na IR).
+                    -- local resto = zt.slice(access_path, i)
+                    -- zt.slice usa indices 1-based; o spread começa no elemento i (1-based na IR).
                     local slice_call = ExprSyntax.call(
                         ExprSyntax.identifier("zt.slice", el.span),
                         { 
                             access_path_node, 
-                            ExprSyntax.literal(i - 1, "int", el.span),
+                            ExprSyntax.literal(i, "int", el.span),
                         },
                         el.span
                     )

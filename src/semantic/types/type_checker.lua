@@ -27,6 +27,22 @@ function TypeChecker.is_assignable(source, target)
     return source:is_assignable_to(target)
 end
 
+local function is_text(t)
+    return t and t.kind == ZenithType.Kind.PRIMITIVE and t.name == "text"
+end
+
+local function is_int(t)
+    return t and t.kind == ZenithType.Kind.PRIMITIVE and (t.name == "int" or t.name == "float")
+end
+
+function TypeChecker.is_text(t)
+    return t and t.kind == ZenithType.Kind.PRIMITIVE and t.name == "text"
+end
+
+function TypeChecker.is_int(t)
+    return t and t.kind == ZenithType.Kind.PRIMITIVE and (t.name == "int" or t.name == "float")
+end
+
 --- Retorna o tipo resultante de uma operação binária.
 --- @param left table ZenithType
 --- @param operator string Lexema do operador (+, -, etc)
@@ -41,15 +57,14 @@ function TypeChecker.get_binary_result(left, operator, right)
     -- Multi-uso do '+' : Matemática e Concatenação
     if operator == "+" then
         -- Concatenação de texto: qualquer coisa que contenha text
-        if left == BuiltinTypes.TEXT or right == BuiltinTypes.TEXT then
+        if is_text(left) or is_text(right) then
             return BuiltinTypes.TEXT
         end
         -- Matemática
         if left == BuiltinTypes.INT and right == BuiltinTypes.INT then
             return BuiltinTypes.INT
         end
-        if (left == BuiltinTypes.INT or left == BuiltinTypes.FLOAT) and 
-           (right == BuiltinTypes.INT or right == BuiltinTypes.FLOAT) then
+        if is_int(left) and is_int(right) then
             return BuiltinTypes.FLOAT
         end
     end
@@ -70,6 +85,15 @@ function TypeChecker.get_binary_result(left, operator, right)
             return BuiltinTypes.FLOAT
         end
         return BuiltinTypes.INT
+    end
+
+    -- Concatenação ou Range
+    if operator == ".." then
+        if is_text(left) or is_text(right) then
+            return BuiltinTypes.TEXT
+        end
+        -- Pode ser um range, o Binder decidirá
+        return BuiltinTypes.ANY
     end
 
     return BuiltinTypes.ERROR

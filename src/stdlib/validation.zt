@@ -1,0 +1,40 @@
+namespace std.validation
+
+pub func min_value(it: any, min: any) -> bool
+end
+
+pub func max_value(it: any, max: any) -> bool
+end
+
+pub func between(it: any, min: any, max: any) -> bool
+end
+
+pub func one_of(it: any, options: list<any>) -> bool
+end
+
+pub func non_empty(it: any) -> bool
+end
+
+pub func not_blank(it: text) -> bool
+end
+
+pub func len_min(it: any, min: int) -> bool
+end
+
+pub func len_max(it: any, max: int) -> bool
+end
+
+pub func len_between(it: any, min: int, max: int) -> bool
+end
+
+pub func matches(it: text, pattern: text) -> bool
+end
+
+pub func email(it: text) -> bool
+end
+
+pub func url(it: text) -> bool
+end
+
+pub func uuid(it: text) -> bool
+end

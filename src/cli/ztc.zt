@@ -1,0 +1,61 @@
+import std.fs
+import std.io
+import std.os
+import std.text
+import syntax.lexer
+import syntax.parser
+import semantic.binding
+import backend.lua
+
+func main()
+    var args = os.get_args()
+    if #args < 1
+        io.write_line("Zenith Sovereign Compiler v0.3.5")
+        io.write_line("Uso: zt <file.zt> [output.lua]")
+        return
+    end
+
+    var input_file = args[1]
+    var output_file = "out.lua"
+    if #args >= 2
+        output_file = args[2]
+    end
+
+    io.write_line("--- 1. Lendo Fonte (" + input_file + ") ---")
+    var content_res = fs.read_text_file(input_file)
+    if content_res.is_failure()
+        io.write_line("Erro: Nao foi possivel ler o arquivo.")
+        return
+    end
+    
+    var src_text: any = null
+    native lua
+        local SourceText = require("src.source.source_text")
+        src_text = {
+            text = zt.unwrap_or(content_res, ""),
+            filename = input_file,
+            _tag = "SourceText"
+        }
+    end
+
+    io.write_line("--- 2. Analise Lexica ---")
+    var lex = lexer.create(src_text)
+    var tokens_list = lex.tokenize()
+
+    io.write_line("--- 3. Analise Sintatica ---")
+    var par = parser.create(tokens_list)
+    var ast_root = par.parse_compilation_unit()
+
+    io.write_line("--- 4. Vinculacao Semantica ---")
+    var bin = binding.create()
+    bin.bind(ast_root)
+
+    io.write_line("--- 5. Emissao de Codigo ---")
+    var emi = lua.create()
+    var output_lua = emi.generate(ast_root)
+
+    io.write_line("--- 6. Gravando Saida (" + output_file + ") ---")
+    fs.write_text_file(output_file, output_lua)
+
+    io.write_line("\nSoberania Atingida: Compilacao concluida com sucesso.")
+end

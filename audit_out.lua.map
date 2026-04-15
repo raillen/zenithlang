@@ -1,0 +1,34 @@
+-- Zenith Source Map
+-- Source: audit_suite.zt
+return {
+  source = "audit_suite.zt",
+  mappings = {
+    [30] = {line=19, col=5},
+    [31] = {line=22, col=5},
+    [32] = {line=23, col=5},
+    [17] = {line=6, col=5},
+    [34] = {line=27, col=5},
+    [35] = {line=28, col=5},
+    [36] = {line=31, col=5},
+    [38] = {line=33, col=9},
+    [40] = {line=35, col=5},
+    [21] = {line=10, col=5},
+    [42] = {line=39, col=5},
+    [22] = {line=11, col=9},
+    [33] = {line=24, col=5},
+    [45] = {line=44, col=5},
+    [46] = {line=45, col=5},
+    [24] = {line=13, col=9},
+    [48] = {line=49, col=5},
+    [49] = {line=50, col=9},
+    [43] = {line=40, col=9},
+    [26] = {line=15, col=5},
+    [52] = {line=56, col=5},
+    [51] = {line=55, col=5},
+    [54] = {line=58, col=9},
+    [47] = {line=48, col=5},
+    [56] = {line=60, col=5},
+    [57] = {line=62, col=5},
+    [41] = {line=38, col=5},
+  }
+}

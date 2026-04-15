@@ -1,5 +1,5 @@
 -- ============================================================================
--- Zenith Compiler — Keyword Table
+-- Zenith Compiler â€” Keyword Table
 -- Mapa de strings para TokenKind para palavras-chave.
 -- ============================================================================
 
@@ -7,9 +7,9 @@ local TokenKind = require("src.syntax.tokens.token_kind")
 
 local KeywordTable = {}
 
---- Mapa de keyword → TokenKind.
+--- Mapa de keyword â†’ TokenKind.
 KeywordTable.keywords = {
-    -- Declarações de variáveis
+    -- DeclaraÃ§Ãµes de variÃ¡veis
     ["var"]      = TokenKind.KW_VAR,
     ["const"]    = TokenKind.KW_CONST,
     ["global"]   = TokenKind.KW_GLOBAL,
@@ -60,15 +60,21 @@ KeywordTable.keywords = {
     ["self"]     = TokenKind.KW_SELF,
     ["it"]       = TokenKind.KW_IT,
 
-    -- Módulos
+    -- MÃ³dulos
     ["import"]    = TokenKind.KW_IMPORT,
     ["export"]    = TokenKind.KW_EXPORT,
 
-    -- Lógicos e Validação
+    -- LÃ³gicos e ValidaÃ§Ã£o
     ["and"]       = TokenKind.KW_AND,
     ["or"]        = TokenKind.KW_OR,
     ["not"]       = TokenKind.KW_NOT,
     ["where"]     = TokenKind.KW_WHERE,
+    ["validate"]  = TokenKind.KW_VALIDATE,
+
+    -- DSL de testes
+    ["group"]     = TokenKind.KW_GROUP,
+    ["test"]      = TokenKind.KW_TEST,
+    ["assert"]    = TokenKind.KW_ASSERT,
     
     -- Tipos e Modificadores
     ["grid"]      = TokenKind.KW_GRID,
@@ -77,21 +83,22 @@ KeywordTable.keywords = {
     -- Controle de Fluxo extra
     ["match"]     = TokenKind.KW_MATCH,
     ["case"]      = TokenKind.KW_CASE,
+    ["after"]     = TokenKind.KW_AFTER,
 
-    -- Conversão
+    -- ConversÃ£o
     ["to"]        = TokenKind.KW_TO,
     ["native"]    = TokenKind.KW_NATIVE,
     ["extern"]    = TokenKind.KW_EXTERN,
 }
 
---- Verifica se uma string é keyword e retorna o TokenKind correspondente.
+--- Verifica se uma string Ã© keyword e retorna o TokenKind correspondente.
 --- @param word string
---- @return string|nil TokenKind ou nil se não for keyword
+--- @return string|nil TokenKind ou nil se nÃ£o for keyword
 function KeywordTable.lookup(word)
     return KeywordTable.keywords[word]
 end
 
---- Verifica se uma string é keyword.
+--- Verifica se uma string Ã© keyword.
 --- @param word string
 --- @return boolean
 function KeywordTable.is_keyword(word)

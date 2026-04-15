@@ -95,7 +95,7 @@ end
 ## Operadores úteis
 
 ```zt
-var trecho = lista[0..1]
+var trecho = lista[1..2]
 var copia = [..lista, 4]
 var nome = apelido!
 var texto = fs.read_text_file("a.txt")?

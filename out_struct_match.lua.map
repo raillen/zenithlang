@@ -1,0 +1,12 @@
+-- Zenith Source Map
+-- Source: test_struct_match.zt
+return {
+  source = "test_struct_match.zt",
+  mappings = {
+    [36] = {line=12, col=43},
+    [38] = {line=13, col=19},
+    [32] = {line=9, col=5},
+    [33] = {line=11, col=5},
+    [43] = {line=17, col=1},
+  }
+}

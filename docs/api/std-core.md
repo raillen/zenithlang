@@ -1,23 +1,23 @@
-# Módulo `std.core`
+# Modulo std.core
 
-O `std.core` é a prelude da linguagem. Seus símbolos ficam disponíveis sem `import` explícito e servem de base para `Optional`, `Outcome`, `assert`, `panic` e operações de iteração.
+std.core e a base semantica da linguagem. Seus simbolos formam a prelude da trilha ativa e convivem com alguns helpers de runtime usados por UFCS.
 
-## Funções globais
+## Funcoes globais
 
-| API | Descrição |
+| API | Descricao |
 | :-- | :-- |
-| `print(value: any)` | Escreve no console. |
-| `error(message: text)` | Interrompe a execução atual lançando um erro. |
-| `assert(condition: bool, message: text)` | Falha se a condição for falsa. |
-| `panic(message: text)` | Variante semântica para falha irrecuperável. |
+| print(value: any) | Escreve no console. |
+| error(message: text) | Interrompe a execucao atual. |
+| assert(condition: bool, message: text) | Falha se a condicao for falsa. |
+| panic(message: text) | Variante semantica para falha irrecuperavel. |
 
-## Tipos algébricos
+## Tipos algebraicos
 
-### `Optional<T>`
+### Optional<T>
 
-Representa presença ou ausência de valor.
+Representa presenca ou ausencia de valor.
 
-```zt
+~~~zt
 var nome: Optional<text> = Present("Zenith")
 
 match nome
@@ -26,18 +26,25 @@ match nome
     case Empty:
         print("Sem valor")
 end
-```
+~~~
 
-Casos disponíveis:
+Casos disponiveis:
 
-- `Present(value: T)`
-- `Empty`
+- Present(value: T)
+- Empty
 
-### `Outcome<T, E>`
+Helpers efetivos da trilha ativa:
 
-Representa sucesso ou falha explícitos.
+- opt.is_present() -> bool
+- opt.is_empty() -> bool
+- opt.unwrap() -> T
+- opt.unwrap_or(default) -> T
 
-```zt
+### Outcome<T, E>
+
+Representa sucesso ou falha explicitos.
+
+~~~zt
 var res = fs.read_text_file("config.json")
 
 match res
@@ -46,47 +53,81 @@ match res
     case Failure(err):
         print("Falha: " + err)
 end
-```
+~~~
 
-Casos disponíveis:
+Casos disponiveis:
 
-- `Success(value: T)`
-- `Failure(error: E)`
+- Success(value: T)
+- Failure(error: E)
 
-## Trait fundamental
+Helpers declarados ou efetivos:
 
-### `Iterable<T>`
+- res.is_success() -> bool
+- res.is_failure() -> bool
+- res.unwrap() -> T
+- res.unwrap_or(default) -> T no runtime atual
+- res.is_present() -> bool no runtime atual
+- res.is_empty() -> bool no runtime atual
 
-Contrato usado pelo `for ... in`.
+Observacao importante:
 
-```zt
-trait Iterable<T>
-    func iterator() -> () => Optional<T>
-end
-```
+- no runtime atual, Success e tratado como presente
+- no runtime atual, Failure e tratado como vazio para fallback
 
-## Padrões úteis do core
+## UFCS virtual da trilha ativa
 
-### Valor padrão com `or`
+Algumas APIs nao precisam existir como declaracao formal completa em std.core; elas sao resolvidas pelo binder e pelo runtime como metodos virtuais.
 
-O codegen atual usa `or` para desembrulhar `Optional` e `Outcome`.
+### Optional e Outcome
 
-```zt
-var user: text = os.get_env_variable("USERNAME") or "desconhecido"
-```
+- is_present()
+- is_empty()
+- unwrap()
+- unwrap_or(default)
 
-### Retorno precoce com `?`
+### Collections
 
-O operador `?` funciona com `Optional` e `Outcome` dentro de funções compatíveis.
+- len()
+- push(value)
+- pop()
+- keys()
 
-```zt
+### Texto
+
+- split()
+- len()
+
+### Primitivos
+
+- to_text()
+
+## Operador ?
+
+O operador ? funciona com Optional e Outcome dentro de funcoes compativeis.
+
+~~~zt
 func carregar() -> Outcome<text, text>
     var txt = fs.read_text_file("app.txt")?
     return Success(txt)
 end
-```
+~~~
 
-## Observações
+## Politica de null
 
-- Esta página descreve o `std.core` real do repositório atual. APIs antigas como `type_of`, `to_text` e `is_null` não fazem parte da interface atual.
-- `print`, `error`, `assert` e `panic` são tratados como parte da prelude e aparecem globalmente no código Zenith.
+A trilha ativa ainda possui null por compatibilidade, mas o uso direto e desencorajado.
+
+Regra atual:
+
+- T? = null: permitido com warning ZT-W001
+- T = null: erro semantico ZT-S100
+
+Preferencia idiomatica:
+
+- ausencia de valor: Optional.Empty
+- falha explicita: Outcome.Failure
+
+## Observacoes
+
+- Esta pagina descreve o comportamento real da trilha ativa.
+- APIs antigas como type_of e is_null nao fazem parte da interface atual.
+- to_text() existe hoje como UFCS virtual de runtime, nao como declaracao formal classica de prelude.

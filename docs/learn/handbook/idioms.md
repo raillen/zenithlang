@@ -1,78 +1,115 @@
-# Idiomatismo e Boas Práticas: O Padrão Zenith
+# Idiomas da Trilha Ativa
 
-Este documento define como escrever código Zenith industrial. Seguir estes padrões garante que seu código seja legível por qualquer outro desenvolvedor e otimizado pelo compilador Ascension.
+Este guia resume como escrever codigo Zenith alinhado com a implementacao atual.
 
-## 1. Nomenclatura e Intenção
+## 1. Use a estrutura certa para cada acesso
 
-Zenith utiliza o padrão visual para diferenciar dados de estruturas.
+- use obj.campo para struct
+- use map["chave"] para map
+- use lista[1] para sequencias
 
-| Elemento | Padrão | Exemplo |
-| :--- | :--- | :--- |
-| Variáveis e Funções | `snake_case` | `velocidade_atual` |
-| Constantes | `SCREAMING_SNAKE` | `GRAVIDADE_MAX` |
-| Tipos e Estruturas | `PascalCase` | `PlayerProfile` |
+Nao misture semanticas:
 
----
+- config.status sugere struct, nao mapa
+- config["status"] deixa claro que a chave e dinamica
 
-## 2. Tipagem: Clareza sobre Adivinhação
+## 2. Prefira Optional e Outcome a null
 
-*   **Contexto**: O compilador pode inferir tipos, mas o cérebro humano precisa de ancoras.
-*   **A Regra**: Declare o tipo explicitamente em variáveis de nível de módulo ou funções públicas.
-*   **O Contraste**: Diferente do JavaScript ou Lua, onde o tipo é uma surpresa, no Zenith o tipo é um contrato.
+Politica atual:
 
-```zt
--- RECOMENDADO
-var nivel: int = 1
+- T? = null ainda compila com warning ZT-W001
+- T = null gera ZT-S100
 
--- EVITE (em código público)
-var nivel = 1
-```
+Padrao recomendado:
 
----
+~~~zt
+match fs.read_text_file("app.json")
+    case Success(txt) => print(txt)
+    case Failure(err) => print("falha: " + err)
+end
+~~~
 
-## 3. Desembrulho Seguro (Safety First)
+Para defaults simples:
 
-Este é o ponto mais crítico de estabilidade industrial do Zenith.
+~~~zt
+var nome = nome_opt.unwrap_or("guest")
+~~~
 
-*   **Contexto**: Lidar com valores nulos ou falhas.
-*   **A Regra**: Prefira sempre o operador `or` (valor padrão) ou `match`. Use o operador `!` apenas após uma verificação de `is_present()`.
-*   **O Contraste**: O Zenith desencoraja o "Crash Orientado" (usar `!` em tudo), promovendo a resiliência.
+## 3. Use validate e where com papeis diferentes
 
-```zt
--- ✅ SEGURO: Código industrial
-var user = os.get_env("USER") or "admin"
+Prefira:
 
--- ❌ PERIGOSO: Pode causar Panic no sistema
-var user = os.get_env("USER")!
-```
+- validate para validadores reaproveitaveis de std.validation
+- where para regra booleana livre
 
----
+~~~zt
+struct User
+    age: int validate validation.min_value(18), validation.max_value(120)
+    name: text validate validation.non_empty where not text.contains(it, "admin")
+end
+~~~
 
-## 4. Composição sobre Herança
+Evite colocar expressoes arbitrarias dentro de validate.
 
-*   **A Regra**: Não tente criar hierarquias de classes. Crie dados (`struct`) e anexe comportamentos (`trait`).
-*   **Vantagem**: Evita o "Problema do Diamante" e torna o código 100% testável individualmente.
+## 4. @ e para self, nao para metadado
 
----
+Na trilha ativa:
 
-## 5. Limites do Nativo (Boundary Principle)
+- @campo e sugar de self.campo
+- #[...] e a sintaxe normativa de atributo de declaracao
+- @atributo e apenas compatibilidade temporaria com warning ZT-W003
 
-*   **Contexto**: Zenith permite usar Lua nativo, mas isso quebra a soberania da linguagem.
-*   **A Regra**: Use `native lua` apenas para:
-    1.  Acesso a bibliotecas C externas via FFI.
-    2.  Otimizações extremas de loop que ainda não existem no core.
-    3.  Interoperabilidade com código legado.
-*   **O Contraste**: Código Zenith puro é verificável estaticamente; código Lua nativo é uma "caixa preta".
+## 5. Escreva metodos e traits com a sintaxe atual
 
----
+Use:
 
-## 6. Checklist de Qualidade
+~~~zt
+apply Heal to Player
+    func heal(self, amount: int)
+        @hp = @hp + amount
+    end
+end
+~~~
 
-Ao finalizar um módulo, verifique:
-- [ ] O código utiliza `Outcome` para operações que podem falhar?
-- [ ] As cláusulas `where` protegem as variáveis contra valores inválidos?
-- [ ] Os nomes das funções são verbais (`carregar_dados` em vez de `dados`)?
-- [ ] A documentação foi movida para um arquivo `.zdoc` para manter o `.zt` limpo?
+Nao use exemplos antigos com apply Trait for Struct.
 
----
-*Zenith Specification v0.3.1 - Manual de Idiomatismos*
+## 6. UFCS real da trilha ativa
+
+Os helpers abaixo fazem parte do uso diario, mesmo quando a declaracao formal esta no runtime ou no binder:
+
+- len()
+- split()
+- push(value)
+- pop()
+- keys()
+- is_present()
+- is_empty()
+- unwrap()
+- unwrap_or(default)
+- to_text()
+
+~~~zt
+var partes = "a,b,c".split()
+var total = partes.len()
+~~~
+
+## 7. Indexacao: pense em 1 para sequencias
+
+Regra operacional:
+
+- listas e texto sao 1-based
+- mapas usam a chave declarada
+- 0 em lista ou texto gera warning ZT-W002
+- acesso fora dos limites em runtime gera ZT-R011
+
+## 8. Fallback e fluxo
+
+Na trilha ativa, o operador or funciona como fallback ou default no codegen, usando a mesma base de unwrap_or.
+
+Use quando quiser um valor substituto:
+
+~~~zt
+var user = os.get_env("USER") or "guest"
+~~~
+
+Para logica mais rica, prefira if ou match.

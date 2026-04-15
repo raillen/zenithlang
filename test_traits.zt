@@ -1,0 +1,35 @@
+-- Teste End-to-End: Traits e Apply
+-- Objetivo: compilar, rodar e verificar saída correta.
+
+namespace test_traits
+
+pub trait Printable
+    pub func to_text() -> text
+end
+
+pub trait Greetable
+    -- Default implementation
+    pub func greet() -> text
+        return "Ola, eu sou printavel!"
+    end
+end
+
+pub struct Player
+    pub nome: text
+    pub vida: int = 100
+end
+
+apply Printable to Player
+    pub func to_text() -> text
+        return "Player(" + @nome + ")"
+    end
+end
+
+apply Greetable to Player
+end
+
+pub func main()
+    var p = Player { nome: "Raillen", vida: 80 }
+    print(p.to_text())
+    print(p.greet())
+end

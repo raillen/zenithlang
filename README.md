@@ -1,59 +1,78 @@
+<p align="center">
+  <img src="branding/logo-with-text.svg" width="400" alt="Zenith Logo" />
+</p>
+
 # Zenith Language
 
-> Uma linguagem de programação legível, explícita, estável visualmente e cognitivamente acessível.
+> Uma linguagem de programacao legivel, explicita, estavel visualmente e cognitivamente acessivel.
 
-**Versão:** v0.2.0  
+> Estado atual: trilha ativa estabilizada em `v0.3.5`
+> O compilador ativo em Lua (`ztc.lua`) tem Fases 1-11 concluidas e testadas. A Fase 12 segue parcial: `demo.zt` compila sem `native lua`, mas stdlib e trilha self-hosted ainda dependem de escapes.
+
+**Versao:** v0.3.5  
 **Target:** Lua 5.1 / LuaJIT / Lua 5.4  
-**Compilador:** Implementado em Lua
+**Compilador ativo:** `ztc.lua` + parser/binder/codegen em Lua  
+**Trilha self-hosted:** parcial, sem paridade total com a trilha ativa
 
-## O que é Zenith?
+## O que e Zenith?
 
-Zenith é uma linguagem de programação que transpila para Lua. Ela possui sintaxe própria, sistema de tipos 100% explícito, reatividade nativa e um pipeline de compilação com otimizações em nível de IR (Lowering).
+Zenith e uma linguagem que transpila para Lua. Ela combina sintaxe propria, sistema de tipos explicito, reatividade, lowering de IR e um runtime pequeno o suficiente para manter a linguagem previsivel.
 
-## Recursos Core (v0.2.0)
+## Recursos estaveis na trilha ativa
 
-Zenith v0.2 consolida a base da linguagem com foco em segurança e expressividade:
+- Variaveis e constantes: `var`, `const`, tipagem explicita e inferencia basica
+- Controle de fluxo: `if/elif/else`, `while`, `for in`, `repeat`, `match`
+- Funcoes: `pub func`, parametros tipados, retorno `-> T`, async/await
+- Structs: campos tipados, defaults, contratos `where` e `validate`
+- Enums: membros simples e sum types
+- Traits e `apply`: composicao de comportamento validada
+- Genericos reais: type erasure, constraints e chamadas genericas explicitas
+- UFCS: metodo > global > virtual runtime
+- Interpolacao de string
+- Optional/Outcome e operador `?`
+- Atributos de declaracao com `#[...]`
+- Sugar de self com `@campo`
+- Indexacao 1-based para sequencias com `ZT-W002` e `ZT-R011`
+- Diagnosticos com arquivo, linha, coluna e trecho de codigo
+- Escape hatch `native lua` para interop controlada
 
-- **Sistema de Projeto**: Comando `zt build` orquestrado pelo arquivo `.ztproj`.
-- **Destruturação**: Desmonte listas e structs em `match` ou declarações `var`.
-- **Genéricos com Restrições**: Controle total sobre tipos genéricos usando `where T is Trait`.
-- **Traits com Default Impls**: Composição poderosa com herança de comportamento padrão.
-- **Spread e Slicing**: Manipulação de coleções de alto nível com operadores `..` e `[start..end]`.
-- **Interpolação Avançada**: Suporte para expressões complexas dentro de strings `"{a + b}"`.
-- **Lowering (IR)**: Fase de desaçucaramento e Constant Folding para performance.
+## Em aberto / hardening
 
-### Exemplo Moderno
+- Fase 12: reduzir `native lua` em `src/stdlib` e `src/compiler`
+- Self-hosting: alinhar `src/compiler/*.zt` com a linguagem ativa
+- `after` / defer: ainda fora do conjunto estabilizado
+- Refinar docs e catalogo de diagnosticos
+
+## Exemplo moderno
 
 ```zt
--- Definindo Contratos
+import std.validation as validation
+
 trait Greetable
     pub func greet() -> text
-        return "Olá!"
+        return "Ola!"
     end
 end
 
--- Estrutura com Validação
 struct Player
-    pub nome: text
+    pub nome: text validate validation.non_empty
     pub vida: int = 100 where it >= 0
 end
 
 apply Greetable to Player
     pub func greet() -> text
-        return "Oi, eu sou {@nome}!"
+        return "Oi, eu sou " + @nome + "!"
     end
 end
 
 pub func main() -> int
     var player: Player = Player { nome: "Rafael" }
-    
-    -- Encadeamento UFCS e Interpolação
+
     print(player.greet().len())
-    
-    -- Destruturação
+
     var Player { nome } = player
     print("Capturado: " + nome)
-    
+
     return 0
 end
 ```
@@ -61,21 +80,29 @@ end
 ## Uso
 
 ```bash
-lua ztc.lua build          # Compila o projeto (zenith.ztproj)
-lua ztc.lua <arquivo.zt>   # Compila um arquivo isolado
+lua ztc.lua build <arquivo.zt>             # Compila para out.lua
+lua ztc.lua build <arquivo.zt> saida.lua   # Compila com saida explicita
+lua ztc.lua run <arquivo.zt>               # Compila e executa
+lua ztc.lua check <arquivo.zt>             # Analise sem gerar codigo
 ```
 
-## Estrutura do Projeto
+## Documentacao recomendada
+
+- `docs/roadmap_estabilizacao.md`: estado verificado da implementacao ativa
+- `docs/specification/decisions/001-self-attrs-validate.md`: sintaxe atual de `@`, `#[...]` e `validate`
+- `docs/api/std-core.md`: Optional, Outcome e helpers atuais de runtime/UFCS
+
+## Estrutura do projeto
 
 ```
 src/
-  project_system/ — Gestão de .ztproj
-  lowering/     — IR, Otimização e Desugaring
-  syntax/       — Lexer, Parser e AST
-  semantic/     — Binder, TypeChecker e Símbolos
-  backend/lua/  — Geração de código e Runtime
+  lowering/       # IR, otimizacao e desugaring
+  syntax/         # Lexer, parser e AST
+  semantic/       # Binder, tipos e simbolos
+  backend/lua/    # Codegen e runtime
+  stdlib/         # Modulos padrao
 ```
 
-## Licença
+## Licenca
 
 MIT

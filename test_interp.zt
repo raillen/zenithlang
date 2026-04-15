@@ -1,0 +1,17 @@
+-- Teste Fase 3: String Interpolation
+namespace test_interp
+
+pub func main()
+    var nome: text = "Raillen"
+    var hp: int = 80
+    var msg: text = "Jogador: {nome}, HP: {hp}"
+    print(msg)
+
+    -- Expressão inline
+    var x: int = 10
+    var y: int = 5
+    print("Soma: {x + y}, Produto: {x * y}")
+
+    -- Aninhamento com chamada de método
+    print("Resultado: {hp * 2} pontos")
+end

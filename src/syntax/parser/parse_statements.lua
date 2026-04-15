@@ -56,6 +56,8 @@ function ParseStatements.parse_statement(ctx)
         return ParseStatements._parse_throw(ctx)
     elseif k == TokenKind.KW_CHECK then
         return ParseStatements._parse_check(ctx)
+    elseif k == TokenKind.KW_AFTER then
+        return ParseStatements._parse_after(ctx)
     elseif k == TokenKind.KW_NATIVE then
         return ParseStatements._parse_native_lua(ctx, true)
     end
@@ -239,13 +241,22 @@ function ParseStatements._parse_match(ctx)
                 table.insert(patterns, ParseDeclarations._parse_pattern(ctx, false))
             until not ctx:match(TokenKind.COMMA)
             
+            local guard = nil
+            if ctx:check(TokenKind.IDENTIFIER) and ctx:peek().lexeme == "when" then
+                ctx:advance() -- consume 'when'
+                guard = ParseExpressions.parse_expression(ctx)
+            end
+            
             if not ctx:match(TokenKind.COLON) and not ctx:match(TokenKind.FAT_ARROW) then
-                ctx:expect(TokenKind.COLON, "esperado ':' ou '=>' após padrão do case")
+                ctx:expect(TokenKind.COLON, "esperado ':' ou '=>' após padrão do case (ou guard)")
             end
             ctx:skip_newlines()
             
             local body = ParseStatements.parse_block(ctx, { TokenKind.KW_CASE, TokenKind.KW_ELSE, TokenKind.KW_END })
-            table.insert(cases, StmtSyntax.match_case(patterns, body, patterns[1].span:merge(ctx:peek(-1).span)))
+            
+            local case_node = StmtSyntax.match_case(patterns, body, patterns[1].span:merge(ctx:peek(-1).span))
+            case_node.guard = guard
+            table.insert(cases, case_node)
         elseif ctx:match(TokenKind.KW_ELSE) then
             ctx:match(TokenKind.COLON) -- Opcional no else
             ctx:skip_newlines()
@@ -281,6 +292,19 @@ function ParseStatements._parse_check(ctx)
     local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' para fechar check")
     
     return StmtSyntax.check_stmt(condition, else_body, start.span:merge(end_t.span))
+end
+
+function ParseStatements._parse_after(ctx)
+    local start = ctx:advance() -- 'after'
+    local body
+    if ctx:match(TokenKind.KW_DO) then
+        body = ParseStatements.parse_block(ctx, TokenKind.KW_END)
+        local end_t = ctx:expect(TokenKind.KW_END, "esperado 'end' após block no after")
+        return StmtSyntax.after_stmt(body, start.span:merge(end_t.span))
+    else
+        local stmt = ParseStatements.parse_statement(ctx)
+        return StmtSyntax.after_stmt({stmt}, start.span:merge(stmt.span))
+    end
 end
 
 function ParseStatements._parse_native_lua(ctx, is_stmt)

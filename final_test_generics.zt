@@ -1,0 +1,15 @@
+func identity<U>(x: U) -> U
+    return x
+end
+
+struct Box<U>
+    value: U
+end
+
+func main()
+    var n: int = identity<int>(10)
+    var b = Box<int> { value: 20 }
+    if n == 10 and b.value == 20
+        print("GENERIC_SUCCESS")
+    end
+end

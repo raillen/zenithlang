@@ -1,0 +1,52 @@
+import std.core
+
+func main()
+    var present: Optional<text> = Present("Zenith")
+    if not present.is_present()
+        panic("Present deve ser marcado como presente")
+    end
+    if present.is_empty()
+        panic("Present nao pode ser vazio")
+    end
+    if present.unwrap() != "Zenith"
+        panic("unwrap deve retornar o valor interno")
+    end
+    if present.unwrap_or("fallback") != "Zenith"
+        panic("unwrap_or nao deve consumir fallback em Present")
+    end
+
+    var empty: Optional<text> = Empty
+    if empty.is_present()
+        panic("Empty nao pode ser marcado como presente")
+    end
+    if not empty.is_empty()
+        panic("Empty deve ser vazio")
+    end
+    if empty.unwrap_or("fallback") != "fallback"
+        panic("unwrap_or deve usar fallback em Empty")
+    end
+
+    var ok: Outcome<text> = Success("ok")
+    if not ok.is_success()
+        panic("Success deve ser marcado como sucesso")
+    end
+    if ok.is_failure()
+        panic("Success nao pode ser falha")
+    end
+    if ok.unwrap_or("fallback") != "ok"
+        panic("Outcome.unwrap_or nao deve consumir fallback em Success")
+    end
+
+    var fail: Outcome<text> = Failure("boom")
+    if fail.is_success()
+        panic("Failure nao pode ser sucesso")
+    end
+    if not fail.is_failure()
+        panic("Failure deve ser marcado como falha")
+    end
+    if fail.unwrap_or("fallback") != "fallback"
+        panic("Outcome.unwrap_or deve usar fallback em Failure")
+    end
+
+    print("Optional semantics OK")
+end

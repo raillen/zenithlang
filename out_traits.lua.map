@@ -1,0 +1,13 @@
+-- Zenith Source Map
+-- Source: test_traits.zt
+return {
+  source = "test_traits.zt",
+  mappings = {
+    [28] = {line=13, col=9},
+    [60] = {line=32, col=5},
+    [61] = {line=33, col=5},
+    [62] = {line=34, col=5},
+    [67] = {line=13, col=9},
+    [52] = {line=24, col=9},
+  }
+}

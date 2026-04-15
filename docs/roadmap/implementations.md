@@ -1,65 +1,61 @@
-# Roadmap de Implementações
+# Roadmap de Implementacoes
 
-> Status: `Current`
-> Regra do roadmap: por trilhas de implementação, não por sprints.
+> Status: current
+> Regra do roadmap: organizar por trilhas tecnicas e nivel de maturidade
 
-Eu mantenho este roadmap para responder a pergunta certa:
-
-> o que estou construindo, em que camada, e com qual grau de maturidade?
-
-Eu não organizo essa visão por sprint porque, para Zenith, faz mais sentido acompanhar trilhas de implementação e amadurecimento técnico.
+Este roadmap responde a pergunta: o que existe hoje, em qual camada, e com qual grau de confianca?
 
 ## 1. Linguagem
 
 ### Current
 
-- consolidar a linha `0.3.x` como referência auto-hospedada da linguagem
-- documentar com precisão a diferença entre current, legacy e vision
-- continuar reduzindo oscilacao sintática e ambiguidade editorial
+- consolidar a linha 0.3.x como referencia da linguagem ativa
+- documentar com precisao a diferenca entre trilha ativa e trilha self-hosted
+- continuar reduzindo oscilacao sintatica e ambiguidade editorial
 
-## 2. Bootstrap Compiler (Lua)
-
-### Deprecated
-
-- preservar o `ztc.lua` como legado técnico separado
-- manter documentação clara para estudo histórico e comparação de arquitetura
-- evitar que essa linha volte a ser confundida com o caminho oficial de build
-
-## 3. Ascension Compiler (Zenith)
+## 2. Compilador Ativo (Lua)
 
 ### Current
 
-- manter o motor concluído saudavel, legivel e auditavel
-- expandir otimizações, tooling nativo e ergonomia do ecossistema
-- fortalecer distribuição, empacotamento e observabilidade do pipeline
+- manter `ztc.lua` como caminho oficial de `check`, `build` e `run`
+- preservar parser, binder, runtime e codegen da trilha ativa como referencia operacional
+- expandir cobertura de testes e polimento de diagnosticos
+
+## 3. Compilador Self-Hosted (Zenith)
+
+### Experimental
+
+- aproximar `src/compiler/*.zt` da linguagem ativa
+- reduzir dependencia de `native lua`
+- construir caminho verificavel de bootstrap
+- parar de tratar essa linha como concluida antes da validacao de paridade
 
 ## 4. Stdlib e Ferramental
 
 ### Current
 
-- consolidar módulos oficiais j? presentes
+- consolidar modulos oficiais presentes
 - melhorar coerencia entre docs, testes e disponibilidade real
-- fortalecer ZPM, ZTest e utilitarios de suporte
+- seguir reduzindo escapes onde nao forem interop legitima
 
-## 5. Website e Documentação
-
-### Current
-
-- refletir Ascension como linha oficial em todas as camadas do site
-- manter `docs/` como fonte ?nica da verdade editorial
-- mostrar com clareza badges como `Current`, `Stable`, `Deprecated` e `Vision`
-
-## 6. Alvos e Distribuição
+## 5. Website e Documentacao
 
 ### Current
 
-- manter distribuição multiplataforma como capacidade real do Zenith atual
+- refletir o estado real da trilha ativa em todos os docs principais
+- manter `docs/` como fonte editorial principal
+- distinguir docs historicos de docs de estado verificado
+
+## 6. Alvos e Distribuicao
+
+### Current
+
+- manter distribuicao multiplataforma como capacidade da trilha ativa
 - lapidar modos standalone e bundle
-- fortalecer FFI e caminhos de empacotamento moderno
+- fortalecer FFI e empacotamento moderno
 
 ### Vision
 
-- compilação direta para C
-- bytecode ou IR mais autonoma
+- compilacao direta para C
+- bytecode ou IR mais autonomo
 - novos backends nativos
-- distribuição ainda mais independente do backend histórico

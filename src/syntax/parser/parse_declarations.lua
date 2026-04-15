@@ -13,16 +13,114 @@ local ParseStatements  = require("src.syntax.parser.parse_statements")
 
 local ParseDeclarations = {}
 
---- Ponto de entrada: decide se é declaração ou statement.
-function ParseDeclarations.parse_declaration_or_statement(ctx)
-    ctx:skip_newlines()
-    if ctx:is_at_end() then return nil end
+local DECLARATION_STARTERS = {
+    [TokenKind.KW_NAMESPACE] = true,
+    [TokenKind.KW_IMPORT] = true,
+    [TokenKind.KW_EXPORT] = true,
+    [TokenKind.KW_PUB] = true,
+    [TokenKind.KW_REDO] = true,
+    [TokenKind.KW_EXTERN] = true,
+    [TokenKind.KW_VAR] = true,
+    [TokenKind.KW_CONST] = true,
+    [TokenKind.KW_GLOBAL] = true,
+    [TokenKind.KW_STATE] = true,
+    [TokenKind.KW_COMPUTED] = true,
+    [TokenKind.KW_FUNC] = true,
+    [TokenKind.KW_ASYNC] = true,
+    [TokenKind.KW_STRUCT] = true,
+    [TokenKind.KW_ENUM] = true,
+    [TokenKind.KW_TRAIT] = true,
+    [TokenKind.KW_APPLY] = true,
+    [TokenKind.KW_TYPE] = true,
+    [TokenKind.KW_UNION] = true,
+    [TokenKind.KW_GROUP] = true,
+    [TokenKind.KW_TEST] = true,
+}
 
-    -- Coleta atributos @attr
+local function append_all(target, source)
+    for _, item in ipairs(source) do
+        table.insert(target, item)
+    end
+end
+
+local function skip_attribute_args(ctx, offset)
+    if ctx:peek(offset).kind ~= TokenKind.LPAREN then
+        return offset
+    end
+
+    local depth = 0
+    repeat
+        local kind = ctx:peek(offset).kind
+        if kind == TokenKind.LPAREN then
+            depth = depth + 1
+        elseif kind == TokenKind.RPAREN then
+            depth = depth - 1
+        elseif kind == TokenKind.EOF then
+            return offset
+        end
+        offset = offset + 1
+    until depth <= 0
+
+    return offset
+end
+
+local function looks_like_legacy_decl_attributes(ctx)
+    if ctx:peek().kind ~= TokenKind.AT then
+        return false
+    end
+
+    local offset = 0
+    while ctx:peek(offset).kind == TokenKind.AT do
+        if not ctx:is_name(ctx:peek(offset + 1)) then
+            return false
+        end
+        offset = skip_attribute_args(ctx, offset + 2)
+        while ctx:peek(offset).kind == TokenKind.NEWLINE or ctx:peek(offset).kind == TokenKind.SEMICOLON do
+            offset = offset + 1
+        end
+    end
+
+    return DECLARATION_STARTERS[ctx:peek(offset).kind] == true
+end
+
+function ParseDeclarations._parse_hash_attributes(ctx)
     local attributes = {}
-    while ctx:peek().kind == TokenKind.AT do
-        local attr_start = ctx:advance()
-        local attr_name = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do atributo após '@'")
+
+    while ctx:check(TokenKind.HASH) and ctx:peek(1).kind == TokenKind.LBRACKET do
+        local start = ctx:advance()
+        ctx:expect(TokenKind.LBRACKET, "esperado '[' apos '#'")
+
+        if not ctx:check(TokenKind.RBRACKET) then
+            repeat
+                ctx:skip_newlines()
+                local attr_name = ctx:expect_field_name("esperado nome do atributo")
+                local args = {}
+                if ctx:match(TokenKind.LPAREN) then
+                    if not ctx:check(TokenKind.RPAREN) then
+                        repeat
+                            table.insert(args, ParseExpressions.parse_expression(ctx))
+                        until not ctx:match(TokenKind.COMMA)
+                    end
+                    ctx:expect(TokenKind.RPAREN, "esperado ')' apos argumentos do atributo")
+                end
+                table.insert(attributes, DeclSyntax.attribute_node(attr_name.lexeme, args, start.span:merge(ctx:peek(-1).span)))
+                ctx:skip_newlines()
+            until not ctx:match(TokenKind.COMMA)
+        end
+
+        ctx:expect(TokenKind.RBRACKET, "esperado ']' ao final dos atributos")
+        ctx:skip_newlines()
+    end
+
+    return attributes
+end
+
+function ParseDeclarations._parse_legacy_attributes(ctx)
+    local attributes = {}
+
+    while ctx:match(TokenKind.AT) do
+        local attr_start = ctx:peek(-1)
+        local attr_name = ctx:expect_field_name("esperado nome do atributo apos '@'")
         local args = {}
         if ctx:match(TokenKind.LPAREN) then
             if not ctx:check(TokenKind.RPAREN) then
@@ -30,10 +128,63 @@ function ParseDeclarations.parse_declaration_or_statement(ctx)
                     table.insert(args, ParseExpressions.parse_expression(ctx))
                 until not ctx:match(TokenKind.COMMA)
             end
-            ctx:expect(TokenKind.RPAREN, "esperado ')' após argumentos do atributo")
+            ctx:expect(TokenKind.RPAREN, "esperado ')' apos argumentos do atributo")
         end
+
+        if ctx.diagnostics then
+            ctx.diagnostics:report_warning(
+                "ZT-W003",
+                "atributo legado com '@' esta depreciado; use '#[...]' para atributos de declaracao",
+                attr_start.span
+            )
+        end
+
         table.insert(attributes, DeclSyntax.attribute_node(attr_name.lexeme, args, attr_start.span:merge(ctx:peek(-1).span)))
         ctx:skip_newlines()
+    end
+
+    return attributes
+end
+
+local function expand_validate_predicate(predicate)
+    local it_arg = ExprSyntax.it_ref(predicate.span)
+
+    if predicate.kind == SK.CALL_EXPR then
+        local args = predicate.arguments or {}
+        if not (args[1] and args[1].kind == SK.IT_EXPR) then
+            table.insert(args, 1, it_arg)
+        end
+        predicate.arguments = args
+        return predicate
+    end
+
+    return ExprSyntax.call(predicate, { it_arg }, predicate.span)
+end
+
+local function combine_validate_condition(existing, predicates)
+    local result = existing
+
+    for _, predicate in ipairs(predicates) do
+        if result then
+            local span = result.span:merge(predicate.span)
+            result = ExprSyntax.binary(result, { kind = TokenKind.KW_AND, lexeme = "and", span = span }, predicate, span)
+        else
+            result = predicate
+        end
+    end
+
+    return result
+end
+
+--- Ponto de entrada: decide se é declaração ou statement.
+function ParseDeclarations.parse_declaration_or_statement(ctx)
+    ctx:skip_newlines()
+    if ctx:is_at_end() then return nil end
+
+    local attributes = {}
+    append_all(attributes, ParseDeclarations._parse_hash_attributes(ctx))
+    if looks_like_legacy_decl_attributes(ctx) then
+        append_all(attributes, ParseDeclarations._parse_legacy_attributes(ctx))
     end
 
     local k = ctx:peek().kind
@@ -145,10 +296,22 @@ function ParseDeclarations._parse_pattern(ctx, allow_type_annotation)
         local t = ctx:advance()
         return ExprSyntax.identifier("_", t.span)
 
+    elseif k == TokenKind.KW_SELF then
+        local t = ctx:advance()
+        return ExprSyntax.identifier("self", t.span)
+
     elseif k == TokenKind.IDENTIFIER then
         local id = ctx:advance()
+        local node = ExprSyntax.identifier(id.lexeme, id.span)
+        local qualified = false
+
+        while ctx:match(TokenKind.DOT) do
+            local member = ctx:expect_field_name("esperado nome do membro apos '.'")
+            node = ExprSyntax.member(node, member.lexeme, node.span:merge(member.span))
+            qualified = true
+        end
         
-        -- Caso especial: Variant Pattern Variant(a, b)
+        -- Caso especial: Variant Pattern Variant(a, b), inclusive nomes qualificados.
         if ctx:match(TokenKind.LPAREN) then
             local sub_patterns = {}
             if not ctx:check(TokenKind.RPAREN) then
@@ -157,22 +320,21 @@ function ParseDeclarations._parse_pattern(ctx, allow_type_annotation)
                 until not ctx:match(TokenKind.COMMA)
             end
             local end_t = ctx:expect(TokenKind.RPAREN, "esperado ')'")
-            local node = ExprSyntax.call(ExprSyntax.identifier(id.lexeme, id.span), sub_patterns, id.span:merge(end_t.span))
-            node.kind = SK.VARIANT_PATTERN
-            return node
+            local call_node = ExprSyntax.call(node, sub_patterns, node.span:merge(end_t.span))
+            call_node.kind = SK.VARIANT_PATTERN
+            return call_node
         end
 
-        -- Caso especial: identificador seguido de { é um Struct Pattern
-        if ctx:check(TokenKind.LBRACE) then
+        -- Caso especial: identificador seguido de { e um Struct Pattern.
+        if not qualified and ctx:check(TokenKind.LBRACE) then
             local fields_node = ParseDeclarations._parse_pattern(ctx)
             fields_node.type_name = id.lexeme
             fields_node.span = id.span:merge(fields_node.span)
             return fields_node
         end
         
-        local node = ExprSyntax.identifier(id.lexeme, id.span)
-        -- Suporte a anotação de tipo no padrão: n: int
-        if allow_type_annotation and ctx:match(TokenKind.COLON) then
+        -- Suporte a anotacao de tipo no padrao: n: int.
+        if not qualified and allow_type_annotation and ctx:match(TokenKind.COLON) then
             local type_node = ParseTypes.parse_type(ctx)
             node.type_annotation = type_node
             node.span = node.span:merge(type_node.span)
@@ -344,26 +506,16 @@ function ParseDeclarations._parse_struct(ctx, is_pub)
     
     while not ctx:check(TokenKind.KW_END) and not ctx:is_at_end() do
         ctx:skip_newlines()
+        while ctx:check(TokenKind.DOC_COMMENT) do
+            ctx:advance()
+            ctx:skip_newlines()
+        end
         -- print("DEBUG: Parsing struct member, next token:", ctx:peek().kind)
         if ctx:check(TokenKind.KW_END) then break end
         
-        -- Atributos: @name(args)
         local attributes = {}
-        while ctx:match(TokenKind.AT) do
-            local attr_start = ctx:peek(-1)
-            local attr_name = ctx:expect(TokenKind.IDENTIFIER, "esperado nome do atributo após '@'")
-            local args = {}
-            if ctx:match(TokenKind.LPAREN) then
-                if not ctx:check(TokenKind.RPAREN) then
-                    repeat
-                        table.insert(args, ParseExpressions.parse_expression(ctx))
-                    until not ctx:match(TokenKind.COMMA)
-                end
-                ctx:expect(TokenKind.RPAREN, "esperado ')' após argumentos do atributo")
-            end
-            table.insert(attributes, DeclSyntax.attribute_node(attr_name.lexeme, args, attr_start.span:merge(ctx:peek(-1).span)))
-            ctx:skip_newlines()
-        end
+        append_all(attributes, ParseDeclarations._parse_hash_attributes(ctx))
+        append_all(attributes, ParseDeclarations._parse_legacy_attributes(ctx))
 
         local member_pub = ctx:match(TokenKind.KW_PUB)
         
@@ -381,11 +533,22 @@ function ParseDeclarations._parse_struct(ctx, is_pub)
                 def = ParseExpressions.parse_expression(ctx) 
             end
             
-            -- Validação: where expression
+            -- Contratos de campo: where e validate podem aparecer em qualquer ordem.
             local condition = nil
-            if ctx:match(TokenKind.KW_WHERE) then
+            while ctx:check(TokenKind.KW_WHERE) or ctx:check(TokenKind.KW_VALIDATE) do
+                if ctx:match(TokenKind.KW_WHERE) then
+                    ctx:skip_newlines()
+                    condition = combine_validate_condition(condition, { ParseExpressions.parse_expression(ctx) })
+                elseif ctx:match(TokenKind.KW_VALIDATE) then
+                    ctx:skip_newlines()
+                    local predicates = {}
+                    repeat
+                        table.insert(predicates, expand_validate_predicate(ParseExpressions.parse_expression(ctx)))
+                        ctx:skip_newlines()
+                    until not ctx:match(TokenKind.COMMA)
+                    condition = combine_validate_condition(condition, predicates)
+                end
                 ctx:skip_newlines()
-                condition = ParseExpressions.parse_expression(ctx)
             end
 
             local field_span = f_id.span:merge(ctx:peek(-1).span)
@@ -587,6 +750,11 @@ function ParseDeclarations._parse_extern(ctx, is_pub)
     local start = ctx:expect(TokenKind.KW_EXTERN, "esperado 'extern'")
     ctx:expect(TokenKind.KW_FUNC, "esperado 'func' após 'extern'")
     
+    local native_name = nil
+    if ctx:peek().kind == TokenKind.STRING_LITERAL then
+        native_name = ctx:advance().value
+    end
+
     local name_token = ctx:expect(TokenKind.IDENTIFIER, "esperado nome da função externa")
     
     ctx:expect(TokenKind.LPAREN, "esperado '('")
@@ -598,7 +766,7 @@ function ParseDeclarations._parse_extern(ctx, is_pub)
         return_type = ParseTypes.parse_type(ctx)
     end
     
-    return DeclSyntax.extern_decl(name_token.lexeme, params, return_type, is_pub, start.span:merge(ctx:peek(-1).span))
+    return DeclSyntax.extern_decl(name_token.lexeme, params, return_type, is_pub, start.span:merge(ctx:peek(-1).span), native_name)
 end
 
 function ParseDeclarations._parse_namespace(ctx)

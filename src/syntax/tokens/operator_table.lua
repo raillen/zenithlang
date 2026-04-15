@@ -61,6 +61,7 @@ OperatorTable.binary = {
 
     -- Acesso e Chamada (CALL)
     [TokenKind.DOT]           = { prec = OperatorTable.Precedence.CALL,       assoc = OperatorTable.Assoc.LEFT },
+    [TokenKind.QUESTION_DOT]  = { prec = OperatorTable.Precedence.CALL,       assoc = OperatorTable.Assoc.LEFT },
     [TokenKind.LPAREN]        = { prec = OperatorTable.Precedence.CALL,       assoc = OperatorTable.Assoc.LEFT },
     [TokenKind.LBRACKET]      = { prec = OperatorTable.Precedence.CALL,       assoc = OperatorTable.Assoc.LEFT },
     [TokenKind.LBRACE]        = { prec = OperatorTable.Precedence.CALL,       assoc = OperatorTable.Assoc.LEFT },

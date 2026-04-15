@@ -93,6 +93,14 @@ function DiagnosticBag:format(source_text)
     local parts = {}
 
     for _, d in ipairs(self.diagnostics) do
+        if not source_text or not d.span then
+            local entry = string.format("%s %s [%s]: %s",
+                d:icon(), d:label(), d.code, d.message)
+            if d.hint then
+                entry = entry .. "\nDica: " .. tostring(d.hint)
+            end
+            table.insert(parts, entry)
+        else
         local loc = source_text:get_location(d.span.start)
         local line_content = source_text:get_line(loc.line)
 
@@ -122,6 +130,7 @@ function DiagnosticBag:format(source_text)
         end
 
         table.insert(parts, entry)
+        end
     end
 
     return table.concat(parts, "\n\n")

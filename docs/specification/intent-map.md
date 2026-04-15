@@ -1,51 +1,78 @@
-# Mapa de Intenções Visuais
+# Mapa de Intencoes Visuais
 
-Este documento serve como o dicionário definitivo de todos os símbolos e operadores da linguagem Zenith. Ele define como o cérebro do programador deve interpretar cada sinal gráfico para reduzir a carga cognitiva.
+Este documento define a leitura semantica dos simbolos da trilha ativa.
 
-## 1. Símbolos de Estrutura e Bloco
+## 1. Blocos e estrutura
 
-| Símbolo | Nome | Intenção (O que o cérebro deve ler) |
-| :--- | :--- | :--- |
-| `do` | Gatilho | "Prepare-se: a ação definida anteriormente vai começar agora." |
-| `end` | Âncora | "Pare: o contexto atual foi concluído e isolado." |
-| `:` | Escopo | "Atenção: o que vem a seguir é uma lista de instruções ou uma definição de tipo." |
-| `=>` | Mapeamento | "Transformação: o valor da esquerda resulta no valor da direita." |
-| `->` | Retorno | "Saída: esta função ou operação produz este tipo de dado." |
+| Simbolo | Leitura pratica |
+| :-- | :-- |
+| end | encerra o bloco atual |
+| : | ancora tipagem de parametro, campo ou declaracao |
+| -> | ancora o tipo de retorno |
+| => | caso curto de match |
 
----
+## 2. Dados e fluxo
 
-## 2. Operadores de Fluxo e Dados
+| Simbolo | Leitura pratica |
+| :-- | :-- |
+| ? | propaga Optional ou Outcome |
+| ! | extrai de forma estrita |
+| .. | range ou slice |
+| # | operador de tamanho |
+| [] | indexacao ou acesso por chave |
 
-| Símbolo | Nome | Intenção (O que o cérebro deve ler) |
-| :--- | :--- | :--- |
-| `?` | Propagador | "Talvez: se houver um erro ou valor vazio, pare e passe para quem me chamou." |
-| `!` | Extrator | "Certeza: eu afirmo que este valor existe. Se eu estiver errado, interrompa tudo." |
-| `..` | Conector | "Sequência: todos os valores entre o início e o fim, ou todos os itens desta lista." |
-| `@` | Atributo | "Metadado: esta regra ou valor pertence ao contexto interno do objeto ou do compilador." |
-| `#` | Medidor | "Contagem: qual é o tamanho total ou a quantidade de itens desta estrutura?" |
+## 3. @, #[...] e validate
 
----
+Esses tres pontos nao devem mais ser confundidos.
 
-## 3. Comparações e Lógica
+### @
 
-| Símbolo | Nome | Intenção (O que o cérebro deve ler) |
-| :--- | :--- | :--- |
-| `=` | Atribuição | "Armazenar: o nome da esquerda agora aponta para o valor da direita." |
-| `==` | Igualdade | "Verificar: o valor da esquerda é idêntico ao da direita?" |
-| `!=` | Diferença | "Verificar: o valor da esquerda é estranho ao da direita?" |
-| `is` | Identidade | "Contrato: este objeto segue as regras deste Tipo ou Trait?" |
+@campo e acucar sintatico para self.campo.
 
----
+Leitura correta:
 
-## 4. Diferenças Semânticas Críticas (Fim da Ambiguidade)
+- @hp = campo hp do proprio objeto
+- @reset() = chame reset em self
 
-### Diferença entre `:` e `=>`
-*   **Use `:`** quando você estiver abrindo uma lista de comandos (Modo Procedural). O `:` pede um recuo de linha e foca em **O que fazer**.
-*   **Use `=>`** quando você estiver transformando um valor em outro (Modo Funcional). O `=>` geralmente termina na mesma linha e foca em **O que retornar**.
+@ nao e mais a sintaxe normativa de atributo de declaracao.
 
-### Diferença entre `->` e `:` em Funções
-*   **Use `->`** para definir o tipo de retorno final da função.
-*   **Use `:`** dentro de parênteses para definir o tipo de um parâmetro individual.
+### #[...]
 
----
-*Zenith Specification v0.3.1 - Mapa de Intenções*
+#[...] marca atributos de declaracao.
+
+Leitura correta:
+
+- #[windows] = esta declaracao tem atributo windows
+- #[deprecated("msg")] = esta declaracao esta marcada como deprecated
+
+### validate
+
+validate declara validadores reaproveitaveis para campos de struct.
+
+Leitura correta:
+
+- validate min_value(18) = o campo deve satisfazer o predicado min_value
+
+validate nao e um bloco livre; ele e sugar para composicao booleana sobre it.
+
+## 4. Acesso por ponto e por indice
+
+| Forma | Intencao |
+| :-- | :-- |
+| obj.campo | membro estrutural conhecido |
+| map["status"] | chave de mapa |
+| lista[1] | elemento de sequencia |
+
+Regra cognitiva:
+
+- . comunica estrutura
+- [] comunica chave ou posicao
+
+## 5. Filosofia de indexacao
+
+Na trilha ativa:
+
+- listas e texto sao 1-based
+- mapas nao sao 1-based; usam a chave real
+- 0 em sequencia e sinal de erro conceitual e pode gerar ZT-W002
+- acesso invalido em runtime usa ZT-R011

@@ -1,29 +1,34 @@
 # Changelog
 
-Este e o changelog canonico do Zenith dentro da nova estrutura de documentação.
+Este e o changelog canonico do Zenith dentro da estrutura atual de documentacao.
 
 ## [Unreleased]
 
 ### Changed
 
-- Ajustes de documentação e polimento editorial após a conclusao do motor Ascension.
+- documentacao principal alinhada ao estado verificado da implementacao ativa
+- roadmap de estabilizacao promovido como referencia do estado real
+- narrativa de self-hosting completo removida dos docs centrais onde ela contradizia o repositorio atual
 
 ## [0.3.0] - 2026-04-11
 
 ### Added
 
-- motor Ascension concluído como compilador auto-hospedado oficial
-- pipeline nativo consolidado para build, run e testes
-- otimizações no próprio motor, incluindo constant folding e inlining
-- distribuição multiplataforma para `@windows`, `@linux` e `@macos`
+- marco editorial Ascension para a linha 0.3.x
+- aceleracao da trilha self-hosted em Zenith
+- expansao de docs e narrativa de soberania tecnica
+- distribuicao multiplataforma para `@windows`, `@linux` e `@macos`
 - modos standalone e bundle
 - suporte nativo a FFI para C e C++
 
 ### Changed
 
-- Zenith passa a se compilar com Zenith
-- o bootstrap em Lua deixa de ser a linha principal e passa a ser legado preservado
-- o site e a documentação foram atualizados para refletir a auto-hospedagem como estado atual
+- a documentacao da epoca passou a tratar Ascension como linha principal
+- o bootstrap em Lua deixou de ser apresentado como unica narrativa do projeto
+
+### Note
+
+- o estado verificado atual do repositorio deve ser lido em `docs/roadmap_estabilizacao.md`
 
 ## [0.2.8] - 2026-04-10
 
@@ -40,7 +45,7 @@ Este e o changelog canonico do Zenith dentro da nova estrutura de documentação
 ### Changed
 
 - `std.log` recebeu formato mais estruturado
-- `std.os.process` avancou em captura e espera assíncrona
+- `std.os.process` avancou em captura e espera assincrona
 
 ## [0.2.5] - 2026-04-09
 
@@ -76,13 +81,5 @@ Este e o changelog canonico do Zenith dentro da nova estrutura de documentação
 
 - `@campo` consolidado para acesso ao self
 - `.` consolidado como base do chaining
-- variaveis passaram a exigir tipo explícito
+- variaveis passaram a exigir tipo explicito
 - `->` padronizado para retorno
-
-## [0.1.0] - 2026-03-02
-
-### Added
-
-- primeira versão funcional da linguagem
-- variaveis, funções e structs básicas
-- transpilation inicial para Lua

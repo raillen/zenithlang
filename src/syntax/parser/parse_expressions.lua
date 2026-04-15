@@ -33,6 +33,20 @@ function ParseExpressions._is_generic_start(ctx)
     end
 end
 
+--- Extrai o nome de um tipo de uma expressão (ex: 'SourceText' ou 'source.SourceText').
+function ParseExpressions._extract_type_name(expr)
+    if not expr then return nil end
+    if expr.kind == SK.IDENTIFIER_EXPR then
+        return expr.name
+    elseif expr.kind == SK.MEMBER_EXPR then
+        local left = ParseExpressions._extract_type_name(expr.object)
+        if left then
+            return left .. "." .. expr.member_name
+        end
+    end
+    return nil
+end
+
 --- Ponto de entrada para parsing de expressões.
 function ParseExpressions.parse_expression(ctx, precedence)
     precedence = precedence or 0
@@ -92,9 +106,9 @@ function ParseExpressions.parse_expression(ctx, precedence)
             local operator = ctx:advance()
             
             -- Casos Especiais de Operadores Binários
-            if kind == TokenKind.DOT then
-                local member = ctx:expect_field_name("esperado nome do campo após '.'")
-                left = ExprSyntax.member(left, member.lexeme, left.span:merge(member.span))
+            if kind == TokenKind.DOT or kind == TokenKind.QUESTION_DOT then
+                local member = ctx:expect_field_name("esperado nome do campo após '" .. operator.lexeme .. "'")
+                left = ExprSyntax.member(left, member.lexeme, left.span:merge(member.span), kind == TokenKind.QUESTION_DOT)
             
             elseif kind == TokenKind.LESS and ParseExpressions._is_generic_start(ctx) then
                 -- Genéricos: func<T>() ou Struct<T> {}
@@ -124,7 +138,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
                     local end_token = ctx:expect(TokenKind.RPAREN, "esperado ')'")
                     left = ExprSyntax.call(left, args, left.span:merge(end_token.span), generic_args)
                 elseif ctx:check(TokenKind.LBRACE) then
-                    local type_name = left.name
+                    local type_name = ParseExpressions._extract_type_name(left)
                     local start_brace = ctx:advance()
                     local fields = {}
                     if not ctx:check(TokenKind.RBRACE) then
@@ -144,8 +158,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
                         until ctx:check(TokenKind.RBRACE) or ctx:is_at_end()
                     end
                     local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
-                    left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span))
-                    left.generic_args = generic_args
+                    left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span), generic_args)
                 else
                     ctx.diagnostics:report_error("ZT-P001", "esperado '(' ou '{' após argumentos genéricos", ctx:peek().span)
                     break
@@ -176,7 +189,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
 
             elseif kind == TokenKind.LBRACE then
                 -- Struct Init padrão
-                local type_name = left.name
+                local type_name = ParseExpressions._extract_type_name(left)
                 local fields = {}
                 if not ctx:check(TokenKind.RBRACE) then
                     repeat
@@ -195,7 +208,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
                     until ctx:check(TokenKind.RBRACE) or ctx:is_at_end()
                 end
                 local end_token = ctx:expect(TokenKind.RBRACE, "esperado '}'")
-                left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span))
+                left = ExprSyntax.struct_init(type_name, fields, left.span:merge(end_token.span), nil)
 
             elseif operator.kind == TokenKind.KW_AS then
                 local ParseTypes = require("src.syntax.parser.parse_types")
@@ -208,6 +221,15 @@ function ParseExpressions.parse_expression(ctx, precedence)
                 local type_node = ParseTypes.parse_type(ctx)
                 left = ExprSyntax.is_expr(left, type_node, is_not, left.span:merge(type_node.span))
             
+            elseif kind == TokenKind.DOT_DOT then
+                -- Range: 0..5 → RANGE_EXPR com start_expr/end_expr
+                local right = ParseExpressions.parse_expression(ctx, prec)
+                if not right then
+                    ctx.diagnostics:report_error("ZT-P002", "esperada expressão após '..'", operator.span)
+                    right = ExprSyntax.literal(nil, "error", operator.span)
+                end
+                left = ExprSyntax.range(left, right, left.span:merge(right.span))
+
             else
                 -- Operadores Binários Comuns (+, -, *, / etc)
                 local assoc = OperatorTable.binary_assoc(kind)
@@ -218,11 +240,7 @@ function ParseExpressions.parse_expression(ctx, precedence)
                     right = ExprSyntax.literal(nil, "error", operator.span)
                 end
 
-                if kind == TokenKind.DOT_DOT then
-                    left = ExprSyntax.range(left, right, left.span:merge(right.span))
-                else
-                    left = ExprSyntax.binary(left, operator, right, left.span:merge(right.span))
-                end
+                left = ExprSyntax.binary(left, operator, right, left.span:merge(right.span))
             end
         end
     end

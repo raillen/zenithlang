@@ -126,7 +126,7 @@ trait Attacker
     func attack(target: Player)
 end
 
-apply Attacker for Player
+apply Attacker to Player
     func attack(target: Player)
         target.hp -= 10
     end

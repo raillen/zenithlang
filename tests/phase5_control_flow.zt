@@ -18,11 +18,11 @@ func test_control() -> int
     var val = 20
     var res = 0
     match val
-        case 10 =>
+        case 10:
             res = 1
-        case 20, 30 =>
+        case 20, 30:
             res = 2
-        else =>
+        else:
             res = 3
     end
     

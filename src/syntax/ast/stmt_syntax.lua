@@ -163,6 +163,12 @@ function StmtSyntax.check_stmt(condition, else_body, span)
     }, span)
 end
 
+function StmtSyntax.after_stmt(body, span)
+    return SyntaxNode.new(SK.AFTER_STMT, {
+        body = body, -- lista de statements
+    }, span)
+end
+
 function StmtSyntax.native_lua(lua_code, span)
     return SyntaxNode.new(SK.NATIVE_LUA_STMT, {
         lua_code = lua_code,

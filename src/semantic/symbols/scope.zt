@@ -1,0 +1,41 @@
+namespace semantic.symbols
+
+import std.collections
+
+pub struct Scope
+    pub parent: Optional<Scope>
+    pub symbols: map<text, Symbol>
+
+    pub func define(symbol: Symbol) -> bool
+        if self.symbols.contains_key(symbol.name)
+            return false
+        end
+        self.symbols[symbol.name] = symbol
+        return true
+    end
+
+    pub func lookup(name: text) -> Optional<Symbol>
+        if self.symbols.contains_key(name)
+            return Present(self.symbols[name])
+        end
+        
+        match self.parent
+            case Present(p) => return p.lookup(name)
+            case Empty      => return Empty
+        end
+    end
+end
+
+pub func create_root() -> Scope
+    return Scope {
+        parent = Empty,
+        symbols = {}
+    }
+end
+
+pub func create_child(parent: Scope) -> Scope
+    return Scope {
+        parent = Present(parent),
+        symbols = {}
+    }
+end

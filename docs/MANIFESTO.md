@@ -1,5 +1,8 @@
 # Zenith Manifesto: Soberania e Acessibilidade Cognitiva
 
+> **Estado do Projeto: Alpha Experimental (v0.3.5)**
+> Este manifesto descreve a visão completa do Zenith. O compilador atual implementa um subconjunto funcional da linguagem. Funcionalidades marcadas com `[planejado]` estão em desenvolvimento ativo e não estão disponíveis na versão atual.
+
 Este documento define a identidade, a filosofia tecnica e a visao estrategica da linguagem Zenith. Zenith nao e apenas uma ferramenta de programacao; e uma infraestrutura cognitiva projetada para transformar a complexidade em clareza.
 
 ## 1. Missao Pessoal e Inclusao

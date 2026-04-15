@@ -1,60 +1,86 @@
-# Especificação Técnica: Regras de Transpilação
+# Especificacao: Transpilacao da Trilha Ativa
 
-Este documento detalha como cada construção de alto nível do Zenith é mapeada para o código Lua final, garantindo Abstração de Custo Zero.
+Este documento resume como a trilha ativa mapeia Zenith para Lua hoje.
 
-## 1. Mapeamento de Variáveis e Funções
+## 1. Declaracoes simples
 
-| Zenith | Lua (v5.4 / LuaJIT) |
-| :--- | :--- |
-| var x = 10 | local x = 10 |
-| const PI = 3.14 | local PI = 3.14 |
-| global g = {} | _G.g = {} |
-| func f(a) -> a end | local function f(a) return a end |
+Mapeamentos diretos:
 
----
+- var x = 10 -> local x = 10
+- const PI = 3.14 -> local PI = 3.14
+- global g = {} -> _G.g = {}
 
-## 2. Estruturas de Dados (Structs)
+## 2. Structs e metodos
 
-As structs Zenith são transpiladas para tabelas Lua otimizadas com metatabelas para suporte a métodos.
+Structs continuam sendo emitidas como tabelas Lua com construtor new e metatable __index.
 
-### Exemplo de Mapeamento
-```zenith
-struct Person
-    nome: text
-end
-```
+Leitura simplificada:
 
-```lua
+~~~lua
 local Person = {}
 Person.__index = Person
 
 function Person.new(fields)
     local self = setmetatable({}, Person)
-    self.nome = fields.nome
+    self.name = fields.name
     return self
 end
-```
+~~~
 
----
+## 3. @campo e self
 
-## 3. Enums e Pattern Matching
+No dominio de expressao:
 
-Enums simples tornam-se tabelas de constantes. Enums com dados (ADTs) utilizam uma estrutura de tags interna.
+- @campo desce para self.campo
+- @metodo(args) desce para self:metodo(args)
 
-### Pattern Matching
-O statement match é desaçucarado (lowering) para uma sequência de if/elseif/else altamente eficiente, evitando o overhead de tabelas de busca em tempo de execução.
+## 4. UFCS virtual
 
----
+Quando o binder resolve um membro como metodo virtual, o codegen emite chamada para o namespace zt:
 
-## 4. Reatividade e Runtime
+- lista.len() -> zt.len(lista)
+- "a,b".split() -> zt.split("a,b", ",") quando o argumento padrao e usado
+- opt.unwrap() -> zt.unwrap(opt)
+- n.to_text() -> zt.to_text(n)
 
-A reatividade (state, computed, watch) depende de um pequeno helper de runtime (zenith_rt.lua) que utiliza proxies ou metatabelas __newindex para interceptar mudanças e propagar eventos.
+## 5. Indexacao e slices
 
----
+A trilha ativa nao emite indexacao direta para sequencias em todos os casos.
 
-## 5. Blocos Native Lua
+Mapeamento atual:
 
-O Zenith permite a injeção direta de código Lua através do bloco native lua. O compilador trata o conteúdo desses blocos como texto bruto, inserindo-os diretamente no fluxo de saída sem análise sintática ou semântica profunda.
+- lista[i] -> zt.index_seq(lista, i)
+- texto[i] -> zt.index_text(texto, i)
+- obj[i] dinamico -> zt.index_any(obj, i)
+- lista[a..b] ou texto[a..b] -> zt.slice(obj, a, b)
 
----
-*Zenith Specification v0.3.0*
+Esses helpers sao a base do erro runtime ZT-R011.
+
+## 6. where e validate
+
+validate nao sobrevive como forma propria no backend. Ele e combinado semanticamente com where antes da emissao.
+
+Leitura simplificada:
+
+- validate min_value(18), max_value(120)
+- where it <= 120
+
+vira uma unica condicao booleana equivalente a:
+
+~~~zt
+where min_value(it, 18) and max_value(it, 120) and it <= 120
+~~~
+
+## 7. Atributos de declaracao
+
+#[...] pertence ao parser e ao binder. Em geral, atributos de declaracao nao geram estrutura Lua propria na trilha ativa, salvo quando alguma etapa especifica de compilacao decidir consumi-los.
+
+## 8. Fallback com or
+
+Na trilha ativa, o operador or desce para a infraestrutura de unwrap_or.
+
+Leitura de backend:
+
+- a or b -> zt.unwrap_or(a, b)
+
+Isso sustenta a semantica de fallback usada com Optional, Outcome e valores comuns.

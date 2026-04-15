@@ -1,0 +1,15 @@
+-- Zenith Source Map
+-- Source: test_interp.zt
+return {
+  source = "test_interp.zt",
+  mappings = {
+    [20] = {line=12, col=5},
+    [17] = {line=7, col=5},
+    [15] = {line=5, col=5},
+    [18] = {line=8, col=5},
+    [22] = {line=16, col=5},
+    [19] = {line=11, col=5},
+    [16] = {line=6, col=5},
+    [21] = {line=13, col=5},
+  }
+}

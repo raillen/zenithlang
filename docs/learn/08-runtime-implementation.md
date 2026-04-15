@@ -1,61 +1,88 @@
-# Módulo 08: Implementação do Runtime (Projeto Zenith)
+# Modulo 08: Implementacao do Runtime
 
-**Objetivo**: Analisar o código que sustenta a reatividade e as funcionalidades especiais do Zenith no Lua.  
-**Público-alvo**: Contribuidores e desenvolvedores que queiram entender o motor da linguagem.  
-**Contexto**: Trilha de Implementação (Código Real)
+Objetivo: explicar o runtime real que sustenta a trilha ativa em src/backend/lua/runtime/zenith_rt.lua.
 
-## Conteúdo Principal
+## 1. Papel do runtime
 
-O coração operacional do Zenith é o arquivo `src/backend/lua/runtime/zenith_rt.lua`. Ele é uma biblioteca Lua que fornece as "rodas" para o código transpilado correr.
+O runtime da trilha ativa nao serve apenas para reatividade. Ele tambem sustenta a surface real da linguagem em tres frentes:
 
-### 1. O Sistema de Listeners Ativos
-Para que a reatividade seja automática (sem você precisar declarar dependências), o Zenith usa uma variável global interna chamada `active_listener`.
+- Optional e Outcome
+- UFCS virtual
+- indexacao segura de sequencias
 
-```lua
-local active_listener = nil -- Quem está "ouvindo" agora?
+## 2. Optional e Outcome
 
-local function push_listener(listener)
-    table.insert(listener_stack, active_listener)
-    active_listener = listener
-end
-```
+O runtime fornece o comportamento concreto para:
 
-### 2. Estados como Proxies (`zt.state`)
-Quando você cria um `state` no Zenith, o runtime cria uma metatabela Lua que intercepta o acesso ao valor.
-- No `__index` (leitura): Se houver um `active_listener`, o estado o adiciona à sua lista de observadores.
-- No `__newindex` (escrita): O estado atualiza o valor e avisa todos os observadores da lista.
+- Present e Empty
+- Success e Failure
+- unwrap
+- unwrap_or
+- is_present
+- is_empty
 
-### 3. Valores Computados (`zt.computed`)
-O `computed` é um híbrido: ele é um observador (escuta outros estados) e um observado (outros podem escutá-lo).
-Ele utiliza uma flag chamada `dirty`. O valor só é recalculado se um dos estados dos quais ele depende mudar, o que torna o Zenith extremamente eficiente.
+Na pratica, isso significa:
 
-### 4. Utilitários de Segurança
-O runtime também implementa as garantias simples da linguagem, como o operador **Bang** (`!`):
-```lua
-function zt.bang(val, msg)
-    if val == nil then
-        error(msg or "acesso a valor nulo (null!)", 2)
-    end
-    return val
-end
-```
+- Success e tratado como presente
+- Failure e tratado como vazio para fallback
+- unwrap_or(default) funciona como base do fallback da trilha ativa
 
-## Decisões e Justificativas
+## 3. UFCS virtual
 
-- **Decisão**: Usar as funções `get()` e `set()` virtuais nas metatabelas.
-- **Motivo**: O Lua não permite interceptar mudanças em chaves que já existem de forma direta sem uma tabela "proxy". Ao usar o padrão proxy em `zenith_rt.lua`, garantimos que 100% das leituras e escritas sejam capturadas pelo sistema de reatividade.
+O binder e o codegen encaminham varios metodos para helpers do namespace zt no runtime.
 
-## Exemplos de Código Real
-Veja o arquivo [zenith_rt.lua](file:///C:/Users/raillen.DESKTOP-99RJ5M6/Documents/Projetos/zenith-lang-v2/src/backend/lua/runtime/zenith_rt.lua). Observe como o método `zt.watch` inicia a "primeira execução" de uma função para que ela possa registrar suas dependências automaticamente no primeiro acesso.
+Metodos efetivos hoje:
 
-## Impactos na Implementação
-Como o runtime é escrito em Lua puro, o Zenith pode rodar em qualquer lugar que tenha um interpretador Lua (jogos, servidores, microcontroladores), levando a reatividade moderna para ambientes onde ela antes era difícil de implementar.
+- len
+- split
+- push
+- pop
+- keys
+- is_present
+- is_empty
+- unwrap
+- to_text
 
----
+Exemplos de chamadas que acabam no runtime:
 
-### 🏆 Desafio Zenith
-Abra o arquivo `src/backend/lua/runtime/zenith_rt.lua`.
-1. Localize a função `zt.is`. Como ela diferencia um tipo primitivo (como `int`) de uma `struct` customizada?
-2. Por que usamos uma `listener_stack` (pilha) em vez de apenas uma variável `active_listener` simples? (Dica: O que acontece se um `computed` depender de outro `computed`?).
+~~~zt
+var n = lista.len()
+var partes = "a,b,c".split()
+var txt = 42.to_text()
+~~~
 
-**Status**: Implementação de Runtime Analisada
+Observacao importante:
+
+- split() sem argumento usa "," como padrao na trilha ativa via caminho UFCS
+
+## 4. Indexacao segura
+
+A filosofia vigente da trilha ativa e:
+
+- listas e texto sao 1-based
+- mapas usam a chave declarada
+- acesso invalido em runtime gera erro Zenith proprio, nao erro cru do Lua
+
+Helpers de runtime:
+
+- zt.index_seq
+- zt.index_text
+- zt.index_any
+- zt.slice
+
+Codigo de diagnostico associado:
+
+- ZT-R011 para indices ou slices fora dos limites
+
+## 5. Reatividade continua existindo
+
+A camada de reatividade permanece no runtime, mas ela nao e mais a unica historia importante. Para manutencao da linguagem estabilizada, Optional, Outcome, UFCS e indexacao segura sao partes obrigatorias da leitura do arquivo.
+
+## 6. O que documentar ao tocar o runtime
+
+Sempre espelhe nos docs quando o runtime mudar estas superficies:
+
+- novos helpers UFCS
+- semantica de fallback ou unwrap_or
+- politica de indexacao
+- codigos de erro runtime

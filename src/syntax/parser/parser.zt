@@ -1,0 +1,597 @@
+namespace syntax.parser
+
+import syntax.lexer
+import syntax.tokens
+import syntax.ast
+import source.span as source
+import std.collections
+
+pub struct Parser
+    pub tokens: list<tokens.Token>
+    pub pos: int
+    pub diagnostics: Optional<any> -- TODO: DiagnosticBag
+
+    func current() -> tokens.Token
+        return self.tokens[self.pos]
+    end
+
+    func peek(offset: int = 1) -> tokens.Token
+        var target = self.pos + offset
+        if target > #self.tokens
+            return self.tokens[#self.tokens]
+        end
+        return self.tokens[target]
+    end
+
+    func advance() -> tokens.Token
+        var t = self.current()
+        if t.kind != tokens.TokenKind.EOF
+            self.pos += 1
+        end
+        return t
+    end
+
+    func expect(kind: tokens.TokenKind, error_msg: text = "") -> tokens.Token
+        var t = self.current()
+        if t.kind == kind
+            return self.advance()
+        end
+        -- TODO: Reportar erro formalment
+        native lua
+            error("Zenith Parser Error: " .. (error_msg ~= "" and error_msg or ("Esperado " .. tostring(kind) .. " mas encontrou " .. tostring(t.kind))) .. " na posicao " .. tostring(t.span.start))
+        end
+        return self.advance()
+    end
+
+    func is_at_end() -> bool
+        return self.current().kind == tokens.TokenKind.EOF
+    end
+
+    --- Ponto de entrada
+    pub func parse_compilation_unit() -> ast.Node
+        var declarations = []
+        var imports = []
+        var ns = ""
+
+        -- Namespace opcional no topo
+        if self.current().kind == tokens.TokenKind.KW_NAMESPACE
+            self.advance()
+            ns = self.expect(tokens.TokenKind.IDENTIFIER).lexeme
+        end
+
+        while not self.is_at_end()
+            var k = self.current().kind
+            match k
+                case tokens.TokenKind.NEWLINE  => self.advance()
+                case tokens.TokenKind.KW_IMPORT => imports.add(self.parse_import())
+                case _ => declarations.add(self.parse_declaration())
+            end
+        end
+        
+        return ast.Node.CompilationUnit(ast.CompilationUnitNode {
+            ns_name = ns,
+            imports = imports,
+            declarations = declarations,
+            span = source.Span { start = 1, length = 0 } -- TODO
+        })
+    end
+
+    func parse_import() -> ast.Node
+        var start_t = self.advance() -- import
+        var path = self.expect(tokens.TokenKind.IDENTIFIER).lexeme
+        while self.current().kind == tokens.TokenKind.DOT
+            self.advance()
+            path += "." + self.expect(tokens.TokenKind.IDENTIFIER).lexeme
+        end
+
+        var alias = Empty
+        if self.current().kind == tokens.TokenKind.KW_AS
+            self.advance()
+            alias = Present(self.expect(tokens.TokenKind.IDENTIFIER).lexeme)
+        end
+
+        return ast.Node.ImportDecl(ast.ImportDeclNode {
+            path = path,
+            alias = alias,
+            span = start_t.span
+        })
+    end
+
+    func parse_declaration() -> ast.Node
+        var is_pub = false
+        if self.current().kind == tokens.TokenKind.KW_PUB
+            self.advance()
+            is_pub = true
+        end
+
+        var t = self.current()
+        match t.kind
+            case tokens.TokenKind.KW_FUNC   => return self.parse_func_decl(is_pub)
+            case tokens.TokenKind.KW_STRUCT => return self.parse_struct_decl(is_pub)
+            case tokens.TokenKind.KW_ENUM   => return self.parse_enum_decl(is_pub)
+            case tokens.TokenKind.KW_VAR    => return self.parse_var_decl(is_pub, false)
+            case tokens.TokenKind.KW_CONST  => return self.parse_var_decl(is_pub, true)
+            case tokens.TokenKind.KW_EXTERN => return self.parse_extern_decl()
+            case _ => return self.parse_statement()
+        end
+    end
+
+    func parse_var_decl(is_pub: bool, is_const: bool) -> ast.Node
+        var start_t = self.advance() -- var/const
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        
+        var type_node = Empty
+        if self.current().kind == tokens.TokenKind.COLON
+            self.advance()
+            type_node = Present(self.parse_type())
+        end
+
+        var initializer = Empty
+        if self.current().kind == tokens.TokenKind.EQUAL
+            self.advance()
+            initializer = Present(self.parse_expression(0))
+        end
+
+        return ast.Node.VarDecl(ast.VarDeclNode {
+            name = id.lexeme,
+            type_node = type_node,
+            initializer = initializer,
+            is_pub = is_pub,
+            is_const = is_const,
+            is_global = false, -- Determinado pelo binder geralmente
+            span = start_t.span
+        })
+    end
+
+    func parse_func_decl(is_pub: bool) -> ast.Node
+        var start_t = self.advance() -- func
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        
+        self.expect(tokens.TokenKind.LPAREN)
+        var params = []
+        if self.current().kind != tokens.TokenKind.RPAREN
+            while true
+                params.add(self.parse_param())
+                if self.current().kind == tokens.TokenKind.COMMA
+                    self.advance()
+                else
+                    break
+                end
+            end
+        end
+        self.expect(tokens.TokenKind.RPAREN)
+
+        var ret_type = Empty
+        if self.current().kind == tokens.TokenKind.ARROW
+            self.advance()
+            ret_type = Present(self.parse_type())
+        end
+
+        var body = self.parse_block()
+
+        return ast.Node.FuncDecl(ast.FuncDeclNode {
+            name = id.lexeme,
+            params = params,
+            return_type = ret_type,
+            body = body,
+            is_pub = is_pub,
+            is_async = false, -- TODO
+            span = start_t.span
+        })
+    end
+
+    func parse_param() -> ast.ParamNode
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        var type_node = Empty
+        if self.current().kind == tokens.TokenKind.COLON
+            self.advance()
+            type_node = Present(self.parse_type())
+        end
+        return ast.ParamNode {
+            name = id.lexeme,
+            type_node = type_node,
+            span = id.span
+        }
+    end
+
+    func parse_struct_decl(is_pub: bool) -> ast.Node
+        var start_t = self.advance() -- struct
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        
+        var members = []
+        while not self.is_at_end() and self.current().kind != tokens.TokenKind.KW_END
+            if self.current().kind == tokens.TokenKind.NEWLINE
+                self.advance()
+            else
+                members.add(self.parse_declaration())
+            end
+        end
+        self.expect(tokens.TokenKind.KW_END)
+
+        -- Separar campos e métodos (geralmente feito pelo parser ou binder)
+        var fields = []
+        var methods = []
+        for m in members
+            match m
+                case ast.Node.VarDecl(v)  => fields.add(m)
+                case ast.Node.FuncDecl(f) => methods.add(m)
+                case _ => -- Erro opcional
+            end
+        end
+
+        return ast.Node.StructDecl(ast.StructDeclNode {
+            name = id.lexeme,
+            fields = fields,
+            methods = methods,
+            is_pub = is_pub,
+            span = start_t.span
+        })
+    end
+
+    func parse_enum_decl(is_pub: bool) -> ast.Node
+        var start_t = self.advance() -- enum
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        
+        var members = []
+        while not self.is_at_end() and self.current().kind != tokens.TokenKind.KW_END
+            if self.current().kind == tokens.TokenKind.NEWLINE
+                self.advance()
+            elif self.current().kind == tokens.TokenKind.IDENTIFIER
+                members.add(self.advance().lexeme)
+            else
+                self.advance()
+            end
+        end
+        self.expect(tokens.TokenKind.KW_END)
+
+        return ast.Node.EnumDecl(ast.EnumDeclNode {
+            name = id.lexeme,
+            members = members,
+            is_pub = is_pub,
+            span = start_t.span
+        })
+    end
+
+    func parse_extern_decl() -> ast.Node
+        var start_t = self.advance() -- extern
+        var lib = self.expect(tokens.TokenKind.STRING_LITERAL).lexeme
+        
+        var methods = []
+        while not self.is_at_end() and self.current().kind != tokens.TokenKind.KW_END
+            if self.current().kind == tokens.TokenKind.KW_FUNC
+                methods.add(self.parse_func_decl(true))
+            else
+                self.advance()
+            end
+        end
+        self.expect(tokens.TokenKind.KW_END)
+
+        return ast.Node.ExternDecl(ast.ExternDeclNode {
+            library = lib,
+            methods = methods,
+            span = start_t.span
+        })
+    end
+
+    func parse_statement() -> ast.Node
+        var k = self.current().kind
+        match k
+            case tokens.TokenKind.KW_IF     => return self.parse_if()
+            case tokens.TokenKind.KW_WHILE  => return self.parse_while()
+            case tokens.TokenKind.KW_FOR    => return self.parse_for()
+            case tokens.TokenKind.KW_REPEAT => return self.parse_repeat()
+            case tokens.TokenKind.KW_MATCH  => return self.parse_match()
+            case tokens.TokenKind.KW_RETURN => return self.parse_return()
+            case tokens.TokenKind.KW_NATIVE => return self.parse_native_stmt()
+            case _ =>
+                var expr = self.parse_expression(0)
+                return ast.Node.ExprStmt(ast.ExprStmtNode {
+                    expression = expr,
+                    span = expr.span -- TODO: Real span
+                })
+        end
+    end
+
+    func parse_if() -> ast.Node
+        var start_t = self.advance() -- if
+        var cond = self.parse_expression(0)
+        var initial_body = self.parse_block_unclosed() -- Pega o corpo até elif/else/end
+        
+        var elifs = []
+        var else_body = Empty
+        
+        while not self.is_at_end()
+            var k = self.current().kind
+            if k == tokens.TokenKind.KW_ELIF
+                var elif_t = self.advance()
+                var e_cond = self.parse_expression(0)
+                var e_body = self.parse_block_unclosed()
+                elifs.add(ast.ElifClauseNode { condition = e_cond, body = e_body, span = elif_t.span })
+            elif k == tokens.TokenKind.KW_ELSE
+                self.advance()
+                else_body = Present(self.parse_block_unclosed())
+            elif k == tokens.TokenKind.KW_END
+                self.advance()
+                break
+            else
+                self.advance() -- Fallback
+            end
+        end
+
+        return ast.Node.IfStmt(ast.IfStmtNode {
+            condition = cond,
+            then_body = initial_body,
+            elif_clauses = elifs,
+            else_body = else_body,
+            span = start_t.span
+        })
+    end
+
+    func parse_while() -> ast.Node
+        var start_t = self.advance()
+        var cond = self.parse_expression(0)
+        var body = self.parse_block()
+        return ast.Node.WhileStmt(ast.WhileStmtNode {
+            condition = cond,
+            body = body,
+            span = start_t.span
+        })
+    end
+
+    func parse_for() -> ast.Node
+        var start_t = self.advance()
+        var vars = []
+        vars.add(self.expect(tokens.TokenKind.IDENTIFIER).lexeme)
+        if self.current().kind == tokens.TokenKind.COMMA
+            self.advance()
+            vars.add(self.expect(tokens.TokenKind.IDENTIFIER).lexeme)
+        end
+        self.expect(tokens.TokenKind.KW_IN)
+        var iter = self.parse_expression(0)
+        var body = self.parse_block()
+        return ast.Node.ForInStmt(ast.ForInStmtNode {
+            variables = vars,
+            iterable = iter,
+            body = body,
+            span = start_t.span
+        })
+    end
+
+    func parse_repeat() -> ast.Node
+        var start_t = self.advance()
+        var count = self.parse_expression(0)
+        if self.current().kind == tokens.TokenKind.KW_TIMES
+            self.advance()
+        end
+        var body = self.parse_block()
+        return ast.Node.RepeatStmt(ast.RepeatStmtNode {
+            count_expr = count,
+            body = body,
+            span = start_t.span
+        })
+    end
+
+    func parse_match() -> ast.Node
+        var start_t = self.advance()
+        var expr = self.parse_expression(0)
+        
+        var cases = []
+        var else_case = Empty
+        
+        while not self.is_at_end() and self.current().kind != tokens.TokenKind.KW_END
+            if self.current().kind == tokens.TokenKind.KW_CASE
+                var ct = self.advance()
+                var patterns = []
+                while true
+                    patterns.add(self.parse_expression(0))
+                    if self.current().kind == tokens.TokenKind.COMMA
+                        self.advance()
+                    else
+                        break
+                    end
+                end
+                self.expect(tokens.TokenKind.FAT_ARROW)
+                var body = self.parse_block_unclosed()
+                cases.add(ast.MatchCaseNode { patterns = patterns, body = body, span = ct.span })
+            elif self.current().kind == tokens.TokenKind.KW_ELSE
+                self.advance()
+                self.expect(tokens.TokenKind.FAT_ARROW)
+                else_case = Present(self.parse_block_unclosed())
+            else
+                self.advance()
+            end
+        end
+        self.expect(tokens.TokenKind.KW_END)
+
+        return ast.Node.MatchStmt(ast.MatchStmtNode {
+            expression = expr,
+            cases = cases,
+            else_case = else_case,
+            span = start_t.span
+        })
+    end
+
+    func parse_return() -> ast.Node
+        var start_t = self.advance()
+        var expr = Empty
+        if self.current().kind != tokens.TokenKind.NEWLINE and self.current().kind != tokens.TokenKind.KW_END
+            expr = Present(self.parse_expression(0))
+        end
+        return ast.Node.ReturnStmt(ast.ReturnStmtNode {
+            expression = expr,
+            span = start_t.span
+        })
+    end
+
+    func parse_native_stmt() -> ast.Node
+        var start_t = self.advance() -- native
+        var id = self.expect(tokens.TokenKind.IDENTIFIER) -- lua
+        
+        var code = ""
+        var depth = 1
+        while not self.is_at_end()
+            var t = self.advance()
+            match t.kind
+                case tokens.TokenKind.KW_IF, tokens.TokenKind.KW_DO, tokens.TokenKind.KW_FUNC, tokens.TokenKind.KW_WHILE, tokens.TokenKind.KW_FOR, tokens.TokenKind.KW_REPEAT =>
+                    depth += 1
+                case tokens.TokenKind.KW_END =>
+                    depth -= 1
+                    if depth == 0 break end
+                case _ => -- Keep going
+            end
+            if code != "" code += " " end
+            code += t.lexeme
+        end
+        
+        return ast.Node.NativeLuaStmt(ast.NativeLuaStmtNode {
+            lua_code = code,
+            span = start_t.span
+        })
+    end
+
+    func parse_block() -> list<ast.Node>
+        if self.current().kind == tokens.TokenKind.KW_DO
+            self.advance()
+        end
+        var body = self.parse_block_unclosed()
+        self.expect(tokens.TokenKind.KW_END)
+        return body
+    end
+
+    func parse_block_unclosed() -> list<ast.Node>
+        var body = []
+        while not self.is_at_end() 
+            var k = self.current().kind
+            if k == tokens.TokenKind.KW_END or k == tokens.TokenKind.KW_ELSE or k == tokens.TokenKind.KW_ELIF or k == tokens.TokenKind.KW_CASE
+                break
+            end
+            
+            if k == tokens.TokenKind.NEWLINE
+                self.advance()
+            else
+                body.add(self.parse_statement())
+            end
+        end
+        return body
+    end
+
+    --- EXPRESSÕES (Pratt)
+    func parse_expression(precedence: int) -> ast.Node
+        var left = self.parse_prefix()
+        
+        while precedence < self.get_precedence(self.current().kind)
+            left = self.parse_infix(left)
+        end
+        
+        return left
+    end
+
+    func parse_prefix() -> ast.Node
+        var t = self.advance()
+        match t.kind
+            case tokens.TokenKind.INTEGER_LITERAL => 
+                return ast.Node.Literal(ast.LiteralExprNode { literal_type = "int", value = t.value, span = t.span })
+            case tokens.TokenKind.FLOAT_LITERAL => 
+                return ast.Node.Literal(ast.LiteralExprNode { literal_type = "float", value = t.value, span = t.span })
+            case tokens.TokenKind.STRING_LITERAL => 
+                return ast.Node.Literal(ast.LiteralExprNode { literal_type = "text", value = t.value, span = t.span })
+            case tokens.TokenKind.KW_TRUE => return ast.Node.Literal(ast.LiteralExprNode { literal_type = "bool", value = true, span = t.span })
+            case tokens.TokenKind.KW_FALSE => return ast.Node.Literal(ast.LiteralExprNode { literal_type = "bool", value = false, span = t.span })
+            case tokens.TokenKind.KW_NULL => return ast.Node.Literal(ast.LiteralExprNode { literal_type = "null", value = Empty, span = t.span })
+            
+            case tokens.TokenKind.IDENTIFIER => 
+                return ast.Node.Identifier(ast.IdentifierExprNode { name = t.lexeme, span = t.span })
+            
+            case tokens.TokenKind.LPAREN =>
+                var expr = self.parse_expression(0)
+                self.expect(tokens.TokenKind.RPAREN)
+                return expr
+                
+            case tokens.TokenKind.KW_NATIVE => 
+                self.expect(tokens.TokenKind.IDENTIFIER) -- lua
+                var code = ""
+                while not self.is_at_end() and self.current().kind != tokens.TokenKind.KW_END
+                    code += " " + self.advance().lexeme
+                end
+                self.expect(tokens.TokenKind.KW_END)
+                return ast.Node.NativeLuaExpr(ast.NativeLuaExprNode { lua_code = code, span = t.span })
+
+            case _ => return ast.Node.BadNode
+        end
+    end
+
+    func parse_infix(left: ast.Node) -> ast.Node
+        var op = self.advance()
+        var prec = self.get_precedence(op.kind)
+        
+        match op.kind
+            case tokens.TokenKind.LPAREN => return self.parse_call(left)
+            case tokens.TokenKind.DOT    => 
+                var name = self.expect(tokens.TokenKind.IDENTIFIER).lexeme
+                return ast.Node.Member(ast.MemberExprNode { object = left, member_name = name, span = op.span })
+            case tokens.TokenKind.LBRACKET =>
+                var idx = self.parse_expression(0)
+                self.expect(tokens.TokenKind.RBRACKET)
+                return ast.Node.Index(ast.IndexExprNode { object = left, index = idx, span = op.span })
+            case _ =>
+                var right = self.parse_expression(prec)
+                return ast.Node.Binary(ast.BinaryExprNode { left = left, operator = op, right = right, span = op.span })
+        end
+    end
+
+    func parse_call(callee: ast.Node) -> ast.Node
+        var args = []
+        if self.current().kind != tokens.TokenKind.RPAREN
+            while true
+                args.add(self.parse_expression(0))
+                if self.current().kind == tokens.TokenKind.COMMA
+                    self.advance()
+                else
+                    break
+                end
+            end
+        end
+        var end_t = self.expect(tokens.TokenKind.RPAREN)
+        return ast.Node.Call(ast.CallExprNode { callee = callee, arguments = args, span = end_t.span })
+    end
+
+    func get_precedence(kind: tokens.TokenKind) -> int
+        match kind
+            case tokens.TokenKind.DOT, tokens.TokenKind.LPAREN, tokens.TokenKind.LBRACKET => return 100
+            case tokens.TokenKind.STAR, tokens.TokenKind.SLASH, tokens.TokenKind.PERCENT  => return 80
+            case tokens.TokenKind.PLUS, tokens.TokenKind.MINUS, tokens.TokenKind.DOT_DOT   => return 70
+            case tokens.TokenKind.LESS, tokens.TokenKind.GREATER, tokens.TokenKind.LESS_EQUAL, tokens.TokenKind.GREATER_EQUAL => return 60
+            case tokens.TokenKind.EQUAL_EQUAL, tokens.TokenKind.BANG_EQUAL => return 50
+            case tokens.TokenKind.KW_AND => return 40
+            case tokens.TokenKind.KW_OR  => return 30
+            case _ => return 0
+        end
+    end
+
+    func parse_type() -> ast.Node
+        var id = self.expect(tokens.TokenKind.IDENTIFIER)
+        if self.current().kind == tokens.TokenKind.LESS
+            self.advance() -- <
+            var args = []
+            while true
+                args.add(self.parse_type())
+                if self.current().kind == tokens.TokenKind.COMMA
+                    self.advance()
+                else
+                    break
+                end
+            end
+            self.expect(tokens.TokenKind.GREATER)
+            return ast.Node.GenericType(ast.GenericTypeNode { base_type = id.lexeme, type_arguments = args, span = id.span })
+        end
+        return ast.Node.NamedType(ast.NamedTypeNode { name = id.lexeme, span = id.span })
+    end
+end
+
+pub func create(toks: list<tokens.Token>) -> Parser
+    return Parser {
+        tokens = toks,
+        pos = 1,
+        diagnostics = Empty
+    }
+end

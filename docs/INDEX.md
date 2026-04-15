@@ -1,42 +1,43 @@
-# Portal de Documentação Zenith (v0.3.1)
+# Portal de Documentacao Zenith
 
-Bem-vindo ao ponto de entrada único para o conhecimento técnico do ecossistema Zenith. Esta documentação foi projetada para oferecer baixo atrito neural, sendo otimizada para desenvolvedores com TDAH e Dislexia.
+Este e o ponto de entrada principal da documentacao tecnica do Zenith.
 
-## 1. Fundação e Visão
-Documentos que definem a identidade e o futuro da linguagem.
+## 1. Estado Real do Projeto
 
-*   [Manifesto Zenith](MANIFESTO.md): Filosofia, pilares técnicos e compromisso com acessibilidade.
-*   [Mapa de Intenções Visuais](specification/intent-map.md): O dicionário definitivo de símbolos e operadores.
-*   [Cronograma Mestre](roadmap/MASTER.md): Visão unificada da evolução (v0.2 -> v1.0).
+- [Roadmap de Estabilizacao](roadmap_estabilizacao.md): estado verificado da implementacao ativa, com fases concluidas, fases parciais e trilha self-hosted separada
+- [Cronograma Mestre](roadmap/MASTER.md): visao editorial e historica da evolucao do projeto
 
-## 2. Guia de Aprendizado (Learn)
-Trilha pedagógica para dominar o Zenith.
+## 2. Fundacao e Visao
 
-*   [Manual de Sintaxe](learn/handbook/syntax.md): Guia prático de construção de código.
-*   [Manual de Idiomatismos](learn/handbook/idioms.md): Melhores práticas e padrões industriais.
-*   [Teoria do Compilador](learn/): Entenda como Lexers, Parsers e Binders funcionam.
+- [Manifesto Zenith](MANIFESTO.md): filosofia, pilares tecnicos e compromisso com acessibilidade
+- [Mapa de Intencoes Visuais](specification/intent-map.md): dicionario de simbolos e operadores
 
-## 3. Especificação Técnica (Specification)
-As regras formais que governam o compilador Ascension.
+## 3. Guia de Aprendizado
 
-*   [Gramática e Sintaxe](specification/grammar.md): Regras de formação de frases e blocos.
-*   [Sistema de Tipos](specification/types.md): Detalhes sobre ADTs, Genéricos e Traits.
-*   [Semântica e Escopo](specification/semantics.md): Como o Zenith resolve nomes e gerencia estados.
-*   [Regras de Transpilação](specification/transpilation.md): Mapeamento de Zenith para LuaJIT.
-*   [Sistema de Projeto](specification/project-system.md): Gestão de módulos, ZPM e arquivos .zdoc.
+- [Manual de Sintaxe](learn/handbook/syntax.md): guia pratico da surface syntax atual
+- [Manual de Idiomatismos](learn/handbook/idioms.md): melhores praticas para a trilha ativa
+- [Teoria do Compilador](learn/): lexer, parser, binder e runtime
 
-## 4. O Motor Ascension (Engine)
-A arquitetura interna do compilador soberano.
+## 4. Especificacao Tecnica
 
-*   [Visão do Motor](engine/01-vision.md): A pipeline de compilação e estratégias de build.
-*   [Plano de Testes](roadmap/ascension-tests.md): Validação exaustiva das 10 fases da soberania.
+- [Gramatica e Sintaxe](specification/grammar.md): regras formais implementadas hoje
+- [Sistema de Tipos](specification/types.md): genericos, Optional, Outcome, nulabilidade e validate
+- [Semantica e Escopo](specification/semantics.md): resolucao de nomes, UFCS e indexacao segura
+- [Regras de Transpilacao](specification/transpilation.md): mapeamento de Zenith para Lua
+- [Sistema de Projeto](specification/project-system.md): modulos, pacotes e organizacao
+- [RFC 001 - Self, Atributos e Validate](specification/decisions/001-self-attrs-validate.md): decisao implementada para @, #[...] e validate
 
-## 5. Suporte e API
-Referência prática para o dia a dia.
+## 5. Engine e Runtime
 
-*   [Biblioteca Padrão (std.*)](api/): Referência técnica de todos os módulos oficiais.
-*   [Catálogo de Erros](support/error-catalog.md): Guia de solução para diagnósticos ZT-XXXX.
-*   [Zenith Crowbar](support/): Ferramentas de manutenção, depuração e IDE.
+- [Visao do Motor](engine/01-vision.md): pipeline geral de compilacao
+- [Plano de Testes Ascension](roadmap/ascension-tests.md): suites e metas de validacao
+- [Ascension Compiler](compiler/ascension-zenith.md): estado atual da trilha self-hosted
+
+## 6. API e Suporte
+
+- [Biblioteca Padrao](api/): referencia dos modulos std.*, incluindo std.core, std.text e std.validation
+- [Catalogo de Erros](support/error-catalog.md): diagnosticos de compilacao, warnings e runtime
+- [Zenith Crowbar e suporte](support/): manutencao, depuracao e IDE
 
 ---
-*Zenith: Soberania Técnica e Clareza Visual.*
+Zenith: clareza sintatica, previsibilidade semantica e soberania tecnica.

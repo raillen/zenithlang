@@ -59,6 +59,7 @@ local SyntaxKind = {
     MATCH_STMT              = "MATCH_STMT",            -- match expr: ... end
     THROW_STMT              = "THROW_STMT",            -- throw expr
     CHECK_STMT              = "CHECK_STMT",            -- check expr else ... end
+    AFTER_STMT              = "AFTER_STMT",            -- after ...
     NATIVE_LUA_STMT         = "NATIVE_LUA_STMT",       -- native lua ... end
 
     -- ================================================================

@@ -1,0 +1,12 @@
+-- Zenith Source Map
+-- Source: test_list.zt
+return {
+  source = "test_list.zt",
+  mappings = {
+    [13] = {line=2, col=5},
+    [15] = {line=4, col=5},
+    [18] = {line=7, col=5},
+    [14] = {line=3, col=5},
+    [16] = {line=5, col=9},
+  }
+}

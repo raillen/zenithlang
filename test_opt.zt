@@ -1,0 +1,7 @@
+pub func test_opt() -> any
+    var x: any = Optional.Empty
+    if x == Optional.Empty
+        return Optional.Empty
+    end
+    return x
+end

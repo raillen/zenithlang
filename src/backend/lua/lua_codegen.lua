@@ -59,6 +59,12 @@ end
 -- Emissão
 -- ----------------------------------------------------------------------------
 
+function LuaCodegen:_escape_id(id)
+    -- Por enquanto, apenas retorna o ID. 
+    -- Se no futuro tivermos keywords do Zenith que conflitam com Lua, tratamos aqui.
+    return id
+end
+
 function LuaCodegen:emit(text)
     local indent = string.rep("    ", self.indent_level)
     table.insert(self.output, indent .. text)
@@ -172,7 +178,7 @@ function LuaCodegen:_emit_compilation_unit(node)
         end
     end
 
-    if main_found then
+    if main_found and not self.skip_exports then
         self:emit("")
         self:emit("-- Auto-run main if not in a namespace")
         self:emit(string.format("if not %s then", self.has_namespace and "true" or "false"))
@@ -276,8 +282,10 @@ end
 
 function LuaCodegen:_emit_extern_decl(node)
     if node.is_pub then table.insert(self.pub_members, node.name) end
-    -- Gera vinculação FFI (LuaJIT pattern)
-    self:emit(string.format("local %s = zt.ffi_bind(%q)", node.name, node.name))
+    -- Gera vinculação FFI (LuaJIT pattern) ou Global Lua
+    local escaped_name = self:_escape_id(node.name)
+    local symbol_name = node.native_name or node.name
+    self:emit(string.format("local %s = zt.ffi_bind(%q)", escaped_name, symbol_name))
 end
 
 function LuaCodegen:_emit_type_alias_decl(node)
@@ -320,7 +328,11 @@ function LuaCodegen:_emit_func_decl(node, struct_name)
     end
     
     local names = {}
-    for _, p in ipairs(node.params or {}) do table.insert(names, p.name) end
+    for i, p in ipairs(node.params or {}) do
+        if not (struct_name and i == 1 and p.name == "self") then
+            table.insert(names, p.name)
+        end
+    end
     local params_str = table.concat(names, ", ")
     
     self:emit(string.format("function %s(%s)", name, params_str))
@@ -339,7 +351,7 @@ function LuaCodegen:_emit_async_func_decl(node)
 
     self:emit(string.format("function %s(%s) ", node.name, params_str))
     self:indent()
-    self:emit("return zt.async_run(function(...)")
+    self:emit("return zt.async(function(...)")
     self:indent()
     for _, stmt in ipairs(node.body) do self:_emit_node(stmt) end
     self:dedent()
@@ -390,10 +402,12 @@ function LuaCodegen:_emit_struct_decl(node)
     self:indent()
     self:emit(string.format("local self = setmetatable({}, %s)", name))
     for _, field in ipairs(node.fields) do
-        local init = field.initializer and self:_eval(field.initializer) or "nil"
-        if field.where_clause then
+        local default_value = field.default_value or field.initializer
+        local condition = field.condition or field.where_clause
+        local init = default_value and self:_eval(default_value) or "nil"
+        if condition then
             self:emit(string.format("local _val = fields.%s or %s", field.name, init))
-            local cond = self:_eval_with_it(field.where_clause, "_val")
+            local cond = self:_eval_with_it(condition, "_val")
             self:emit(string.format("if not (%s) then error(\"violacao de contrato no campo '%s' da struct '%s'\") end", cond, field.name, name))
             self:emit(string.format("self.%s = _val", field.name))
         else
@@ -422,8 +436,17 @@ end
 
 function LuaCodegen:_emit_expr_stmt(node) self:emit(self:_eval(node.expression)) end
 
+function LuaCodegen:_eval_lvalue(node)
+    if node.kind == SK.INDEX_EXPR and node.index_expr and node.index_expr.kind ~= SK.RANGE_EXPR then
+        return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+    elseif node.kind == SK.SELF_FIELD_EXPR then
+        return string.format("self.%s", node.field_name)
+    end
+    return self:_eval(node)
+end
+
 function LuaCodegen:_emit_assign_stmt(node)
-    self:emit(string.format("%s = %s", self:_eval(node.target), self:_eval(node.value)))
+    self:emit(string.format("%s = %s", self:_eval_lvalue(node.target), self:_eval(node.value)))
 end
 
 function LuaCodegen:_emit_break_stmt(node)
@@ -440,8 +463,9 @@ end
 function LuaCodegen:_emit_compound_assign_stmt(node)
     local op_map = { ["+="] = "+", ["-="] = "-", ["*="] = "*", ["/="] = "/" }
     local op = op_map[node.operator.lexeme]
-    local target = self:_eval(node.target)
-    self:emit(string.format("%s = %s %s %s", target, target, op, self:_eval(node.value)))
+    local target = self:_eval_lvalue(node.target)
+    local current = self:_eval(node.target)
+    self:emit(string.format("%s = %s %s %s", target, current, op, self:_eval(node.value)))
 end
 
 function LuaCodegen:_emit_check_stmt(node)
@@ -569,7 +593,7 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.SELF_FIELD_EXPR then return "self." .. node.field_name
     elseif node.kind == SK.BINARY_EXPR then
         local op_map = { ["+"] = "+", ["-"] = "-", ["*"] = "*", ["/"] = "/", ["=="] = "==", ["!="] = "~=", ["and"] = "and", ["or"] = "or", ["+"] = ".." }
-        local op = node.operator.lexeme
+        local op = type(node.operator) == "table" and (node.operator.lexeme or node.operator.kind) or node.operator
         if op == "+" then return string.format("zt.add(%s, %s)", self:_eval(node.left), self:_eval(node.right))
         elseif op == "or" then return string.format("zt.unwrap_or(%s, %s)", self:_eval(node.left), self:_eval(node.right)) end
         return string.format("(%s %s %s)", self:_eval(node.left), op_map[op] or op, self:_eval(node.right))
@@ -577,18 +601,41 @@ function LuaCodegen:_eval(node)
         local op = node.operator.lexeme == "not" and "not " or "-"
         return string.format("%s%s", op, self:_eval(node.operand))
     elseif node.kind == SK.CALL_EXPR then
+        if node.callee.kind == SK.MEMBER_EXPR and node.callee.member_name == "new" then
+            local named_fields = {}
+            local all_named = #(node.arguments or {}) > 0
+            for _, arg in ipairs(node.arguments or {}) do
+                if type(arg) == "table" and arg.kind == "NAMED" then
+                    table.insert(named_fields, string.format("[%q] = %s", arg.name, self:_eval(arg.value)))
+                else
+                    all_named = false
+                    break
+                end
+            end
+            if all_named then
+                return string.format("%s.new({%s})", self:_eval(node.callee.object), table.concat(named_fields, ", "))
+            end
+        end
+
         local args = {}
         for _, arg in ipairs(node.arguments) do table.insert(args, self:_eval(arg)) end
         if node.callee.kind == SK.MEMBER_EXPR then
             local obj_name = node.callee.object.name
+            local member_name = node.callee.member_name or node.callee.name
+            if node.callee.is_ufcs then
+                table.insert(args, 1, self:_eval(node.callee.object))
+                local runtime_ufcs = { len = true, split = true, push = true, pop = true, keys = true, is_empty = true, is_present = true, is_success = true, is_failure = true, unwrap = true, unwrap_or = true, to_text = true }
+                local fn_name = runtime_ufcs[member_name] and ("zt." .. member_name) or member_name
+                return string.format("%s(%s)", fn_name, table.concat(args, ", "))
+            end
             local is_module = obj_name and self.imports[obj_name]
-            if is_module then return string.format("%s.%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", "))
-            else return string.format("%s:%s(%s)", self:_eval(node.callee.object), node.callee.member_name, table.concat(args, ", ")) end
+            if is_module then return string.format("%s.%s(%s)", self:_eval(node.callee.object), member_name, table.concat(args, ", "))
+            else return string.format("%s:%s(%s)", self:_eval(node.callee.object), member_name, table.concat(args, ", ")) end
         elseif node.callee.kind == SK.SELF_FIELD_EXPR then
             -- Chamadas usando @name(args) ou self.name(args)
             return string.format("self:%s(%s)", node.callee.field_name, table.concat(args, ", "))
         else return string.format("%s(%s)", self:_eval(node.callee), table.concat(args, ", ")) end
-    elseif node.kind == SK.MEMBER_EXPR then return string.format("%s.%s", self:_eval(node.object), node.member_name)
+    elseif node.kind == SK.MEMBER_EXPR then return string.format("%s.%s", self:_eval(node.object), node.member_name or node.name)
     elseif node.kind == SK.LEN_EXPR then return string.format("#(%s)", self:_eval(node.expression))
     elseif node.kind == SK.LIST_EXPR then
         local el = {}
@@ -610,9 +657,18 @@ function LuaCodegen:_eval(node)
         if node.index_expr and node.index_expr.kind == SK.RANGE_EXPR then
             return string.format("zt.slice(%s, %s, %s)", self:_eval(node.object), self:_eval(node.index_expr.start_expr), self:_eval(node.index_expr.end_expr))
         else
-            return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+            local object_type = node.object_type
+            if object_type and object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "map" then
+                return string.format("%s[%s]", self:_eval(node.object), self:_eval(node.index_expr))
+            elseif object_type and object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
+                return string.format("zt.index_seq(%s, %s)", self:_eval(node.object), self:_eval(node.index_expr))
+            elseif object_type and object_type.name == "text" then
+                return string.format("zt.index_text(%s, %s)", self:_eval(node.object), self:_eval(node.index_expr))
+            else
+                return string.format("zt.index_any(%s, %s)", self:_eval(node.object), self:_eval(node.index_expr))
+            end
         end
-    elseif node.kind == SK.BANG_EXPR then return self:_eval(node.expression)
+    elseif node.kind == SK.BANG_EXPR then return string.format("zt.bang(%s)", self:_eval(node.expression))
     elseif node.kind == SK.NATIVE_LUA_EXPR then return "(" .. node.lua_code .. ")"
     elseif node.kind == SK.AWAIT_EXPR then return string.format("zt.await(%s)", self:_eval(node.expression))
     elseif node.kind == SK.IS_EXPR then
@@ -665,7 +721,8 @@ function LuaCodegen:_eval(node)
         
         local final_code = table.concat(code, "\n")
         if node.is_async then
-            return string.format("zt.async_run(%s)", final_code)
+            local call_args = params_str ~= "" and (", " .. params_str) or ""
+            return string.format("function(%s)\n%sreturn zt.async(%s%s)\n%send", params_str, string.rep("    ", self.indent_level + 1), final_code, call_args, string.rep("    ", self.indent_level))
         end
         return final_code
     elseif node.kind == SK.GROUP_EXPR then

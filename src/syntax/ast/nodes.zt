@@ -1,0 +1,221 @@
+namespace syntax.ast
+
+import syntax.tokens
+import source
+
+pub enum Node
+    CompilationUnit(CompilationUnitNode)
+    
+    -- Expressões
+    Literal(LiteralExprNode)
+    Identifier(IdentifierExprNode)
+    Binary(BinaryExprNode)
+    Unary(UnaryExprNode)
+    Call(CallExprNode)
+    Member(MemberExprNode)
+    Index(IndexExprNode)
+    NativeLuaExpr(NativeLuaExprNode)
+    
+    -- Statements
+    VarDecl(VarDeclNode)
+    FuncDecl(FuncDeclNode)
+    StructDecl(StructDeclNode)
+    EnumDecl(EnumDeclNode)
+    IfStmt(IfStmtNode)
+    WhileStmt(WhileStmtNode)
+    ForInStmt(ForInStmtNode)
+    RepeatStmt(RepeatStmtNode)
+    MatchStmt(MatchStmtNode)
+    ReturnStmt(ReturnStmtNode)
+    ExprStmt(ExprStmtNode)
+    NativeLuaStmt(NativeLuaStmtNode)
+    
+    -- Declarações Especiais
+    ImportDecl(ImportDeclNode)
+    ExternDecl(ExternDeclNode)
+    
+    -- Tipos
+    NamedType(NamedTypeNode)
+    GenericType(GenericTypeNode)
+    
+    BadNode
+end
+
+pub struct CompilationUnitNode
+    pub namespace: text
+    pub imports: list<Node>
+    pub declarations: list<Node>
+    pub span: source.Span
+end
+
+pub struct LiteralExprNode
+    pub literal_type: text -- "int", "float", "text", "bool", "null"
+    pub value: any
+    pub span: source.Span
+end
+
+pub struct IdentifierExprNode
+    pub name: text
+    pub span: source.Span
+end
+
+pub struct BinaryExprNode
+    pub left: Node
+    pub operator: tokens.Token
+    pub right: Node
+    pub span: source.Span
+end
+
+pub struct UnaryExprNode
+    pub operator: tokens.Token
+    pub operand: Node
+    pub span: source.Span
+end
+
+pub struct CallExprNode
+    pub callee: Node
+    pub arguments: list<Node>
+    pub span: source.Span
+end
+
+pub struct MemberExprNode
+    pub object: Node
+    pub member_name: text
+    pub span: source.Span
+end
+
+pub struct IndexExprNode
+    pub object: Node
+    pub index: Node
+    pub span: source.Span
+end
+
+pub struct NativeLuaExprNode
+    pub lua_code: text
+    pub span: source.Span
+end
+
+pub struct VarDeclNode
+    pub name: text
+    pub type_node: Optional<Node>
+    pub initializer: Optional<Node>
+    pub is_const: bool
+    pub is_pub: bool
+    pub is_global: bool
+    pub span: source.Span
+end
+
+pub struct FuncDeclNode
+    pub name: text
+    pub params: list<ParamNode>
+    pub return_type: Optional<Node>
+    pub body: list<Node>
+    pub is_async: bool
+    pub is_pub: bool
+    pub span: source.Span
+end
+
+pub struct ParamNode
+    pub name: text
+    pub type_node: Optional<Node>
+    pub span: source.Span
+end
+
+pub struct StructDeclNode
+    pub name: text
+    pub fields: list<Node> -- VarDeclNode
+    pub methods: list<Node> -- FuncDeclNode
+    pub is_pub: bool
+    pub span: source.Span
+end
+
+pub struct EnumDeclNode
+    pub name: text
+    pub members: list<text>
+    pub is_pub: bool
+    pub span: source.Span
+end
+
+pub struct IfStmtNode
+    pub condition: Node
+    pub then_body: list<Node>
+    pub elif_clauses: list<ElifClauseNode>
+    pub else_body: Optional<list<Node>>
+    pub span: source.Span
+end
+
+pub struct ElifClauseNode
+    pub condition: Node
+    pub body: list<Node>
+    pub span: source.Span
+end
+
+pub struct WhileStmtNode
+    pub condition: Node
+    pub body: list<Node>
+    pub span: source.Span
+end
+
+pub struct ForInStmtNode
+    pub variables: list<text>
+    pub iterable: Node
+    pub body: list<Node>
+    pub span: source.Span
+end
+
+pub struct RepeatStmtNode
+    pub count_expr: Node
+    pub body: list<Node>
+    pub span: source.Span
+end
+
+pub struct MatchStmtNode
+    pub expression: Node
+    pub cases: list<MatchCaseNode>
+    pub else_case: Optional<list<Node>>
+    pub span: source.Span
+end
+
+pub struct MatchCaseNode
+    pub patterns: list<Node>
+    pub body: list<Node>
+    pub span: source.Span
+end
+
+pub struct ReturnStmtNode
+    pub expression: Optional<Node>
+    pub span: source.Span
+end
+
+pub struct ExprStmtNode
+    pub expression: Node
+    pub span: source.Span
+end
+
+pub struct NativeLuaStmtNode
+    pub lua_code: text
+    pub span: source.Span
+end
+
+pub struct ImportDeclNode
+    pub path: text
+    pub alias: Optional<text>
+    pub span: source.Span
+end
+
+pub struct ExternDeclNode
+    pub library: text
+    pub methods: list<Node>
+    pub span: source.Span
+end
+
+pub struct NamedTypeNode
+    pub name: text
+    pub span: source.Span
+end
+
+pub struct GenericTypeNode
+    pub base_type: text
+    pub type_arguments: list<Node>
+    pub span: source.Span
+end

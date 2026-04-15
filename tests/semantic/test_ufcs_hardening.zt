@@ -1,0 +1,54 @@
+-- tests/semantic/test_ufcs_hardening.zt
+-- Validação de Endurecimento da Fase 8 (UFCS)
+
+-- Stubs para teste sem prelúdio
+func print(msg: any) end
+func check(cond: bool) end
+
+struct Person
+    nome: text
+    
+    func falar(self)
+        print(self.nome + " diz oi")
+    end
+end
+
+-- Função global que colide com o nome, mas deve ser preterida pelo método da struct
+func falar(p: Person)
+    print("GLOBAL: " + p.nome)
+end
+
+-- Função global clássica para UFCS
+func gritar(p: Person)
+    print(p.nome + " GRITA!!!")
+end
+
+pub func main()
+    var p = Person { nome: "Zenith" }
+    
+    -- 1. Método de Struct Ganha de Global
+    p.falar() -- Deve imprimir "Zenith diz oi" (não o global)
+    
+    -- 2. UFCS com Função Global
+    p.gritar() -- Deve funcionar via UFCS
+    
+    -- 3. UFCS com Tipos Nativos (Virtual Methods)
+    var lista = ["a", "b", "c"]
+    var tam = lista.len()
+    print("Tamanho da lista: " + tam)
+    
+    var s = "zenith"
+    var tam_s = s.len()
+    print("Tamanho da string: " + tam_s)
+    
+    -- 4. Chaining com Virtual + Custom
+    var partes = "a,b,c".split() -- Note: split sem args usa virgula por padrão no runtime Zenith
+    print("Partes: " + partes.len())
+    
+    -- 5. Mapas
+    var config = { "debug": "true" }
+    var chaves = config.keys()
+    print("Chaves: " + chaves.len())
+    
+    print("UFCS Hardening Test Passed!")
+end

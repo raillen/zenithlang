@@ -1,135 +1,154 @@
-# Catálogo de Erros
+# Catalogo de Erros e Warnings
 
-O compilador atual usa famílias de código `ZT-L`, `ZT-P` e `ZT-S`.
+O compilador e o runtime atuais usam familias de codigo ZT-L, ZT-P, ZT-S, ZT-W e ZT-R.
 
-## Léxico
+## Lexico
 
-### `ZT-L001` — string não terminada
+### ZT-L001 - string nao terminada
 
-Uma aspas foi aberta e não foi fechada.
+Uma aspas foi aberta e nao foi fechada.
 
-```zt
-var nome: text = "Zenith
-```
+### ZT-L002 - numero seguido de identificador invalido
 
-### `ZT-L002` — número seguido de identificador inválido
+O lexer encontrou algo como 123abc.
 
-O lexer encontrou algo como `123abc`.
+### ZT-L003 - caractere desconhecido
 
-### `ZT-L003` — caractere desconhecido
-
-Há um símbolo que o lexer não reconhece.
+Ha um simbolo que o lexer nao reconhece.
 
 ## Parsing
 
-### `ZT-P001` — forma sintática incompleta ou token esperado
+### ZT-P001 - forma sintatica incompleta ou token esperado
 
-É o erro mais comum de parsing e aparece quando falta `end`, `)`, `:` ou outra peça estrutural.
+Aparece quando falta end, ), :, to ou outra peca estrutural.
 
-Exemplos típicos:
+Exemplos tipicos:
 
-- esquecer `end`
-- escrever `apply Trait Player` em vez de `apply Trait to Player`
-- omitir `=>` em tipo de função
+- esquecer end
+- escrever apply Trait Player em vez de apply Trait to Player
+- omitir separador estrutural esperado
 
-### `ZT-P002` — expressão esperada
+### ZT-P002 - expressao esperada
 
-Aparece quando o parser precisava de uma expressão e encontrou fim de linha, token errado ou operador sem operando.
+Aparece quando o parser precisava de uma expressao e encontrou fim de linha, token errado ou operador sem operando.
 
-## Semântica
+## Semantica
 
-### `ZT-S001` — redefinição
+### ZT-S001 - redefinicao
 
-Mesmo símbolo declarado duas vezes no mesmo escopo, ou parâmetro genérico repetido.
+Mesmo simbolo declarado duas vezes no mesmo escopo, ou parametro generico repetido.
 
-### `ZT-S002` — símbolo, tipo ou membro inexistente
+### ZT-S002 - simbolo, tipo ou membro inexistente
 
 Pode indicar:
 
-- tipo não encontrado
-- struct não encontrada
-- alias não encontrado
+- tipo nao encontrado
+- struct nao encontrada
+- alias nao encontrado
 
-### `ZT-S008` — membro não encontrado no tipo
+### ZT-S008 - membro nao encontrado no tipo
 
-Acesso a campo ou método inexistente:
+Acesso a campo ou metodo inexistente.
 
-```zt
-player.foobar()
-```
-
-### `ZT-S009` — dependência circular em alias
+### ZT-S009 - dependencia circular em alias
 
 Dois aliases acabam apontando um para o outro.
 
-### `ZT-S100` — incompatibilidade de tipos
+### ZT-S100 - incompatibilidade de tipos
 
-Caso mais comum do binder:
+Caso mais comum do binder.
 
-```zt
-var x: int = "texto"
-```
+Exemplos:
 
-Também aparece em padrões de `match`, retornos e restrições genéricas.
+- var x: int = "texto"
+- var y: text = null
+- chamada generica que nao satisfaz a restricao exigida
 
-### `ZT-S101` — declaração ou operador inválido
+### ZT-S101 - declaracao ou operador invalido
 
 Pode significar:
 
-- variável sem tipo obrigatório
-- operador usado com tipos inválidos
-- declaração sem padrão ou nome válido
+- variavel sem tipo obrigatorio
+- operador usado com tipos invalidos
+- declaracao sem padrao ou nome valido
 
-### `ZT-S102` — condição, índice ou padrão com tipo inválido
+### ZT-S102 - condicao, indice ou padrao com tipo invalido
 
-Esse código é reutilizado para erros de contexto como:
+Esse codigo e reutilizado para erros de contexto como:
 
-- condição de `if` ou `while` que não é `bool`
-- índice que não é inteiro
-- `range` com limites não inteiros
-- variante de padrão inexistente
+- condicao de if ou while que nao e bool
+- indice que nao e inteiro
+- range com limites nao inteiros
+- variante de padrao inexistente
 
-### `ZT-S103` — chamada inválida ou `?` em tipo incompatível
+### ZT-S103 - chamada invalida ou ? em tipo incompativel
 
-Aparece quando algo não chamável é usado como função, ou quando `?` é aplicado fora de `Optional`/`Outcome`.
+Aparece quando algo nao chamavel e usado como funcao, ou quando ? e aplicado fora de Optional ou Outcome.
 
-### `ZT-S104` — contexto genérico ou uso de `?` inválido
+### ZT-S104 - contexto generico ou uso de ? invalido
 
 Pode indicar:
 
-- quantidade errada de argumentos genéricos
-- uso de `?` fora de uma função
+- quantidade errada de argumentos genericos
+- uso de ? fora de uma funcao compativel
 
-### `ZT-S105` — argumentos inválidos
+### ZT-S105 - argumentos invalidos
 
 Usado para:
 
 - argumento nomeado desconhecido
 - argumento faltante
-- parâmetros duplicados
-- incompatibilidade entre `?` e o tipo de retorno da função atual
+- parametros duplicados
+- incompatibilidade entre ? e o tipo de retorno da funcao atual
 
-### `ZT-S201` — `self` ou `@campo` fora de método
+### ZT-S201 - self ou @campo fora de metodo
 
-`self` e `@nome` só podem aparecer dentro de método de `struct` ou `trait`.
+self e @nome so podem aparecer dentro de metodo de struct ou trait.
 
-### `ZT-S202` — `await` fora de função `async`
+### ZT-S202 - await fora de funcao async
 
-```zt
-var dados = await carregar()
-```
+await so funciona dentro de async func ou lambda async.
 
-Só funciona dentro de `async func` ou lambda `async`.
+### ZT-S301, ZT-S302, ZT-S303 - erros de trait e apply
 
-### `ZT-S301`, `ZT-S302`, `ZT-S303` — erros de `trait` e `apply`
+- ZT-S301: trait nao encontrada
+- ZT-S302: struct nao encontrada
+- ZT-S303: struct nao implementa metodo exigido pela trait
 
-- `ZT-S301`: trait não encontrada
-- `ZT-S302`: struct não encontrada
-- `ZT-S303`: struct não implementa método exigido pela trait
+## Warnings
 
-## Dicas práticas
+### ZT-W001 - uso direto de null em tipo anulavel
 
-- Quando o erro for `ZT-P001`, procure o bloco logo acima da linha sinalizada.
-- Quando o erro for `ZT-S100`, compare o tipo esperado com o tipo real do valor.
-- Em `ZT-S202`, suba a função para `async func`.
-- Em `ZT-S301` a `ZT-S303`, revise o `apply Trait to Struct` e a assinatura dos métodos.
+O codigo usou null em um contexto T?. Ainda compila, mas a trilha ativa recomenda Optional ou Outcome.
+
+### ZT-W002 - indice 0 em sequencia 1-based
+
+Listas e texto sao 1-based na trilha ativa. Exemplos tipicos:
+
+- lista[0]
+- texto[0]
+- 0..n em slice de sequencia
+
+### ZT-W003 - atributo legado com @
+
+Atributos de declaracao devem usar #[...]. A forma @atributo permanece apenas por compatibilidade temporaria.
+
+## Runtime
+
+### ZT-R011 - indice ou slice fora dos limites
+
+Erro de runtime emitido pelos helpers de indexacao segura da trilha ativa.
+
+Casos tipicos:
+
+- lista[i] com i < 1 ou i > tamanho
+- texto[i] com i fora do intervalo
+- slice fora dos limites em lista ou texto
+
+## Dicas praticas
+
+- Em ZT-P001, revise o bloco logo acima da linha sinalizada.
+- Em ZT-S100, compare tipo esperado e tipo real.
+- Em ZT-W002, revise a indexacao pensando em base 1 para sequencias.
+- Em ZT-W003, migre de @atributo para #[...].
+- Em ZT-R011, verifique limites antes do acesso dinamico.

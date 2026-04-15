@@ -1,0 +1,15 @@
+-- Regression Test: Stage 7 (Null Elimination)
+-- Objective: Validate that literal null generates warning ZT-W001.
+
+func main()
+    -- 1. Literal null should generate warning ZT-W001
+    var x: int? = null
+    
+    -- 2. Assignment to non-nullable should still be a type error (ZT-S100)
+    var y: int = null 
+    
+    -- 3. Idiomatic preference: Optional
+    var opt: list<int>? = null
+    
+    print("Stage 7: null logic validated")
+end

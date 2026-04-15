@@ -65,11 +65,11 @@ if not lua_code:match("zt%.async%(") then
     error("Esperava emissão de zt.async no codegen")
 end
 
-if not lua_code:match("coroutine%.yield") then
+if not lua_code:match("zt%.await%(") then
     print("--- LUA CODE ---")
     print(lua_code)
     print("----------------")
-    error("Esperava await lowered para coroutine.yield")
+    error("Esperava await lowered para zt.await")
 end
 
 local result = run_lua(lua_code)

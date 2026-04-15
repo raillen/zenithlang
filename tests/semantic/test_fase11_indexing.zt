@@ -1,0 +1,27 @@
+-- Teste de Estabilização — Fase 11: Indexação 0 vs 1
+-- Este arquivo valida se o compilador emite avisos ZT-W002 para índices zero 
+-- em sequências, enquanto permite em mapas e coordenadas espaciais.
+
+import std.collections
+
+func main()
+    -- 1. Sequências (Listas e Texto): Devem gerar aviso para índice 0
+    var l = [10, 20, 30]
+    var first = l[1]      -- OK
+    var wrong = l[0]      -- Warning: ZT-W002
+
+    var t = "Zenith"
+    var c1 = t[1]         -- OK
+    var c0 = t[0]         -- Warning: ZT-W002
+
+    -- 2. Intervalos (Ranges): Deve gerar aviso se iniciar em 0
+    var r1 = 1..5         -- OK
+    var r0 = 0..5         -- Warning: ZT-W002
+
+    -- 3. Mapas: Devem aceitar chave 0 sem aviso
+    var m: map<int, text> = {0: "zero", 1: "um"}
+    var val = m[0]        -- OK (Mapa)
+
+    -- 4. Validação de ausência de aviso (não-sequências)
+    print("Fase 11 validada")
+end

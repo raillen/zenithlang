@@ -1,0 +1,26 @@
+-- Arquivo de teste: deve gerar erros semânticos detectados pelo Binder (Fase 6)
+namespace test_errors
+
+-- Função auxiliar para testar tipo de retorno
+pub func soma(a: int, b: int) -> int
+    return a + b
+end
+
+pub func retorna_texto() -> text
+    return "hello"
+end
+
+pub func main()
+    -- ZT-S100: Tipo incompatível na declaração de variável
+    var age: int = "vinte"
+
+    -- ZT-S001: Redefinição de símbolo
+    var nome: text = "Carlos"
+    var nome: text = "João"
+
+    -- ZT-T003: Argumento de tipo errado em chamada de função
+    var x = soma(1, "dois")
+
+    -- ZT-S100: Tipo incompatível na declaração (bool esperado, int recebido)
+    var flag: bool = soma(1, 2)
+end

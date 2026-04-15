@@ -75,11 +75,11 @@ end
 
 local lua_code = transpile(code)
 
-if not lua_code:match("zt%.slice%(_m, 2%)") then
+if not lua_code:match("zt%.slice%(_m, 3%)") then
     print("--- LUA CODE ---")
     print(lua_code)
     print("----------------")
-    error("Esperava lowering do rest pattern para zt.slice(_m, 2)")
+    error("Esperava lowering do rest pattern para zt.slice(_m, 3)")
 end
 
 local result = run_lua(lua_code)

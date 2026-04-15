@@ -13,6 +13,7 @@ local BuiltinTypes  = require("src.semantic.types.builtin_types")
 local ZenithType    = require("src.semantic.types.zenith_type")
 local TypeChecker   = require("src.semantic.types.type_checker")
 local DiagnosticBag = require("src.diagnostics.diagnostic_bag")
+local Prelude       = require("src.semantic.symbols.prelude")
 
 local Binder = {}
 Binder.__index = Binder
@@ -32,11 +33,85 @@ function Binder.new(diagnostics, module_manager, target_platform)
     self.current_alias = nil
     self.current_namespace = nil
     self.resolve_stack = {} -- Proteção contra recursão infinita em aliases
+    self.expected_type = nil
+    
+    -- Cache de handlers para performance no _bind_node
+    self.handlers = {
+        [SK.COMPILATION_UNIT] = self._bind_compilation_unit,
+        [SK.FUNC_DECL]       = self._bind_func_decl,
+        [SK.ASYNC_FUNC_DECL] = self._bind_func_decl,
+        [SK.VAR_DECL]        = self._bind_var_decl,
+        [SK.CONST_DECL]      = self._bind_var_decl,
+        [SK.GLOBAL_DECL]     = self._bind_var_decl,
+        [SK.STATE_DECL]      = self._bind_var_decl,
+        [SK.COMPUTED_DECL]   = self._bind_var_decl,
+        [SK.ASSIGN_STMT]     = self._bind_assign_stmt,
+        [SK.BREAK_STMT]      = self._bind_control_flow_stmt,
+        [SK.CONTINUE_STMT]   = self._bind_control_flow_stmt,
+        [SK.EXPR_STMT]       = self._bind_expr_stmt,
+        [SK.BINARY_EXPR]     = self._bind_binary_expr,
+        [SK.LITERAL_EXPR]    = self._bind_literal_expr,
+        [SK.IDENTIFIER_EXPR] = self._bind_identifier_expr,
+        [SK.CALL_EXPR]       = self._bind_call_expr,
+        [SK.INDEX_EXPR]      = self._bind_index_expr,
+        [SK.IF_STMT]         = self._bind_if_stmt,
+        [SK.RETURN_STMT]     = self._bind_return_stmt,
+        [SK.WHILE_STMT]      = self._bind_while_stmt,
+        [SK.FOR_IN_STMT]     = self._bind_for_in_stmt,
+        [SK.MEMBER_EXPR]     = self._bind_member_expr,
+        [SK.STRUCT_INIT_EXPR]= self._bind_struct_init_expr,
+        [SK.LIST_EXPR]       = self._bind_list_expr,
+        [SK.MAP_EXPR]        = self._bind_map_expr,
+        [SK.MATCH_STMT]      = self._bind_match_stmt,
+        [SK.TRY_EXPR]        = self._bind_try_expr,
+        [SK.LAMBDA_EXPR]     = self._bind_lambda_expr,
+        [SK.RANGE_EXPR]      = self._bind_range_expr,
+        [SK.GROUP_EXPR]      = self._bind_group_expr,
+        [SK.STRUCT_DECL]     = self._bind_struct_decl,
+        [SK.SELF_FIELD_EXPR] = self._bind_self_field_expr,
+        [SK.IT_EXPR]         = self._bind_it_ref_expr,
+        [SK.SELF_EXPR]       = self._bind_self_ref_expr,
+        [SK.UNARY_EXPR]      = self._bind_unary_expr,
+        [SK.BANG_EXPR]       = self._bind_bang_expr,
+        [SK.LEN_EXPR]        = self._bind_len_expr,
+        [SK.ATTEMPT_STMT]    = self._bind_attempt_stmt,
+        [SK.WATCH_STMT]      = self._bind_watch_stmt,
+        [SK.IS_EXPR]         = self._bind_is_expr,
+        [SK.AS_EXPR]         = self._bind_as_expr,
+        [SK.CHECK_EXPR]      = self._bind_check_expr,
+        [SK.AWAIT_EXPR]      = self._bind_await_expr,
+        [SK.THROW_STMT]      = self._bind_throw_stmt,
+        [SK.CHECK_STMT]      = self._bind_check_stmt,
+        [SK.ASSERT_STMT]     = self._bind_assert_stmt,
+        [SK.REPEAT_TIMES_STMT] = self._bind_repeat_stmt,
+        [SK.COMPOUND_ASSIGN_STMT] = self._bind_compound_assign_stmt,
+        [SK.IMPORT_DECL]     = self._bind_import_decl,
+        [SK.TYPE_ALIAS_DECL] = self._bind_type_alias_decl,
+        [SK.UNION_DECL]      = self._bind_union_decl,
+        [SK.TRAIT_DECL]      = self._bind_trait_decl,
+        [SK.APPLY_DECL]      = self._bind_apply_decl,
+        [SK.ENUM_DECL]       = self._bind_enum_decl,
+        [SK.EXTERN_DECL]     = self._bind_extern_decl,
+        [SK.NAMESPACE_DECL]  = function() end,
+        [SK.NATIVE_LUA_STMT] = self._bind_native_lua,
+        [SK.NATIVE_LUA_EXPR] = self._bind_native_lua,
+    }
+    
     return self
 end
 
 --- Ponto de entrada: resolve nomes e vincula tipos na CompilationUnit.
 function Binder:bind(unit, module_name)
+    -- Prelude sintético: cobre globais/runtime mesmo quando std.core não declara construtores.
+    if not self.skip_prelude then
+        Prelude.inject(self.scope)
+    else
+        -- Mesmo se pular o prelúdio (estamos no std.core), precisamos das constantes universais
+        self.scope:define(Symbol.variable("true",  BuiltinTypes.BOOL, false, nil))
+        self.scope:define(Symbol.variable("false", BuiltinTypes.BOOL, false, nil))
+        self.scope:define(Symbol.variable("nil",   BuiltinTypes.NULL, false, nil))
+    end
+
     -- Discovery: carrega prelude primeiro para popular o escopo global
     if not self.skip_prelude and self.module_manager then
         local prelude_scope = self.module_manager:get_prelude_scope()
@@ -46,6 +121,15 @@ function Binder:bind(unit, module_name)
                 self.scope:define(sym)
             end
         end
+    end
+
+    -- Tipos builtin ficam em BuiltinTypes; no escopo eles bloqueariam declaracoes legitimas.
+    local synthetic_type_names = {
+        int = true, float = true, text = true, bool = true, any = true,
+        list = true, map = true, grid = true, Optional = true, Outcome = true,
+    }
+    for name, _ in pairs(synthetic_type_names) do
+        self.scope.symbols[name] = nil
     end
 
     -- FILTRAGEM DE PLATAFORMA (v0.3 Ascension)
@@ -92,7 +176,22 @@ function Binder:bind(unit, module_name)
         self:_declare(decl)
     end
 
-    -- Passagem 1.2: Vincular assinaturas de membros (Campos de Structs, Métodos de Traits, Aliases)
+    -- Passagem 1.1: Vincular imports para disponibilizar escopos de modulo.
+    for _, decl in ipairs(unit.declarations) do
+        if decl.kind == SK.IMPORT_DECL then
+            self:_bind_node(decl)
+        end
+    end
+
+    for _, decl in ipairs(unit.declarations) do
+        if decl.kind == SK.FUNC_DECL or decl.kind == SK.ASYNC_FUNC_DECL or decl.kind == SK.EXTERN_DECL then
+            self.only_signatures = true
+            self:_bind_node(decl)
+            self.only_signatures = false
+        end
+    end
+
+    -- Passagem 1.2: Vincular assinaturas de membros (Campos de Structs, Metodos de Traits, Aliases)
     -- Importante para que o 'apply' e 'generic constraints' conheçam a estrutura dos tipos.
     for _, decl in ipairs(unit.declarations) do
         if decl.kind == SK.STRUCT_DECL or decl.kind == SK.TRAIT_DECL or 
@@ -153,8 +252,8 @@ end
 function Binder:_declare(node)
     local symbol
     if node.kind == SK.FUNC_DECL or node.kind == SK.ASYNC_FUNC_DECL then
-        local return_type = self:_resolve_type(node.return_type)
-        symbol = Symbol.func(node.name, node.params, return_type, node.span)
+        -- A assinatura real e resolvida na passagem de binding, quando generics ja estao no escopo.
+        symbol = Symbol.func(node.name, node.params, BuiltinTypes.ANY, node.span)
         if node.kind == SK.ASYNC_FUNC_DECL then
             symbol.is_async = true
         end
@@ -191,6 +290,10 @@ function Binder:_declare(node)
         for part in node.path:gmatch("[^%.]+") do table.insert(parts, part) end
         local name = node.alias or parts[#parts]
         symbol = Symbol.new(Symbol.Kind.MODULE, name, { span = node.span })
+    elseif node.kind == SK.EXTERN_DECL then
+        local return_type = self:_resolve_type(node.return_type)
+        symbol = Symbol.func(node.name, node.params, return_type, node.span)
+        symbol.is_extern = true
     end
 
     if symbol then
@@ -208,72 +311,22 @@ end
 -- Passagem 2 — Vinculação (Análise Profunda)
 -- ============================================================================
 
-function Binder:_bind_node(node)
+function Binder:_bind_node(node, expected_type)
     if not node then return BuiltinTypes.VOID end
     
-    local handlers = {
-        [SK.FUNC_DECL]       = self._bind_func_decl,
-        [SK.ASYNC_FUNC_DECL] = self._bind_func_decl,
-        [SK.VAR_DECL]        = self._bind_var_decl,
-        [SK.CONST_DECL]      = self._bind_var_decl,
-        [SK.GLOBAL_DECL]     = self._bind_var_decl,
-        [SK.STATE_DECL]      = self._bind_var_decl,
-        [SK.COMPUTED_DECL]   = self._bind_var_decl,
-        [SK.ASSIGN_STMT]     = self._bind_assign_stmt,
-        [SK.EXPR_STMT]       = self._bind_expr_stmt,
-        [SK.BINARY_EXPR]     = self._bind_binary_expr,
-        [SK.LITERAL_EXPR]    = self._bind_literal_expr,
-        [SK.IDENTIFIER_EXPR] = self._bind_identifier_expr,
-        [SK.CALL_EXPR]       = self._bind_call_expr,
-        [SK.INDEX_EXPR]      = self._bind_index_expr,
-        [SK.IF_STMT]         = self._bind_if_stmt,
-        [SK.RETURN_STMT]     = self._bind_return_stmt,
-        [SK.WHILE_STMT]      = self._bind_while_stmt,
-        [SK.RANGE_EXPR]      = self._bind_range_expr,
-        [SK.GROUP_EXPR]      = self._bind_group_expr,
-        [SK.STRUCT_DECL]     = self._bind_struct_decl,
-        [SK.SELF_FIELD_EXPR] = self._bind_self_field_expr,
-        [SK.IT_EXPR]         = self._bind_it_ref_expr,
-        [SK.SELF_EXPR]       = self._bind_self_ref_expr,
-        [SK.MEMBER_EXPR]     = self._bind_member_expr,
-        [SK.STRUCT_INIT_EXPR]= self._bind_struct_init_expr,
-        [SK.UNARY_EXPR]      = self._bind_unary_expr,
-        [SK.BANG_EXPR]       = self._bind_bang_expr,
-        [SK.LEN_EXPR]        = self._bind_len_expr,
-        [SK.LIST_EXPR]       = self._bind_list_expr,
-        [SK.MAP_EXPR]        = self._bind_map_expr,
-        [SK.ATTEMPT_STMT]    = self._bind_attempt_stmt,
-        [SK.WATCH_STMT]      = self._bind_watch_stmt,
-        [SK.MATCH_STMT]      = self._bind_match_stmt,
-        [SK.LAMBDA_EXPR]     = self._bind_lambda_expr,
-        [SK.IS_EXPR]         = self._bind_is_expr,
-        [SK.AS_EXPR]         = self._bind_as_expr,
-        [SK.CHECK_EXPR]      = self._bind_check_expr,
-        [SK.AWAIT_EXPR]      = self._bind_await_expr,
-        [SK.THROW_STMT]      = self._bind_throw_stmt,
-        [SK.CHECK_STMT]      = self._bind_check_stmt,
-        [SK.ASSERT_STMT]     = self._bind_assert_stmt,
-        [SK.FOR_IN_STMT]     = self._bind_for_in_stmt,
-        [SK.REPEAT_TIMES_STMT] = self._bind_repeat_stmt,
-        [SK.COMPOUND_ASSIGN_STMT] = self._bind_compound_assign_stmt,
-        [SK.IMPORT_DECL]     = self._bind_import_decl,
-        [SK.TYPE_ALIAS_DECL] = self._bind_type_alias_decl,
-        [SK.UNION_DECL]      = self._bind_union_decl,
-        [SK.TRAIT_DECL]      = self._bind_trait_decl,
-        [SK.APPLY_DECL]      = self._bind_apply_decl,
-        [SK.ENUM_DECL]       = self._bind_enum_decl,
-        [SK.TRY_EXPR]        = self._bind_try_expr,
-        [SK.NAMESPACE_DECL]  = function() end, -- Já tratado no bind()
-    }
-    
-    local handler = handlers[node.kind]
-    if handler then
-        return handler(self, node)
-    else
-        -- Fallback: recursão para nós desconhecidos
-        -- self.diagnostics:report_warning("ZT-S000", "nó não verificado pelo Binder: " .. node.kind, node.span)
-        return BuiltinTypes.ANY
+    local prev_expected = self.expected_type
+    self.expected_type = expected_type
+
+    local handler = self.handlers[node.kind]
+    if not handler then
+        self.diagnostics:report_error("ZT-S101", "nó não suportado na vinculação: " .. (node.kind or "nil"), node.span)
+        self.expected_type = prev_expected
+        return BuiltinTypes.ERROR
     end
+    
+    local type_info = handler(self, node)
+    self.expected_type = prev_expected
+    return type_info
 end
 
 function Binder:_bind_func_decl(node)
@@ -301,11 +354,8 @@ function Binder:_bind_func_decl(node)
     local prev_scope = self.scope
     self.scope = func_scope
 
-    -- Se estivermos em uma struct, injeta 'self'
-    if self.current_struct then
-        local self_sym = Symbol.parameter("self", self.current_struct.type_info, nil, node.span)
-        self.scope:define(self_sym)
-    end
+    -- O parâmetro 'self' será tratado dentro do loop de parâmetros abaixo
+    -- para permitir inferência de tipo e evitar redefinições.
 
     -- 1. Vincular parâmetros genéricos (CRÍTICO: antes da assinatura)
     local resolved_generic_params = {}
@@ -324,16 +374,39 @@ function Binder:_bind_func_decl(node)
 
     local resolved_params = {}
     for i, param in ipairs(node.params) do
-        local type_info = self:_resolve_type(param.type_node)
+        local type_info
+        local is_self_param = (param.name == "self") or (param.pattern and param.pattern.kind == SK.SELF_EXPR)
+        if is_self_param and self.current_struct then
+            -- Inferência automática para self: usa o tipo da struct se não houver anotação
+            if param.type_node then
+                type_info = self:_resolve_type(param.type_node)
+            else
+                type_info = self.current_struct.type_info
+            end
+            -- Garantir que o nome seja 'self' para o backend se for SelfExpr
+            if not param.name then param.name = "self" end
+        else
+            type_info = self:_resolve_type(param.type_node)
+        end
         table.insert(resolved_params, { name = param.name, type_info = type_info })
         
         -- Se não tem nome, é destruturação: func f(Player { x })
         if not param.name and param.pattern then
             param.name = "_p" .. i -- Nome interno para o Lua
             self:_bind_pattern(param.pattern, type_info)
+        elseif is_self_param then
+            -- self já é um identificador válido, não precisamos vincular como padrão
+            -- Mas precisamos garantir que o símbolo seja associado ao padrão se necessário
+            if param.pattern then
+                param.pattern.type_info = type_info
+            end
         end
 
         local param_symbol = Symbol.parameter(param.name, type_info, param.default_value, param.span)
+        -- Associar o símbolo ao padrão para o backend
+        if param.pattern then
+            param.pattern.symbol = param_symbol
+        end
         if not self.scope:define(param_symbol) then
             self.diagnostics:report_error("ZT-S001", 
                 string.format("parâmetro '%s' já declarado", param.name), 
@@ -342,6 +415,7 @@ function Binder:_bind_func_decl(node)
     end
     
     -- Atualizar type_info com a assinatura resolvida
+    symbol.params = resolved_params
     symbol.type_info = ZenithType.new(ZenithType.Kind.FUNC, symbol.name, {
         params = resolved_params,
         return_type = symbol.return_type,
@@ -363,6 +437,32 @@ function Binder:_bind_func_decl(node)
     self.scope = prev_scope
     self.current_func = prev_func
     return symbol.type_info or BuiltinTypes.VOID
+end
+
+function Binder:_bind_extern_decl(node)
+    local symbol = self.scope:lookup_local(node.name)
+    if not symbol then return BuiltinTypes.ERROR end
+    
+    node.symbol = symbol
+    symbol.declaration = node
+    
+    -- Resolver tipos dos parâmetros
+    local resolved_params = {}
+    for i, param in ipairs(node.params) do
+        local type_info = self:_resolve_type(param.type_node)
+        table.insert(resolved_params, { name = param.name, type_info = type_info })
+    end
+    
+    symbol.return_type = self:_resolve_type(node.return_type)
+    
+    -- Atualizar type_info
+    symbol.type_info = ZenithType.new(ZenithType.Kind.FUNC, symbol.name, {
+        params = resolved_params,
+        return_type = symbol.return_type,
+        is_extern = true
+    })
+    
+    return symbol.type_info
 end
 
 function Binder:_bind_struct_decl(node)
@@ -410,10 +510,25 @@ function Binder:_bind_struct_decl(node)
         local resolved_methods = {}
         for _, method in ipairs(node.methods) do
             local return_type = self:_resolve_type(method.return_type)
-            local method_sym = Symbol.func(method.name, method.params, return_type, method.span)
+            local resolved_params = {}
+            for _, p in ipairs(method.params) do
+                local is_self_param = (p.name == "self") or (p.pattern and p.pattern.kind == SK.SELF_EXPR)
+                local p_type
+                if is_self_param then
+                    p_type = p.type_node and self:_resolve_type(p.type_node) or symbol.type_info
+                    if not p.name then p.name = "self" end
+                else
+                    p_type = self:_resolve_type(p.type_node)
+                end
+                table.insert(resolved_params, { name = p.name, type_info = p_type })
+            end
+            local method_sym = Symbol.method(method.name, resolved_params, return_type, method.span)
             method_sym.declaration = method
             method.symbol = method_sym
             table.insert(resolved_methods, method_sym)
+            if symbol.members_scope then
+                symbol.members_scope:define(method_sym)
+            end
         end
         symbol.methods = resolved_methods
     end
@@ -425,8 +540,12 @@ function Binder:_bind_struct_decl(node)
         return symbol.type_info
     end
 
-    -- Segunda vez visitando (Passagem 2): Vincular corpos de métodos
+    -- Segunda vez visitando (Passagem 2): Validar campos e vincular corpos de metodos
     self.scope = struct_scope
+    for _, field in ipairs(node.fields or {}) do
+        self:_bind_field_contract(field)
+    end
+
     for _, method_sym in ipairs(symbol.methods or {}) do
         if method_sym.declaration then
             self:_bind_node(method_sym.declaration)
@@ -436,6 +555,35 @@ function Binder:_bind_struct_decl(node)
     self.scope = prev_scope
     self.current_struct = prev_struct
     return symbol.type_info or BuiltinTypes.VOID
+end
+
+function Binder:_bind_field_contract(field)
+    local field_type = self:_resolve_type(field.type_node)
+
+    if field.default_value then
+        local default_type = self:_bind_node(field.default_value)
+        if not TypeChecker.is_assignable(default_type, field_type) then
+            self.diagnostics:report_error("ZT-S100",
+                string.format("valor padrÃ£o do campo '%s' deve ser '%s', encontrado '%s'", field.name, tostring(field_type), tostring(default_type)),
+                field.default_value.span)
+        end
+    end
+
+    if field.condition then
+        local prev_scope = self.scope
+        local contract_scope = Scope.new(Scope.Kind.BLOCK, self.scope)
+        self.scope = contract_scope
+        self.scope:define(Symbol.parameter("it", field_type, nil, field.span))
+
+        local cond_type = self:_bind_node(field.condition)
+        if cond_type ~= BuiltinTypes.BOOL and cond_type ~= BuiltinTypes.ANY then
+            self.diagnostics:report_error("ZT-S102",
+                string.format("contrato do campo '%s' deve retornar 'bool', encontrado '%s'", field.name, tostring(cond_type)),
+                field.condition.span)
+        end
+
+        self.scope = prev_scope
+    end
 end
 
 function Binder:_bind_trait_decl(node)
@@ -465,9 +613,21 @@ function Binder:_bind_trait_decl(node)
         local resolved_methods = {}
         for _, method in ipairs(node.methods) do
             local return_type = self:_resolve_type(method.return_type)
-            local method_sym = Symbol.func(method.name, method.params, return_type, method.span)
+            local resolved_params = {}
+            for _, p in ipairs(method.params) do
+                local p_type = self:_resolve_type(p.type_node)
+                -- Em Enums, self é o tipo do Enum (mas Enums raramente têm métodos com self explicitamente tipo-anotado como void)
+                if p.name == "self" and p_type == BuiltinTypes.VOID then
+                    p_type = symbol.type_info
+                end
+                table.insert(resolved_params, { name = p.name, type_info = p_type })
+            end
+            local method_sym = Symbol.method(method.name, resolved_params, return_type, method.span)
             method_sym.declaration = method
             table.insert(resolved_methods, method_sym)
+            if symbol.members_scope then
+                symbol.members_scope:define(method_sym)
+            end
         end
         symbol.methods = resolved_methods
     end
@@ -613,6 +773,38 @@ function Binder:_bind_union_decl(node)
     return symbol.type_info
 end
 
+function Binder:_bind_import_decl(node)
+    local parts = {}
+    for part in node.path:gmatch("[^%.]+") do table.insert(parts, part) end
+    local local_name = node.alias or parts[#parts]
+    local symbol = self.scope:lookup_local(local_name)
+
+    if not symbol then
+        symbol = Symbol.new(Symbol.Kind.MODULE, local_name, { span = node.span })
+        self.scope:define(symbol)
+    end
+
+    if not self.module_manager then
+        return BuiltinTypes.VOID
+    end
+
+    local module_scope = self.module_manager:get_scope(node.path)
+    if not module_scope then
+        local ast, err = self.module_manager:get_or_load_ast(node.path)
+        if not ast then
+            self.diagnostics:report_error("ZT-S002", tostring(err), node.span)
+            return BuiltinTypes.ERROR
+        end
+
+        local module_binder = Binder.new(self.diagnostics, self.module_manager, self.target_platform)
+        module_scope = module_binder:bind(ast, node.path)
+    end
+
+    symbol.members_scope = module_scope
+    symbol.type_info = BuiltinTypes.ANY
+    return BuiltinTypes.VOID
+end
+
 function Binder:_bind_var_decl(node)
     local type_info = BuiltinTypes.ANY
     local symbol = nil
@@ -644,9 +836,9 @@ function Binder:_bind_var_decl(node)
     end
     
     -- Verificar inicializador
-    local init_node = node.initializer or node.expression
+    local init_node = node.initializer
     if init_node then
-        local init_type = self:_bind_node(init_node)
+        local init_type = self:_bind_node(init_node, type_info)
         local TypeChecker = require("src.semantic.types.type_checker")
         
         -- Se o tipo não foi especificado, ele é inferido do inicializador na destruturação
@@ -709,6 +901,22 @@ function Binder:_instantiate_type(type_info, bindings)
         return ZenithType.new(ZenithType.Kind.NULLABLE, tostring(base) .. "?", {
             base_type = base,
             span = type_info.span,
+        })
+    end
+
+    if type_info.kind == ZenithType.Kind.FUNC then
+        local params = {}
+        for _, p in ipairs(type_info.params or {}) do
+            local p_type = p.type_info or p
+            local instantiated_p = self:_instantiate_type(p_type, bindings)
+            table.insert(params, instantiated_p)
+        end
+        local ret = self:_instantiate_type(type_info.return_type, bindings)
+        return ZenithType.new(ZenithType.Kind.FUNC, type_info.name, {
+            params = params,
+            return_type = ret,
+            span = type_info.span,
+            is_async = type_info.is_async,
         })
     end
 
@@ -782,9 +990,9 @@ end
 function Binder:_bind_pattern(pattern, matched_type)
     if not pattern then return end
     
-    if pattern.kind == SK.IDENTIFIER_EXPR then
-        local name = pattern.name
-        if name == "_" then return end
+    if pattern.kind == SK.IDENTIFIER_EXPR or pattern.kind == SK.SELF_EXPR then
+        local name = pattern.name or "self" -- SelfExpr não tem campo name, mas é logicamente self
+        if name == "_" or name == "self" then return end
 
         local builtin_type = BuiltinTypes.lookup(name)
         if builtin_type and builtin_type.kind ~= ZenithType.Kind.GENERIC then
@@ -914,6 +1122,13 @@ end
 -- ============================================================================
 
 function Binder:_bind_literal_expr(node)
+    -- Fase 7: O uso de literal 'null' é desencorajado.
+    if node.literal_type == 'null' and not self.skip_prelude then
+        self.diagnostics:report_warning("ZT-W001", 
+            "uso direto de 'null' é desencorajado — prefira 'Optional.Empty' para ausência de valor ou 'Outcome.Failure' para erros", 
+            node.span)
+    end
+
     local map = {
         int = BuiltinTypes.INT,
         float = BuiltinTypes.FLOAT,
@@ -925,36 +1140,67 @@ function Binder:_bind_literal_expr(node)
 end
 
 function Binder:_bind_list_expr(node)
-    local item_type = BuiltinTypes.ANY
-    if #node.elements > 0 then
-        item_type = self:_bind_node(node.elements[1])
+    local item_type = nil
+
+    for _, element in ipairs(node.elements or {}) do
+        local element_type = self:_bind_node(element)
+        if not item_type then
+            item_type = element_type
+        elseif TypeChecker.is_assignable(element_type, item_type) then
+            -- Mantem o tipo comum atual.
+        elseif TypeChecker.is_assignable(item_type, element_type) then
+            -- Promocao segura, como int -> float.
+            item_type = element_type
+        else
+            self.diagnostics:report_error("ZT-S100",
+                string.format("elemento de lista incompatÃ­vel: esperado '%s', encontrado '%s'", tostring(item_type), tostring(element_type)),
+                element.span)
+        end
     end
-    
+
     return ZenithType.new(ZenithType.Kind.GENERIC, "list", {
         base_name = "list",
-        type_args = { item_type },
+        type_args = { item_type or BuiltinTypes.ANY },
         span = node.span
     })
 end
 
 function Binder:_bind_map_expr(node)
-    local key_type = BuiltinTypes.TEXT
-    local val_type = BuiltinTypes.ANY
-    
-    local pairs_list = node.pairs or {}
-    if #pairs_list > 0 then
-        key_type = self:_bind_node(pairs_list[1].key)
-        val_type = self:_bind_node(pairs_list[1].value)
+    local key_type = nil
+    local val_type = nil
+
+    for _, pair in ipairs(node.pairs or {}) do
+        local current_key = self:_bind_node(pair.key)
+        local current_val = self:_bind_node(pair.value)
+
+        if not key_type then
+            key_type = current_key
+        elseif TypeChecker.is_assignable(current_key, key_type) then
+            -- Mantem o tipo comum atual.
+        elseif TypeChecker.is_assignable(key_type, current_key) then
+            key_type = current_key
+        else
+            self.diagnostics:report_error("ZT-S100",
+                string.format("chave de mapa incompatÃ­vel: esperado '%s', encontrado '%s'", tostring(key_type), tostring(current_key)),
+                pair.key.span)
+        end
+
+        if not val_type then
+            val_type = current_val
+        elseif TypeChecker.is_assignable(current_val, val_type) then
+            -- Mantem o tipo comum atual.
+        elseif TypeChecker.is_assignable(val_type, current_val) then
+            val_type = current_val
+        else
+            self.diagnostics:report_error("ZT-S100",
+                string.format("valor de mapa incompatÃ­vel: esperado '%s', encontrado '%s'", tostring(val_type), tostring(current_val)),
+                pair.value.span)
+        end
     end
-    
-    for _, p in ipairs(pairs_list) do
-        self:_bind_node(p.key)
-        self:_bind_node(p.value)
-    end
-    
+
     return ZenithType.new(ZenithType.Kind.GENERIC, "map", {
         base_name = "map",
-        type_args = { key_type, val_type },
+        type_args = { key_type or BuiltinTypes.TEXT, val_type or BuiltinTypes.ANY },
         span = node.span
     })
 end
@@ -977,8 +1223,28 @@ function Binder:_bind_identifier_expr(node)
         return inferred or BuiltinTypes.ANY
     end
 
-    node.type_info = symbol.type_info or BuiltinTypes.ANY
-    return node.type_info
+    local res_type = symbol.type_info or BuiltinTypes.ANY
+    
+    -- Diferenciação Estática/Instância:
+    -- Se o símbolo for um tipo (Struct, Enum, Trait, Alias), o nó resultante 
+    -- não é uma instância, é o tipo em si (contexto estático).
+    local is_type_name = (
+        symbol.kind == Symbol.Kind.STRUCT or 
+        symbol.kind == Symbol.Kind.ENUM or 
+        symbol.kind == Symbol.Kind.TRAIT or 
+        symbol.kind == Symbol.Kind.ALIAS or
+        symbol.kind == Symbol.Kind.GENERIC_PARAM or
+        symbol.kind == Symbol.Kind.TYPE_PARAM
+    )
+    
+    -- Clonamos o tipo para garantir que a flag is_instance não afete o tipo global
+    if is_type_name and res_type ~= BuiltinTypes.ANY then
+        res_type = ZenithType.new(res_type.kind, res_type.name, res_type) -- Shallow copy
+        res_type.is_instance = false
+    end
+
+    node.type_info = res_type
+    return res_type
 end
 
 function Binder:_bind_binary_expr(node)
@@ -1019,6 +1285,8 @@ function Binder:_bind_call_expr(node)
         symbol = node.callee.symbol -- Já deve ter sido setado se foi resolvido
     end
 
+    local generic_bindings = {}
+
     -- Validação de Argumentos Genéricos Explícitos: func<int>(...)
     if node.generic_args and symbol and symbol.generic_params then
         local resolved_args = {}
@@ -1034,7 +1302,9 @@ function Binder:_bind_call_expr(node)
         else
             local TypeChecker = require("src.semantic.types.type_checker")
             for i, arg_type in ipairs(resolved_args) do
-                local constraint = symbol.generic_params[i].constraint
+                local generic_param = symbol.generic_params[i]
+                generic_bindings[generic_param.name] = arg_type
+                local constraint = generic_param.constraint
                 if constraint and not TypeChecker.is_assignable(arg_type, constraint) then
                     self.diagnostics:report_error("ZT-S100", 
                         string.format("argumento genérico '%s' não satisfaz a restrição '%s' de '%s'", 
@@ -1080,9 +1350,27 @@ function Binder:_bind_call_expr(node)
     local args = node.arguments
     local effective_args = {} -- Mapeamento param_index -> arg_node
     
-    -- 1. Suporte UFCS: O primeiro parâmetro é preenchido pelo objeto do MemberExpr
+    -- 1. Suporte UFCS e Chamadas de Método: O primeiro parâmetro é preenchido pelo objeto
+    local is_method_or_ufcs = false
+    if node.callee.kind == SK.MEMBER_EXPR then
+        local callee_sym = node.callee.symbol
+        local object_sym = node.callee.object and node.callee.object.symbol
+        if object_sym and object_sym.kind == Symbol.Kind.MODULE then
+            is_method_or_ufcs = false
+        elseif node.callee.is_ufcs then
+            is_method_or_ufcs = true
+        elseif callee_sym and (callee_sym.kind == Symbol.Kind.METHOD or callee_sym.kind == Symbol.Kind.FUNCTION) then
+            -- Se for um membro que não é campo, e o objeto é uma instância, tratamos como método
+            if node.callee.object.type_info and node.callee.object.type_info.is_instance ~= false then
+                is_method_or_ufcs = true
+            elseif not node.callee.object.type_info then
+                is_method_or_ufcs = true
+            end
+        end
+    end
+
     local current_pos = 1
-    if node.callee.kind == SK.MEMBER_EXPR and node.callee.is_ufcs then
+    if is_method_or_ufcs then
         effective_args[1] = node.callee.object
         current_pos = 2
     end
@@ -1099,7 +1387,7 @@ function Binder:_bind_call_expr(node)
                         self.diagnostics:report_error("ZT-S105", 
                             string.format("parâmetro '%s' já preenchido posicionalmente", arg.name), arg.span or node.span)
                     end
-                    effective_args[j] = arg.value
+                    effective_args[j] = arg
                     found = true
                     break
                 end
@@ -1146,7 +1434,18 @@ function Binder:_bind_call_expr(node)
                 end
             end
             if val then
-                local arg_type = self:_bind_node(val)
+                local arg_node = val
+                if type(val) == "table" and val.kind == "NAMED" then
+                    arg_node = val.value
+                end
+                local arg_type = self:_bind_node(arg_node)
+                local param_type = p.type_info or (p.type_node and self:_resolve_type(p.type_node)) or BuiltinTypes.ANY
+                param_type = self:_instantiate_type(param_type, generic_bindings)
+                if not TypeChecker.is_assignable(arg_type, param_type) then
+                    self.diagnostics:report_error("ZT-S100",
+                        string.format("argumento incompatível para o parâmetro '%s': esperado '%s', encontrado '%s'", tostring(p.name), tostring(param_type), tostring(arg_type)),
+                        arg_node.span or val.span or node.span)
+                end
                 table.insert(final_args, val)
                 final_arg_types[i] = arg_type
             end
@@ -1154,7 +1453,7 @@ function Binder:_bind_call_expr(node)
     end
 
     node.resolved_args = final_args
-    local ret = symbol and symbol.return_type or callee_type.return_type
+    local ret = callee_type.return_type or (symbol and symbol.return_type)
     if symbol and symbol.kind == Symbol.Kind.ENUM_MEMBER then
         ret = self:_infer_enum_member_return(symbol, final_arg_types) or ret
     end
@@ -1288,6 +1587,15 @@ function Binder:_bind_match_stmt(node)
         for _, pattern in ipairs(case.patterns) do
             self:_bind_pattern(pattern, expr_type)
         end
+
+        if case.guard then
+            local guard_type = self:_bind_node(case.guard)
+            if guard_type ~= BuiltinTypes.BOOL and guard_type ~= BuiltinTypes.ANY then
+                self.diagnostics:report_error("ZT-S102",
+                    string.format("guarda do 'match' deve ser 'bool', encontrado '%s'", tostring(guard_type)),
+                    case.guard.span)
+            end
+        end
         
         for _, stmt in ipairs(case.body) do
             self:_bind_node(stmt)
@@ -1295,7 +1603,38 @@ function Binder:_bind_match_stmt(node)
         
         self.scope = old_scope
     end
-    
+
+    -- Verificação de Exaustividade (apenas para ENUMs por enquanto)
+    if not node.else_clause and expr_type.kind == ZenithType.Kind.ENUM then
+        local enum_sym = expr_type.symbol
+        if enum_sym and enum_sym.member_symbols then
+            local covered_variants = {}
+            for _, case in ipairs(node.cases) do
+                for _, pattern in ipairs(case.patterns) do
+                    if (pattern.kind == SK.VARIANT_PATTERN or pattern.kind == SK.MEMBER_EXPR) and pattern.symbol then
+                        covered_variants[pattern.symbol.name] = true
+                    elseif pattern.kind == SK.IDENTIFIER_EXPR and not pattern.match_type then
+                        -- Captura curinga ou identificador simples cobre tudo
+                        return BuiltinTypes.VOID
+                    end
+                end
+            end
+            
+            local missing = {}
+            for _, m_sym in ipairs(enum_sym.member_symbols) do
+                if not covered_variants[m_sym.name] then
+                    table.insert(missing, m_sym.name)
+                end
+            end
+            
+            if #missing > 0 then
+                self.diagnostics:report_warning("ZT-W100",
+                    string.format("match não é exaustivo: variantes faltando: %s", table.concat(missing, ", ")),
+                    node.span)
+            end
+        end
+    end
+
     if node.else_clause then
         local else_scope = Scope.new(Scope.Kind.BLOCK, self.scope)
         local old_scope = self.scope
@@ -1399,6 +1738,10 @@ function Binder:_bind_assert_stmt(node)
     return BuiltinTypes.VOID
 end
 
+function Binder:_bind_control_flow_stmt(node)
+    return BuiltinTypes.VOID
+end
+
 function Binder:_bind_attempt_stmt(node)
     local try_scope = Scope.new(Scope.Kind.BLOCK, self.scope)
     local old_scope = self.scope
@@ -1473,6 +1816,14 @@ function Binder:_bind_range_expr(node)
     if start_t ~= BuiltinTypes.INT or end_t ~= BuiltinTypes.INT then
         self.diagnostics:report_error("ZT-S102", "intervalos (ranges) devem ser compostos por inteiros", node.span)
     end
+
+    -- Fase 11: Aviso de Base 1 para sequências
+    local start_val = node.start_expr.value
+    if node.start_expr.kind == SK.LITERAL_EXPR and start_val == 0 then
+        self.diagnostics:report_warning("ZT-W002", 
+            "sequências em Zenith são baseadas em 1. O intervalo iniciando em 0 pode causar comportamento inesperado", 
+            node.start_expr.span, "tente iniciar em 1")
+    end
     
     return ZenithType.new(ZenithType.Kind.GENERIC, "list<int>", {
         base_name = "list",
@@ -1511,7 +1862,13 @@ function Binder:_bind_self_field_expr(node)
 end
 
 function Binder:_bind_it_ref_expr(node)
-    -- 'it' é resolvido dinamicamente ou injetado em contextos específicos (como where)
+    local symbol = self.scope:lookup("it")
+    if symbol then
+        node.symbol = symbol
+        return symbol.type_info or BuiltinTypes.ANY
+    end
+
+    -- Fora de contratos, 'it' permanece dinamico para UFCS/filter.
     return BuiltinTypes.ANY
 end
 
@@ -1525,6 +1882,20 @@ end
 
 function Binder:_bind_member_expr(node)
     local object_type = self:_bind_node(node.object)
+
+    local module_symbol = node.object.symbol
+    if module_symbol and module_symbol.kind == Symbol.Kind.MODULE then
+        local member_sym = module_symbol:get_member(node.member_name)
+        if member_sym then
+            node.symbol = member_sym
+            return member_sym.type_info or member_sym.return_type or BuiltinTypes.ANY
+        end
+
+        self.diagnostics:report_error("ZT-S008",
+            string.format("membro '%s' nao encontrado no modulo '%s'", node.member_name, module_symbol.name),
+            node.span)
+        return BuiltinTypes.ANY
+    end
     
     -- Heurística para construtores: Struct.new(...) -> Struct
     if node.member_name == "new" and object_type.kind == ZenithType.Kind.STRUCT then
@@ -1539,23 +1910,100 @@ function Binder:_bind_member_expr(node)
         target_type = object_type.constraint
     end
 
-    if target_type.kind == ZenithType.Kind.STRUCT or target_type.kind == ZenithType.Kind.TRAIT or target_type.kind == ZenithType.Kind.ENUM then
+    if target_type.kind == ZenithType.Kind.STRUCT or target_type.kind == ZenithType.Kind.TRAIT or target_type.kind == ZenithType.Kind.ENUM or target_type.kind == ZenithType.Kind.GENERIC then
         local base_sym = target_type.symbol
         if base_sym then
             local member_sym = base_sym:get_member(node.member_name)
             if member_sym then
                 node.symbol = member_sym
-                return member_sym.type_info or member_sym.return_type or BuiltinTypes.ANY
+                local member_type = member_sym.type_info or member_sym.return_type or BuiltinTypes.ANY
+                
+                -- Especialização para instâncias genéricas
+                if target_type.kind == ZenithType.Kind.GENERIC and target_type.type_args then
+                    local bindings = {}
+                    for i, p in ipairs(base_sym.generic_params or {}) do
+                        bindings[p.name] = target_type.type_args[i]
+                    end
+                    return self:_instantiate_type(member_type, bindings)
+                end
+                
+                return member_type
             end
         end
     end
 
-    -- Fallback UFCS: Procurar função global que aceite o objeto como primeiro parâmetro
-    local ufcs_sym = self.scope:lookup(node.member_name)
-    if ufcs_sym and ufcs_sym.kind == Symbol.Kind.FUNCTION then
-        node.symbol = ufcs_sym
-        node.is_ufcs = true
-        return ufcs_sym.type_info or BuiltinTypes.ANY
+    -- Fallback UFCS: Procurar função global ou do runtime que aceite o objeto como primeiro parâmetro
+    -- IMPORTANTE: UFCS só deve funcionar se o objeto for uma INSTÂNCIA.
+    if object_type.is_instance ~= false then
+        local name = node.member_name
+        local ufcs_sym = self.scope:lookup(name)
+        
+        -- Fallback 1: Função global explícita
+        if ufcs_sym and ufcs_sym.kind == Symbol.Kind.FUNCTION then
+            node.symbol = ufcs_sym
+            node.is_ufcs = true
+            return ufcs_sym.type_info or BuiltinTypes.ANY
+        end
+
+        -- Fallback 2: Métodos Virtuais / Runtime (len, split, push, etc)
+        -- Mapeamos membros comuns para funções do namespace 'zt' no Lua
+        local function generic_list_of(item_type)
+            return ZenithType.new(ZenithType.Kind.GENERIC, "list", { base_name = "list", type_args = { item_type } })
+        end
+
+        local fallible_item = BuiltinTypes.ANY
+        if object_type.kind == ZenithType.Kind.GENERIC and
+           (object_type.base_name == "Optional" or object_type.base_name == "Outcome") then
+            fallible_item = object_type.type_args[1] or BuiltinTypes.ANY
+        end
+
+        local list_item = BuiltinTypes.ANY
+        if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
+            list_item = object_type.type_args[1] or BuiltinTypes.ANY
+        end
+
+        local virtual_methods = {
+            len = { types = { "list", "text", "map", "grid" }, ret = BuiltinTypes.INT },
+            split = { types = { "text" }, ret = generic_list_of(BuiltinTypes.TEXT), args = { { name = "sep", type_info = BuiltinTypes.TEXT, default_value = ExprSyntax.literal(",", "text", node.span) } } },
+            push = { types = { "list" }, ret = BuiltinTypes.VOID, args = { { name = "value", type_info = list_item } } },
+            pop = { types = { "list" }, ret = list_item },
+            keys = { types = { "map" }, ret = generic_list_of(BuiltinTypes.TEXT) },
+            is_empty = { types = { "list", "Optional", "Outcome" }, ret = BuiltinTypes.BOOL },
+            is_present = { types = { "Optional", "Outcome" }, ret = BuiltinTypes.BOOL },
+            is_success = { types = { "Outcome" }, ret = BuiltinTypes.BOOL },
+            is_failure = { types = { "Outcome" }, ret = BuiltinTypes.BOOL },
+            unwrap = { types = { "Optional", "Outcome" }, ret = fallible_item },
+            unwrap_or = { types = { "Optional", "Outcome" }, ret = fallible_item, args = { { name = "fallback", type_info = fallible_item } } },
+            to_text = { types = { "int", "float", "bool", "text" }, ret = BuiltinTypes.TEXT },
+        }
+
+        local function virtual_type_matches(t)
+            if t == "text" then return object_type == BuiltinTypes.TEXT end
+            if t == "int" then return object_type == BuiltinTypes.INT end
+            if t == "float" then return object_type == BuiltinTypes.FLOAT end
+            if t == "bool" then return object_type == BuiltinTypes.BOOL end
+            return object_type.base_name == t
+        end
+
+        local vm = virtual_methods[name]
+        if vm then
+            local is_match = false
+            for _, t in ipairs(vm.types) do
+                if virtual_type_matches(t) then
+                    is_match = true
+                    break
+                end
+            end
+
+            if is_match then
+                local params = { { name = "self", type_info = object_type } }
+                for _, p in ipairs(vm.args or {}) do table.insert(params, p) end
+                local virtual_sym = Symbol.func(name, params, vm.ret, node.span)
+                node.symbol = virtual_sym
+                node.is_ufcs = true
+                return vm.ret
+            end
+        end
     end
 
     -- Heurística para reatividade: state.get / state.set
@@ -1579,14 +2027,18 @@ end
 function Binder:_bind_index_expr(node)
     local object_type = self:_bind_node(node.object)
     local index_type = self:_bind_node(node.index_expr)
+    node.object_type = object_type -- Propaga para o Codegen decidir o helper de runtime
 
     if node.index_expr and node.index_expr.kind == SK.RANGE_EXPR then
         if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
-            return ZenithType.new(ZenithType.Kind.GENERIC, "list", {
+            local slice_type = ZenithType.new(ZenithType.Kind.GENERIC, "list", {
                 base_name = "list",
                 type_args = { object_type.type_args[1] or BuiltinTypes.ANY },
+                symbol = object_type.symbol, -- Preserva o símbolo para métodos (push, len, etc)
+                is_instance = true,
                 span = node.span
             })
+            return slice_type
         end
 
         if object_type == BuiltinTypes.TEXT then
@@ -1596,15 +2048,38 @@ function Binder:_bind_index_expr(node)
         return BuiltinTypes.ANY
     end
 
+    if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "map" then
+        local key_type = object_type.type_args[1] or BuiltinTypes.ANY
+        local value_type = object_type.type_args[2] or BuiltinTypes.ANY
+        if not TypeChecker.is_assignable(index_type, key_type) then
+            self.diagnostics:report_error("ZT-S102",
+                string.format("chave de mapa deve ser '%s', encontrado '%s'", tostring(key_type), tostring(index_type)),
+                node.index_expr.span)
+        end
+        return value_type
+    end
+
     if index_type ~= BuiltinTypes.INT and index_type ~= BuiltinTypes.ANY then
         self.diagnostics:report_error("ZT-S102", "índices devem ser inteiros", node.index_expr.span)
     end
 
     if object_type.kind == ZenithType.Kind.GENERIC and object_type.base_name == "list" then
+        -- Fase 11: Aviso de Base 1
+        if node.index_expr.kind == SK.LITERAL_EXPR and node.index_expr.value == 0 then
+            self.diagnostics:report_warning("ZT-W002", 
+                "sequências em Zenith são baseadas em 1. O índice 0 é inválido para listas", 
+                node.index_expr.span, "tente usar 1 para o primeiro elemento")
+        end
         return object_type.type_args[1] or BuiltinTypes.ANY
     end
 
     if object_type == BuiltinTypes.TEXT then
+        -- Fase 11: Aviso de Base 1
+        if node.index_expr.kind == SK.LITERAL_EXPR and node.index_expr.value == 0 then
+            self.diagnostics:report_warning("ZT-W002", 
+                "sequências em Zenith são baseadas em 1. O índice 0 é inválido para texto", 
+                node.index_expr.span, "tente usar 1 para o primeiro caractere")
+        end
         return BuiltinTypes.TEXT
     end
 
@@ -1637,7 +2112,14 @@ function Binder:_bind_struct_init_expr(node)
     
     local resolved_type = type_sym.type_info
     
-    -- Validar se a inicialização usa genéricos: Box<int> { ... }
+    -- Especialização implícita baseada no tipo esperado: var b: Box<int> = Box { ... }
+    if not node.generic_args and self.expected_type and self.expected_type.kind == ZenithType.Kind.GENERIC then
+        if self.expected_type.base_name == node.type_name then
+            resolved_type = self.expected_type
+        end
+    end
+    
+    -- Validar se a inicialização usa genéricos explícitos: Box<int> { ... }
     if node.generic_args then
         -- Criamos um nó temporário de GENERIC_TYPE para reutilizar a lógica de validação do _resolve_type
         resolved_type = self:_resolve_type({
@@ -1730,7 +2212,7 @@ function Binder:_resolve_type(type_node)
             local builtin = BuiltinTypes.lookup(type_node.base_name)
             if builtin then
                 -- Para builtins, criamos parâmetros genéricos "fakes"
-                local counts = { list = 1, grid = 1, map = 2 }
+                local counts = { list = 1, grid = 1, map = 2, Optional = 1, Outcome = 1 }
                 local count = counts[type_node.base_name] or 0
                 for i = 1, count do table.insert(expected_params, { name = "T"..i }) end
             else
@@ -1799,6 +2281,7 @@ function Binder:_resolve_type(type_node)
         return ZenithType.new(ZenithType.Kind.GENERIC, type_node.base_name, {
             base_name = type_node.base_name,
             type_args = args,
+            symbol = base_sym,
             span = type_node.span
         })
     end
@@ -1970,6 +2453,13 @@ function Binder:_bind_try_expr(node)
     -- O tipo resultante da expressão 'val?' é o parâmetro genérico T (o primeiro)
     node.type_info = expr_type.type_args[1]
     return node.type_info
+end
+
+function Binder:_bind_compilation_unit(node)
+    for _, member in ipairs(node.members or {}) do
+        self:_bind_node(member)
+    end
+    return BuiltinTypes.VOID
 end
 
 return Binder

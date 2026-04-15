@@ -1,30 +1,30 @@
 # Cronograma Mestre Zenith (v0.3 -> v1.0)
 
-Este documento organiza a evolucao do Zenith em uma visao unica, agora partindo do marco em que Ascension foi concluido como motor oficial.
+> Nota: este documento e editorial/historico.
+> Para o estado verificado da implementacao atual, use `../roadmap_estabilizacao.md`.
 
-## 1. Estado Atual: Zenith Ascension (v0.3.0)
+## 1. Estado Atual
 
-Zenith esta oficialmente em sua fase auto-hospedada.
+O estado real do repositorio em 2026-04-14 e:
 
-- Status: auto-hospedado, operacional e documentado
-- Destaques: self-hosting completo, otimizacao do motor e distribuicao multiplataforma
-- Qualidade: suites de teste integradas via ZTest
-- Referencias: [Core](core.md) | [Ascensao](ascension.md)
+- trilha ativa em Lua estabilizada nas Fases 1-11
+- Fase 12 parcial
+- trilha self-hosted aberta, sem paridade total
 
 ## 2. Proximo Ciclo: Maturidade Industrial (v0.4 -> v0.9)
 
-Expansao do ferramental, ergonomia e produtividade sobre a base ja concluida.
+Expansao de ferramental, ergonomia e produtividade sobre a base ativa estabilizada.
 
-- Foco: Compass, Atlas, Keter e novas camadas de produtividade
-- Meta: ampliar cobertura de integracao, observabilidade e empacotamento
-- Referencia: [Roadmap de Qualidade](quality.md)
+- foco: melhor observabilidade, empacotamento e reducao de dependencia estrutural de `native lua`
+- foco: transformar decisoes de linguagem ja tomadas em especificacao curta e coerente
+- foco: aproximar a trilha self-hosted da linguagem ativa
+- plano operacional: `null-to-optional.md` para remocao gradual de `null` por `Optional`
 
 ## 3. Visao de Futuro: Zenith v1.0 Odyssey
 
-O caminho para v1.0 continua olhando para Zenith como uma plataforma mais ampla para UI, web, jogos e automacao.
+O caminho para v1.0 continua olhando para Zenith como plataforma mais ampla para UI, web, jogos e automacao.
 
-- Status: planejamento
-- Frameworks alvo: Zenith Meridian, Zenith Borealis, Zenith Intersect e Zenith Orion
-- Referencia: [Visao Odyssey](odyssey.md)
+- status: planejamento
+- frameworks alvo: Zenith Meridian, Zenith Borealis, Zenith Intersect e Zenith Orion
 
-*Atualizado em: 2026-04-11*
+*Atualizado em: 2026-04-15*

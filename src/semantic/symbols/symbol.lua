@@ -112,6 +112,21 @@ function Symbol.func(name, params, return_type, span, is_async)
     })
 end
 
+function Symbol.method(name, params, return_type, span, is_async)
+    local ZenithType = require("src.semantic.types.zenith_type")
+    return Symbol.new(Symbol.Kind.METHOD, name, {
+        params = params,
+        return_type = return_type,
+        is_async = is_async or false,
+        type_info = ZenithType.new(ZenithType.Kind.FUNC, name, { 
+            return_type = return_type,
+            params = params 
+        }),
+        span = span,
+        is_mutable = false,
+    })
+end
+
 --- Cria símbolo de struct.
 function Symbol.struct(name, fields, methods, span)
     return Symbol.new(Symbol.Kind.STRUCT, name, {
@@ -205,6 +220,10 @@ end
 
 --- Busca um membro (campo ou método) neste símbolo (se for STRUCT).
 function Symbol:get_member(name)
+    if self.kind == Symbol.Kind.MODULE then
+        return self.members_scope and self.members_scope:lookup_local(name) or nil
+    end
+
     if self.kind == Symbol.Kind.ENUM then
         if self.member_symbols then
             for _, m in ipairs(self.member_symbols) do

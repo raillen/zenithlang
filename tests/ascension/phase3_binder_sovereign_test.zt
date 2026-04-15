@@ -1,0 +1,56 @@
+import std.test
+import source
+import syntax.lexer
+import syntax.parser
+import syntax.ast
+import semantic.binding
+import semantic.symbols
+
+test.describe("Ascension v0.3.4: Binder Soberano", () => do
+    test.test("Definicao e Busca de Simbolo", () => do
+        var code = "var score = 10"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+        
+        var par = parser.create(tokens_list)
+        var ast_root = par.parse_compilation_unit()
+        
+        var bin = binding.create()
+        bin.bind(ast_root)
+
+        var sym_opt = bin.scope.lookup("score")
+        test.assert_true(sym_opt.is_present())
+        
+        match sym_opt
+            case Present(s): do
+                test.assert_eq(s.name, "score")
+                test.assert_eq(s.kind, symbols.SymbolKind.VARIABLE)
+            end
+            case Empty: test.assert_true(false)
+        end
+    end)
+
+    test.test("Escopo de Funcao", () => do
+        var code = "func main() do var local_v = 1 end"
+        var src = source.SourceText { text = code, filename = "test.zt" }
+        var lex = lexer.create(src)
+        var tokens_list = lex.tokenize()
+        
+        var par = parser.create(tokens_list)
+        var ast_root = par.parse_compilation_unit()
+        
+        var bin = binding.create()
+        bin.bind(ast_root)
+
+        -- local_v não deve estar no escopo raiz
+        var sym_opt = bin.scope.lookup("local_v")
+        test.assert_false(sym_opt.is_present())
+        
+        -- main deve estar
+        var main_opt = bin.scope.lookup("main")
+        test.assert_true(main_opt.is_present())
+    end)
+end)
+
+test.run_all()

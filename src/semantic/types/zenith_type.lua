@@ -31,6 +31,13 @@ function ZenithType.new(kind, name, data)
             self[k] = v
         end
     end
+
+    -- Por padrão, assumimos que é uma instância se for um tipo primitivo
+    -- ou se for explicitamente marcado. Tipos puros (como Structs acessadas pelo nome) 
+    -- devem marcar is_instance = false.
+    if self.is_instance == nil then
+        self.is_instance = true
+    end
     
     return self
 end
@@ -74,9 +81,20 @@ function ZenithType:is_assignable_to(other)
 
     if self == other then return true end
 
-    -- Parâmetros genéricos ainda não instanciados são tratados como placeholders.
+    -- Parâmetros genéricos: T só é compatível com T ou Any
+    if self.kind == ZenithType.Kind.TYPE_PARAM and other.kind == ZenithType.Kind.TYPE_PARAM then
+        return self.name == other.name
+    end
+
+    -- Um parâmetro genérico T pode ser atribuído a um Trait se ele tiver a restrição
+    if self.kind == ZenithType.Kind.TYPE_PARAM and other.kind == ZenithType.Kind.TRAIT then
+        if self.constraint and self.constraint:is_assignable_to(other) then
+            return true
+        end
+    end
+
     if self.kind == ZenithType.Kind.TYPE_PARAM or other.kind == ZenithType.Kind.TYPE_PARAM then
-        return true
+        return false
     end
 
     -- Lógica de Traits: Struct S -> Trait T

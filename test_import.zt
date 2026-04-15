@@ -1,0 +1,6 @@
+import syntax.ast.nodes
+
+pub func main() -> int
+    var n: syntax.ast.Node = syntax.ast.Node.BadNode
+    return 0
+end

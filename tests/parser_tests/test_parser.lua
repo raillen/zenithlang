@@ -512,10 +512,10 @@ end
         a.equal(field.condition.left.kind, SK.IT_EXPR)
     end)
 
-    t:test("struct com atributos: @min(100)", function()
+    t:test("struct com atributos: #[min(100)]", function()
         local code = [[
 struct Boss
-    @min(100)
+    #[min(100)]
     vida: int = 500
 end
 ]]
@@ -524,6 +524,21 @@ end
         a.equal(#field.attributes, 1)
         a.equal(field.attributes[1].name, "min")
         a.equal(field.attributes[1].arguments[1].value, 100)
+    end)
+
+    t:test("legacy @atributo gera warning de migracao", function()
+        local code = [[
+struct Boss
+    @min(100)
+    vida: int = 500
+end
+]]
+        local _, diags = parse(code)
+        local found = false
+        for _, d in ipairs(diags.diagnostics) do
+            if d.code == "ZT-W003" then found = true end
+        end
+        a.is_true(found)
     end)
 
 end)

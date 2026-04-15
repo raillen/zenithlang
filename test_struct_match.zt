@@ -1,0 +1,17 @@
+import std.io
+
+struct Point
+    x: int
+    y: int
+end
+
+pub func main()
+    var p = Point { x: 10, y: 20 }
+    
+    match p
+        case Point { x: 10, y: y_val } => io.println("Point com x=10 encontrado!")
+        case _ => io.println("Outro point")
+    end
+end
+
+main()

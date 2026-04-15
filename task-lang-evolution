@@ -1,0 +1,24 @@
+# Task: Zenith Sovereign Stabilization
+
+- `[x]` **Phase 0: Monolithic Stabilization (Stage 0)**
+    - `[x]` Patch `syntax.lua` to handle v0.3 syntax (Optional returns, Elif chains)
+    - `[x]` Fix `zt.slice` runtime for 0-indexed strings
+    - `[x]` Stabilize Stage 0 -> Stage 1 transpilation
+    - `[x]` Integrate `case` keyword in Lexer/Parser
+    - `[x]` Fix `[ZT-1001]` in `emitter.zt` match patterns
+    - `[x]` Implement MatchStmt emission in Stage 0
+    - `[x]` Successfully transpile `emitter.zt` to `emitter.lua`
+- `[x]` **Phase 1: Modular Bootstrap (Stage 1)**
+    - `[x]` Compile all modular components using Stage 0
+    - `[x]` Verify Stage 1 runtime environment (`LUA_PATH`)
+    - `[x]` Run `ztc_stage1.lua` to compile `src/main.zt` -> `ztc_stage2.lua`
+    - `[x]` Implementar `BreakStmt` e `ContinueStmt` no Parser e Emitter
+    - `[x]` Resolver erros de parsing em `syntax.zt` (DotDot, keywords em campos)
+    - `[x]` Gerar `syntax_stage1.lua` com sucesso
+    - `[x]` Verificar Stage 1 compilando a si mesmo (Stage 2)
+- `[x]` **Phase 2: Self-Hosting Verification (Stage 2)**
+    - `[x]` Compile `src/main.zt` using `ztc_stage2.lua` -> `ztc_stage3.lua`
+    - `[x]` Verify Bytecode/Source Identity (Stage 2 == Stage 3)
+- `[x]` **Phase 3: Cleanup & Finalization**
+    - `[x]` Remove monolithic `src/compiler/syntax.zt` and `syntax.lua`
+    - `[x]` Update project structure to use modular components by default
