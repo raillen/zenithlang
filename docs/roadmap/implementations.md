@@ -23,12 +23,12 @@ Este roadmap responde a pergunta: o que existe hoje, em qual camada, e com qual 
 
 ## 3. Compilador Self-Hosted (Zenith)
 
-### Experimental
+### Current
 
-- aproximar `src/compiler/*.zt` da linguagem ativa
-- reduzir dependencia de `native lua`
-- construir caminho verificavel de bootstrap
-- parar de tratar essa linha como concluida antes da validacao de paridade
+- tratar `src/compiler/syntax.zt` como caminho canonico do compilador self-hosted
+- preservar `check` verde e bootstrap `stage2/stage3` deterministico como baseline de saude
+- reduzir `native lua` remanescente sem reabrir o saneamento estrutural ja concluido
+- consolidar politica de release, especificacao curta e docs antes de ampliar escopo de paridade
 
 ## 4. Stdlib e Ferramental
 

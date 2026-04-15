@@ -101,6 +101,10 @@ Usado para:
 - parametros duplicados
 - incompatibilidade entre ? e o tipo de retorno da funcao atual
 
+### ZT-S106 - uso direto de null nao permitido
+
+O literal null continua reconhecido pelo parser por compatibilidade historica, mas o binder agora rejeita seu uso direto. Use Empty para ausencia ou modele o caso com Optional<T>/Outcome<T, E>.
+
 ### ZT-S201 - self ou @campo fora de metodo
 
 self e @nome so podem aparecer dentro de metodo de struct ou trait.
@@ -116,10 +120,6 @@ await so funciona dentro de async func ou lambda async.
 - ZT-S303: struct nao implementa metodo exigido pela trait
 
 ## Warnings
-
-### ZT-W001 - uso direto de null em tipo anulavel
-
-O codigo usou null em um contexto T?. Ainda compila, mas a trilha ativa recomenda Optional ou Outcome.
 
 ### ZT-W002 - indice 0 em sequencia 1-based
 

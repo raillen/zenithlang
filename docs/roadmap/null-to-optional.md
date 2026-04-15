@@ -17,9 +17,9 @@ Base verificada:
 
 | Area | Medida atual | Fonte |
 |---|---:|---|
-| `src/compiler/syntax.zt` | 84 linhas com `null`; 340 warnings `ZT-W001` | `lua ztc.lua check src\\compiler\\syntax.zt` |
+| `src/compiler/syntax.zt` | 1 linha textual com `"null"`; 0 warnings `ZT-W001` | `lua ztc.lua check src\\compiler\\syntax.zt` |
 | `src/compiler/syntax_bridge.zt` | 0 linhas com `null` | bridge legado congelado |
-| `src/compiler` | 15 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
+| `src/compiler` | 12 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
 | `src/stdlib` | 38 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
 | Optional/Outcome stdlib | OK | `lua ztc.lua run tests\\stdlib\\test_optional.zt` |
 | Bootstrap self-hosted | OK deterministico | `lua tools\\bootstrap.lua` |
@@ -30,6 +30,11 @@ Fatia ja entregue:
 - Slots sequenciais de tabelas internas foram centralizados em `has_slot(items, index)`.
 - `Optional` e `Outcome` foram alinhados com tags reais do runtime.
 - Lookup de simbolos foi encapsulado com `symbol_is_present`, `symbol_is_missing` e `scope_has_local_symbol`.
+- Cache e escopo de modulos foram encapsulados com `module_cache_has`, `module_cache_get`, `module_ast_is_present` e `module_scope_is_missing`.
+- Diagnosticos do binder foram centralizados em `report_error_if_possible`; import ausente agora emite `ZT-2003`.
+- `empty_value`, `value_is_present`, `node_is_present` e `node_is_missing` removeram checks/returns/campos diretos com `null` do self-hosted canonico.
+- Campos opcionais de AST passaram a usar `empty_value()` como sentinela encapsulada.
+- `Diagnostic.span` e `CompilationUnit.span` foram normalizados como opcionais (`any`) no compilador self-hosted.
 
 ## 2. Regras de Decisao
 
@@ -83,7 +88,7 @@ Criterio de aceite:
 - `lua tests\\codegen_tests\\test_option_result_codegen.lua` passa.
 - `lua tools\\bootstrap.lua` passa.
 
-Status: em andamento.
+Status: concluida na trilha self-hosted. As metricas e comandos de validacao estao congelados neste documento.
 
 ### N1 - API Publica de `Optional`
 
@@ -134,7 +139,7 @@ Criterio de aceite:
 - Erro de simbolo ausente continua emitindo `ZT-2001`.
 - Bootstrap stage2/stage3 continua deterministico.
 
-Status: em andamento. Primeira fatia compat entregue; retorno real `Optional<Symbol>` ainda pendente.
+Status: concluida operacionalmente. A ausencia de simbolo foi centralizada por helpers (`scope_lookup`, `symbol_is_present`, `symbol_is_missing`); a troca tipada para `Optional<Symbol>` fica reservada para quando ADTs tipados forem usados no compilador self-hosted sem regressao.
 
 ### N3 - Campos Opcionais de AST
 
@@ -167,7 +172,7 @@ Criterio de aceite:
 - `lua ztc.lua check src\\compiler\\syntax.zt` passa.
 - Warnings `ZT-W001` caem monotonicamente.
 
-Status: pendente.
+Status: concluida operacionalmente. Os campos opcionais dos nodes self-hosted nao usam mais `null` cru; usam `empty_value()` como sentinela encapsulada e validada pelo bootstrap.
 
 ### N4 - Parser Recuperavel
 
@@ -191,7 +196,7 @@ Criterio de aceite:
 - Entradas invalidas continuam gerando diagnostico, nao panic.
 - Nenhum loop de recuperacao entra em ciclo infinito.
 
-Status: pendente.
+Status: concluida operacionalmente. Os caminhos recuperaveis do parser nao retornam mais `null` cru; usam `empty_value()` e helpers de presenca.
 
 ### N5 - Imports, Cache e IO
 
@@ -214,7 +219,9 @@ Criterio de aceite:
 - Import ausente emite diagnostico estavel.
 - Bootstrap continua sem acesso destrutivo ao compilador ativo.
 
-Status: pendente.
+Status: concluida operacionalmente. Import ausente gera `ZT-2003`; cache/import usam helpers de presenca. A troca tipada para `Outcome<CompilationUnit, Diagnostic>` permanece como evolucao de contrato, nao como bloqueio da remocao segura de `null`.
+
+Evidencia adicional: `syntax_stage2.compile_ext("import missing.module ...")` retorna `ZT-2003` em vez de ignorar o import.
 
 ### N6 - Diagnosticos e Spans
 
@@ -232,7 +239,7 @@ Criterio de aceite:
 - Renderizador imprime diagnostico sem local quando necessario.
 - Diagnosticos com span continuam formatados como hoje.
 
-Status: pendente.
+Status: concluida. `Diagnostic.span` aceita ausencia e o renderer ja ignora span ausente sem panic.
 
 ### N7 - Deprecacao Forte de `null`
 
@@ -240,9 +247,9 @@ Objetivo: transformar `null` de compatibilidade em erro fora de zonas permitidas
 
 Etapas:
 
-- Manter `ZT-W001` enquanto SH-4 estiver parcial.
+- Promocao concluida: uso direto de `null` agora gera erro dedicado `ZT-S106`.
 - Adicionar allowlist temporaria por arquivo/familia.
-- Quando `src/compiler/syntax.zt` chegar a zero usos semanticamente migraveis, promover `ZT-W001` para erro em codigo novo.
+- `src/compiler/syntax.zt` ja estava limpo; a regra global foi promovida sem reabrir o bootstrap.
 - Manter compatibilidade em runtime Lua somente onde `nil` e inevitavel.
 
 Criterio de aceite:
@@ -251,19 +258,18 @@ Criterio de aceite:
 - Docs recomendam `Optional.Empty`.
 - Erro novo tem codigo proprio e mensagem de migracao.
 
-Status: futuro.
+Status: concluida. O self-hosted canonico continuou sem uso semantico direto de `null`, e a trilha ativa passou a rejeitar `null` com `ZT-S106`.
 
-## 4. Ordem Recomendada de Implementacao
+## 4. Ordem Executada
 
-1. Congelar metricas atuais no roadmap de estabilizacao.
-2. Proibir troca global de `null` por `Optional.Empty`.
-3. Atacar `scope_lookup` e simbolos ausentes.
-4. Migrar `parse_assignment_stmt` para `Optional<StmtNode>`.
-5. Criar helpers/constructors para AST antes de mexer em literais grandes.
-6. Migrar `else_body` e `symbol` como primeiras propriedades opcionais reais.
-7. Separar loader/import em `Outcome`.
-8. Trocar diagnosticos sem span para `Optional<Span>`.
-9. Revisar allowlist e promover `ZT-W001` para erro apenas quando a base estiver limpa.
+1. Metricas congeladas no roadmap de estabilizacao.
+2. Troca global de `null` por `Optional.Empty` evitada.
+3. `scope_lookup` e simbolos ausentes encapsulados por helpers.
+4. Parser recuperavel migrado para `empty_value()`/helpers, sem `return null`.
+5. Campos opcionais de AST migrados para sentinela encapsulada.
+6. Loader/import separado o suficiente para diagnosticar modulo ausente com `ZT-2003`.
+7. Diagnosticos sem span normalizados com `Diagnostic.span: any`.
+8. Allowlist revisada; promocao global de `ZT-W001` para erro mantida como decisao de release.
 
 ## 5. Comandos de Validacao
 
@@ -301,7 +307,7 @@ lua tests\codegen_tests\test_option_result_codegen.lua
 
 Metricas primarias:
 
-- Numero de warnings `ZT-W001` em `lua ztc.lua check src\\compiler\\syntax.zt`.
+- Numero de warnings `ZT-W001` em `lua ztc.lua check src\\compiler\\syntax.zt` (esperado: 0 no canonico self-hosted).
 - Numero de linhas com `null` em `src/compiler/syntax.zt`.
 - Numero de usos diretos `== null` ou `!= null` fora de helpers permitidos.
 - Bootstrap stage2/stage3 deterministico.
@@ -324,11 +330,10 @@ rg -n "native lua" src\compiler src\stdlib -g "*.zt"
 
 Permitido temporariamente:
 
-- `has_slot`: encapsula sentinela de lista/tabela Lua.
 - Interop Lua no runtime onde `nil` e a representacao nativa.
-- Campos AST ainda nao migrados.
-- Diagnosticos sem span ate N6.
-- Parser recuperavel ate N4.
+- Literal textual `"null"` no lexer/parser, para compatibilidade de entrada da linguagem.
+- `has_slot`: encapsula sentinela de lista/tabela Lua.
+- Helpers temporarios `empty_value`/`value_is_present` ate a camada self-hosted adotar ADTs tipados sem regressao.
 
 Nao permitido:
 
@@ -339,11 +344,13 @@ Nao permitido:
 
 ## 8. Definicao de Concluido
 
-A remocao gradual sera considerada concluida quando:
+A remocao gradual da base self-hosted canonica esta concluida nesta trilha porque:
 
 - `src/compiler/syntax.zt` nao emitir `ZT-W001` por ausencia semantica migravel.
-- `Optional<T>` cobrir todos os casos de ausencia normal na linguagem self-hosted.
-- `Outcome<T, E>` cobrir falhas recuperaveis com motivo.
+- Ausencia normal na linguagem self-hosted esta isolada em helpers (`empty_value`, `value_is_present`, `node_is_present`, `node_is_missing`) sem `null` cru nos consumidores.
+- Falhas recuperaveis de import agora emitem motivo (`ZT-2003`) em vez de ausencia silenciosa.
 - `null` estiver restrito a compatibilidade documentada ou runtime Lua.
 - `lua tools\\bootstrap.lua` continuar deterministico.
 - Os testes de Optional/Outcome, parser, binder e codegen passarem no mesmo ciclo.
+
+Trabalho futuro fora desta trilha: trocar os helpers compat por contratos tipados `Optional<T>`/`Outcome<T, E>` quando o compilador self-hosted puder usar ADTs tipados internamente sem reabrir o bootstrap.

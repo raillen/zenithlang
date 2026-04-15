@@ -31,7 +31,7 @@ test.describe("Exhaustive Parser: Recuperação de Erros e Estruturas Complexas"
             end
         end
 
-        var db = BancoLocal { conexao = null }
+        var db = BancoLocal { conexao = Empty }
         test.assert_outcome_success(db.salvar(1))
     end)
 

@@ -114,16 +114,16 @@ end
 
 ## Politica de null
 
-A trilha ativa ainda possui null por compatibilidade, mas o uso direto e desencorajado.
+A trilha ativa ainda reconhece `null` no parser por compatibilidade historica, mas o uso direto agora e erro semantico dedicado.
 
 Regra atual:
 
-- T? = null: permitido com warning ZT-W001
-- T = null: erro semantico ZT-S100
+- T? = null: erro semantico ZT-S106
+- T = null: erro semantico ZT-S106 e tambem ZT-S100
 
 Preferencia idiomatica:
 
-- ausencia de valor: Optional.Empty
+- ausencia de valor: Empty ou Optional<T>
 - falha explicita: Outcome.Failure
 
 ## Observacoes

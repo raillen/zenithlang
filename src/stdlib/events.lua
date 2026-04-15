@@ -101,7 +101,7 @@ function EVENTS.EventEmitter()
     end
 
     function self:count(event)
-        if event then
+        if not zt.is_empty(event) then
             return self._listeners[event] and #self._listeners[event] or 0
         end
         
@@ -113,7 +113,7 @@ function EVENTS.EventEmitter()
     end
 
     function self:clear(event)
-        if event then
+        if not zt.is_empty(event) then
             local list = self._listeners[event]
             if list then
                 for _, l in ipairs(list) do

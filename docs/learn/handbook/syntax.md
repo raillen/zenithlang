@@ -16,7 +16,7 @@ Tipos podem ser explicitados com :. A trilha ativa tambem aceita int? para nulab
 
 ~~~zt
 var total: int = 10
-var maybe_name: text? = null
+var maybe_name: text? = Empty
 ~~~
 
 ## 2. Colecoes e indexacao

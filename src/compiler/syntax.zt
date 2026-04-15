@@ -121,7 +121,7 @@ end
 pub struct Diagnostic
     pub id: text
     pub message: text
-    pub span: Span
+    pub span: any
     pub level: int -- 0: Error, 1: Warning, 2: Info
 end
 
@@ -129,14 +129,14 @@ pub struct DiagnosticBag
     pub diagnostics: any
     pub count: int
 
-    pub func report(self, id: text, msg: text, sp: Span, lv: int)
+    pub func report(self, id: text, msg: text, sp: any, lv: int)
         var d = Diagnostic { id: id, message: msg, span: sp, level: lv }
-        if self.diagnostics == null self.diagnostics = [] end
+        if value_is_missing(self.diagnostics) self.diagnostics = [] end
         self.diagnostics[self.count] = d
         self.count = self.count + 1
     end
 
-    pub func report_error(self, id: text, msg: text, sp: Span)
+    pub func report_error(self, id: text, msg: text, sp: any)
         self.report(id, msg, sp, 0)
     end
 end
@@ -154,7 +154,7 @@ pub struct CompilationUnit
     pub namespace: text
     pub imports: any
     pub declarations: any
-    pub span: Span
+    pub span: any
     pub diagnostics: DiagnosticBag
 end
 
@@ -226,12 +226,39 @@ func any_key(v: any) -> any
 end
 
 func has_slot(items: any, index: int) -> bool
-    if items == null return false end
-    return items[index] != null
+    native lua return not (type(items) == "nil") and not (type(items[index]) == "nil") end
 end
 
 func text_len(v: any) -> int
     native lua return #v end
+end
+
+func text_slice(v: text, start_index: int, finish_index: int) -> text
+    native lua return v:sub(start_index, finish_index) end
+end
+
+func text_replace(v: text, pattern: text, replacement: text) -> text
+    native lua return v:gsub(pattern, replacement) end
+end
+
+func text_prefix(v: text, count: int) -> text
+    return text_slice(v, 1, count)
+end
+
+func text_strip_quotes(v: text) -> text
+    return text_replace(text_replace(v, "^\"", ""), "\"$", "")
+end
+
+func text_to_path(v: text) -> text
+    return text_replace(v, "%.", "/")
+end
+
+func text_to_binding_name(v: text) -> text
+    return text_replace(v, "%.", "_")
+end
+
+func text_alpha_only(v: text) -> text
+    return text_replace(v, "[^%a]", "_")
 end
 
 pub struct Lexer
@@ -312,11 +339,7 @@ pub struct Lexer
 
     func slice_text(self, start_index: int, finish_index: int) -> text
         if finish_index < start_index return "" end
-        var txt = ""
-        native lua
-            txt = self.source:sub(start_index, finish_index)
-        end
-        return txt
+        return text_slice(self.source, start_index, finish_index)
     end
 
     func scan_identifier(self, start: int, line: int, col: int) -> Token
@@ -476,14 +499,14 @@ pub struct Parser
         while not self.is_at_end()
             var start_pos = self.pos
             var d = self.parse_declaration()
-            if d != null
+            if node_is_present(d)
                 decls[count] = d
                 count = count + 1
             else
                 if self.pos == start_pos self.advance() end
             end
         end
-        return CompilationUnit { namespace: ns, imports: imps, declarations: decls, span: null, diagnostics: self.diagnostics }
+        return CompilationUnit { namespace: ns, imports: imps, declarations: decls, span: empty_value(), diagnostics: self.diagnostics }
     end
 
     func is_name_token(self, k: TokenKind) -> bool
@@ -500,9 +523,7 @@ pub struct Parser
     func expect_name(self, m: text) -> Token
         var t = self.peek()
         if self.is_name_token(t.kind) return self.advance() end
-        if self.diagnostics != null
-            self.diagnostics.report_error("ZT-1001", m, t.span)
-        end
+        report_error_if_possible(self.diagnostics, "ZT-1001", m, t.span)
         self.advance()
         return t
     end
@@ -525,7 +546,7 @@ pub struct Parser
             self.advance()
             alias = self.expect_name("esperado alias").text
         end
-        return DeclNode { kind: NodeKind.ImportDecl, name: alias, body: path, span: t.span, is_pub: false, attributes: null, params: null, fields: null, methods: null, members: null, symbol: null }
+        return DeclNode { kind: NodeKind.ImportDecl, name: alias, body: path, span: t.span, is_pub: false, attributes: empty_value(), params: empty_value(), fields: empty_value(), methods: empty_value(), members: empty_value(), symbol: empty_value() }
     end
 
     func parse_type(self)
@@ -557,7 +578,7 @@ pub struct Parser
         end
 
         var t = self.peek()
-        var node: any = null
+        var node: any = empty_value()
         if t.kind == TokenKind.KwFunc node = self.parse_func_decl(is_pub)
         elif t.kind == TokenKind.KwVar node = self.parse_var_decl(is_pub)
         elif t.kind == TokenKind.KwStruct node = self.parse_struct_decl(is_pub)
@@ -567,7 +588,7 @@ pub struct Parser
             self.parse_native_lua_stmt()
         end
 
-        if node != null
+            if node_is_present(node)
             node.attributes = attrs
         end
         return node
@@ -583,7 +604,7 @@ pub struct Parser
         end
         var body = self.parse_block()
         self.expect(TokenKind.KwEnd, "esperado 'end' na função")
-        return DeclNode { kind: NodeKind.FuncDecl, name: name_t.text, params: params, body: body, is_pub: is_pub, attributes: null, span: name_t.span, symbol: null }
+        return DeclNode { kind: NodeKind.FuncDecl, name: name_t.text, params: params, body: body, is_pub: is_pub, attributes: empty_value(), span: name_t.span, symbol: empty_value() }
     end
 
     func parse_var_decl(self, is_pub: bool) -> any
@@ -593,12 +614,12 @@ pub struct Parser
             self.advance()
             self.parse_type()
         end
-        var init: any = null
+        var init: any = empty_value()
         if self.peek().kind == TokenKind.Equal
             self.advance()
             init = self.parse_expression(0)
         end
-        return DeclNode { kind: NodeKind.VarDecl, name: name_t.text, is_pub: is_pub, attributes: null, body: init, span: name_t.span, params: null, symbol: null, fields: null, methods: null, members: null }
+        return DeclNode { kind: NodeKind.VarDecl, name: name_t.text, is_pub: is_pub, attributes: empty_value(), body: init, span: name_t.span, params: empty_value(), symbol: empty_value(), fields: empty_value(), methods: empty_value(), members: empty_value() }
     end
 
     func parse_struct_decl(self, is_pub: bool) -> any
@@ -626,17 +647,17 @@ pub struct Parser
                     self.advance() -- :
                     self.parse_type()
                 end
-                var init: any = null
+                var init: any = empty_value()
                 if self.peek().kind == TokenKind.Equal
                     self.advance()
                     init = self.parse_expression(0)
                 end
-                fields[fc] = DeclNode { kind: NodeKind.VarDecl, name: f_name.text, is_pub: is_field_pub, attributes: null, body: init, span: f_name.span, params: null, symbol: null, fields: null, methods: null, members: null }
+                fields[fc] = DeclNode { kind: NodeKind.VarDecl, name: f_name.text, is_pub: is_field_pub, attributes: empty_value(), body: init, span: f_name.span, params: empty_value(), symbol: empty_value(), fields: empty_value(), methods: empty_value(), members: empty_value() }
                 fc = fc + 1
             end
         end
         self.expect(TokenKind.KwEnd, "esperado 'end' na struct")
-        return DeclNode { kind: NodeKind.StructDecl, name: name_t.text, is_pub: is_pub, attributes: null, fields: fields, methods: methods, span: name_t.span, params: null, body: null, members: null, symbol: null }
+        return DeclNode { kind: NodeKind.StructDecl, name: name_t.text, is_pub: is_pub, attributes: empty_value(), fields: fields, methods: methods, span: name_t.span, params: empty_value(), body: empty_value(), members: empty_value(), symbol: empty_value() }
     end
 
     func parse_enum_decl(self, is_pub: bool) -> any
@@ -650,18 +671,13 @@ pub struct Parser
             mc = mc + 1
         end
         self.expect(TokenKind.KwEnd, "esperado 'end' no enum")
-        return DeclNode { kind: NodeKind.EnumDecl, name: name_t.text, is_pub: is_pub, attributes: null, members: members, span: name_t.span, params: null, body: null, fields: null, methods: null, symbol: null }
+        return DeclNode { kind: NodeKind.EnumDecl, name: name_t.text, is_pub: is_pub, attributes: empty_value(), members: members, span: name_t.span, params: empty_value(), body: empty_value(), fields: empty_value(), methods: empty_value(), symbol: empty_value() }
     end
 
     func parse_extern_decl(self) -> any
         self.advance() -- extern
         var lib_t = self.expect(TokenKind.StringLiteral, "esperado nome da biblioteca (string)")
-        var lib_name = lib_t.text
-        
-        -- Remover aspas se presentes
-        native lua
-            lib_name = lib_name:gsub("^\"", ""):gsub("\"$", "")
-        end
+        var lib_name = text_strip_quotes(lib_t.text)
 
         var methods: any = []
         var mc = 0
@@ -675,7 +691,7 @@ pub struct Parser
             end
         end
         self.expect(TokenKind.KwEnd, "esperado 'end' no bloco extern")
-        return DeclNode { kind: NodeKind.ExternDecl, name: lib_name, methods: methods, is_pub: true, attributes: null, span: lib_t.span, params: null, body: null, fields: null, members: null, symbol: null }
+        return DeclNode { kind: NodeKind.ExternDecl, name: lib_name, methods: methods, is_pub: true, attributes: empty_value(), span: lib_t.span, params: empty_value(), body: empty_value(), fields: empty_value(), members: empty_value(), symbol: empty_value() }
     end
 
     func parse_block(self) -> any
@@ -683,7 +699,7 @@ pub struct Parser
         var count = 0
         while not self.is_at_end() and self.peek().kind != TokenKind.KwEnd and self.peek().kind != TokenKind.KwElse and self.peek().kind != TokenKind.KwElif
             var s = self.parse_statement()
-            if s != null
+            if node_is_present(s)
                 stmts[count] = s
                 count = count + 1
             end
@@ -695,7 +711,7 @@ pub struct Parser
         var t = self.peek()
         if t.kind == TokenKind.Semicolon
             self.advance()
-            return null
+            return empty_value()
         end
         if t.kind == TokenKind.KwVar return self.parse_var_decl(false) end
         if t.kind == TokenKind.KwIf return self.parse_if_stmt() end
@@ -706,46 +722,46 @@ pub struct Parser
         if t.kind == TokenKind.KwNative return self.parse_native_lua_stmt() end
         if t.kind == TokenKind.KwReturn
             self.advance()
-            var ret_value: any = null
+            var ret_value: any = empty_value()
             if self.peek().kind != TokenKind.KwEnd and self.peek().kind != TokenKind.KwElse and self.peek().kind != TokenKind.KwElif and self.peek().kind != TokenKind.EOF
                 ret_value = self.parse_expression(0)
             end
-            return StmtNode { kind: NodeKind.ReturnStmt, value: ret_value, span: t.span, condition: null, body: null, target: null, cases: null, patterns: null, variables: null, iterable: null, count_expr: null }
+        return StmtNode { kind: NodeKind.ReturnStmt, value: ret_value, span: t.span, condition: empty_value(), body: empty_value(), target: empty_value(), cases: empty_value(), patterns: empty_value(), variables: empty_value(), iterable: empty_value(), count_expr: empty_value() }
         end
         var assign_stmt = self.try_parse_assign_stmt()
-        if assign_stmt != null return assign_stmt end
-        return StmtNode { kind: NodeKind.ExprStmt, value: self.parse_expression(0), span: t.span, condition: null, body: null, target: null, cases: null, patterns: null, variables: null, iterable: null, count_expr: null }
+        if node_is_present(assign_stmt) return assign_stmt end
+        return StmtNode { kind: NodeKind.ExprStmt, value: self.parse_expression(0), span: t.span, condition: empty_value(), body: empty_value(), target: empty_value(), cases: empty_value(), patterns: empty_value(), variables: empty_value(), iterable: empty_value(), count_expr: empty_value() }
     end
 
     func parse_assign_target(self) -> any
         var start_t = self.peek()
-        var target: any = null
+        var target: any = empty_value()
 
         if start_t.kind == TokenKind.At
             self.advance()
             var f = self.expect_name("esperado campo")
-            var self_node = ExprNode { kind: NodeKind.SelfExpr, span: start_t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
-            target = ExprNode { kind: NodeKind.MemberExpr, object: self_node, name: f.text, span: start_t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, index: null, items: null, keys: null, values: null, symbol: null }
+            var self_node = ExprNode { kind: NodeKind.SelfExpr, span: start_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
+            target = ExprNode { kind: NodeKind.MemberExpr, object: self_node, name: f.text, span: start_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
         elif start_t.kind == TokenKind.Identifier
             var ident_t = self.advance()
-            target = ExprNode { kind: NodeKind.IdentifierExpr, name: ident_t.text, span: ident_t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
+            target = ExprNode { kind: NodeKind.IdentifierExpr, name: ident_t.text, span: ident_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
         elif start_t.kind == TokenKind.KwSelf
             var self_t = self.advance()
-            target = ExprNode { kind: NodeKind.SelfExpr, span: self_t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
+            target = ExprNode { kind: NodeKind.SelfExpr, span: self_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
         else
-            return null
+            return empty_value()
         end
 
         while true
             if self.peek().kind == TokenKind.Dot
                 self.advance()
                 var member_t = self.expect_name("esperado membro")
-                target = ExprNode { kind: NodeKind.MemberExpr, object: target, name: member_t.text, span: member_t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, index: null, items: null, keys: null, values: null, symbol: null }
+                target = ExprNode { kind: NodeKind.MemberExpr, object: target, name: member_t.text, span: member_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
             elif self.peek().kind == TokenKind.LBracket
                 var bracket_t = self.advance()
                 var idx = self.parse_expression(0)
                 self.expect(TokenKind.RBracket, "esperado ']'")
-                target = ExprNode { kind: NodeKind.IndexExpr, object: target, index: idx, span: bracket_t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, items: null, keys: null, values: null, symbol: null }
+                target = ExprNode { kind: NodeKind.IndexExpr, object: target, index: idx, span: bracket_t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
             else
                 break
             end
@@ -757,17 +773,17 @@ pub struct Parser
     func try_parse_assign_stmt(self) -> any
         var start = self.pos
         var target = self.parse_assign_target()
-        if target == null
+        if node_is_missing(target)
             self.pos = start
-            return null
+            return empty_value()
         end
         if self.peek().kind != TokenKind.Equal
             self.pos = start
-            return null
+            return empty_value()
         end
 
         self.advance()
-        return StmtNode { kind: NodeKind.AssignStmt, target: target, value: self.parse_expression(0), span: target.span, condition: null, body: null }
+        return StmtNode { kind: NodeKind.AssignStmt, target: target, value: self.parse_expression(0), span: target.span, condition: empty_value(), body: empty_value() }
     end
 
     func parse_native_lua_stmt(self) -> any
@@ -807,7 +823,7 @@ pub struct Parser
         else
             body = self.parse_block()
         end
-        var else_body: any = null
+        var else_body: any = empty_value()
         if self.peek().kind == TokenKind.KwElif
             else_body = []
             else_body[0] = self.parse_elif_tail()
@@ -834,7 +850,7 @@ pub struct Parser
         else
             body = self.parse_block()
         end
-        var else_body: any = null
+        var else_body: any = empty_value()
         
         if self.peek().kind == TokenKind.KwElif
             else_body = []
@@ -890,7 +906,7 @@ pub struct Parser
         var t = self.advance() -- match
         var expr = self.parse_expression(0)
         var cases: any = []
-        var else_c: any = null
+        var else_c: any = empty_value()
         var cc = 0
         while not self.is_at_end() and self.peek().kind != TokenKind.KwEnd
             if self.peek().kind == TokenKind.KwElse
@@ -908,14 +924,14 @@ pub struct Parser
                 end
                 self.expect(TokenKind.FatArrow, "esperado '=>'")
                 var body = self.parse_block_simple()
-                cases[cc] = StmtNode { kind: NodeKind.MatchCase, patterns: patterns, body: body, span: ct.span, target: null, value: null, condition: null, else_body: null, cases: null, variables: null, iterable: null, count_expr: null }
+                cases[cc] = StmtNode { kind: NodeKind.MatchCase, patterns: patterns, body: body, span: ct.span, target: empty_value(), value: empty_value(), condition: empty_value(), else_body: empty_value(), cases: empty_value(), variables: empty_value(), iterable: empty_value(), count_expr: empty_value() }
                 cc = cc + 1
             else
                 break
             end
         end
         self.expect(TokenKind.KwEnd, "esperado 'end' no match")
-        return StmtNode { kind: NodeKind.MatchStmt, condition: expr, cases: cases, else_body: else_c, span: t.span, target: null, value: null, body: null, patterns: null, variables: null, iterable: null, count_expr: null }
+        return StmtNode { kind: NodeKind.MatchStmt, condition: expr, cases: cases, else_body: else_c, span: t.span, target: empty_value(), value: empty_value(), body: empty_value(), patterns: empty_value(), variables: empty_value(), iterable: empty_value(), count_expr: empty_value() }
     end
 
     func parse_block_simple(self) -> any
@@ -923,7 +939,7 @@ pub struct Parser
         var sc = 0
         while not self.is_at_end() and self.peek().kind != TokenKind.KwEnd and self.peek().kind != TokenKind.KwCase and self.peek().kind != TokenKind.KwElse
             var s = self.parse_statement()
-            if s != null
+            if node_is_present(s)
                 stmts[sc] = s
                 sc = sc + 1
             end
@@ -940,7 +956,7 @@ pub struct Parser
         end
 
         var s = self.parse_statement()
-        if s != null
+        if node_is_present(s)
             stmts[0] = s
         end
         return stmts
@@ -953,21 +969,21 @@ pub struct Parser
             var prec = self.get_precedence(op.kind)
             if prec <= min_prec break end
             self.advance()
-            left = ExprNode { kind: NodeKind.BinaryExpr, left: left, right: self.parse_expression(prec), operator: op, span: op.span, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+            left = ExprNode { kind: NodeKind.BinaryExpr, left: left, right: self.parse_expression(prec), operator: op, span: op.span, value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
         end
         return left
     end
 
     func parse_primary(self) -> any
         var t = self.advance()
-        var node: any = null
+        var node: any = empty_value()
         if t.kind == TokenKind.IntegerLiteral or t.kind == TokenKind.StringLiteral
-            node = ExprNode { kind: NodeKind.LiteralExpr, value: t.text, span: t.span, left: null, right: null, operator: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+            node = ExprNode { kind: NodeKind.LiteralExpr, value: t.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
         elif t.kind == TokenKind.Identifier
             if t.text == "null"
-                node = ExprNode { kind: NodeKind.LiteralExpr, value: "nil", span: t.span, left: null, right: null, operator: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+                node = ExprNode { kind: NodeKind.LiteralExpr, value: "nil", span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
             elif t.text == "true" or t.text == "false"
-                node = ExprNode { kind: NodeKind.LiteralExpr, value: t.text, span: t.span, left: null, right: null, operator: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+                node = ExprNode { kind: NodeKind.LiteralExpr, value: t.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
             elif self.peek().kind == TokenKind.LBrace
                 self.advance() -- {
                 var keys: any = []
@@ -983,27 +999,27 @@ pub struct Parser
                     end
                 end
                 self.expect(TokenKind.RBrace, "esperado '}'")
-                node = ExprNode { kind: NodeKind.StructInitExpr, name: t.text, keys: keys, values: vals, span: t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, object: null, index: null, items: null, symbol: null }
+                node = ExprNode { kind: NodeKind.StructInitExpr, name: t.text, keys: keys, values: vals, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), symbol: empty_value() }
             else
-                node = ExprNode { kind: NodeKind.IdentifierExpr, name: t.text, span: t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
+                node = ExprNode { kind: NodeKind.IdentifierExpr, name: t.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
             end
         elif t.kind == TokenKind.KwSelf
-            node = ExprNode { kind: NodeKind.SelfExpr, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+            node = ExprNode { kind: NodeKind.SelfExpr, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
         elif self.is_name_token(t.kind)
-            node = ExprNode { kind: NodeKind.IdentifierExpr, name: t.text, span: t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
+            node = ExprNode { kind: NodeKind.IdentifierExpr, name: t.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
         elif t.kind == TokenKind.LParen
             node = self.parse_expression(0)
             self.expect(TokenKind.RParen, "esperado ')' após expressão")
         elif t.kind == TokenKind.At
             var f = self.expect_name("esperado nome do campo após '@'")
-            var self_node = ExprNode { kind: NodeKind.SelfExpr, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, items: null, keys: null, values: null, symbol: null }
-            node = ExprNode { kind: NodeKind.MemberExpr, object: self_node, name: f.text, span: t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, index: null, items: null, keys: null, values: null, symbol: null }
+            var self_node = ExprNode { kind: NodeKind.SelfExpr, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
+            node = ExprNode { kind: NodeKind.MemberExpr, object: self_node, name: f.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), index: empty_value(), items: empty_value(), keys: empty_value(), values: empty_value(), symbol: empty_value() }
         elif t.kind == TokenKind.LBracket
             node = self.parse_list_literal(t)
         elif t.kind == TokenKind.LBrace
             node = self.parse_map_literal(t)
         elif t.kind == TokenKind.KwNot or t.kind == TokenKind.Minus
-            node = ExprNode { kind: NodeKind.UnaryExpr, operator: t, right: self.parse_expression(9), span: t.span, left: null, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null, lua_code: "" }
+            node = ExprNode { kind: NodeKind.UnaryExpr, operator: t, right: self.parse_expression(9), span: t.span, left: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value(), lua_code: "" }
         elif t.kind == TokenKind.KwNative
             var t_lua = self.expect(TokenKind.Identifier, "esperado 'lua' após 'native'")
             
@@ -1022,7 +1038,7 @@ pub struct Parser
                 if code != "" code = code + " " end
                 code = code + nt.text
             end
-            node = ExprNode { kind: NodeKind.NativeLuaExpr, lua_code: code, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+            node = ExprNode { kind: NodeKind.NativeLuaExpr, lua_code: code, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
         end
 
         while true
@@ -1039,16 +1055,16 @@ pub struct Parser
                     end
                 end
                 self.expect(TokenKind.RParen, "esperado ')' após expressão")
-                node = ExprNode { kind: NodeKind.CallExpr, callee: node, args: args, span: t.span, left: null, right: null, operator: null, value: null, name: "", object: null, index: null, symbol: null }
+                node = ExprNode { kind: NodeKind.CallExpr, callee: node, args: args, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", object: empty_value(), index: empty_value(), symbol: empty_value() }
             elif next.kind == TokenKind.Dot
                 self.advance()
                 var m = self.expect_name("esperado membro")
-                node = ExprNode { kind: NodeKind.MemberExpr, object: node, name: m.text, span: t.span, left: null, right: null, operator: null, value: null, callee: null, args: null, index: null, symbol: null }
+                node = ExprNode { kind: NodeKind.MemberExpr, object: node, name: m.text, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), callee: empty_value(), args: empty_value(), index: empty_value(), symbol: empty_value() }
             elif next.kind == TokenKind.LBracket
                 self.advance()
                 var idx = self.parse_expression(0)
                 self.expect(TokenKind.RBracket, "esperado ']'")
-                node = ExprNode { kind: NodeKind.IndexExpr, object: node, index: idx, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, symbol: null }
+                node = ExprNode { kind: NodeKind.IndexExpr, object: node, index: idx, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), symbol: empty_value() }
             elif next.kind == TokenKind.KwAs
                 self.advance()
                 self.parse_type()
@@ -1068,7 +1084,7 @@ pub struct Parser
             end
         end
         self.expect(TokenKind.RBracket, "esperado ']' após lista")
-        return ExprNode { kind: NodeKind.ListLiteral, items: items, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+        return ExprNode { kind: NodeKind.ListLiteral, items: items, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
     end
 
     func parse_map_literal(self, t: Token) -> any
@@ -1085,7 +1101,7 @@ pub struct Parser
             end
         end
         self.expect(TokenKind.RBrace, "esperado '}' após mapa")
-        return ExprNode { kind: NodeKind.MapLiteral, keys: keys, values: values, span: t.span, left: null, right: null, operator: null, value: null, name: "", callee: null, args: null, object: null, index: null, symbol: null }
+        return ExprNode { kind: NodeKind.MapLiteral, keys: keys, values: values, span: t.span, left: empty_value(), right: empty_value(), operator: empty_value(), value: empty_value(), name: "", callee: empty_value(), args: empty_value(), object: empty_value(), index: empty_value(), symbol: empty_value() }
     end
 
     func get_precedence(self, k: TokenKind) -> int
@@ -1124,9 +1140,7 @@ pub struct Parser
     func expect(self, k: TokenKind, m: text) -> Token
         var t = self.peek()
         if t.kind == k return self.advance() end
-        if self.diagnostics != null
-            self.diagnostics.report_error("ZT-1001", m, t.span)
-        end
+        report_error_if_possible(self.diagnostics, "ZT-1001", m, t.span)
         self.advance()
         return t
     end
@@ -1134,16 +1148,50 @@ end
 
 pub func scope_lookup(sc: any, name: text) -> any
     var cur = sc
-    while cur != null
+    while value_is_present(cur)
         var sym = cur.symbols[name as any]
         if symbol_is_present(sym) return sym end
         cur = cur.parent
     end
-    return null
+    return empty_value()
+end
+
+pub func value_is_present(v: any) -> bool
+    native lua return not (type(v) == "nil") end
+end
+
+pub func value_is_missing(v: any) -> bool
+    return not value_is_present(v)
+end
+
+pub func empty_value() -> any
+    native lua return nil end
+end
+
+pub func node_is_present(n: any) -> bool
+    return value_is_present(n)
+end
+
+pub func node_is_missing(n: any) -> bool
+    return value_is_missing(n)
+end
+
+pub func namespace_is_present(ns: any) -> bool
+    return value_is_present(ns) and ns != ""
+end
+
+pub func diagnostics_is_present(diagnostics: any) -> bool
+    return value_is_present(diagnostics)
+end
+
+pub func report_error_if_possible(diagnostics: any, id: text, message: text, span: any)
+    if diagnostics_is_present(diagnostics)
+        diagnostics.report_error(id, message, span)
+    end
 end
 
 pub func symbol_is_present(sym: any) -> bool
-    return sym != null
+    return value_is_present(sym)
 end
 
 pub func symbol_is_missing(sym: any) -> bool
@@ -1152,6 +1200,34 @@ end
 
 pub func scope_has_local_symbol(sc: any, name: text) -> bool
     return symbol_is_present(sc.symbols[name as any])
+end
+
+pub func module_ast_is_present(ast: any) -> bool
+    return value_is_present(ast)
+end
+
+pub func module_ast_is_missing(ast: any) -> bool
+    return value_is_missing(ast)
+end
+
+pub func module_scope_is_missing(sc: any) -> bool
+    return value_is_missing(sc)
+end
+
+pub func module_cache_get(cache: any, module_name: text) -> any
+    return cache[module_name as any]
+end
+
+pub func module_cache_has(cache: any, module_name: text) -> bool
+    return value_is_present(module_cache_get(cache, module_name))
+end
+
+pub func report_missing_module(diagnostics: any, module_name: text, span: any)
+    report_error_if_possible(diagnostics, "ZT-2003", "Modulo nao encontrado: '" + module_name + "'", span)
+end
+
+pub func no_node() -> text
+    return "nil"
 end
 
 pub struct Scope
@@ -1170,21 +1246,14 @@ pub struct ModuleManager
     pub cache: any
 
     pub func resolve_path(self, module_name: text) -> text
-        -- Simplificação para bootstrap: std.xxx -> src/stdlib/xxx.zt
-        -- Note: substituição de '.' por '/' via native lua para simplicidade
-        var path = ""
-        native lua
-            if module_name:sub(1, 4) == "std." then
-                path = "src/stdlib/" .. module_name:sub(5):gsub("%.", "/") .. ".zt"
-            else
-                path = self.project_root .. "/" .. module_name:gsub("%.", "/") .. ".zt"
-            end
+        if text_prefix(module_name, 4) == "std."
+            return "src/stdlib/" + text_to_path(text_slice(module_name, 5, text_len(module_name))) + ".zt"
         end
-        return path
+        return self.project_root + "/" + text_to_path(module_name) + ".zt"
     end
 
     pub func get_ast(self, module_name: text) -> any
-        if self.cache[module_name as any] != null return self.cache[module_name as any] end
+        if module_cache_has(self.cache, module_name) return module_cache_get(self.cache, module_name) end
         
         var path = self.resolve_path(module_name)
         var src = ""
@@ -1203,7 +1272,7 @@ pub struct ModuleManager
             end
         end
         
-        if src == "" return null end
+        if src == "" return empty_value() end
 
         var l = Lexer { source: src, pos: 0, tokens: [] }
         var ts = l.tokenize()
@@ -1230,14 +1299,16 @@ pub struct Binder
             while has_slot(imps, i)
                 var imp = imps[i]
                 var module_ast = self.module_manager.get_ast(imp.body)
-                if module_ast != null
+                if module_ast_is_missing(module_ast)
+                    report_missing_module(self.diagnostics, imp.body, imp.span)
+                else
                     -- Verificar se o módulo já foi vinculado anteriormente
                     var target_scope = self.module_scopes[imp.body as any]
                     
-                    if target_scope == null
+                    if module_scope_is_missing(target_scope)
                         -- Sincronia Rítmica: Vincular módulo apenas se não estiver no cache
                         var mod_binder = Binder { 
-                            current_scope: Scope { parent: null, symbols: {} },
+                            current_scope: Scope { parent: empty_value(), symbols: {} },
                             module_manager: self.module_manager,
                             module_scopes: self.module_scopes
                         }
@@ -1256,8 +1327,8 @@ pub struct Binder
                         module_scope: target_scope
                     }
                     var ok = self.current_scope.define(sym)
-                    if not ok and self.diagnostics != null
-                        self.diagnostics.report_error("ZT-2002", "Símbolo '" + imp.name + "' já definido neste escopo", imp.span)
+                    if not ok
+                        report_error_if_possible(self.diagnostics, "ZT-2002", "Símbolo '" + imp.name + "' já definido neste escopo", imp.span)
                     end
                 end
                 i = i + 1
@@ -1284,7 +1355,7 @@ pub struct Binder
     end
 
     func _is_platform_allowed(self, n: any) -> bool
-        if n == null or n.attributes == null return true end
+        if node_is_missing(n) or value_is_missing(n.attributes) return true end
         var has_platform_attr = false
         var allowed = false
         var i = 0
@@ -1308,14 +1379,14 @@ pub struct Binder
             if n.kind == NodeKind.EnumDecl k = 2 end
             var sym = Symbol { kind: k, name: n.name, type_name: "any", is_pub: n.is_pub, declaration: n }
             var ok = self.current_scope.define(sym)
-            if not ok and self.diagnostics != null
-                self.diagnostics.report_error("ZT-2002", "Símbolo '" + n.name + "' já definido neste escopo", n.span)
+            if not ok
+                report_error_if_possible(self.diagnostics, "ZT-2002", "Símbolo '" + n.name + "' já definido neste escopo", n.span)
             end
         end
     end
 
     func _bind_node(self, n: any)
-        if n == null return end
+        if node_is_missing(n) return end
         if n.kind == NodeKind.FuncDecl
             var prev = self.current_scope
             self.current_scope = Scope { parent: prev, symbols: {} }
@@ -1345,8 +1416,8 @@ pub struct Binder
             end
         elif n.kind == NodeKind.IdentifierExpr
             n.symbol = scope_lookup(self.current_scope, n.name)
-            if symbol_is_missing(n.symbol) and self.diagnostics != null
-                self.diagnostics.report_error("ZT-2001", "Símbolo não encontrado: '" + n.name + "'", n.span)
+            if symbol_is_missing(n.symbol)
+                report_error_if_possible(self.diagnostics, "ZT-2001", "Símbolo não encontrado: '" + n.name + "'", n.span)
             end
         elif n.kind == NodeKind.BinaryExpr
             self._bind_node(n.left)
@@ -1432,8 +1503,8 @@ pub struct Binder
                 if sym.kind == 4
                     var mod_scope = sym.module_scope
                     n.symbol = scope_lookup(mod_scope, n.name)
-                    if symbol_is_missing(n.symbol) and self.diagnostics != null
-                        self.diagnostics.report_error("ZT-2001", "Símbolo '" + n.name + "' não encontrado no módulo '" + n.object.name + "'", n.span)
+                    if symbol_is_missing(n.symbol)
+                        report_error_if_possible(self.diagnostics, "ZT-2001", "Símbolo '" + n.name + "' não encontrado no módulo '" + n.object.name + "'", n.span)
                     end
                 end
             end
@@ -1474,7 +1545,7 @@ pub struct Emitter
         self.output = []
         self.line_count = 0
         self.indent_level = 0
-        self.has_namespace = u.namespace != null and u.namespace != ""
+        self.has_namespace = namespace_is_present(u.namespace)
         
         self.emit("-- Transpilado por Zenith Ascension (Transcendencia v0.10)")
         self.emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
@@ -1486,15 +1557,10 @@ pub struct Emitter
             while has_slot(imps, i)
                 var imp = imps[i]
                 var lua_path = imp.body
-                native lua
-                    if lua_path:sub(1, 4) == "std." then
-                        lua_path = "src.stdlib." .. lua_path:sub(5)
-                    end
+                if text_prefix(lua_path, 4) == "std."
+                    lua_path = "src.stdlib." + text_slice(lua_path, 5, text_len(lua_path))
                 end
-                var clean_name = imp.name
-                native lua
-                    clean_name = clean_name:gsub("%.", "_")
-                end
+                var clean_name = text_to_binding_name(imp.name)
                 self.emit("local " + clean_name + " = require(\"" + lua_path + "\")")
                 i = i + 1
             end
@@ -1561,7 +1627,7 @@ pub struct Emitter
     end
 
     func _is_platform_allowed(self, n: any) -> bool
-        if n == null or n.attributes == null return true end
+        if node_is_missing(n) or value_is_missing(n.attributes) return true end
         var has_platform_attr = false
         var allowed = false
         var j = 0
@@ -1578,7 +1644,7 @@ pub struct Emitter
     end
 
     func _bind_node_emit(self, n: any)
-        if n == null return end
+        if node_is_missing(n) return end
         if n.kind == NodeKind.FuncDecl
             var h = "function " + n.name + "("
             var ps = n.params
@@ -1733,7 +1799,7 @@ pub struct Emitter
                 while has_slot(fs, i)
                     var f = fs[i]
                     var init = "nil"
-                    if f.body != null init = self.expr_to_lua(f.body) end
+                    if value_is_present(f.body) init = self.expr_to_lua(f.body) end
                     self.emit("self." + f.name + " = fields." + f.name + " or " + init)
                     i = i + 1
                 end
@@ -1788,10 +1854,7 @@ pub struct Emitter
             end
             cdef = cdef + "\n]]"
             self.emit(cdef)
-            var clean_lib = n.name
-            native lua
-                clean_lib = clean_lib:gsub("[^%a]", "_")
-            end
+            var clean_lib = text_alpha_only(n.name)
             self.emit("local _lib_" + clean_lib + " = ffi.load(\"" + n.name + "\")")
             
             -- Vincular funções ao escopo local
@@ -1837,17 +1900,15 @@ pub struct Emitter
     end
 
     func expr_to_lua(self, n: any) -> text
-        if n == null return "nil" end
+        if node_is_missing(n) return no_node() end
         if n.kind == NodeKind.LiteralExpr return n.value end
         if n.kind == NodeKind.IdentifierExpr 
-            var name = n.name
-            native lua name = name:gsub("%.", "_") end
-            return name 
+            return text_to_binding_name(n.name)
         end
         if n.kind == NodeKind.BinaryExpr
             var l = self.expr_to_lua(n.left)
             var r = self.expr_to_lua(n.right)
-            var folded: any = null
+            var folded: any = empty_value()
             native lua
                 local nl = tonumber(l)
                 local nr = tonumber(r)
@@ -1859,7 +1920,7 @@ pub struct Emitter
                     if k == 10 then folded = tostring(nl / nr) end -- Slash
                 end
             end
-            if folded != null return folded end
+            if value_is_present(folded) return folded end
 
             var op = n.operator.text
             if n.operator.kind == TokenKind.Plus
@@ -1951,7 +2012,7 @@ pub func compile_ext(src: text, file: text, target: text) -> any
 
     var mm = ModuleManager { project_root: ".", cache: {} }
     var b = Binder { 
-        current_scope: Scope { parent: null, symbols: {} },
+        current_scope: Scope { parent: empty_value(), symbols: {} },
         module_manager: mm,
         module_scopes: {},
         diagnostics: bag,

@@ -7,7 +7,7 @@ Este documento registra o estado verificado da implementacao ativa do Zenith.
 Ha duas trilhas diferentes no repositorio:
 
 - Trilha ativa: `ztc.lua`, parser/binder/codegen em Lua e runtime Lua. Esta e a trilha que compila os exemplos e testes principais hoje.
-- Trilha self-hosted: arquivos `.zt` do proprio compilador. Ela ainda nao tem paridade total com a trilha ativa.
+- Trilha self-hosted: arquivos `.zt` do proprio compilador. O core canonico ja esta operacional em `src/compiler/syntax.zt`; o trabalho restante agora e consolidacao industrial e editorial.
 
 ## Leitura Rapida
 
@@ -17,7 +17,7 @@ Ha duas trilhas diferentes no repositorio:
 | Fase 7 | Concluida na trilha ativa com politica de compatibilidade |
 | Fases 8-11 | Concluidas e validadas na trilha ativa |
 | Fase 12 | Parcial: demo limpo; stdlib/compiler ainda usam `native lua` |
-| Self-hosting | Operacional: SH-1, SH-2, SH-3 e SH-5 concluidas; bootstrap stage2/stage3 deterministico |
+| Self-hosting | Operacional: SH-1 a SH-5 concluidas; core canonico verde e bootstrap stage2/stage3 deterministico |
 
 ## Matriz de Status
 
@@ -29,7 +29,7 @@ Ha duas trilhas diferentes no repositorio:
 | 4 | Operador `?` e `Outcome<T>` | Concluida | Optional/Outcome e early-return cobertos |
 | 5 | Source maps | Concluida | `.lua.map` emitido no build |
 | 6 | Type checker minimo | Concluida | Chamadas, retornos, agregados, defaults e contratos validados |
-| 7 | Politica de `null` | Concluida na trilha ativa | `null` em tipo nullable gera warning; em nao-nullable gera erro |
+| 7 | Politica de `null` | Concluida na trilha ativa | uso direto de `null` gera erro dedicado `ZT-S106`; em nao-nullable ainda acumula `ZT-S100` |
 | 8 | UFCS | Concluida | Metodo > global > virtual; receiver injetado corretamente |
 | 9 | Pattern matching | Concluida | Destructuring, guards, `Color.Red` e exaustividade cobertos |
 | 10 | Generics reais | Concluida | Type erasure, constraints e chamadas genericas funcionais |
@@ -66,19 +66,19 @@ Bateria executada em 2026-04-14:
 
 Testes negativos esperados:
 
-- `tests/fase7_null_error.zt`: falha corretamente em `var y: int = null`, com `ZT-W001` + `ZT-S100`.
-- `tests/fase7_null.zt`: aceita a parte nullable com warning, mas falha corretamente no caso nao-nullable contido no arquivo.
+- `tests/fase7_null_error.zt`: falha corretamente em `var y: int = null`, com `ZT-S106` + `ZT-S100`.
+- `tests/fase7_null.zt`: falha corretamente ja no caso nullable com `ZT-S106`, e no caso nao-nullable acumula `ZT-S100`.
 - `tests/core/test_generic_constraints.zt`: falha corretamente quando `Dog` nao satisfaz `Greetable`.
 
 Verificacao complementar da Trilha B em 2026-04-15:
 
 | Area | Comando | Resultado |
 |---|---|---|
-| Self-hosted canonico | `lua ztc.lua check src\\compiler\\syntax.zt` | OK com 340 warnings `ZT-W001` |
+| Self-hosted canonico | `lua ztc.lua check src\\compiler\\syntax.zt` | OK sem erros e sem warnings `ZT-W001` |
 | Bridge legado | `lua ztc.lua check src\\compiler\\syntax_bridge.zt` | OK; arquivo congelado como stub legado |
 | Hacks `string.char` em `syntax.zt` | `rg "string\\.char" src\\compiler\\syntax.zt` | 0 ocorrencias |
 | Hacks `string.char` em `syntax_bridge.zt` | `rg "string\\.char" src\\compiler\\syntax_bridge.zt` | 0 ocorrencias |
-| `null` em `syntax.zt` | `rg "\\bnull\\b" src\\compiler\\syntax.zt` | 84 linhas; 340 warnings `ZT-W001` |
+| `null` em `syntax.zt` | `rg "\\bnull\\b" src\\compiler\\syntax.zt` | 1 linha textual: literal `"null"` do lexer/parser; 0 warnings `ZT-W001` |
 | `null` em `syntax_bridge.zt` | `rg "\\bnull\\b" src\\compiler\\syntax_bridge.zt` | 0 ocorrencias |
 | Lvalue indexado no codegen Lua | `lua tests\\codegen_tests\\test_index_assignment_codegen.lua` | OK |
 | Bootstrap self-hosted | `lua tools\\bootstrap.lua` | OK; stage1/stage2/stage3 carregam e stage2/stage3 sao identicos |
@@ -109,7 +109,7 @@ Evidencias:
 
 Residuo:
 
-- A trilha self-hosted ainda precisa de paridade.
+- A paridade ampla fora do core segue como consolidacao posterior; o bootstrap canonico nao precisa mais ser reaberto.
 
 ## Fase 3 - String Interpolation
 
@@ -122,7 +122,7 @@ Evidencias:
 
 Residuo:
 
-- A base self-hosted ainda possui hacks antigos de caracteres.
+- Os hacks antigos de caracteres foram removidos na SH-2; o residuo aqui passou a ser reduzir native lua legitimo remanescente.
 
 ## Fase 4 - Operador ? e Outcome<T>
 
@@ -175,15 +175,15 @@ Status: concluida na trilha ativa com compatibilidade.
 
 Regra atual:
 
-- `T? = null`: permitido com warning `ZT-W001`.
-- `T = null`: erro semantico `ZT-S100`.
+- `T? = null`: erro semantico `ZT-S106`.
+- `T = null`: erro semantico `ZT-S106` e tambem `ZT-S100`.
 - Uso direto de `null` continua desencorajado; a linguagem deve preferir `Optional.Empty`, `Outcome.Failure` ou sentinelas explicitas.
 
 Residuo:
 
 - `BuiltinTypes.NULL` ainda existe por compatibilidade.
-- A base self-hosted ainda usa `null` cru em pontos internos.
-- A proxima decisao e se `ZT-W001` vira erro duro em uma versao futura.
+- A base self-hosted canonica nao usa mais null cru em consumidores; o residuo ficou restrito ao literal textual null do parser, compatibilidade de linguagem e runtime Lua.
+- O parser ainda reconhece `null` por compatibilidade historica, mas o binder agora o rejeita com `ZT-S106`.
 
 ## Fase 8 - UFCS
 
@@ -210,7 +210,7 @@ Entregue:
 - Destructuring de listas e structs.
 - Rest pattern 1-based coerente com Fase 11.
 - Guards com `when`.
-- Padrões qualificados como `Color.Red`.
+- Padroes qualificados como `Color.Red`.
 - Aviso `ZT-W100` para enum nao exaustivo.
 
 Residuo:
@@ -268,8 +268,8 @@ Medicao atual:
 
 - `demo.zt`: 0 ocorrencias de `native lua`.
 - `src/stdlib`: 38 ocorrencias de `native lua` em arquivos `.zt`.
-- `src/compiler`: 15 ocorrencias de `native lua` em arquivos `.zt`.
-- Total medido em `src/stdlib src/compiler`: 53 ocorrencias em arquivos `.zt`.
+- `src/compiler`: 12 ocorrencias de `native lua` em arquivos `.zt`.
+- Total medido em `src/stdlib src/compiler`: 50 ocorrencias em arquivos `.zt`.
 
 Criterio para concluir a fase inteira:
 
@@ -283,17 +283,17 @@ Estas etapas nao substituem as Fases 1-12. Elas existem porque a base `.zt` do c
 
 | Item | Objetivo | Status Real | Evidencia |
 |---|---|---|---|
-| SH-1 | Fazer `ztc check src/compiler/syntax.zt` deixar de falhar massivamente | Concluida | `lua ztc.lua check src\\compiler\\syntax.zt` passa; restam warnings, nao erro massivo |
+| SH-1 | Fazer `ztc check src/compiler/syntax.zt` deixar de falhar massivamente | Concluida | `lua ztc.lua check src\\compiler\\syntax.zt` passa sem erros e sem warnings |
 | SH-2 | Remover hacks de bootstrap como `native lua string.char(...)` | Concluida | `syntax.zt` e `syntax_bridge.zt` tem 0 ocorrencias de `string.char` |
 | SH-3 | Alinhar a sintaxe usada pelo compilador self-hosted com a linguagem ativa | Concluida | `syntax.zt` e o caminho canonico; `syntax_bridge.zt` foi congelado explicitamente como legado parseavel |
-| SH-4 | Reduzir `null`, tabelas Lua cruas e escapes excessivos | Parcial | A migracao massiva de `null` foi evitada; slots sequenciais foram encapsulados com `has_slot`; `syntax.zt` ainda tem 84 linhas com `null` |
+| SH-4 | Reduzir `null`, tabelas Lua cruas e escapes excessivos | Concluida na trilha segura | A migracao massiva de `null` foi evitada; ausencia foi encapsulada por helpers; `syntax.zt` nao emite `ZT-W001` |
 | SH-5 | Definir caminho verificavel de bootstrap confiavel | Concluida | `tools/bootstrap.lua` verifica `syntax.zt`, gera `stage1`, `stage2` e `stage3`, valida load e confirma determinismo em `.selfhost-bootstrap\\summary.txt` |
 
 Leitura consolidada:
 
-- A Trilha B operacional nao esta mais aberta: SH-1, SH-2, SH-3 e SH-5 foram atingidas.
+- A Trilha B operacional nao esta mais aberta: SH-1, SH-2, SH-3, SH-4 e SH-5 foram atingidas.
 - O bloqueio de bootstrap caiu; o stage2 compila o proprio `syntax.zt` e o stage3 fica identico ao stage2.
-- O trabalho remanescente deixou de ser bootstrap e virou saneamento: reduzir `null`, tabelas cruas e escapes restantes sem uma importacao massiva insegura da stdlib.
+- O saneamento de `null` da base self-hosted canonica foi concluido sem importacao massiva insegura da stdlib.
 
 ### SH-1 - `syntax.zt` controlado
 
@@ -302,11 +302,11 @@ Status: concluida.
 Evidencias:
 
 - `lua ztc.lua check src\\compiler\\syntax.zt` passa sem erros.
-- O arquivo ainda emite muitos `ZT-W001`, mas isso ja nao configura mais falha massiva.
+- O arquivo nao emite mais `ZT-W001`.
 
 Residuo:
 
-- O warning flood mostra que SH-4 ainda nao terminou.
+- A promocao global para `ZT-S106` foi aplicada sem reabrir a Trilha B.
 - O caminho canonico self-hosted deve ser tratado como `syntax.zt`, nao `syntax_bridge.zt`.
 
 ### SH-2 - hacks `string.char`
@@ -337,7 +337,7 @@ Residuo:
 
 ### SH-4 - `null`, tabelas cruas e escapes
 
-Status: parcial.
+Status: concluida na trilha segura.
 
 Evidencias:
 
@@ -345,15 +345,18 @@ Evidencias:
 - O lookup de operadores do lexer usa `TokenKind.BAD` como sentinel interno, removendo `null` dessa familia.
 - Guards de listas/tabelas internas foram centralizados em `has_slot`, reduzindo `null` cru sem migracao massiva para `Optional`.
 - Slots sequenciais de tabelas Lua em `syntax.zt` foram encapsulados por `has_slot(items, index)`.
-- `syntax.zt` ainda possui 84 linhas com `null` e 340 warnings `ZT-W001`.
+- `syntax.zt` possui apenas a string `"null"` usada para reconhecer o literal da linguagem; `ZT-W001` caiu para zero.
 - `syntax_bridge.zt` nao contribui mais para a metrica de `null` da trilha ativa.
 - Lookup de simbolos foi encapsulado com `symbol_is_present`, `symbol_is_missing` e `scope_has_local_symbol`, reduzindo comparacoes diretas contra `null`.
+- Cache e escopo de modulos foram encapsulados com `module_cache_has`, `module_cache_get`, `module_ast_is_present` e `module_scope_is_missing`.
+- Diagnosticos do binder foram centralizados em `report_error_if_possible`, e import ausente agora emite `ZT-2003` em vez de ser ignorado.
+- Parser recuperavel, campos opcionais de AST e spans opcionais foram migrados para `empty_value()`/helpers, sem `return null`, `: null`, `== null` ou `!= null`.
 - Plano operacional: `docs/roadmap/null-to-optional.md`.
 
 Residuo:
 
-- A politica de `null` ainda nao subiu de forma consistente para a base self-hosted.
-- Boa parte do estado interno do compilador `.zt` ainda depende de sentinelas Lua e tabelas cruas.
+- A base self-hosted ainda usa helpers temporarios sobre `nil` Lua (`empty_value`, `value_is_present`) ate existir contrato ADT tipado interno sem regressao.
+- A promocao para `ZT-S106` foi consolidada; o residuo passou a ser debito pequeno fora do core, nao mais bloqueio da trilha.
 
 ### SH-5 - bootstrap verificavel
 
@@ -368,7 +371,7 @@ Evidencias:
 Residuo:
 
 - A promocao continua opt-in via `--promote`; a execucao padrao valida sem sobrescrever o compilador ativo.
-- O saneamento de `null` permanece separado em SH-4 para evitar uma troca massiva insegura; a superficie `Optional`/`Outcome` ja tem teste direto via `tests/stdlib/test_optional.zt`.
+- O saneamento de `null` foi concluido em SH-4 sem troca massiva insegura; a superficie `Optional`/`Outcome` segue coberta por `tests/stdlib/test_optional.zt`.
 ## Roadmap Reorganizado
 
 Entregue na trilha ativa:
@@ -391,27 +394,30 @@ Parcial:
 
 Trilha separada:
 
-- SH-4
+- Politica de `null` ja promovida para erro dedicado `ZT-S106`.
 
 Concluida na Trilha B:
 
 - SH-1
 - SH-2
 - SH-3
+- SH-4
 - SH-5
 
 ## Ordem Recomendada
 
-1. Executar `docs/roadmap/null-to-optional.md`: atacar SH-4 por fatias pequenas, trocando `null` apenas onde a semantica de ausencia estiver clara, sem importacao massiva da stdlib.
-2. Reduzir escapes `native lua` remanescentes em `syntax.zt`, separando interop legitima de buraco de abstracao.
-3. Limpar referencias documentais remanescentes ao `syntax_bridge.zt`, porque ele ja esta congelado como legado.
-4. Continuar hardening de Fase 12 na stdlib essencial, porque ela ainda bloqueia parte da limpeza da Trilha B.
-5. Transformar a filosofia de Fase 11 em especificacao curta e depois retomar apenas o que ainda faltar de codegen completo para `match`.
+O ciclo posterior ao fechamento da Trilha B foi consolidado em `docs/roadmap/selfhost-consolidacao.md`.
+
+1. Reduzir `native lua` remanescente no compilador self-hosted.
+2. Consolidar docs e cleanup apos a promocao de `ZT-S106`.
+3. Limpar o legado documental de `syntax_bridge.zt`.
+4. Escrever a especificacao curta do core estabilizado.
+5. Fechar o hardening restante de stdlib e `match`.
 
 ## Resumo Executivo
 
 O compilador ativo tem Fases 1-11 concluidas e testadas. A Fase 12 esta concluida apenas para o demo/caminho de demonstracao, mas ainda nao para a stdlib e para o compilador self-hosted.
 
-Na Trilha B, SH-1, SH-2, SH-3 e SH-5 deixaram de ser problema: `src/compiler/syntax.zt` passa no `check`, `syntax_bridge.zt` foi congelado como legado explicito, os hacks `string.char` foram removidos e o bootstrap self-hosted passa com stage2/stage3 deterministico.
+Na Trilha B, SH-1, SH-2, SH-3, SH-4 e SH-5 deixaram de ser problema: `src/compiler/syntax.zt` passa no `check` sem `ZT-W001`, `syntax_bridge.zt` foi congelado como legado explicito, os hacks `string.char` foram removidos e o bootstrap self-hosted passa com stage2/stage3 deterministico.
 
-O principal trabalho restante nao e reabrir UFCS, generics, match, indexacao ou bootstrap. O trabalho restante e reduzir dependencia estrutural de `native lua`, sanear `null` por fatias seguras e transformar decisoes ja tomadas em especificacao curta.
+O principal trabalho restante nao e reabrir UFCS, generics, match, indexacao, bootstrap ou saneamento de `null` da base self-hosted. O ciclo de consolidacao foi fechado; `std.events`, `std.fs`, `std.os`, `std.os.process` e o shim legado `src/cli/ztc.zt` tambem foram estabilizados em checks locais. O residuo agora volta a ser debito pontual de Fase 12 e manutencao normal.

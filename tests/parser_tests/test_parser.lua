@@ -317,6 +317,16 @@ t:group("Funções", function()
         a.is_true(decls[1].is_pub)
     end)
 
+    t:test("func com parametros multilinha", function()
+        local decls = parse("pub func spawn(\n    cmd: text,\n    args: list<text> = [],\n    capture: bool = false\n) -> Outcome<text, text>\nend")
+        a.equal(decls[1].kind, SK.FUNC_DECL)
+        a.equal(decls[1].name, "spawn")
+        a.equal(#decls[1].params, 3)
+        a.equal(decls[1].params[1].name, "cmd")
+        a.equal(decls[1].params[2].name, "args")
+        a.equal(decls[1].params[3].name, "capture")
+    end)
+
 end)
 
 -- ============================================================================
@@ -426,6 +436,15 @@ t:group("Struct", function()
         a.is_true(decls[1].fields[1].is_pub)
         a.equal(decls[1].fields[2].name, "health")
         a.is_not_nil(decls[1].fields[2].default_value)
+    end)
+
+    t:test("struct com metodo async publico", function()
+        local decls = parse("struct Worker\n    pub async func run(task: text) -> Outcome<void>\n    end\nend")
+        a.equal(decls[1].kind, SK.STRUCT_DECL)
+        a.equal(#decls[1].methods, 1)
+        a.equal(decls[1].methods[1].kind, SK.ASYNC_FUNC_DECL)
+        a.equal(decls[1].methods[1].name, "run")
+        a.is_true(decls[1].methods[1].is_pub)
     end)
 
 end)

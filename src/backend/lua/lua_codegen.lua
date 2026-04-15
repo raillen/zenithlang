@@ -77,6 +77,58 @@ function LuaCodegen:_emit_prelude_constructors()
     self:emit("local Failure = zt.Outcome.Failure")
 end
 
+local primitive_runtime_types = { int = true, float = true, text = true, bool = true }
+
+local function runtime_type_literal(name)
+    if primitive_runtime_types[name] then
+        return string.format("%q", name)
+    end
+    return name
+end
+
+function LuaCodegen:_type_check_expr(value_expr, type_node)
+    if not type_node then return "false" end
+
+    local kind = type_node.kind
+    if kind == SK.NAMED_TYPE then
+        return string.format("zt.is(%s, %s)", value_expr, runtime_type_literal(type_node.name))
+    end
+
+    if kind == SK.GENERIC_TYPE then
+        if type_node.base_name == "Optional" then
+            return string.format("zt.is(%s, zt.Optional)", value_expr)
+        end
+        if type_node.base_name == "Outcome" then
+            return string.format("zt.is(%s, zt.Outcome)", value_expr)
+        end
+        return string.format("zt.is(%s, %s)", value_expr, runtime_type_literal(type_node.base_name))
+    end
+
+    if kind == SK.NULLABLE_TYPE then
+        local base_check = self:_type_check_expr(value_expr, type_node.base_type)
+        return string.format("((%s) == nil or (type(%s) == \"table\" and %s._tag == \"Empty\") or (%s))", value_expr, value_expr, value_expr, base_check)
+    end
+
+    if kind == SK.UNION_TYPE then
+        local parts = {}
+        for _, part in ipairs(type_node.types or {}) do
+            table.insert(parts, "(" .. self:_type_check_expr(value_expr, part) .. ")")
+        end
+        return #parts > 0 and table.concat(parts, " or ") or "false"
+    end
+
+    if kind == SK.MODIFIED_TYPE then
+        return self:_type_check_expr(value_expr, type_node.base_type)
+    end
+
+    local fallback = type_node.name or type_node.base_name
+    if fallback then
+        return string.format("zt.is(%s, %s)", value_expr, runtime_type_literal(fallback))
+    end
+
+    return "false"
+end
+
 function LuaCodegen:indent() self.indent_level = self.indent_level + 1 end
 function LuaCodegen:dedent() self.indent_level = self.indent_level - 1 end
 
@@ -672,19 +724,9 @@ function LuaCodegen:_eval(node)
     elseif node.kind == SK.NATIVE_LUA_EXPR then return "(" .. node.lua_code .. ")"
     elseif node.kind == SK.AWAIT_EXPR then return string.format("zt.await(%s)", self:_eval(node.expression))
     elseif node.kind == SK.IS_EXPR then
-        local type_str = "nil"
-        if node.type_symbol then
-            local t = node.type_symbol
-            local primitives = { int=1, float=1, text=1, bool=1 }
-            local name = t.base_name or t.name
-            type_str = primitives[name] and ("\"" .. name .. "\"") or name
-        elseif node.type_node then
-            type_str = node.type_node.name
-            local primitives = { int=1, float=1, text=1, bool=1 }
-            if primitives[type_str] then type_str = "\"" .. type_str .. "\"" end
-        end
-        local call = string.format("zt.is(%s, %s)", self:_eval(node.expression), type_str)
-        return node.is_not and ("not " .. call) or call
+        local value_expr = self:_eval(node.expression)
+        local call = self:_type_check_expr(value_expr, node.type_node or node.target_type)
+        return node.is_not and ("not (" .. call .. ")") or call
     elseif node.kind == SK.AS_EXPR then return self:_eval(node.expression)
     elseif node.kind == SK.LAMBDA_EXPR then
         local names = {}

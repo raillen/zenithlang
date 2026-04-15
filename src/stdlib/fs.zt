@@ -65,6 +65,29 @@ pub func write_text_file(path: text, content: text) -> Outcome<bool>
     return Success(true)
 end
 
+--- Escreve texto no fim de um arquivo.
+pub func append_text(path: text, content: text) -> Outcome<bool>
+    var f = lua_open(path, "a")
+    if f == nil
+        return Failure("Nao foi possivel abrir o arquivo para append")
+    end
+
+    f.write(f, content)
+    f.close(f)
+    return Success(true)
+end
+
+--- Escreve texto no inicio de um arquivo.
+pub func prepend_text(path: text, content: text) -> Outcome<bool>
+    var previous = read_text_file(path)
+    var existing = ""
+    if previous.is_success()
+        existing = previous.unwrap_or("")
+    end
+
+    return write_text_file(path, content + existing)
+end
+
 --- Verifica se um arquivo ou pasta existe.
 pub func exists(path: text) -> bool
     var f = lua_open(path, "r")
@@ -87,15 +110,20 @@ end
 --- Lista os arquivos e pastas dentro de um diretório.
 pub func list_directory(path: text) -> list<text>
     var config = get_pkg_config()
-    var is_windows = tostring(config).text[1] == "\\"
+    var is_windows = tostring(config)[1] == "\\"
     
-    var cmd = if is_windows then "dir /b " + path + " 2>nul" else "ls " + path + " 2>/dev/null"
+    var cmd = ""
+    if is_windows
+        cmd = "dir /b " + path + " 2>nul"
+    else
+        cmd = "ls " + path + " 2>/dev/null"
+    end
     var handle = lua_popen(cmd)
     var files = []
     
     if handle != nil
         for line in handle.lines(handle)
-            files.add(line)
+            files.push(line)
         end
         handle.close(handle)
     end
@@ -117,5 +145,5 @@ pub func open_file(path: text, mode: FileMode) -> Outcome<FileHandle>
         return Failure("Não foi possível abrir o arquivo")
     end
     
-    return Success(FileHandle { internal_handle = f })
+    return Success(FileHandle { internal_handle: f })
 end

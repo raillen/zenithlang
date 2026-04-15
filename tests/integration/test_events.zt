@@ -60,7 +60,7 @@ func test_error_isolation()
     end)
     
     print("Testando isolamento de erros...")
-    var outcome = emitter.emit("fail", null)
+    var outcome = emitter.emit("fail", Empty)
     
     match outcome
         case Success(v): print("❌ Emit deveria ter retornado Failure")

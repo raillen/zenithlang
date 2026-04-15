@@ -17,8 +17,8 @@ Nao misture semanticas:
 
 Politica atual:
 
-- T? = null ainda compila com warning ZT-W001
-- T = null gera ZT-S100
+- T? = null agora gera erro semantico ZT-S106
+- T = null gera ZT-S106 e tambem ZT-S100
 
 Padrao recomendado:
 

@@ -27,11 +27,14 @@ end
 
 --- Retorna informações básicas de hardware.
 pub func get_hardware_info() -> HardwareInfo
-    return HardwareInfo { cpu = "Generic CPU", ram_gb = 16 }
+    return HardwareInfo { cpu: "Generic CPU", ram_gb: 16 }
 end
 
 pub enum SpecialPath
-    Config, Temp, Desktop, Documents
+    Config
+    Temp
+    Desktop
+    Documents
 end
 
 --- Retorna caminhos especiais do sistema.

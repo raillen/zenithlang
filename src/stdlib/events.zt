@@ -23,12 +23,12 @@ pub struct EventEmitter<T>
     pub func off(listener_id: text) -> bool
     end
 
-    --- Retorna o número de ouvintes registrados para um evento (ou total se event for null).
-    pub func count(event: text? = null) -> int
+    --- Retorna o numero de ouvintes registrados para um evento (ou total se event estiver vazio).
+    pub func count(event: text? = Empty) -> int
     end
 
     --- Remove todos os ouvintes de um evento específico ou de todos os eventos.
-    pub func clear(event: text? = null)
+    pub func clear(event: text? = Empty)
     end
 
     --- Aguarda o próximo disparo de um evento de forma assíncrona.

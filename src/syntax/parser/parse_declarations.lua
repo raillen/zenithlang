@@ -440,10 +440,14 @@ end
 
 function ParseDeclarations._parse_params(ctx)
     local params = {}
+    ctx:skip_newlines()
     if ctx:check(TokenKind.RPAREN) then return params end
     repeat
+        ctx:skip_newlines()
         table.insert(params, ParseDeclarations._parse_param(ctx))
+        ctx:skip_newlines()
     until not ctx:match(TokenKind.COMMA)
+    ctx:skip_newlines()
     return params
 end
 
@@ -519,7 +523,7 @@ function ParseDeclarations._parse_struct(ctx, is_pub)
 
         local member_pub = ctx:match(TokenKind.KW_PUB)
         
-        if ctx:check(TokenKind.KW_FUNC) then
+        if ctx:check(TokenKind.KW_FUNC) or ctx:check(TokenKind.KW_ASYNC) then
             -- OBS: atributos em métodos podem ser suportados futuramente
             table.insert(methods, ParseDeclarations._parse_func(ctx, member_pub))
         else

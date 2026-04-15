@@ -44,8 +44,8 @@ age: int where validation.min_value(it, 18) and it <= 120
 Politica atual:
 
 - null ainda existe por compatibilidade
-- T? = null gera warning ZT-W001
-- T = null gera erro ZT-S100
+- T? = null gera erro semantico ZT-S106
+- T = null gera erro ZT-S106 e tambem ZT-S100
 
 Modelos recomendados:
 

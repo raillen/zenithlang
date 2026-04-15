@@ -18,14 +18,14 @@ Zenith Current representa o recorte mais fiel do Zenith de hoje, mas esse "hoje"
 ## O que esta estabilizado
 
 - Fases 1-11 concluidas e testadas na trilha ativa
-- politica de null definida por compatibilidade
+- politica de null promovida para erro dedicado ZT-S106
 - UFCS, genericos, pattern matching e indexacao 1-based validados
 - demo principal compilando sem native lua proprio
 
 ## O que nao deve ser escondido
 
 - o compilador ativo oficial ainda e `ztc.lua`
-- a trilha self-hosted em `src/compiler/*.zt` existe, mas ainda nao tem paridade total
+- o core self-hosted canonico existe em `src/compiler/syntax.zt`; a paridade ampla fora do core nao e mais o bloqueio principal
 - Fase 12 segue parcial por causa de `native lua` restante na stdlib e no compilador self-hosted
 
 ## Para quem esta chegando agora
@@ -34,4 +34,5 @@ Se voce esta chegando agora, esta e a linha correta para estudar junto com:
 
 - ../roadmap_estabilizacao.md
 - ../compiler/ascension-zenith.md
+- ../specification/current-core.md
 - ../specification/decisions/001-self-attrs-validate.md

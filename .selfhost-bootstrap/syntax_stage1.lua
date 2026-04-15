@@ -5,7 +5,7 @@ local Empty = zt.Optional.Empty
 local Success = zt.Outcome.Success
 local Failure = zt.Outcome.Failure
 
-local TokenKind, NodeKind, Span, Diagnostic, DiagnosticBag, Symbol, CompilationUnit, DeclNode, StmtNode, ExprNode, Token, lbrace_text, rbrace_text, any_key, has_slot, text_len, Lexer, Parser, scope_lookup, symbol_is_present, symbol_is_missing, scope_has_local_symbol, Scope, ModuleManager, Binder, Emitter, compile_ext, compile
+local TokenKind, NodeKind, Span, Diagnostic, DiagnosticBag, Symbol, CompilationUnit, DeclNode, StmtNode, ExprNode, Token, lbrace_text, rbrace_text, any_key, has_slot, text_len, text_slice, text_replace, text_prefix, text_strip_quotes, text_to_path, text_to_binding_name, text_alpha_only, Lexer, Parser, scope_lookup, value_is_present, value_is_missing, empty_value, node_is_present, node_is_missing, namespace_is_present, diagnostics_is_present, report_error_if_possible, symbol_is_present, symbol_is_missing, scope_has_local_symbol, module_ast_is_present, module_ast_is_missing, module_scope_is_missing, module_cache_get, module_cache_has, report_missing_module, no_node, Scope, ModuleManager, Binder, Emitter, compile_ext, compile
 
 -- Namespace: compiler.syntax
 
@@ -396,15 +396,43 @@ function any_key(v)
 end
 
 function has_slot(items, index)
-    if (items == nil) then
-        return false
-    end
-    return (zt.index_any(items, index) ~= nil)
+    -- native lua
+    return not ( type ( items ) == "nil" ) and not ( type ( items [ index ] ) == "nil" )
 end
 
 function text_len(v)
     -- native lua
-    return # v 
+    return # v
+end
+
+function text_slice(v, start_index, finish_index)
+    -- native lua
+    return v : sub ( start_index , finish_index )
+end
+
+function text_replace(v, pattern, replacement)
+    -- native lua
+    return v : gsub ( pattern , replacement )
+end
+
+function text_prefix(v, count)
+    return text_slice(v, 1, count)
+end
+
+function text_strip_quotes(v)
+    return text_replace(text_replace(v, "^\"", ""), "\"$", "")
+end
+
+function text_to_path(v)
+    return text_replace(v, "%.", "/")
+end
+
+function text_to_binding_name(v)
+    return text_replace(v, "%.", "_")
+end
+
+function text_alpha_only(v)
+    return text_replace(v, "[^%a]", "_")
 end
 
 local Lexer = {}
@@ -459,18 +487,54 @@ end
 
 function scope_lookup(sc, name)
     local cur = sc
-    while (cur ~= nil) do
+    while value_is_present(cur) do
         local sym = zt.index_any(cur.symbols, name)
         if symbol_is_present(sym) then
             return sym
         end
         cur = cur.parent
     end
+    return empty_value()
+end
+
+function value_is_present(v)
+    -- native lua
+    return not ( type ( v ) == "nil" )
+end
+
+function value_is_missing(v)
+    return not value_is_present(v)
+end
+
+function empty_value()
+    -- native lua
     return nil
 end
 
+function node_is_present(n)
+    return value_is_present(n)
+end
+
+function node_is_missing(n)
+    return value_is_missing(n)
+end
+
+function namespace_is_present(ns)
+    return (value_is_present(ns) and (ns ~= ""))
+end
+
+function diagnostics_is_present(diagnostics)
+    return value_is_present(diagnostics)
+end
+
+function report_error_if_possible(diagnostics, id, message, span)
+    if diagnostics_is_present(diagnostics) then
+        diagnostics:report_error(id, message, span)
+    end
+end
+
 function symbol_is_present(sym)
-    return (sym ~= nil)
+    return value_is_present(sym)
 end
 
 function symbol_is_missing(sym)
@@ -479,6 +543,34 @@ end
 
 function scope_has_local_symbol(sc, name)
     return symbol_is_present(zt.index_any(sc.symbols, name))
+end
+
+function module_ast_is_present(ast)
+    return value_is_present(ast)
+end
+
+function module_ast_is_missing(ast)
+    return value_is_missing(ast)
+end
+
+function module_scope_is_missing(sc)
+    return value_is_missing(sc)
+end
+
+function module_cache_get(cache, module_name)
+    return zt.index_any(cache, module_name)
+end
+
+function module_cache_has(cache, module_name)
+    return value_is_present(module_cache_get(cache, module_name))
+end
+
+function report_missing_module(diagnostics, module_name, span)
+    report_error_if_possible(diagnostics, "ZT-2003", zt.add(zt.add("Modulo nao encontrado: '", module_name), "'"), span)
+end
+
+function no_node()
+    return "nil"
 end
 
 local Scope = {}
@@ -587,7 +679,7 @@ function compile_ext(src, file, target)
         return bag
     end
     local mm = ModuleManager.new({["project_root"] = ".", ["cache"] = {}})
-    local b = Binder.new({["current_scope"] = Scope.new({["parent"] = nil, ["symbols"] = {}}), ["module_manager"] = mm, ["module_scopes"] = {}, ["diagnostics"] = bag, ["target_os"] = target})
+    local b = Binder.new({["current_scope"] = Scope.new({["parent"] = empty_value(), ["symbols"] = {}}), ["module_manager"] = mm, ["module_scopes"] = {}, ["diagnostics"] = bag, ["target_os"] = target})
     b:bind_unit(u)
     if (bag.count > 0) then
         return bag
@@ -600,16 +692,16 @@ end
 function compile(src)
     local host_os = "windows"
     -- native lua
-    
- local sep = package . config : sub ( 1 , 1 ) 
- if sep == "/" then host_os = "linux" end 
- 
+
+ local sep = package . config : sub ( 1 , 1 )
+ if sep == "/" then host_os = "linux" end
+
     local res = compile_ext(src, "main.zt", host_os)
     -- native lua
-    
- if type ( res ) == "string" then return res end 
- return "Erro: Falha na compilação (" .. ( res . count or 0 ) .. " erros)" 
- 
+
+ if type ( res ) == "string" then return res end
+ return "Erro: Falha na compilação (" .. ( res . count or 0 ) .. " erros)"
+
 end
 
 -- Struct Methods
@@ -618,7 +710,7 @@ function Span:merge(other)
 end
 function DiagnosticBag:report(id, msg, sp, lv)
     local d = Diagnostic.new({["id"] = id, ["message"] = msg, ["span"] = sp, ["level"] = lv})
-    if (self.diagnostics == nil) then
+    if value_is_missing(self.diagnostics) then
         self.diagnostics = {}
     end
     self.diagnostics[self.count] = d
@@ -696,12 +788,7 @@ function Lexer:slice_text(start_index, finish_index)
     if (finish_index < start_index) then
         return ""
     end
-    local txt = ""
-    -- native lua
-    
- txt = self . source : sub ( start_index , finish_index ) 
- 
-    return txt
+    return text_slice(self.source, start_index, finish_index)
 end
 function Lexer:scan_identifier(start, line, col)
     while zt.unwrap_or(self:is_alpha(self:peek()), self:is_digit(self:peek())) do
@@ -969,7 +1056,7 @@ function Parser:parse()
     while not self:is_at_end() do
         local start_pos = self.pos
         local d = self:parse_declaration()
-        if (d ~= nil) then
+        if node_is_present(d) then
             decls[count] = d
             count = zt.add(count, 1)
         else
@@ -978,7 +1065,7 @@ function Parser:parse()
             end
         end
     end
-    return CompilationUnit.new({["namespace"] = ns, ["imports"] = imps, ["declarations"] = decls, ["span"] = nil, ["diagnostics"] = self.diagnostics})
+    return CompilationUnit.new({["namespace"] = ns, ["imports"] = imps, ["declarations"] = decls, ["span"] = empty_value(), ["diagnostics"] = self.diagnostics})
 end
 function Parser:is_name_token(k)
     if (k == TokenKind.Identifier) then
@@ -1009,9 +1096,7 @@ function Parser:expect_name(m)
     if self:is_name_token(t.kind) then
         return self:advance()
     end
-    if (self.diagnostics ~= nil) then
-        self.diagnostics:report_error("ZT-1001", m, t.span)
-    end
+    report_error_if_possible(self.diagnostics, "ZT-1001", m, t.span)
     self:advance()
     return t
 end
@@ -1033,7 +1118,7 @@ function Parser:parse_import_decl()
         self:advance()
         alias = self:expect_name("esperado alias").text
     end
-    return DeclNode.new({["kind"] = NodeKind.ImportDecl, ["name"] = alias, ["body"] = path, ["span"] = t.span, ["is_pub"] = false, ["attributes"] = nil, ["params"] = nil, ["fields"] = nil, ["methods"] = nil, ["members"] = nil, ["symbol"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.ImportDecl, ["name"] = alias, ["body"] = path, ["span"] = t.span, ["is_pub"] = false, ["attributes"] = empty_value(), ["params"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_type()
     self:expect_name("esperado nome do tipo")
@@ -1063,7 +1148,7 @@ function Parser:parse_declaration()
         is_pub = true
     end
     local t = self:peek()
-    local node = nil
+    local node = empty_value()
     if (t.kind == TokenKind.KwFunc) then
         node = self:parse_func_decl(is_pub)
     elseif (t.kind == TokenKind.KwVar) then
@@ -1077,7 +1162,7 @@ function Parser:parse_declaration()
     elseif (t.kind == TokenKind.KwNative) then
         self:parse_native_lua_stmt()
     end
-    if (node ~= nil) then
+    if node_is_present(node) then
         node.attributes = attrs
     end
     return node
@@ -1092,7 +1177,7 @@ function Parser:parse_func_decl(is_pub)
     end
     local body = self:parse_block()
     self:expect(TokenKind.KwEnd, "esperado 'end' na função")
-    return DeclNode.new({["kind"] = NodeKind.FuncDecl, ["name"] = name_t.text, ["params"] = params, ["body"] = body, ["is_pub"] = is_pub, ["attributes"] = nil, ["span"] = name_t.span, ["symbol"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.FuncDecl, ["name"] = name_t.text, ["params"] = params, ["body"] = body, ["is_pub"] = is_pub, ["attributes"] = empty_value(), ["span"] = name_t.span, ["symbol"] = empty_value()})
 end
 function Parser:parse_var_decl(is_pub)
     self:advance()
@@ -1101,12 +1186,12 @@ function Parser:parse_var_decl(is_pub)
         self:advance()
         self:parse_type()
     end
-    local init = nil
+    local init = empty_value()
     if (self:peek().kind == TokenKind.Equal) then
         self:advance()
         init = self:parse_expression(0)
     end
-    return DeclNode.new({["kind"] = NodeKind.VarDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = nil, ["body"] = init, ["span"] = name_t.span, ["params"] = nil, ["symbol"] = nil, ["fields"] = nil, ["methods"] = nil, ["members"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.VarDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = empty_value(), ["body"] = init, ["span"] = name_t.span, ["params"] = empty_value(), ["symbol"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["members"] = empty_value()})
 end
 function Parser:parse_struct_decl(is_pub)
     self:advance()
@@ -1133,17 +1218,17 @@ function Parser:parse_struct_decl(is_pub)
                 self:advance()
                 self:parse_type()
             end
-            local init = nil
+            local init = empty_value()
             if (self:peek().kind == TokenKind.Equal) then
                 self:advance()
                 init = self:parse_expression(0)
             end
-            fields[fc] = DeclNode.new({["kind"] = NodeKind.VarDecl, ["name"] = f_name.text, ["is_pub"] = is_field_pub, ["attributes"] = nil, ["body"] = init, ["span"] = f_name.span, ["params"] = nil, ["symbol"] = nil, ["fields"] = nil, ["methods"] = nil, ["members"] = nil})
+            fields[fc] = DeclNode.new({["kind"] = NodeKind.VarDecl, ["name"] = f_name.text, ["is_pub"] = is_field_pub, ["attributes"] = empty_value(), ["body"] = init, ["span"] = f_name.span, ["params"] = empty_value(), ["symbol"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["members"] = empty_value()})
             fc = zt.add(fc, 1)
         end
     end
     self:expect(TokenKind.KwEnd, "esperado 'end' na struct")
-    return DeclNode.new({["kind"] = NodeKind.StructDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = nil, ["fields"] = fields, ["methods"] = methods, ["span"] = name_t.span, ["params"] = nil, ["body"] = nil, ["members"] = nil, ["symbol"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.StructDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = empty_value(), ["fields"] = fields, ["methods"] = methods, ["span"] = name_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_enum_decl(is_pub)
     self:advance()
@@ -1156,16 +1241,12 @@ function Parser:parse_enum_decl(is_pub)
         mc = zt.add(mc, 1)
     end
     self:expect(TokenKind.KwEnd, "esperado 'end' no enum")
-    return DeclNode.new({["kind"] = NodeKind.EnumDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = nil, ["members"] = members, ["span"] = name_t.span, ["params"] = nil, ["body"] = nil, ["fields"] = nil, ["methods"] = nil, ["symbol"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.EnumDecl, ["name"] = name_t.text, ["is_pub"] = is_pub, ["attributes"] = empty_value(), ["members"] = members, ["span"] = name_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["methods"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_extern_decl()
     self:advance()
     local lib_t = self:expect(TokenKind.StringLiteral, "esperado nome da biblioteca (string)")
-    local lib_name = lib_t.text
-    -- native lua
-    
- lib_name = lib_name : gsub ( "^\"" , "" ) : gsub ( "\"$" , "" ) 
- 
+    local lib_name = text_strip_quotes(lib_t.text)
     local methods = {}
     local mc = 0
     while (not self:is_at_end() and (self:peek().kind ~= TokenKind.KwEnd)) do
@@ -1177,14 +1258,14 @@ function Parser:parse_extern_decl()
         end
     end
     self:expect(TokenKind.KwEnd, "esperado 'end' no bloco extern")
-    return DeclNode.new({["kind"] = NodeKind.ExternDecl, ["name"] = lib_name, ["methods"] = methods, ["is_pub"] = true, ["attributes"] = nil, ["span"] = lib_t.span, ["params"] = nil, ["body"] = nil, ["fields"] = nil, ["members"] = nil, ["symbol"] = nil})
+    return DeclNode.new({["kind"] = NodeKind.ExternDecl, ["name"] = lib_name, ["methods"] = methods, ["is_pub"] = true, ["attributes"] = empty_value(), ["span"] = lib_t.span, ["params"] = empty_value(), ["body"] = empty_value(), ["fields"] = empty_value(), ["members"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_block()
     local stmts = {}
     local count = 0
     while (((not self:is_at_end() and (self:peek().kind ~= TokenKind.KwEnd)) and (self:peek().kind ~= TokenKind.KwElse)) and (self:peek().kind ~= TokenKind.KwElif)) do
         local s = self:parse_statement()
-        if (s ~= nil) then
+        if node_is_present(s) then
             stmts[count] = s
             count = zt.add(count, 1)
         end
@@ -1195,7 +1276,7 @@ function Parser:parse_statement()
     local t = self:peek()
     if (t.kind == TokenKind.Semicolon) then
         self:advance()
-        return nil
+        return empty_value()
     end
     if (t.kind == TokenKind.KwVar) then
         return self:parse_var_decl(false)
@@ -1220,45 +1301,45 @@ function Parser:parse_statement()
     end
     if (t.kind == TokenKind.KwReturn) then
         self:advance()
-        local ret_value = nil
+        local ret_value = empty_value()
         if ((((self:peek().kind ~= TokenKind.KwEnd) and (self:peek().kind ~= TokenKind.KwElse)) and (self:peek().kind ~= TokenKind.KwElif)) and (self:peek().kind ~= TokenKind.EOF)) then
             ret_value = self:parse_expression(0)
         end
-        return StmtNode.new({["kind"] = NodeKind.ReturnStmt, ["value"] = ret_value, ["span"] = t.span, ["condition"] = nil, ["body"] = nil, ["target"] = nil, ["cases"] = nil, ["patterns"] = nil, ["variables"] = nil, ["iterable"] = nil, ["count_expr"] = nil})
+        return StmtNode.new({["kind"] = NodeKind.ReturnStmt, ["value"] = ret_value, ["span"] = t.span, ["condition"] = empty_value(), ["body"] = empty_value(), ["target"] = empty_value(), ["cases"] = empty_value(), ["patterns"] = empty_value(), ["variables"] = empty_value(), ["iterable"] = empty_value(), ["count_expr"] = empty_value()})
     end
     local assign_stmt = self:try_parse_assign_stmt()
-    if (assign_stmt ~= nil) then
+    if node_is_present(assign_stmt) then
         return assign_stmt
     end
-    return StmtNode.new({["kind"] = NodeKind.ExprStmt, ["value"] = self:parse_expression(0), ["span"] = t.span, ["condition"] = nil, ["body"] = nil, ["target"] = nil, ["cases"] = nil, ["patterns"] = nil, ["variables"] = nil, ["iterable"] = nil, ["count_expr"] = nil})
+    return StmtNode.new({["kind"] = NodeKind.ExprStmt, ["value"] = self:parse_expression(0), ["span"] = t.span, ["condition"] = empty_value(), ["body"] = empty_value(), ["target"] = empty_value(), ["cases"] = empty_value(), ["patterns"] = empty_value(), ["variables"] = empty_value(), ["iterable"] = empty_value(), ["count_expr"] = empty_value()})
 end
 function Parser:parse_assign_target()
     local start_t = self:peek()
-    local target = nil
+    local target = empty_value()
     if (start_t.kind == TokenKind.At) then
         self:advance()
         local f = self:expect_name("esperado campo")
-        local self_node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = start_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
-        target = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = self_node, ["name"] = f.text, ["span"] = start_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+        local self_node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = start_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
+        target = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = self_node, ["name"] = f.text, ["span"] = start_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
     elseif (start_t.kind == TokenKind.Identifier) then
         local ident_t = self:advance()
-        target = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = ident_t.text, ["span"] = ident_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+        target = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = ident_t.text, ["span"] = ident_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
     elseif (start_t.kind == TokenKind.KwSelf) then
         local self_t = self:advance()
-        target = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = self_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+        target = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = self_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
     else
-        return nil
+        return empty_value()
     end
     while true do
         if (self:peek().kind == TokenKind.Dot) then
             self:advance()
             local member_t = self:expect_name("esperado membro")
-            target = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = target, ["name"] = member_t.text, ["span"] = member_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+            target = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = target, ["name"] = member_t.text, ["span"] = member_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
         elseif (self:peek().kind == TokenKind.LBracket) then
             local bracket_t = self:advance()
             local idx = self:parse_expression(0)
             self:expect(TokenKind.RBracket, "esperado ']'")
-            target = ExprNode.new({["kind"] = NodeKind.IndexExpr, ["object"] = target, ["index"] = idx, ["span"] = bracket_t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+            target = ExprNode.new({["kind"] = NodeKind.IndexExpr, ["object"] = target, ["index"] = idx, ["span"] = bracket_t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
         else
             break
         end
@@ -1268,16 +1349,16 @@ end
 function Parser:try_parse_assign_stmt()
     local start = self.pos
     local target = self:parse_assign_target()
-    if (target == nil) then
+    if node_is_missing(target) then
         self.pos = start
-        return nil
+        return empty_value()
     end
     if (self:peek().kind ~= TokenKind.Equal) then
         self.pos = start
-        return nil
+        return empty_value()
     end
     self:advance()
-    return StmtNode.new({["kind"] = NodeKind.AssignStmt, ["target"] = target, ["value"] = self:parse_expression(0), ["span"] = target.span, ["condition"] = nil, ["body"] = nil})
+    return StmtNode.new({["kind"] = NodeKind.AssignStmt, ["target"] = target, ["value"] = self:parse_expression(0), ["span"] = target.span, ["condition"] = empty_value(), ["body"] = empty_value()})
 end
 function Parser:parse_native_lua_stmt()
     local start_t = self:advance()
@@ -1317,7 +1398,7 @@ function Parser:parse_elif_tail()
     else
         body = self:parse_block()
     end
-    local else_body = nil
+    local else_body = empty_value()
     if (self:peek().kind == TokenKind.KwElif) then
         else_body = {}
         else_body[0] = self:parse_elif_tail()
@@ -1342,7 +1423,7 @@ function Parser:parse_if_stmt()
     else
         body = self:parse_block()
     end
-    local else_body = nil
+    local else_body = empty_value()
     if (self:peek().kind == TokenKind.KwElif) then
         else_body = {}
         else_body[0] = self:parse_elif_tail()
@@ -1392,7 +1473,7 @@ function Parser:parse_match_stmt()
     local t = self:advance()
     local expr = self:parse_expression(0)
     local cases = {}
-    local else_c = nil
+    local else_c = empty_value()
     local cc = 0
     while (not self:is_at_end() and (self:peek().kind ~= TokenKind.KwEnd)) do
         if (self:peek().kind == TokenKind.KwElse) then
@@ -1414,21 +1495,21 @@ function Parser:parse_match_stmt()
             end
             self:expect(TokenKind.FatArrow, "esperado '=>'")
             local body = self:parse_block_simple()
-            cases[cc] = StmtNode.new({["kind"] = NodeKind.MatchCase, ["patterns"] = patterns, ["body"] = body, ["span"] = ct.span, ["target"] = nil, ["value"] = nil, ["condition"] = nil, ["else_body"] = nil, ["cases"] = nil, ["variables"] = nil, ["iterable"] = nil, ["count_expr"] = nil})
+            cases[cc] = StmtNode.new({["kind"] = NodeKind.MatchCase, ["patterns"] = patterns, ["body"] = body, ["span"] = ct.span, ["target"] = empty_value(), ["value"] = empty_value(), ["condition"] = empty_value(), ["else_body"] = empty_value(), ["cases"] = empty_value(), ["variables"] = empty_value(), ["iterable"] = empty_value(), ["count_expr"] = empty_value()})
             cc = zt.add(cc, 1)
         else
             break
         end
     end
     self:expect(TokenKind.KwEnd, "esperado 'end' no match")
-    return StmtNode.new({["kind"] = NodeKind.MatchStmt, ["condition"] = expr, ["cases"] = cases, ["else_body"] = else_c, ["span"] = t.span, ["target"] = nil, ["value"] = nil, ["body"] = nil, ["patterns"] = nil, ["variables"] = nil, ["iterable"] = nil, ["count_expr"] = nil})
+    return StmtNode.new({["kind"] = NodeKind.MatchStmt, ["condition"] = expr, ["cases"] = cases, ["else_body"] = else_c, ["span"] = t.span, ["target"] = empty_value(), ["value"] = empty_value(), ["body"] = empty_value(), ["patterns"] = empty_value(), ["variables"] = empty_value(), ["iterable"] = empty_value(), ["count_expr"] = empty_value()})
 end
 function Parser:parse_block_simple()
     local stmts = {}
     local sc = 0
     while (((not self:is_at_end() and (self:peek().kind ~= TokenKind.KwEnd)) and (self:peek().kind ~= TokenKind.KwCase)) and (self:peek().kind ~= TokenKind.KwElse)) do
         local s = self:parse_statement()
-        if (s ~= nil) then
+        if node_is_present(s) then
             stmts[sc] = s
             sc = zt.add(sc, 1)
         end
@@ -1447,7 +1528,7 @@ function Parser:parse_inline_statement_block(line_no)
         return stmts
     end
     local s = self:parse_statement()
-    if (s ~= nil) then
+    if node_is_present(s) then
         stmts[0] = s
     end
     return stmts
@@ -1461,20 +1542,20 @@ function Parser:parse_expression(min_prec)
             break
         end
         self:advance()
-        left = ExprNode.new({["kind"] = NodeKind.BinaryExpr, ["left"] = left, ["right"] = self:parse_expression(prec), ["operator"] = op, ["span"] = op.span, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+        left = ExprNode.new({["kind"] = NodeKind.BinaryExpr, ["left"] = left, ["right"] = self:parse_expression(prec), ["operator"] = op, ["span"] = op.span, ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
     end
     return left
 end
 function Parser:parse_primary()
     local t = self:advance()
-    local node = nil
+    local node = empty_value()
     if zt.unwrap_or((t.kind == TokenKind.IntegerLiteral), (t.kind == TokenKind.StringLiteral)) then
-        node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = t.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+        node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = t.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
     elseif (t.kind == TokenKind.Identifier) then
         if (t.text == "null") then
-            node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = "nil", ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = "nil", ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
         elseif zt.unwrap_or((t.text == "true"), (t.text == "false")) then
-            node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = t.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.LiteralExpr, ["value"] = t.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
         elseif (self:peek().kind == TokenKind.LBrace) then
             self:advance()
             local keys = {}
@@ -1494,27 +1575,27 @@ function Parser:parse_primary()
                 end
             end
             self:expect(TokenKind.RBrace, "esperado '}'")
-            node = ExprNode.new({["kind"] = NodeKind.StructInitExpr, ["name"] = t.text, ["keys"] = keys, ["values"] = vals, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.StructInitExpr, ["name"] = t.text, ["keys"] = keys, ["values"] = vals, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["symbol"] = empty_value()})
         else
-            node = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = t.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = t.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
         end
     elseif (t.kind == TokenKind.KwSelf) then
-        node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+        node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
     elseif self:is_name_token(t.kind) then
-        node = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = t.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+        node = ExprNode.new({["kind"] = NodeKind.IdentifierExpr, ["name"] = t.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
     elseif (t.kind == TokenKind.LParen) then
         node = self:parse_expression(0)
         self:expect(TokenKind.RParen, "esperado ')' após expressão")
     elseif (t.kind == TokenKind.At) then
         local f = self:expect_name("esperado nome do campo após '@'")
-        local self_node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
-        node = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = self_node, ["name"] = f.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["index"] = nil, ["items"] = nil, ["keys"] = nil, ["values"] = nil, ["symbol"] = nil})
+        local self_node = ExprNode.new({["kind"] = NodeKind.SelfExpr, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
+        node = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = self_node, ["name"] = f.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["index"] = empty_value(), ["items"] = empty_value(), ["keys"] = empty_value(), ["values"] = empty_value(), ["symbol"] = empty_value()})
     elseif (t.kind == TokenKind.LBracket) then
         node = self:parse_list_literal(t)
     elseif (t.kind == TokenKind.LBrace) then
         node = self:parse_map_literal(t)
     elseif zt.unwrap_or((t.kind == TokenKind.KwNot), (t.kind == TokenKind.Minus)) then
-        node = ExprNode.new({["kind"] = NodeKind.UnaryExpr, ["operator"] = t, ["right"] = self:parse_expression(9), ["span"] = t.span, ["left"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil, ["lua_code"] = ""})
+        node = ExprNode.new({["kind"] = NodeKind.UnaryExpr, ["operator"] = t, ["right"] = self:parse_expression(9), ["span"] = t.span, ["left"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value(), ["lua_code"] = ""})
     elseif (t.kind == TokenKind.KwNative) then
         local t_lua = self:expect(TokenKind.Identifier, "esperado 'lua' após 'native'")
         local code = ""
@@ -1535,7 +1616,7 @@ function Parser:parse_primary()
             end
             code = zt.add(code, nt.text)
         end
-        node = ExprNode.new({["kind"] = NodeKind.NativeLuaExpr, ["lua_code"] = code, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+        node = ExprNode.new({["kind"] = NodeKind.NativeLuaExpr, ["lua_code"] = code, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
     end
     while true do
         local next = self:peek()
@@ -1555,16 +1636,16 @@ function Parser:parse_primary()
                 end
             end
             self:expect(TokenKind.RParen, "esperado ')' após expressão")
-            node = ExprNode.new({["kind"] = NodeKind.CallExpr, ["callee"] = node, ["args"] = args, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.CallExpr, ["callee"] = node, ["args"] = args, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
         elseif (next.kind == TokenKind.Dot) then
             self:advance()
             local m = self:expect_name("esperado membro")
-            node = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = node, ["name"] = m.text, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["callee"] = nil, ["args"] = nil, ["index"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.MemberExpr, ["object"] = node, ["name"] = m.text, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["callee"] = empty_value(), ["args"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
         elseif (next.kind == TokenKind.LBracket) then
             self:advance()
             local idx = self:parse_expression(0)
             self:expect(TokenKind.RBracket, "esperado ']'")
-            node = ExprNode.new({["kind"] = NodeKind.IndexExpr, ["object"] = node, ["index"] = idx, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["symbol"] = nil})
+            node = ExprNode.new({["kind"] = NodeKind.IndexExpr, ["object"] = node, ["index"] = idx, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["symbol"] = empty_value()})
         elseif (next.kind == TokenKind.KwAs) then
             self:advance()
             self:parse_type()
@@ -1589,7 +1670,7 @@ function Parser:parse_list_literal(t)
         end
     end
     self:expect(TokenKind.RBracket, "esperado ']' após lista")
-    return ExprNode.new({["kind"] = NodeKind.ListLiteral, ["items"] = items, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+    return ExprNode.new({["kind"] = NodeKind.ListLiteral, ["items"] = items, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:parse_map_literal(t)
     local keys = {}
@@ -1609,7 +1690,7 @@ function Parser:parse_map_literal(t)
         end
     end
     self:expect(TokenKind.RBrace, "esperado '}' após mapa")
-    return ExprNode.new({["kind"] = NodeKind.MapLiteral, ["keys"] = keys, ["values"] = values, ["span"] = t.span, ["left"] = nil, ["right"] = nil, ["operator"] = nil, ["value"] = nil, ["name"] = "", ["callee"] = nil, ["args"] = nil, ["object"] = nil, ["index"] = nil, ["symbol"] = nil})
+    return ExprNode.new({["kind"] = NodeKind.MapLiteral, ["keys"] = keys, ["values"] = values, ["span"] = t.span, ["left"] = empty_value(), ["right"] = empty_value(), ["operator"] = empty_value(), ["value"] = empty_value(), ["name"] = "", ["callee"] = empty_value(), ["args"] = empty_value(), ["object"] = empty_value(), ["index"] = empty_value(), ["symbol"] = empty_value()})
 end
 function Parser:get_precedence(k)
     if zt.unwrap_or((k == TokenKind.Plus), (k == TokenKind.Minus)) then
@@ -1671,9 +1752,7 @@ function Parser:expect(k, m)
     if (t.kind == k) then
         return self:advance()
     end
-    if (self.diagnostics ~= nil) then
-        self.diagnostics:report_error("ZT-1001", m, t.span)
-    end
+    report_error_if_possible(self.diagnostics, "ZT-1001", m, t.span)
     self:advance()
     return t
 end
@@ -1685,40 +1764,34 @@ function Scope:define(sym)
     return true
 end
 function ModuleManager:resolve_path(module_name)
-    local path = ""
-    -- native lua
-    
- if module_name : sub ( 1 , 4 ) == "std." then 
- path = "src/stdlib/" .. module_name : sub ( 5 ) : gsub ( "%." , "/" ) .. ".zt" 
- else 
- path = self . project_root .. "/" .. module_name : gsub ( "%." , "/" ) .. ".zt" 
- end 
- 
-    return path
+    if (text_prefix(module_name, 4) == "std.") then
+        return zt.add(zt.add("src/stdlib/", text_to_path(text_slice(module_name, 5, text_len(module_name)))), ".zt")
+    end
+    return zt.add(zt.add(zt.add(self.project_root, "/"), text_to_path(module_name)), ".zt")
 end
 function ModuleManager:get_ast(module_name)
-    if (zt.index_any(self.cache, module_name) ~= nil) then
-        return zt.index_any(self.cache, module_name)
+    if module_cache_has(self.cache, module_name) then
+        return module_cache_get(self.cache, module_name)
     end
     local path = self:resolve_path(module_name)
     local src = ""
     -- native lua
-    
- local f = io . open ( path , "r" ) 
- if f then 
- src = f : read ( "*a" ) 
- f : close ( ) 
- else 
- 
- f = io . open ( module_name , "r" ) 
- if f then 
- src = f : read ( "*a" ) 
- f : close ( ) 
- end 
- end 
- 
+
+ local f = io . open ( path , "r" )
+ if f then
+ src = f : read ( "*a" )
+ f : close ( )
+ else
+
+ f = io . open ( module_name , "r" )
+ if f then
+ src = f : read ( "*a" )
+ f : close ( )
+ end
+ end
+
     if (src == "") then
-        return nil
+        return empty_value()
     end
     local l = Lexer.new({["source"] = src, ["pos"] = 0, ["tokens"] = {}})
     local ts = l:tokenize()
@@ -1734,18 +1807,20 @@ function Binder:bind_unit(u)
         while has_slot(imps, i) do
             local imp = zt.index_any(imps, i)
             local module_ast = self.module_manager:get_ast(imp.body)
-            if (module_ast ~= nil) then
+            if module_ast_is_missing(module_ast) then
+                report_missing_module(self.diagnostics, imp.body, imp.span)
+            else
                 local target_scope = zt.index_any(self.module_scopes, imp.body)
-                if (target_scope == nil) then
-                    local mod_binder = Binder.new({["current_scope"] = Scope.new({["parent"] = nil, ["symbols"] = {}}), ["module_manager"] = self.module_manager, ["module_scopes"] = self.module_scopes})
+                if module_scope_is_missing(target_scope) then
+                    local mod_binder = Binder.new({["current_scope"] = Scope.new({["parent"] = empty_value(), ["symbols"] = {}}), ["module_manager"] = self.module_manager, ["module_scopes"] = self.module_scopes})
                     mod_binder:bind_unit(module_ast)
                     target_scope = mod_binder.current_scope
                     self.module_scopes[imp.body] = target_scope
                 end
                 local sym = Symbol.new({["kind"] = 4, ["name"] = imp.name, ["type_name"] = "module", ["is_pub"] = false, ["declaration"] = imp, ["module_scope"] = target_scope})
                 local ok = self.current_scope:define(sym)
-                if (not ok and (self.diagnostics ~= nil)) then
-                    self.diagnostics:report_error("ZT-2002", zt.add(zt.add("Símbolo '", imp.name), "' já definido neste escopo"), imp.span)
+                if not ok then
+                    report_error_if_possible(self.diagnostics, "ZT-2002", zt.add(zt.add("Símbolo '", imp.name), "' já definido neste escopo"), imp.span)
                 end
             end
             i = zt.add(i, 1)
@@ -1770,7 +1845,7 @@ function Binder:bind_unit(u)
     end
 end
 function Binder:_is_platform_allowed(n)
-    if zt.unwrap_or((n == nil), (n.attributes == nil)) then
+    if zt.unwrap_or(node_is_missing(n), value_is_missing(n.attributes)) then
         return true
     end
     local has_platform_attr = false
@@ -1805,13 +1880,13 @@ function Binder:_declare(n)
         end
         local sym = Symbol.new({["kind"] = k, ["name"] = n.name, ["type_name"] = "any", ["is_pub"] = n.is_pub, ["declaration"] = n})
         local ok = self.current_scope:define(sym)
-        if (not ok and (self.diagnostics ~= nil)) then
-            self.diagnostics:report_error("ZT-2002", zt.add(zt.add("Símbolo '", n.name), "' já definido neste escopo"), n.span)
+        if not ok then
+            report_error_if_possible(self.diagnostics, "ZT-2002", zt.add(zt.add("Símbolo '", n.name), "' já definido neste escopo"), n.span)
         end
     end
 end
 function Binder:_bind_node(n)
-    if (n == nil) then
+    if node_is_missing(n) then
         return
     end
     if (n.kind == NodeKind.FuncDecl) then
@@ -1843,8 +1918,8 @@ function Binder:_bind_node(n)
         end
     elseif (n.kind == NodeKind.IdentifierExpr) then
         n.symbol = scope_lookup(self.current_scope, n.name)
-        if (symbol_is_missing(n.symbol) and (self.diagnostics ~= nil)) then
-            self.diagnostics:report_error("ZT-2001", zt.add(zt.add("Símbolo não encontrado: '", n.name), "'"), n.span)
+        if symbol_is_missing(n.symbol) then
+            report_error_if_possible(self.diagnostics, "ZT-2001", zt.add(zt.add("Símbolo não encontrado: '", n.name), "'"), n.span)
         end
     elseif (n.kind == NodeKind.BinaryExpr) then
         self:_bind_node(n.left)
@@ -1927,8 +2002,8 @@ function Binder:_bind_node(n)
             if (sym.kind == 4) then
                 local mod_scope = sym.module_scope
                 n.symbol = scope_lookup(mod_scope, n.name)
-                if (symbol_is_missing(n.symbol) and (self.diagnostics ~= nil)) then
-                    self.diagnostics:report_error("ZT-2001", zt.add(zt.add(zt.add(zt.add("Símbolo '", n.name), "' não encontrado no módulo '"), n.object.name), "'"), n.span)
+                if symbol_is_missing(n.symbol) then
+                    report_error_if_possible(self.diagnostics, "ZT-2001", zt.add(zt.add(zt.add(zt.add("Símbolo '", n.name), "' não encontrado no módulo '"), n.object.name), "'"), n.span)
                 end
             end
         end
@@ -1969,7 +2044,7 @@ function Emitter:generate(u)
     self.output = {}
     self.line_count = 0
     self.indent_level = 0
-    self.has_namespace = ((u.namespace ~= nil) and (u.namespace ~= ""))
+    self.has_namespace = namespace_is_present(u.namespace)
     self:emit("-- Transpilado por Zenith Ascension (Transcendencia v0.10)")
     self:emit("local zt = require(\"src.backend.lua.runtime.zenith_rt\")")
     local imps = u.imports
@@ -1978,17 +2053,10 @@ function Emitter:generate(u)
         while has_slot(imps, i) do
             local imp = zt.index_any(imps, i)
             local lua_path = imp.body
-            -- native lua
-            
- if lua_path : sub ( 1 , 4 ) == "std." then 
- lua_path = "src.stdlib." .. lua_path : sub ( 5 ) 
- end 
- 
-            local clean_name = imp.name
-            -- native lua
-            
- clean_name = clean_name : gsub ( "%." , "_" ) 
- 
+            if (text_prefix(lua_path, 4) == "std.") then
+                lua_path = zt.add("src.stdlib.", text_slice(lua_path, 5, text_len(lua_path)))
+            end
+            local clean_name = text_to_binding_name(imp.name)
             self:emit(zt.add(zt.add(zt.add(zt.add("local ", clean_name), " = require(\""), lua_path), "\")"))
             i = zt.add(i, 1)
         end
@@ -2048,7 +2116,7 @@ function Emitter:generate(u)
     return res
 end
 function Emitter:_is_platform_allowed(n)
-    if zt.unwrap_or((n == nil), (n.attributes == nil)) then
+    if zt.unwrap_or(node_is_missing(n), value_is_missing(n.attributes)) then
         return true
     end
     local has_platform_attr = false
@@ -2070,7 +2138,7 @@ function Emitter:_is_platform_allowed(n)
     return allowed
 end
 function Emitter:_bind_node_emit(n)
-    if (n == nil) then
+    if node_is_missing(n) then
         return
     end
     if (n.kind == NodeKind.FuncDecl) then
@@ -2231,7 +2299,7 @@ function Emitter:_bind_node_emit(n)
             while has_slot(fs, i) do
                 local f = zt.index_any(fs, i)
                 local init = "nil"
-                if (f.body ~= nil) then
+                if value_is_present(f.body) then
                     init = self:expr_to_lua(f.body)
                 end
                 self:emit(zt.add(zt.add(zt.add(zt.add(zt.add("self.", f.name), " = fields."), f.name), " or "), init))
@@ -2291,11 +2359,7 @@ function Emitter:_bind_node_emit(n)
         cdef = zt.add(cdef, "\
 ]]")
         self:emit(cdef)
-        local clean_lib = n.name
-        -- native lua
-        
- clean_lib = clean_lib : gsub ( "[^%a]" , "_" ) 
- 
+        local clean_lib = text_alpha_only(n.name)
         self:emit(zt.add(zt.add(zt.add(zt.add("local _lib_", clean_lib), " = ffi.load(\""), n.name), "\")"))
         local i = 0
         while has_slot(methods, i) do
@@ -2339,35 +2403,32 @@ function Emitter:_emit_method(n, struct_name)
     self:emit("end")
 end
 function Emitter:expr_to_lua(n)
-    if (n == nil) then
-        return "nil"
+    if node_is_missing(n) then
+        return no_node()
     end
     if (n.kind == NodeKind.LiteralExpr) then
         return n.value
     end
     if (n.kind == NodeKind.IdentifierExpr) then
-        local name = n.name
-        -- native lua
-        name = name : gsub ( "%." , "_" ) 
-        return name
+        return text_to_binding_name(n.name)
     end
     if (n.kind == NodeKind.BinaryExpr) then
         local l = self:expr_to_lua(n.left)
         local r = self:expr_to_lua(n.right)
-        local folded = nil
+        local folded = empty_value()
         -- native lua
-        
- local nl = tonumber ( l ) 
- local nr = tonumber ( r ) 
- if nl and nr then 
- local k = n . operator . kind 
- if k == 7 then folded = tostring ( nl + nr ) end 
- if k == 8 then folded = tostring ( nl - nr ) end 
- if k == 9 then folded = tostring ( nl * nr ) end 
- if k == 10 then folded = tostring ( nl / nr ) end 
- end 
- 
-        if (folded ~= nil) then
+
+ local nl = tonumber ( l )
+ local nr = tonumber ( r )
+ if nl and nr then
+ local k = n . operator . kind
+ if k == 7 then folded = tostring ( nl + nr ) end
+ if k == 8 then folded = tostring ( nl - nr ) end
+ if k == 9 then folded = tostring ( nl * nr ) end
+ if k == 10 then folded = tostring ( nl / nr ) end
+ end
+
+        if value_is_present(folded) then
             return folded
         end
         local op = n.operator.text
@@ -2465,97 +2526,97 @@ function Emitter:expr_to_lua(n)
 end
 -- native lua
 
- local function split_lines ( text ) 
- local lines = { } 
- for line in text : gmatch ( "([^\n]*)\n?" ) do 
- table . insert ( lines , line ) 
- end 
- return lines 
- end 
- 
- local function print_diag ( bag , source ) 
- local lines = source and split_lines ( source ) or { } 
- for i = 0 , ( bag . count or 0 ) - 1 do 
- local d = bag . diagnostics [ i ] 
- local sp = d . span 
- local color = d . level == 0 and "\27[31m" or "\27[33m" 
- local reset = "\27[0m" 
- 
- io . stderr : write ( string . format ( "%s[%s] %s%s\n" , color , d . id , d . message , reset ) ) 
- 
- if sp then 
- io . stderr : write ( string . format ( "  at %s:%d:%d\n" , sp . file or "main.zt" , sp . line , sp . column ) ) 
- local line_text = lines [ sp . line ] 
- if line_text then 
- io . stderr : write ( string . format ( "   |\n %d | %s\n   | %s^\n" , sp . line , line_text , string . rep ( " " , sp . column - 1 ) ) ) 
- end 
- end 
- io . stderr : write ( "\n" ) 
- end 
- end 
- 
- if arg and # arg > 0 then 
- local first = arg [ 1 ] 
- local is_build = ( first == "build" ) 
- local is_bundle = false 
- local src_file = nil 
- 
- if is_build then 
- if arg [ 2 ] == "--bundle" then 
- is_bundle = true 
- src_file = arg [ 3 ] 
- else 
- src_file = arg [ 2 ] 
- end 
- else 
- src_file = first 
- end 
- 
- if not src_file then 
- io . stderr : write ( "Uso: zt <arquivo.zt> ou zt build [--bundle] <arquivo.zt>\n" ) 
- os . exit ( 1 ) 
- end 
- 
- local out_name = src_file : gsub ( "%.zt$" , "" ) .. ".lua" 
- if is_bundle then out_name = "dist/main.lua" end 
- 
- 
- local host_os = "windows" 
- local sep = package . config : sub ( 1 , 1 ) 
- if sep == "/" then host_os = "linux" end 
- 
- local f = io . open ( src_file , "r" ) 
- if f then 
- local cnt = f : read ( "*a" ) : gsub ( "\r" , "" ) 
- f : close ( ) 
- local res = compile_ext ( cnt , src_file , host_os ) 
- if type ( res ) == "string" then 
- 
- if is_bundle then 
- if host_os == "windows" then os . execute ( "mkdir dist >nul 2>nul" ) 
- else os . execute ( "mkdir -p dist" ) end 
- end 
- 
- local out_f = io . open ( out_name , "w" ) 
- if out_f then out_f : write ( res ) out_f : close ( ) end 
- 
- local msg = "✅ Sucesso (Target: " .. host_os .. "): " .. src_file 
- if is_bundle then msg = msg .. " -> " .. out_name end 
- io . stderr : write ( msg .. "\n" ) 
- else 
- if type ( res ) == "table" and res . diagnostics then 
- print_diag ( res , cnt ) 
- else 
- io . stderr : write ( "Erro fatal: " .. tostring ( res ) .. "\n" ) 
- end 
- os . exit ( 1 ) 
- end 
- else 
- io . stderr : write ( "Erro: Não foi possível abrir o arquivo " .. src_file .. "\n" ) 
- os . exit ( 1 ) 
- end 
- end 
- 
+ local function split_lines ( text )
+ local lines = { }
+ for line in text : gmatch ( "([^\n]*)\n?" ) do
+ table . insert ( lines , line )
+ end
+ return lines
+ end
+
+ local function print_diag ( bag , source )
+ local lines = source and split_lines ( source ) or { }
+ for i = 0 , ( bag . count or 0 ) - 1 do
+ local d = bag . diagnostics [ i ]
+ local sp = d . span
+ local color = d . level == 0 and "\27[31m" or "\27[33m"
+ local reset = "\27[0m"
+
+ io . stderr : write ( string . format ( "%s[%s] %s%s\n" , color , d . id , d . message , reset ) )
+
+ if sp then
+ io . stderr : write ( string . format ( "  at %s:%d:%d\n" , sp . file or "main.zt" , sp . line , sp . column ) )
+ local line_text = lines [ sp . line ]
+ if line_text then
+ io . stderr : write ( string . format ( "   |\n %d | %s\n   | %s^\n" , sp . line , line_text , string . rep ( " " , sp . column - 1 ) ) )
+ end
+ end
+ io . stderr : write ( "\n" )
+ end
+ end
+
+ if arg and # arg > 0 then
+ local first = arg [ 1 ]
+ local is_build = ( first == "build" )
+ local is_bundle = false
+ local src_file = nil
+
+ if is_build then
+ if arg [ 2 ] == "--bundle" then
+ is_bundle = true
+ src_file = arg [ 3 ]
+ else
+ src_file = arg [ 2 ]
+ end
+ else
+ src_file = first
+ end
+
+ if not src_file then
+ io . stderr : write ( "Uso: zt <arquivo.zt> ou zt build [--bundle] <arquivo.zt>\n" )
+ os . exit ( 1 )
+ end
+
+ local out_name = src_file : gsub ( "%.zt$" , "" ) .. ".lua"
+ if is_bundle then out_name = "dist/main.lua" end
+
+
+ local host_os = "windows"
+ local sep = package . config : sub ( 1 , 1 )
+ if sep == "/" then host_os = "linux" end
+
+ local f = io . open ( src_file , "r" )
+ if f then
+ local cnt = f : read ( "*a" ) : gsub ( "\r" , "" )
+ f : close ( )
+ local res = compile_ext ( cnt , src_file , host_os )
+ if type ( res ) == "string" then
+
+ if is_bundle then
+ if host_os == "windows" then os . execute ( "mkdir dist >nul 2>nul" )
+ else os . execute ( "mkdir -p dist" ) end
+ end
+
+ local out_f = io . open ( out_name , "w" )
+ if out_f then out_f : write ( res ) out_f : close ( ) end
+
+ local msg = "✅ Sucesso (Target: " .. host_os .. "): " .. src_file
+ if is_bundle then msg = msg .. " -> " .. out_name end
+ io . stderr : write ( msg .. "\n" )
+ else
+ if type ( res ) == "table" and res . diagnostics then
+ print_diag ( res , cnt )
+ else
+ io . stderr : write ( "Erro fatal: " .. tostring ( res ) .. "\n" )
+ end
+ os . exit ( 1 )
+ end
+ else
+ io . stderr : write ( "Erro: Não foi possível abrir o arquivo " .. src_file .. "\n" )
+ os . exit ( 1 )
+ end
+ end
+
 
 
 return {
@@ -2573,9 +2634,24 @@ return {
     Lexer = Lexer,
     Parser = Parser,
     scope_lookup = scope_lookup,
+    value_is_present = value_is_present,
+    value_is_missing = value_is_missing,
+    empty_value = empty_value,
+    node_is_present = node_is_present,
+    node_is_missing = node_is_missing,
+    namespace_is_present = namespace_is_present,
+    diagnostics_is_present = diagnostics_is_present,
+    report_error_if_possible = report_error_if_possible,
     symbol_is_present = symbol_is_present,
     symbol_is_missing = symbol_is_missing,
     scope_has_local_symbol = scope_has_local_symbol,
+    module_ast_is_present = module_ast_is_present,
+    module_ast_is_missing = module_ast_is_missing,
+    module_scope_is_missing = module_scope_is_missing,
+    module_cache_get = module_cache_get,
+    module_cache_has = module_cache_has,
+    report_missing_module = report_missing_module,
+    no_node = no_node,
     Scope = Scope,
     ModuleManager = ModuleManager,
     Binder = Binder,

@@ -67,7 +67,7 @@ assert_no_errors(d3)
 
 -- 3. Nuláveis: T?
 local _, d4 = run_bind("var n: int? = null")
-assert_no_errors(d4)
+assert_has_error(d4, "ZT-S106") -- Uso direto de null proibido
 
 local _, d5 = run_bind("var n: int? = 10")
 assert_no_errors(d5)

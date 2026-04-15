@@ -29,11 +29,9 @@ func main()
     var box: Wrapped<int> = [100]
     print("box[1]: " + box[1])
 
-    -- 4. Test nullable (which is a union T | null in Zenith)
+        -- 4. Test nullable without direct null literal
     var n: int? = 10
     print("n is int: " + (n is int))
-    n = null
-    print("n is null: " + (n is null))
     print("n is int?: " + (n is int?))
 
     -- 5. Test composite union

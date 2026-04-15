@@ -38,8 +38,8 @@ T? representa anulabilidade no sistema de tipos.
 
 Politica atual:
 
-- var x: text? = null e permitido com warning ZT-W001
-- var x: text = null gera ZT-S100
+- var x: text? = null gera erro semantico ZT-S106
+- var x: text = null gera ZT-S106 e tambem ZT-S100
 
 Preferencia de modelagem:
 

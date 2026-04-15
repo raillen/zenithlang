@@ -104,7 +104,7 @@ end
 -- 3. Teste de Attempt/Rescue
 local code3 = [[
 func fail()
-    var n: int? = null
+    var n: int? = Empty
     var x: int = n!
 end
 

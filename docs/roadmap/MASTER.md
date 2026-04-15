@@ -9,7 +9,7 @@ O estado real do repositorio em 2026-04-14 e:
 
 - trilha ativa em Lua estabilizada nas Fases 1-11
 - Fase 12 parcial
-- trilha self-hosted aberta, sem paridade total
+- trilha self-hosted canonica consolidada operacionalmente; residuos restantes viraram debito pontual de Fase 12
 
 ## 2. Proximo Ciclo: Maturidade Industrial (v0.4 -> v0.9)
 
@@ -17,8 +17,9 @@ Expansao de ferramental, ergonomia e produtividade sobre a base ativa estabiliza
 
 - foco: melhor observabilidade, empacotamento e reducao de dependencia estrutural de `native lua`
 - foco: transformar decisoes de linguagem ja tomadas em especificacao curta e coerente
-- foco: aproximar a trilha self-hosted da linguagem ativa
-- plano operacional: `null-to-optional.md` para remocao gradual de `null` por `Optional`
+- foco: consolidar a trilha self-hosted canonica sem reabrir o bootstrap
+- pre-requisito concluido: `null-to-optional.md` para saneamento seguro de `null`
+- ciclo de consolidacao self-hosted: `selfhost-consolidacao.md` (concluido operacionalmente)
 
 ## 3. Visao de Futuro: Zenith v1.0 Odyssey
 

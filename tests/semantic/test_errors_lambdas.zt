@@ -48,7 +48,7 @@ pub func test_errors()
     var n = check nome!
     print("Check expr result: " + n)
     
-    nome = null
+    nome = Empty
     attempt
         var falha = check nome!
     rescue e
