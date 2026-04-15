@@ -222,6 +222,15 @@ t:group("Expressões de Acesso", function()
         a.equal(expr.object.kind, SK.CALL_EXPR)
     end)
 
+    t:test("keyword contextual test como objeto", function()
+        local decls = parse("test.describe(\"suite\")")
+        local expr = decls[1].expression
+        a.equal(expr.kind, SK.CALL_EXPR)
+        a.equal(expr.callee.kind, SK.MEMBER_EXPR)
+        a.equal(expr.callee.object.name, "test")
+        a.equal(expr.callee.member_name, "describe")
+    end)
+
     t:test("agrupamento: (a + b)", function()
         local decls = parse("(1 + 2)")
         local expr = decls[1].expression
@@ -496,6 +505,18 @@ t:group("Import e Export", function()
         local decls = parse("import std.time")
         a.equal(decls[1].kind, SK.IMPORT_DECL)
         a.equal(decls[1].path, "std.time")
+    end)
+
+    t:test("import dotted com keyword contextual: std.test", function()
+        local decls = parse("import std.test")
+        a.equal(decls[1].kind, SK.IMPORT_DECL)
+        a.equal(decls[1].path, "std.test")
+    end)
+
+    t:test("namespace com keyword contextual: std.test", function()
+        local decls = parse("namespace std.test")
+        a.equal(decls[1].kind, SK.NAMESPACE_DECL)
+        a.equal(decls[1].name, "std.test")
     end)
 
 end)

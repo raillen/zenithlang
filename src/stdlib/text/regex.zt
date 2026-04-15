@@ -9,47 +9,31 @@ pub struct Match
     pub groups: map<text, text>
 end
 
+extern func "zt.regex.test" zt_regex_test(regex: any, input: text) -> bool
+extern func "zt.regex.find" zt_regex_find(regex: any, input: text) -> Optional<Match>
+extern func "zt.regex.replace" zt_regex_replace(regex: any, input: text, replacement: text) -> text
+extern func "zt.regex.new_builder" zt_regex_new_builder() -> any
+
 pub struct Regex
     pub pattern: text
     internal_handle: any
 
-    --- Verifica se o padrão existe dentro do texto informado.
+    --- Verifica se o padrao existe dentro do texto informado.
     pub func test(input: text) -> bool
-        native lua
-            return self:test(input)
-        end
+        return zt_regex_test(self, input)
     end
 
-    --- Retorna a primeira ocorrência encontrada.
+    --- Retorna a primeira ocorrencia encontrada.
     pub func find(input: text) -> Optional<Match>
-        native lua
-            local res = self:find(input)
-            if res then
-                -- Embrulha o resultado no formato que o Zenith espera para a struct Match
-                local match_obj = {
-                    value = res.value,
-                    start_pos = res.start_pos,
-                    end_pos = res.end_pos,
-                    groups = res.groups
-                }
-                return zt.Optional.Present(match_obj)
-            else
-                return zt.Optional.Empty
-            end
-        end
+        return zt_regex_find(self, input)
     end
 
-    --- Substitui as ocorrências do padrão por um novo texto.
+    --- Substitui as ocorrencias do padrao por um novo texto.
     pub func replace(input: text, replacement: text) -> text
-        native lua
-            return self:replace(input, replacement)
-        end
+        return zt_regex_replace(self, input, replacement)
     end
 end
 
 pub func new_builder() -> any
-    native lua
-        local core_regex = require("src/stdlib/text/regex")
-        return core_regex.new_builder()
-    end
+    return zt_regex_new_builder()
 end

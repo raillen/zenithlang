@@ -20,7 +20,7 @@ Base verificada:
 | `src/compiler/syntax.zt` | 1 linha textual com `"null"`; 0 warnings `ZT-W001` | `lua ztc.lua check src\\compiler\\syntax.zt` |
 | `src/compiler/syntax_bridge.zt` | 0 linhas com `null` | bridge legado congelado |
 | `src/compiler` | 12 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
-| `src/stdlib` | 24 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
+| `src/stdlib` | 0 ocorrencias de `native lua` em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
 | Optional/Outcome stdlib | OK | `lua ztc.lua run tests\\stdlib\\test_optional.zt` |
 | Bootstrap self-hosted | OK deterministico | `lua tools\\bootstrap.lua` |
 

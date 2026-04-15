@@ -277,7 +277,7 @@ end
 function ParseExpressions._parse_primary(ctx)
     local k = ctx:peek().kind
 
-    if k == TokenKind.IDENTIFIER or k == TokenKind.KW_GRID or k == TokenKind.UNDERSCORE then
+    if k == TokenKind.IDENTIFIER or k == TokenKind.KW_GRID or k == TokenKind.KW_TEST or k == TokenKind.UNDERSCORE then
         local id = ctx:advance()
         local node = ExprSyntax.identifier(id.lexeme, id.span)
         return node

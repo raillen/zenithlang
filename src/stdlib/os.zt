@@ -1,23 +1,31 @@
 import std.core
 
-pub const version: text = "0.3.1"
-pub const platform: text = "windows" -- Placeholder, set in native
-pub const arch: text = "x64"         -- Placeholder
+extern func "zt.os.get_env_variable" zt_os_get_env_variable(name: text) -> Optional<text>
+extern func "zt.os.get_all_env_variables" zt_os_get_all_env_variables() -> map<text, text>
+extern func "zt.os.get_working_dir" zt_os_get_working_dir() -> text
+extern func "zt.os.run_command" zt_os_run_command(command: text) -> Outcome<int, text>
+extern func "zt.os.exit_process" zt_os_exit_process(code: int)
+extern func "zt.os.sleep" zt_os_sleep(ms: int)
+extern func "zt.os.get_args" zt_os_get_args() -> list<text>
+extern func "zt.os.get_platform" zt_os_get_platform() -> text
 
---- Recupera uma variável de ambiente pelo nome.
+pub const version: text = "0.3.1"
+pub const platform: text = "windows"
+pub const arch: text = "x64"
+
+--- Recupera uma variavel de ambiente pelo nome.
 pub func get_env_variable(name: text) -> Optional<text>
-    native lua
-        local val = os.getenv(name)
-        return val and zt.Optional.Present(val) or zt.Optional.Empty
-    end
+    return zt_os_get_env_variable(name)
 end
 
---- Retorna todas as variáveis de ambiente.
+--- Alias curto para compatibilidade com a stdlib Lua.
+pub func get_env(name: text) -> Optional<text>
+    return get_env_variable(name)
+end
+
+--- Retorna todas as variaveis de ambiente conhecidas pelo runtime.
 pub func get_all_env_variables() -> map<text, text>
-    native lua
-        -- Simulação simples, Lua nativo não tem list_all_env
-        return { ["USER"] = os.getenv("USER") or "unknown" }
-    end
+    return zt_os_get_all_env_variables()
 end
 
 pub struct HardwareInfo
@@ -25,7 +33,7 @@ pub struct HardwareInfo
     pub ram_gb: int
 end
 
---- Retorna informações básicas de hardware.
+--- Retorna informacoes basicas de hardware.
 pub func get_hardware_info() -> HardwareInfo
     return HardwareInfo { cpu: "Generic CPU", ram_gb: 16 }
 end
@@ -42,58 +50,37 @@ pub func get_special_path(kind: SpecialPath) -> text
     return "C:/Users/Zenith"
 end
 
---- Retorna o diretório de trabalho atual.
+--- Retorna o diretorio de trabalho atual.
 pub func get_working_dir() -> text
-    native lua
-        return os.getenv("PWD") or "."
-    end
+    return zt_os_get_working_dir()
 end
 
---- Verifica se o usuário tem privilégios de administrador.
+--- Verifica se o usuario tem privilegios de administrador.
 pub func is_admin() -> bool
     return false
 end
 
---- Executa um comando no sistema operacional e retorna o código de saída.
+--- Executa um comando no sistema operacional e retorna o codigo de saida.
 pub func run_command(command: text) -> Outcome<int, text>
-    native lua
-        local success, kind, code = os.execute(command)
-        return success and zt.Outcome.Success(code or 0) or zt.Outcome.Failure("Falha ao executar comando: " .. tostring(kind))
-    end
+    return zt_os_run_command(command)
 end
 
---- Encerra o processo atual com um código de saída.
+--- Encerra o processo atual com um codigo de saida.
 pub func exit_process(code: int)
-    native lua
-        os.exit(code)
-    end
+    zt_os_exit_process(code)
 end
 
---- Pausa a execução do processo por N milissegundos.
+--- Pausa a execucao do processo por N milissegundos.
 pub func sleep(ms: int)
-    native lua
-        -- O runtime (zenith_rt.lua) já possui native_sleep(ms)
-        -- que é normalizado para milissegundos.
-        zt.native_sleep(ms)
-    end
+    zt_os_sleep(ms)
 end
 
 --- Retorna a lista de argumentos passados via linha de comando para o script.
 pub func get_args() -> list<text>
-    native lua
-        -- Em Zenith v0.3, 'arg' é injetado no escopo global pelo ztc
-        local args = {}
-        for i, v in ipairs(arg or {}) do
-            table.insert(args, v)
-        end
-        return args
-    end
+    return zt_os_get_args()
 end
 
 --- Retorna o nome da plataforma atual ("windows", "linux", "macos").
 pub func get_platform() -> text
-    native lua
-        local is_windows = package.config:sub(1,1) == "\\"
-        return is_windows and "windows" or "unix"
-    end
+    return zt_os_get_platform()
 end

@@ -234,7 +234,7 @@ function ParseDeclarations.parse_declaration_or_statement(ctx)
     end
 
     -- Testes
-    if not node and (k == TokenKind.KW_GROUP or k == TokenKind.KW_TEST) then
+    if not node and (k == TokenKind.KW_GROUP or k == TokenKind.KW_TEST) and ctx:peek(1).kind == TokenKind.STRING_LITERAL then
         node = ParseDeclarations._parse_test(ctx)
     end
 
@@ -741,7 +741,7 @@ function ParseDeclarations._parse_import(ctx)
     if ctx:match(TokenKind.STRING_LITERAL) then path = ctx:peek(-1).value
     else
         local parts = {}
-        repeat table.insert(parts, ctx:expect(TokenKind.IDENTIFIER).lexeme)
+        repeat table.insert(parts, ctx:expect_field_name("esperado segmento do import").lexeme)
         until not ctx:match(TokenKind.DOT)
         path = table.concat(parts, ".")
     end
@@ -776,7 +776,7 @@ end
 function ParseDeclarations._parse_namespace(ctx)
     local start = ctx:advance()
     local parts = {}
-    repeat table.insert(parts, ctx:expect(TokenKind.IDENTIFIER).lexeme)
+    repeat table.insert(parts, ctx:expect_field_name("esperado segmento do namespace").lexeme)
     until not ctx:match(TokenKind.DOT)
     return DeclSyntax.namespace_decl(table.concat(parts, "."), start.span:merge(ctx:peek(-1).span))
 end

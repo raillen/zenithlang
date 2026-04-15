@@ -16,7 +16,7 @@ Base verificada:
 | Bootstrap | Deterministico | `lua tools\\bootstrap.lua` |
 | `null` em `syntax.zt` | 1 ocorrencia textual do literal `"null"`; 0 warnings `ZT-W001` | `rg "\\bnull\\b" src\\compiler\\syntax.zt` |
 | `native lua` no compilador | 12 ocorrencias em `.zt` | `rg "native lua" src\\compiler -g "*.zt"` |
-| `native lua` na stdlib | 24 ocorrencias em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
+| `native lua` na stdlib | 0 ocorrencias em `.zt` | `rg "native lua" src\\stdlib -g "*.zt"` |
 | Bridge legado | Congelado como stub parseavel | `lua ztc.lua check src\\compiler\\syntax_bridge.zt` |
 
 ## 2. Definicao de Pronto

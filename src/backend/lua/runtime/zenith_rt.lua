@@ -183,6 +183,98 @@ function zt.assert(condition, msg)
     end
     return condition
 end
+zt.os = {
+    get_env_variable = function(name)
+        local val = os.getenv(name)
+        return val and zt.Optional.Present(val) or zt.Optional.Empty
+    end,
+    get_all_env_variables = function()
+        return { USER = os.getenv("USERNAME") or os.getenv("USER") or "unknown" }
+    end,
+    get_working_dir = function()
+        return os.getenv("PWD") or "."
+    end,
+    run_command = function(command)
+        local res1, res2, res3 = os.execute(command)
+        local ok
+        local code
+        if type(res1) == "boolean" then
+            ok = res1
+            code = res3 or 0
+        else
+            ok = (res1 == 0)
+            code = res1 or 0
+        end
+        if ok then
+            return zt.Outcome.Success(code)
+        end
+        return zt.Outcome.Failure("Falha ao executar comando: " .. tostring(res2 or code))
+    end,
+    exit_process = function(code)
+        os.exit(code)
+    end,
+    sleep = function(ms)
+        local start = os.clock()
+        while os.clock() - start < ms / 1000 do end
+    end,
+    get_args = function()
+        local args = {}
+        for _, v in ipairs(_G.arg or {}) do
+            table.insert(args, v)
+        end
+        return args
+    end,
+    get_platform = function()
+        return package.config:sub(1, 1) == "\\" and "windows" or "unix"
+    end,
+}
+
+zt.text = {
+    format = function(fmt, args)
+        if type(args) == "table" then
+            local unpack_fn = table.unpack or unpack
+            return string.format(fmt, unpack_fn(args))
+        end
+        return string.format(fmt, args)
+    end,
+}
+
+zt.regex = {
+    test = function(self, input)
+        return self:test(input)
+    end,
+    find = function(self, input)
+        local res = self:find(input)
+        if not res then return zt.Optional.Empty end
+        return zt.Optional.Present({
+            value = res.value,
+            start_pos = res.start_pos,
+            end_pos = res.end_pos,
+            groups = res.groups
+        })
+    end,
+    replace = function(self, input, replacement)
+        return self:replace(input, replacement)
+    end,
+    new_builder = function()
+        local core_regex = require("src/stdlib/text/regex")
+        return core_regex.new_builder()
+    end,
+}
+
+zt.test = setmetatable({}, {
+    __index = function(_, key)
+        return function(...)
+            local test_mod = require("src/stdlib/test")
+            local fn = test_mod[key]
+            if not fn then
+                error("Simbolo de teste inexistente: " .. tostring(key), 2)
+            end
+            return fn(...)
+        end
+    end
+})
+
 -- ----------------------------------------------------------------------------
 -- REATIVIDADE MINIMA
 -- ----------------------------------------------------------------------------

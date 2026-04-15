@@ -3,6 +3,8 @@
 
 namespace std.text
 
+extern func "zt.text.format" zt_text_format(fmt: text, args: any) -> text
+
 -- 🔡 TRANSFORMAÇÃO E CASE
 
 --- Converte o texto para MAIÚSCULAS (UTF-8 aware).
@@ -93,12 +95,5 @@ end
 
 --- Formata uma string usando padrões estilo printf.
 pub func format(fmt: text, args: any) -> text
-    native lua
-        -- Em Lua v0.2/v0.3, tratamos args como uma lista/tabela para string.format
-        if type(args) == "table" then
-            return string.format(fmt, unpack(args))
-        else
-            return string.format(fmt, args)
-        end
-    end
+    return zt_text_format(fmt, args)
 end
