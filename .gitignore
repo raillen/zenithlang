@@ -18,3 +18,8 @@ bin/
 
 ztc_selfhost.lua
 src/compiler/syntax.lua.map
+# Build artifacts
+*.o
+*.exe
+build_errors.txt
+output.txt

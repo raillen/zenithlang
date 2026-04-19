@@ -1,0 +1,3 @@
+zt_list_i64_from_array
+zt_list_i64_get
+zt_list_i64_set_owned

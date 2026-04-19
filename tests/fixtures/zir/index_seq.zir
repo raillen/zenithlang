@@ -1,0 +1,6 @@
+module main
+
+func first(xs: list<int>) -> int
+block entry:
+  t0: int = index_seq xs, 1
+  return t0

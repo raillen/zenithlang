@@ -1,0 +1,15 @@
+module main
+
+func run(task: Outcome<text,text>) -> Outcome<text,text>
+block entry:
+  t0: bool = outcome_is_success task
+  branch_if t0, ok_bb, fail_bb
+
+block ok_bb:
+  t1: text = outcome_value task
+  t2: Outcome<text,text> = outcome_success t1
+  return t2
+
+block fail_bb:
+  t3: Outcome<text,text> = try_propagate task
+  return t3

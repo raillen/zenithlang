@@ -1,0 +1,304 @@
+-- Exemplo Abrangente de Zenith Language v2
+-- Demonstra as principais funcionalidades da linguagem
+-- Data: 18 de Abril de 2026
+
+namespace app.game
+
+import std.io as io
+import std.text as text
+import std.collections as coll
+
+-- ============================================================
+-- 1. DEFINIÇÃO DE TRAIT E STRUCT
+-- ============================================================
+
+-- Trait define um contrato de comportamento
+trait Combat
+    mut func take_damage(amount: int)
+    func get_defense() -> int
+end
+
+trait Displayable
+    func display() -> text
+end
+
+-- Struct com value semantics, copy-on-write
+-- 'hp' possui um contrato runtime: must be >= 0
+struct Character
+    name: text where len(it) > 0
+    hp: int where it >= 0
+    level: int = 1
+    equipment: list<text> = []
+end
+
+-- Enum com payloads para modelar erros
+enum DamageError
+    TooMuchDamage(excess: int)
+    InvalidWeapon(weapon: text)
+end
+
+-- ============================================================
+-- 2. APLICAÇÃO DE MÉTODOS E TRAITS
+-- ============================================================
+
+-- Métodos simples via apply sem trait
+apply Character
+    -- Método mutante: permite modificar self
+    mut func gain_xp(amount: int where amount > 0)
+        self.level = self.level + 1
+    end
+    
+    -- Método imutante: não modifica self
+    func get_status() -> text
+        return fmt "{self.name} - Lvl {self.level} ({self.hp} HP)"
+    end
+    
+    func is_alive() -> bool
+        return self.hp > 0
+    end
+end
+
+-- Implementação de trait via apply
+apply Combat to Character
+    mut func take_damage(amount: int)
+        const new_hp: int = self.hp - amount
+        if new_hp < 0
+            self.hp = 0
+        else
+            self.hp = new_hp
+        end
+    end
+    
+    func get_defense() -> int
+        return self.level * 2
+    end
+end
+
+-- Implementação de segundo trait
+apply Displayable to Character
+    func display() -> text
+        const status: text = if self.is_alive()
+            "VIVO"
+        else
+            "MORTO"
+        end
+        return fmt "[{self.name}] Lvl {self.level} | HP: {self.hp} | Status: {status}"
+    end
+end
+
+-- ============================================================
+-- 3. FUNÇÕES COM DEFAULTS E NAMED ARGUMENTS
+-- ============================================================
+
+func create_character(
+    name: text,
+    hp: int = 100,
+    level: int = 1
+) -> result<Character, text>
+    if len(name) == 0
+        return error("Name cannot be empty")
+    end
+    if hp <= 0
+        return error("HP must be positive")
+    end
+    return success(Character(name: name, hp: hp, level: level))
+end
+
+func calculate_damage(
+    attacker_level: int,
+    defender_defense: int,
+    weapon_bonus: int = 0
+) -> int
+    const base_damage: int = attacker_level * 5 + weapon_bonus
+    const reduced_damage: int = base_damage - defender_defense
+    if reduced_damage < 1
+        return 1
+    else
+        return reduced_damage
+    end
+end
+
+-- ============================================================
+-- 4. FUNÇÃO RETORNANDO OPTIONAL
+-- ============================================================
+
+func find_character_by_name(
+    characters: list<Character>,
+    search_name: text
+) -> optional<Character>
+    for character in characters
+        if character.name == search_name
+            return character
+        end
+    end
+    return none
+end
+
+-- ============================================================
+-- 5. FUNÇÃO COM PROPAGAÇÃO DE ERRO (?)
+-- ============================================================
+
+func battle_scenario() -> result<int, text>
+    -- Propagação: se create_character falhar, retorna error
+    const hero: Character = create_character("Aragorn", hp: 150, level: 10)?
+    const goblin: Character = create_character("Goblin", hp: 30, level: 2)?
+    
+    -- Cálculo de dano e aplicação
+    const damage: int = calculate_damage(
+        attacker_level: hero.level,
+        defender_defense: goblin.get_defense(),
+        weapon_bonus: 10
+    )
+    
+    return success(damage)
+end
+
+-- ============================================================
+-- 6. FUNÇÃO MAIN: ORQUESTRA TODA A LÓGICA
+-- ============================================================
+
+public func main() -> int
+    -- SEÇÃO 1: Criação de personagens com result handling
+    io.print("=== CRIAÇÃO DE PERSONAGENS ===")
+    
+    match create_character("Legolas", hp: 120, level: 8)
+    case success(archer):
+        io.print(archer.display())
+    case error(msg):
+        io.print(fmt "Erro: {msg}")
+        return 1
+    end
+    
+    -- SEÇÃO 2: Collections e iteração
+    io.print("")
+    io.print("=== GERENCIAMENTO DE PARTY ===")
+    
+    var party: list<Character> = []
+    
+    -- Usando named arguments com defaults
+    const hero: Character = create_character("Frodo")?
+    const wizard: Character = create_character("Gandalf", hp: 100, level: 15)?
+    const thief: Character = create_character("Gollum", hp: 50, level: 3)?
+    
+    party.append(hero)
+    party.append(wizard)
+    party.append(thief)
+    
+    -- FOR com índice (index, item ordering)
+    for member, idx in party
+        io.print(fmt "[{idx}] {member.display()}")
+    end
+    
+    -- SEÇÃO 3: Match e Optional
+    io.print("")
+    io.print("=== BUSCA DE PERSONAGEM ===")
+    
+    match find_character_by_name(party, "Gandalf")
+    case value found:
+        io.print(fmt "Encontrado: {found.display()}")
+    case none:
+        io.print("Personagem não encontrado")
+    end
+    
+    -- SEÇÃO 4: Mutações respeitando value semantics
+    io.print("")
+    io.print("=== DEMONSTRAÇÃO DE VALUE SEMANTICS ===")
+    
+    var warrior1: Character = Character(name: "Boromir", hp: 130, level: 7)
+    var warrior2: Character = warrior1    -- Cópia profunda (COW)
+    
+    io.print(fmt "Antes: warrior1={warrior1.hp} HP, warrior2={warrior2.hp} HP")
+    
+    warrior2.take_damage(30)  -- Modifica warrior2 (cópia)
+    
+    io.print(fmt "Depois: warrior1={warrior1.hp} HP, warrior2={warrior2.hp} HP")
+    io.print("(warrior1 não foi afetado!)")
+    
+    -- SEÇÃO 5: Coleções imutáveis vs mutáveis
+    io.print("")
+    io.print("=== CONFIGURAÇÃO COM MAPS ===")
+    
+    const settings: map<text, int> = {
+        "difficulty": 5,
+        "max_party_size": 4
+    }
+    
+    var game_state: map<text, text> = {
+        "stage": "EXPLORING",
+        "weather": "SUNNY"
+    }
+    
+    game_state["weather"] = "RAINY"
+    game_state["time_of_day"] = "EVENING"
+    
+    for key, value in game_state
+        io.print(fmt "  {key}: {value}")
+    end
+    
+    -- SEÇÃO 6: Controle de fluxo diverso
+    io.print("")
+    io.print("=== CONTROLE DE FLUXO ===")
+    
+    -- While loop
+    var turn: int = 1
+    while turn <= 3
+        io.print(fmt "Turno {turn}")
+        turn = turn + 1
+    end
+    
+    -- Repeat
+    io.print("")
+    io.print("Campanadas:")
+    repeat 3 times
+        io.print("  Bong!")
+    end
+    
+    -- SEÇÃO 7: Tratamento de erro com propagação
+    io.print("")
+    io.print("=== BATTLE CALCULATION ===")
+    
+    match battle_scenario()
+    case success(damage):
+        io.print(fmt "Dano calculado: {damage}")
+    case error(msg):
+        io.print(fmt "Erro na batalha: {msg}")
+    end
+    
+    -- SEÇÃO 8: Operações com text e conversão
+    io.print("")
+    io.print("=== OPERAÇÕES COM TEXT ===")
+    
+    const character_count: int = len(hero.name)
+    const formatted: text = fmt "Herói {hero.name} está no nível {hero.level}"
+    const combined: text = "Party: " + wizard.name + ", " + thief.name
+    
+    io.print(formatted)
+    io.print(combined)
+    io.print(fmt "Nome tem {character_count} caracteres")
+    
+    -- Sucesso!
+    io.print("")
+    io.print("=== FIM DO JOGO ===")
+    return 0
+end
+
+-- ============================================================
+-- NOTES SOBRE ESTE EXEMPLO
+-- ============================================================
+-- 
+-- 1. NAMESPACES: app.game declara identidade do arquivo
+-- 2. IMPORTS: Nomes permanecem qualificados (io.print, text.len)
+-- 3. TRAITS: Contatos de comportamento (Combat, Displayable)
+-- 4. APPLY: Adiciona métodos e implementações de traits
+-- 5. VALUE SEMANTICS: var b = a copia (não referencia)
+-- 6. COPY-ON-WRITE: warrior2 é otimizado internamente
+-- 7. RESULT: success/error para operações recuperáveis
+-- 8. OPTIONAL: none para ausência
+-- 9. OPTIONAL MATCH: case value name / case none
+-- 10. PROPAGATION: ? extrai success ou retorna error
+-- 11. STRING INTERPOLATION: fmt "...{expr}..."
+-- 12. COLLECTIONS: list<T>, map<K,V> com operações explícitas
+-- 13. FOR LOOPS: for item in collection / for item, idx in collection
+-- 14. CONTROL FLOW: if/else/end, while/end, repeat N times/end
+-- 15. CONTRACTS: where clauses em campos/parâmetros (runtime)
+-- 16. MUTATORS: mut func indica método que modifica self

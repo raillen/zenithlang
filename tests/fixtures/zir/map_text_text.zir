@@ -1,0 +1,10 @@
+module fixture.map_text_text
+
+func lookup() -> text {
+entry:
+  cfg: map<text,text> = make_map<text,text> ["mode": "debug", "theme": "paper"]
+  map_set cfg, "mode", "release"
+  len: int = map_len cfg
+  value: text = index_seq cfg, "mode"
+  return value
+}

@@ -198,6 +198,45 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
     }
 }
 
+static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_scope *scope);
+
+static void zt_bind_match_pattern(zt_binder *binder, const zt_ast_node *pattern, zt_scope *case_scope) {
+    size_t i;
+    if (pattern == NULL) return;
+
+    switch (pattern->kind) {
+        case ZT_AST_CALL_EXPR:
+            /* VariantName(binding) pattern */
+            /* We don't bind the callee (VariantName) because it will be handled by the typechecker
+               as a variant name. But we DO bind the arguments as new locals in the case scope. */
+            for (i = 0; i < pattern->as.call_expr.positional_args.count; i++) {
+                const zt_ast_node *arg = pattern->as.call_expr.positional_args.items[i];
+                if (arg->kind == ZT_AST_IDENT_EXPR) {
+                    zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, arg->as.ident_expr.name, arg->span, 0);
+                } else {
+                    /* Nested pattern? Not supported in MVP but let's recurse */
+                    zt_bind_match_pattern(binder, arg, case_scope);
+                }
+            }
+            break;
+        case ZT_AST_IDENT_EXPR:
+            /* Could be a variant name or a simple binding. 
+               If it's not a known variant, it's a binding. 
+               But binder doesn't know enums yet. 
+               Strategy: if it's not found in outer scope, declare it. */
+            {
+                zt_symbol *existing = zt_scope_lookup(case_scope, pattern->as.ident_expr.name);
+                if (existing == NULL) {
+                    zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, pattern->as.ident_expr.name, pattern->span, 0);
+                }
+            }
+            break;
+        default:
+            /* Literais etc. don't introduce bindings */
+            break;
+    }
+}
+
 static void zt_bind_statement(zt_binder *binder, const zt_ast_node *node, zt_scope *scope) {
     size_t i;
     zt_scope child_scope;
@@ -268,10 +307,13 @@ static void zt_bind_statement(zt_binder *binder, const zt_ast_node *node, zt_sco
                 const zt_ast_node *case_node = node->as.match_stmt.cases.items[i];
                 size_t p;
                 if (case_node == NULL) continue;
+                
+                zt_scope_init(&child_scope, scope);
                 for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
-                    zt_bind_expression(binder, case_node->as.match_case.patterns.items[p], scope);
+                    zt_bind_match_pattern(binder, case_node->as.match_case.patterns.items[p], &child_scope);
                 }
-                zt_bind_block(binder, case_node->as.match_case.body, scope);
+                zt_bind_block(binder, case_node->as.match_case.body, &child_scope);
+                zt_scope_dispose(&child_scope);
             }
             break;
         case ZT_AST_EXPR_STMT:

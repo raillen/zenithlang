@@ -1,0 +1,6 @@
+module main
+
+func with_default(v: Optional<int>, fallback: int) -> int
+block entry:
+  t0: int = coalesce v, fallback
+  return t0

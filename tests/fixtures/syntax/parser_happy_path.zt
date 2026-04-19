@@ -1,0 +1,35 @@
+namespace app.fixtures
+
+import app.users.types as user_types
+
+public struct Player
+    name: text
+    hp: int where it >= 0
+end
+
+public trait Healable<Item>
+    mut func heal(amount: int)
+end
+
+apply Healable<Player> to Player
+    mut func heal(amount: int)
+        self.hp = self.hp + amount
+    end
+end
+
+func classify(value: int) -> text
+    match value
+        case 10, 20, 30
+            return "known"
+        case default
+            return "other"
+    end
+end
+
+func demo(scores: map<text, int>) -> int
+    var total: int = 0
+    for key, value in scores
+        total = total + value
+    end
+    return total
+end

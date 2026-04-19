@@ -1,0 +1,4 @@
+error[project.unknown_key]
+unknown key project.legacy
+where
+zenith.ztproj:5:1

@@ -1,0 +1,6 @@
+module main
+
+func add(a: int, b: int) -> int
+block entry:
+  t0: int = binary.add a, b
+  return t0

@@ -1,0 +1,13 @@
+module main
+
+func abs(x: int) -> int
+block entry:
+  t0: bool = binary.lt x, 0
+  branch_if t0, negative, positive
+
+block negative:
+  t1: int = unary.neg x
+  return t1
+
+block positive:
+  return x

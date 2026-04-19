@@ -1,0 +1,3 @@
+error[type.mismatch]
+tests/behavior/error_type_mismatch/src/app/main.zt:4:
+const initializer type mismatch

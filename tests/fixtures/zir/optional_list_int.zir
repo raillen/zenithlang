@@ -1,0 +1,15 @@
+module main
+
+func maybe_list(flag: bool, value: list<int>, fallback: list<int>) -> list<int>
+block entry:
+  branch_if flag, present_bb, empty_bb
+
+block present_bb:
+  t0: Optional<list<int>> = optional_present value
+  t1: list<int> = coalesce t0, fallback
+  return t1
+
+block empty_bb:
+  t2: Optional<list<int>> = optional_empty<list<int>>
+  t3: list<int> = coalesce t2, fallback
+  return t3

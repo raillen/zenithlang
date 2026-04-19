@@ -1,0 +1,16 @@
+module main
+
+func first_or_empty(xs: list<int>) -> Optional<int>
+block entry:
+  t0: int = list_len xs
+  t1: bool = binary.eq t0, 0
+  branch_if t1, empty_bb, present_bb
+
+block empty_bb:
+  t2: Optional<int> = optional_empty<int>
+  return t2
+
+block present_bb:
+  t3: int = index_seq xs, 1
+  t4: Optional<int> = optional_present t3
+  return t4

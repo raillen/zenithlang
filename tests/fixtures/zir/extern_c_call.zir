@@ -1,0 +1,7 @@
+module main
+
+func main() -> int
+block entry:
+  t0: text = const "hello"
+  t1: int = call_extern c.puts(t0)
+  return t1

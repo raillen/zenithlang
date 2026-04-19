@@ -1,0 +1,4 @@
+error[type.invalid_operator]
+'?' propagation requires the enclosing function to return result<T, E>
+where
+src/app/main.zt

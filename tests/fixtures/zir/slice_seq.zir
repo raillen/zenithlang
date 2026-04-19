@@ -1,0 +1,7 @@
+module main
+
+func window(name: text) -> text
+block entry:
+  t0: text = slice_seq name, 2, 4
+  return t0
+

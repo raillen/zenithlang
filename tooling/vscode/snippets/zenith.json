@@ -1,0 +1,21 @@
+{
+  "Zenith Namespace": {
+    "prefix": "namespace",
+    "body": [
+      "namespace ${1:my_project.main}",
+      "",
+      "$0"
+    ],
+    "description": "Auto-generate a namespace declaration"
+  },
+  "Zenith Main Function": {
+    "prefix": "main",
+    "body": [
+      "public func main() -> int {",
+      "    $0",
+      "    return 0",
+      "}"
+    ],
+    "description": "Create a main entrypoint function"
+  }
+}

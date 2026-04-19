@@ -1,0 +1,3 @@
+error[syntax.unexpected_token]
+tests/behavior/error_syntax/src/app/main.zt:4:
+expected : but got identifier

@@ -1,0 +1,3 @@
+error[type.invalid_argument]
+tests/behavior/functions_invalid_call_error/src/app/main.zt:8:
+missing argument for parameter 'b' in call to 'add'

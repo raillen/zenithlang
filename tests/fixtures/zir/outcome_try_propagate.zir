@@ -1,0 +1,16 @@
+module main
+
+func read_value() -> Outcome<int,text>
+block entry:
+  t0: Outcome<int,text> = call_direct load()
+  t1: bool = outcome_is_success t0
+  branch_if t1, ok_bb, fail_bb
+
+block ok_bb:
+  t2: int = outcome_value t0
+  t3: Outcome<int,text> = outcome_success t2
+  return t3
+
+block fail_bb:
+  t4: Outcome<int,text> = try_propagate t0
+  return t4

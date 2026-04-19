@@ -1,0 +1,15 @@
+module main
+
+func maybe_text(flag: bool, value: text, fallback: text) -> text
+block entry:
+  branch_if flag, present_bb, empty_bb
+
+block present_bb:
+  t0: Optional<text> = optional_present value
+  t1: text = coalesce t0, fallback
+  return t1
+
+block empty_bb:
+  t2: Optional<text> = optional_empty<text>
+  t3: text = coalesce t2, fallback
+  return t3

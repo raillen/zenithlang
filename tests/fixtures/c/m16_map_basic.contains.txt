@@ -1,0 +1,3 @@
+zt_map_text_text_from_arrays
+zt_map_text_text_get
+zt_map_text_text_set_owned

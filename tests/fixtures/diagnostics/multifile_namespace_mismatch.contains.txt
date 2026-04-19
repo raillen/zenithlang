@@ -1,0 +1,2 @@
+namespace 'app.other'
+must match source path suffix

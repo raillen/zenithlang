@@ -1,0 +1,6 @@
+namespace app.fixtures
+
+func broken() -> int
+    const value: int = "not an int"
+    return value
+end

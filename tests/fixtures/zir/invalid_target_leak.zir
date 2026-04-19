@@ -1,0 +1,6 @@
+module main
+
+func f(a: Optional<int>, b: int) -> int
+block entry:
+  t0 = lua_call zt.unwrap_or(a, b)
+  return t0

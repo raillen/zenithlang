@@ -1,0 +1,5 @@
+module main
+
+func f(x: any) -> any
+block entry:
+  return x

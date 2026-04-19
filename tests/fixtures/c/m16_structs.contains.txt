@@ -1,0 +1,2 @@
+typedef struct zt_app_main__Player
+zt_app_main__Player

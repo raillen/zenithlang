@@ -1,0 +1,7 @@
+module main
+
+func count(xs: list<int>) -> int
+block entry:
+  t0: int = list_len xs
+  return t0
+

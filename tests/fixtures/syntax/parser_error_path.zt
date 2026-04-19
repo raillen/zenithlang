@@ -1,0 +1,5 @@
+namespace app.fixtures
+
+func broken() -> int
+    const value: int = 1 +
+end

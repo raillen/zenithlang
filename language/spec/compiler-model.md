@@ -1,0 +1,246 @@
+# Zenith Compiler Model Spec
+
+- Status: canonical consolidated spec
+- Date: 2026-04-17
+- Scope: compiler pipeline, IR boundaries, C backend, runtime and artifacts
+
+## Primary Pipeline
+
+The canonical compilation path is:
+
+```text
+.zt source
+  -> lexer
+  -> parser
+  -> AST
+  -> semantic analysis
+  -> HIR
+  -> ZIR
+  -> C backend
+  -> native C compiler/linker
+  -> native artifact
+```
+
+Rules:
+
+- `.zt` is the user source language
+- generated C is not user-facing source
+- C is the first backend target
+- ZIR structured is the internal IR contract
+- textual ZIR exists only for debug, fixtures and golden tests
+- the backend must not parse textual expressions as its main contract
+
+## Frontend Stages
+
+Frontend responsibilities:
+
+- lex source into tokens with spans
+- parse tokens into AST
+- resolve namespaces and imports
+- bind names and scopes
+- type-check expressions and declarations
+- validate mutability, traits, `where`, optional/result and generic constraints
+- produce diagnostics with stable spans where possible
+
+## HIR
+
+HIR is typed and resolved.
+
+HIR responsibilities:
+
+- remove surface ambiguity
+- normalize named arguments
+- apply default parameters
+- normalize method calls and receiver behavior
+- represent resolved symbols and types
+- preserve source spans for diagnostics
+
+## ZIR
+
+ZIR is the backend-facing compiler IR.
+
+ZIR responsibilities:
+
+- structured operands
+- structured terminators
+- canonical IR types
+- explicit control flow
+- explicit runtime operations where needed
+- verifier-friendly invariants
+
+Textual ZIR is allowed for:
+
+- debug dumps
+- fixtures
+- golden tests
+- human inspection
+
+Textual ZIR is not:
+
+- the user source language
+- the primary backend contract
+- a permanent public ABI
+
+## C Backend
+
+Backend C means:
+
+```text
+.zt -> compiler -> C -> native executable
+```
+
+Rules:
+
+- generated C is an implementation artifact, not a readable target.
+- **Source Maps:** The backend MUST emit `#line` directives mapping the generated C code directly to the original `.zt` source file. This guarantees that native debuggers (GDB/LLDB) halt and display Zenith code, eliminating the need for the user to ever read `.c`.
+- users are not expected to write C to complete normal Zenith programs
+- public C interop is not MVP
+- runtime/stdlib may use C internally
+- C nullable values must not introduce `null` into Zenith
+- future C nullable interop maps to `optional<T>`
+
+## Generics And Monomorphization
+
+The first C target strategy for generics is monomorphization.
+
+Rules:
+
+- the compiler must create canonical type keys for generic instantiations
+- each canonical type argument set should generate at most one concrete instance
+- equivalent instantiations must be deduplicated when possible
+- recursive or excessive instantiation must produce a diagnostic or build report before it becomes unbounded code generation
+- nested generic containers must be covered by conformance tests
+
+Monomorphization is accepted for the C backend, but uncontrolled code bloat is not accepted.
+
+## Payload Enums And Exhaustive Match
+
+Payload enums lower to a tag plus payload representation.
+
+For enum values, `match` without `case default` must be exhaustive when the compiler knows the enum definition.
+
+Rules:
+
+- missing enum cases are compile-time diagnostics
+- `case default` is allowed but opts out of strict future-proof exhaustiveness
+- payload binding must be validated semantically before lowering
+- generated C must not rely on invalid fallthrough for unhandled enum cases
+
+## Runtime
+
+Zenith has a native runtime, not a VM in the primary architecture.
+
+Runtime responsibilities include:
+
+- managed `text`
+- lists
+- maps
+- reference counting
+- panic reporting
+- bounds checks
+- contract checks
+- platform abstraction used by future stdlib
+
+The selected architecture is:
+
+```text
+.zt -> C -> native executable
+```
+
+Not selected as the primary architecture:
+
+```text
+.zt -> bytecode -> VM
+```
+
+## Value Semantics And Ownership
+
+Zenith source uses value semantics by default.
+
+Implementation may use RC, COW and internal moves to make this practical.
+
+Rules:
+
+- no user-facing borrow model in the MVP
+- no `ref`, `&`, `&mut` or explicit `move` in the MVP
+- observable `const` collection values are immutable
+- cleanup must happen correctly on normal return, early return and `?` propagation
+- `optional<T>` and `result<T,E>` should use stack/in-place representation where practical
+- heap-first wrappers are implementation debt unless required by payload escape or size
+
+## Evaluation Order
+
+Evaluation order is left-to-right.
+
+Rules:
+
+- function arguments evaluate in written order
+- receiver evaluates before method arguments
+- defaults evaluate at call time after provided earlier arguments
+- temporaries live until the end of the statement
+- locals live until scope end
+- generated C must not rely on unspecified C evaluation order
+
+## Artifact Modes
+
+Compilation and packaging are separate concerns.
+
+`standalone` means one primary native executable where the platform permits.
+
+`bundle` means an organized distribution directory.
+
+`hot-reload` (Development Mode) means emitting dynamic shared objects that conform to the backend structure to allow engine reinjection.
+
+Standalone conceptual output:
+
+```text
+dist/
+  hello.exe
+```
+
+Hot Reload (`zt run --dev`) conceptual architecture:
+
+```text
+build/
+  hello_host.exe  (Immortal state bounds/window)
+  app_logic.dll   (Recompiled frame-by-frame on CTRL+S)
+```
+
+Rules:
+
+- implement standalone first
+- bundle may be recognized before implemented
+- bundle should produce a clear unsupported-feature diagnostic until implemented
+- hot-reload logic is isolated into DLLs injected natively. Zenith does not use custom bytecode VMs for dev-mode.
+- artifact mode does not imply a VM
+
+## Build Output
+
+`build.output` defaults to `build`.
+
+Generated files may be placed under profile/target-specific subdirectories.
+
+Conceptual layout:
+
+```text
+build/
+  debug/
+    native/
+      generated/
+      objects/
+      artifact/
+```
+
+Users should not edit generated files under `build/`.
+
+## Out Of Scope For MVP
+
+Out of scope:
+
+- VM/bytecode backend
+- public C interop
+- LLVM backend
+- WASM backend
+- JS backend
+- cross-compilation policy
+- native package installer generation

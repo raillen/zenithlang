@@ -211,6 +211,7 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_INVALID_MUTATION: return "mutability.invalid_update";
         case ZT_DIAG_INVALID_CONVERSION: return "type.invalid_conversion";
         case ZT_DIAG_INTEGER_OVERFLOW: return "type.integer_overflow";
+        case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "control_flow.non_exhaustive_match";
         case ZT_DIAG_TOKEN_TOO_LONG: return "lexer.token_too_long";
         case ZT_DIAG_PARAM_ORDERING: return "semantic.param_ordering";
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL: return "semantic.named_arg_after_positional";
@@ -267,6 +268,7 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_INVALID_MUTATION: return "Mark the receiver or binding as mutable before mutating.";
         case ZT_DIAG_INVALID_CONVERSION: return "Use a supported explicit conversion for this source type.";
         case ZT_DIAG_INTEGER_OVERFLOW: return "Use a wider numeric type or reduce the arithmetic range.";
+        case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "Add missing cases or a default -> case to cover all variants.";
         case ZT_DIAG_TOKEN_TOO_LONG: return "Reduce the token length to fit within the 1024 character limit.";
         case ZT_DIAG_PARAM_ORDERING: return "Required parameters must come before parameters with default values.";
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL: return "After a named argument appears, all remaining arguments must be named.";

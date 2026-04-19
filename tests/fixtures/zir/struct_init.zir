@@ -1,0 +1,6 @@
+module main
+
+func make_point(x: int, y: int) -> struct Point
+block entry:
+  t0: struct Point = make_struct Point { x: x, y: y }
+  return t0
