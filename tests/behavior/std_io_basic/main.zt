@@ -1,0 +1,7 @@
+import std.io as io
+
+func main(): result<void, text> {
+    const r1 = io.print_line("Hello from std.io!")
+    if not r1 { return r1 }
+    return success()
+}

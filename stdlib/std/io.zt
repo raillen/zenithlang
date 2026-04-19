@@ -1,0 +1,24 @@
+namespace std.io
+
+extern c
+    func zt_host_write_stdout(value: text) -> result<void, text>
+    func zt_host_write_stderr(value: text) -> result<void, text>
+end
+
+func print(value: text) -> result<void, text>
+    return io.zt_host_write_stdout(value)
+end
+
+func print_line(value: text) -> result<void, text>
+    io.print(value)?
+    return io.print("\n")
+end
+
+func eprint(value: text) -> result<void, text>
+    return io.zt_host_write_stderr(value)
+end
+
+func eprint_line(value: text) -> result<void, text>
+    io.eprint(value)?
+    return io.eprint("\n")
+end

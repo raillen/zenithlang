@@ -1,0 +1,17 @@
+namespace app.main
+
+struct Counter
+    value: int
+end
+
+apply Counter
+    mut func add(delta: int)
+        self.value = self.value + delta
+    end
+end
+
+func main() -> int
+    var counter: Counter = Counter(value: 3)
+    counter.add(4)
+    return counter.value
+end

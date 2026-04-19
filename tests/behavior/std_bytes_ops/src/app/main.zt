@@ -1,0 +1,20 @@
+namespace app.main
+
+import std.bytes as bytes
+
+func main() -> int
+    const source: list<int> = [1, 2, 3]
+    const data: bytes = bytes.from_list(source)
+    const roundtrip: list<int> = bytes.to_list(data)
+    const joined: bytes = bytes.join(data, hex bytes "04 05")
+
+    const has_prefix: bool = bytes.starts_with(joined, hex bytes "01 02")
+    const has_suffix: bool = bytes.ends_with(joined, hex bytes "04 05")
+    const has_middle: bool = bytes.contains(joined, hex bytes "02 03 04")
+
+    if has_prefix and has_suffix and has_middle
+        return len(joined) + roundtrip[1]
+    end
+
+    return 0
+end
