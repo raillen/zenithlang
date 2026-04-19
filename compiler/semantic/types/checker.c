@@ -2006,6 +2006,7 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
     zt_type *decl_type;
     zt_expr_info expr_info;
     zt_binding *binding;
+    size_t i;
 
     if (stmt == NULL) return;
 
@@ -2326,29 +2327,18 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 zt_binding_scope_dispose(&case_scope);
             }
 
-            if (subject_is_enum && !has_default && variant_count > 0) {
-                size_t i;
-                size_t missing = 0;
-                char missing_buf[512];
-                size_t used = 0;
-                missing_buf[0] = '\0';
-                for (i = 0; i < variant_count; i++) {
-                    const zt_ast_node *variant = subject_decl->as.enum_decl.variants.items[i];
-                    if (seen_variants != NULL && seen_variants[i]) continue;
-                    if (variant == NULL || variant->kind != ZT_AST_ENUM_VARIANT || variant->as.enum_variant.name == NULL) continue;
-                    if (used > 0 && used + 2 < sizeof(missing_buf)) {
-                        missing_buf[used++] = ',';
-                        missing_buf[used++] = ' ';
-                        missing_buf[used] = '\0';
+            if (subject_is_enum && !has_default && subject_decl != NULL && subject_decl->kind == ZT_AST_ENUM_DECL) {
+                size_t total_variants = subject_decl->as.enum_decl.variants.count;
+                int all_covered = 1;
+                for (i = 0; i < total_variants; i++) {
+                    if (!seen_variants[i]) {
+                        all_covered = 0;
+                        break;
                     }
-                    if (used + strlen(subject_decl->as.enum_decl.name) + 1 + strlen(variant->as.enum_variant.name) + 1 < sizeof(missing_buf)) {
-                        snprintf(missing_buf + used, sizeof(missing_buf) - used, "%s.%s", subject_decl->as.enum_decl.name, variant->as.enum_variant.name);
-                        used = strlen(missing_buf);
-                    }
-                    missing += 1;
                 }
-                if (missing > 0) {
-                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, stmt->span, "non-exhaustive match for %s; missing cases: %s", subject_decl->as.enum_decl.name, missing_buf[0] != '\0' ? missing_buf : "<unknown>");
+                if (!all_covered) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on enum '%s' is not exhaustive", subject_decl->as.enum_decl.name);
+                    zt_diag_list_add_severity(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, ZT_DIAG_SEVERITY_NOTE, stmt->span, "add missing variants or a 'default' case");
                 }
             }
 

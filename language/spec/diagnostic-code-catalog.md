@@ -28,6 +28,8 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_PROJECT_INVALID_PROFILE` | `project.invalid_profile` | Set `build.profile` to supported value |
 | `ZT_DIAG_PROJECT_PATH_TOO_LONG` | `project.path_too_long` | Shorten path values |
 | `ZT_DIAG_PROJECT_TOO_MANY_DEPENDENCIES` | `project.too_many_dependencies` | Reduce dependencies or raise limits |
+| `ZT_DIAG_PROJECT_INVALID_MONOMORPHIZATION_LIMIT` | `project.invalid_monomorphization_limit` | Set `build.monomorphization_limit` to a positive integer |
+| `ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED` | `project.monomorphization_limit_exceeded` | Reduce generic instantiations or raise the limit |
 
 ## Syntax Codes
 

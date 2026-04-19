@@ -2435,6 +2435,9 @@ static int c_zir_expr_resolve_type(
             char object_type[96];
             const zir_struct_decl *struct_decl;
             const zir_field_decl *field_decl;
+            const zir_enum_decl *enum_decl;
+            const char *resolved_field_type = NULL;
+            size_t variant_index;
 
             if (!c_zir_expr_resolve_type(module_decl, function_decl, expr->as.field.object, object_type, sizeof(object_type))) {
                 return 0;
@@ -2442,11 +2445,37 @@ static int c_zir_expr_resolve_type(
 
             struct_decl = c_find_user_struct(module_decl, object_type);
             field_decl = c_find_struct_field(struct_decl, expr->as.field.field_name);
-            if (field_decl == NULL) {
+            if (field_decl != NULL) {
+                snprintf(dest, capacity, "%s", c_safe_text(field_decl->type_name));
+                return 1;
+            }
+
+            enum_decl = c_find_user_enum(module_decl, object_type);
+            if (enum_decl == NULL) {
                 return 0;
             }
 
-            snprintf(dest, capacity, "%s", c_safe_text(field_decl->type_name));
+            if (strcmp(c_safe_text(expr->as.field.field_name), "__zt_enum_tag") == 0) {
+                snprintf(dest, capacity, "int");
+                return 1;
+            }
+
+            for (variant_index = 0; variant_index < enum_decl->variant_count; variant_index += 1) {
+                const zir_enum_variant_decl *variant = &enum_decl->variants[variant_index];
+                const zir_enum_variant_field_decl *variant_field = c_find_enum_variant_field(variant, expr->as.field.field_name);
+                if (variant_field == NULL) continue;
+                if (resolved_field_type == NULL) {
+                    resolved_field_type = variant_field->type_name;
+                } else if (!c_type_is(resolved_field_type, variant_field->type_name)) {
+                    return 0;
+                }
+            }
+
+            if (resolved_field_type == NULL) {
+                return 0;
+            }
+
+            snprintf(dest, capacity, "%s", c_safe_text(resolved_field_type));
             return 1;
         }
 
@@ -2558,11 +2587,23 @@ static int c_emit_zir_call_expr(
 
     for (index = 0; index < expr->as.call.args.count; index += 1) {
         const zir_expr *arg = expr->as.call.args.items[index];
+        const char *expected_arg_type = NULL;
 
         if (index > 0 && !c_buffer_append(&emitter->buffer, ", ")) {
             free(callee);
             if (mangled) free(mangled);
             return 0;
+        }
+
+        if (direct_call &&
+                callee_function != NULL &&
+                index < callee_function->param_count) {
+            expected_arg_type = callee_function->params[index].type_name;
+        } else if (!direct_call &&
+                index == 0 &&
+                (strcmp(callee, "c.zt_host_write_stdout") == 0 ||
+                 strcmp(callee, "c.zt_host_write_stderr") == 0)) {
+            expected_arg_type = "text";
         }
 
         if (direct_call &&
@@ -2597,7 +2638,7 @@ static int c_emit_zir_call_expr(
                 if (mangled) free(mangled);
                 return 0;
             }
-        } else if (!c_emit_zir_expr(emitter, module_decl, function_decl, arg, NULL, result)) {
+        } else if (!c_emit_zir_expr(emitter, module_decl, function_decl, arg, expected_arg_type, result)) {
             free(callee);
             if (mangled) free(mangled);
             return 0;
@@ -2619,6 +2660,18 @@ static int c_is_mutating_self_expr(const zir_function *function_decl, const zir_
            strcmp(c_safe_text(expr->as.text.text), "self") == 0;
 }
 
+static const zir_named_expr *c_find_make_struct_field_init(const zir_expr *expr, const char *field_name) {
+    size_t index;
+    if (expr == NULL || expr->kind != ZIR_EXPR_MAKE_STRUCT || field_name == NULL) return NULL;
+    for (index = 0; index < expr->as.make_struct.fields.count; index += 1) {
+        const zir_named_expr *field_init = &expr->as.make_struct.fields.items[index];
+        if (strcmp(c_safe_text(field_init->name), field_name) == 0) {
+            return field_init;
+        }
+    }
+    return NULL;
+}
+
 static int c_emit_zir_make_struct_expr(
         c_emitter *emitter,
         const zir_module *module_decl,
@@ -2626,17 +2679,98 @@ static int c_emit_zir_make_struct_expr(
         const zir_expr *expr,
         c_emit_result *result) {
     const zir_struct_decl *struct_decl;
+    const zir_enum_decl *enum_decl;
     char c_type[64];
     size_t index;
 
     struct_decl = c_find_user_struct(module_decl, expr->as.make_struct.type_name);
-    if (struct_decl == NULL) {
+    enum_decl = c_find_user_enum(module_decl, expr->as.make_struct.type_name);
+    if (struct_decl == NULL && enum_decl == NULL) {
         c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "unknown user struct '%s' in make_struct", c_safe_text(expr->as.make_struct.type_name));
         return 0;
     }
 
     if (!c_type_to_c(module_decl, expr->as.make_struct.type_name, c_type, sizeof(c_type), result)) {
         return 0;
+    }
+
+    if (enum_decl != NULL) {
+        const zir_named_expr *tag_init = c_find_make_struct_field_init(expr, "__zt_enum_tag");
+        const zir_enum_variant_decl *variant = NULL;
+        char enum_symbol[128];
+        char variant_member[64];
+        char variant_tag[192];
+        char *endptr = NULL;
+        long tag_index_long;
+        size_t tag_index;
+
+        if (tag_init == NULL || tag_init->value == NULL || tag_init->value->kind != ZIR_EXPR_INT) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "enum constructor '%s' requires __zt_enum_tag int field", c_safe_text(expr->as.make_struct.type_name));
+            return 0;
+        }
+
+        tag_index_long = strtol(c_safe_text(tag_init->value->as.text.text), &endptr, 10);
+        if (endptr == NULL || *endptr != '\0' || tag_index_long < 0 || (size_t)tag_index_long >= enum_decl->variant_count) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid enum tag '%s' in constructor '%s'", c_safe_text(tag_init->value->as.text.text), c_safe_text(expr->as.make_struct.type_name));
+            return 0;
+        }
+        tag_index = (size_t)tag_index_long;
+        variant = &enum_decl->variants[tag_index];
+
+        c_build_enum_symbol(module_decl, enum_decl, enum_symbol, sizeof(enum_symbol));
+        c_copy_sanitized(variant_member, sizeof(variant_member), c_safe_text(variant->name));
+        snprintf(variant_tag, sizeof(variant_tag), "%s__%s", enum_symbol, variant_member);
+
+        if (!(c_buffer_append(&emitter->buffer, "((") &&
+                c_buffer_append(&emitter->buffer, c_type) &&
+                c_buffer_append(&emitter->buffer, "){.tag = ") &&
+                c_buffer_append(&emitter->buffer, variant_tag))) {
+            return 0;
+        }
+
+        if (variant->field_count > 0) {
+            if (!(c_buffer_append(&emitter->buffer, ", .as.") &&
+                    c_buffer_append(&emitter->buffer, variant_member) &&
+                    c_buffer_append(&emitter->buffer, " = {"))) {
+                return 0;
+            }
+
+            for (index = 0; index < variant->field_count; index += 1) {
+                const zir_enum_variant_field_decl *field_decl = &variant->fields[index];
+                const zir_named_expr *field_init = c_find_make_struct_field_init(expr, field_decl->name);
+                if (field_init == NULL) {
+                    c_emit_set_result(
+                        result,
+                        C_EMIT_UNSUPPORTED_EXPR,
+                        "missing field '%s' in enum constructor '%s.%s'",
+                        c_safe_text(field_decl->name),
+                        c_safe_text(enum_decl->name),
+                        c_safe_text(variant->name));
+                    return 0;
+                }
+                if (index > 0 && !c_buffer_append(&emitter->buffer, ", ")) {
+                    return 0;
+                }
+                if (!(c_buffer_append(&emitter->buffer, ".") &&
+                        c_buffer_append(&emitter->buffer, c_safe_text(field_decl->name)) &&
+                        c_buffer_append(&emitter->buffer, " = ") &&
+                        c_emit_zir_expr(
+                            emitter,
+                            module_decl,
+                            function_decl,
+                            field_init->value,
+                            field_decl->type_name,
+                            result))) {
+                    return 0;
+                }
+            }
+
+            if (!c_buffer_append(&emitter->buffer, "}")) {
+                return 0;
+            }
+        }
+
+        return c_buffer_append(&emitter->buffer, "})");
     }
 
     if (!(c_buffer_append(&emitter->buffer, "((") &&
@@ -2990,6 +3124,60 @@ static int c_emit_zir_expr(
         case ZIR_EXPR_GET_FIELD:
             if (c_is_mutating_self_expr(function_decl, expr->as.field.object)) {
                 return c_buffer_append_format(&emitter->buffer, "(self->%s)", c_safe_text(expr->as.field.field_name));
+            }
+            {
+                char object_type[96];
+                const zir_enum_decl *enum_decl = NULL;
+                if (c_zir_expr_resolve_type(module_decl, function_decl, expr->as.field.object, object_type, sizeof(object_type))) {
+                    enum_decl = c_find_user_enum(module_decl, object_type);
+                }
+                if (enum_decl != NULL) {
+                    if (strcmp(c_safe_text(expr->as.field.field_name), "__zt_enum_tag") == 0) {
+                        return c_buffer_append(&emitter->buffer, "(") &&
+                               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.object, NULL, result) &&
+                               c_buffer_append(&emitter->buffer, ".tag)");
+                    }
+
+                    {
+                        const zir_enum_variant_decl *resolved_variant = NULL;
+                        size_t variant_index;
+                        char variant_member[64];
+
+                        for (variant_index = 0; variant_index < enum_decl->variant_count; variant_index += 1) {
+                            const zir_enum_variant_decl *variant = &enum_decl->variants[variant_index];
+                            if (c_find_enum_variant_field(variant, expr->as.field.field_name) == NULL) continue;
+                            if (resolved_variant != NULL) {
+                                c_emit_set_result(
+                                    result,
+                                    C_EMIT_UNSUPPORTED_EXPR,
+                                    "ambiguous enum payload field '%s' in '%s'",
+                                    c_safe_text(expr->as.field.field_name),
+                                    c_safe_text(enum_decl->name));
+                                return 0;
+                            }
+                            resolved_variant = variant;
+                        }
+
+                        if (resolved_variant == NULL) {
+                            c_emit_set_result(
+                                result,
+                                C_EMIT_UNSUPPORTED_EXPR,
+                                "unknown enum payload field '%s' in '%s'",
+                                c_safe_text(expr->as.field.field_name),
+                                c_safe_text(enum_decl->name));
+                            return 0;
+                        }
+
+                        c_copy_sanitized(variant_member, sizeof(variant_member), c_safe_text(resolved_variant->name));
+                        return c_buffer_append(&emitter->buffer, "(") &&
+                               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.object, NULL, result) &&
+                               c_buffer_append_format(
+                                   &emitter->buffer,
+                                   ".as.%s.%s)",
+                                   variant_member,
+                                   c_safe_text(expr->as.field.field_name));
+                    }
+                }
             }
             return c_buffer_append(&emitter->buffer, "(") &&
                    c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.object, NULL, result) &&
@@ -4534,8 +4722,11 @@ static int c_emit_function_definition(
 
 static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl, const zir_function *function_decl, c_emit_result *result) {
     char symbol[128];
+    int returns_int;
+    int returns_void;
+    int returns_outcome_void_text;
 
-    /* Validate main signature: must return int or void, no params */
+    /* Validate main signature: no params and one of supported return types. */
     if (function_decl->param_count != 0) {
         c_emit_set_result(
             result,
@@ -4545,12 +4736,15 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
         return 0;
     }
 
-    if (strcmp(function_decl->return_type, "int") != 0 && 
-        strcmp(function_decl->return_type, "void") != 0) {
+    returns_int = c_type_is(function_decl->return_type, "int");
+    returns_void = c_type_is(function_decl->return_type, "void");
+    returns_outcome_void_text = c_type_is(function_decl->return_type, "outcome<void,text>");
+
+    if (!returns_int && !returns_void && !returns_outcome_void_text) {
         c_emit_set_result(
             result,
             C_EMIT_INVALID_MAIN_SIGNATURE,
-            "main must return int or void, got '%s'",
+            "main must return int, void or result<void,text>, got '%s'",
             function_decl->return_type
         );
         return 0;
@@ -4559,7 +4753,7 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
     c_build_function_symbol(module_decl, function_decl, symbol, sizeof(symbol));
 
     /* Emit main wrapper based on return type */
-    if (strcmp(function_decl->return_type, "void") == 0) {
+    if (returns_void) {
         /* void main() -> int main(void) { func(); return 0; } */
         return c_begin_line(emitter) &&
                c_begin_line(emitter) &&
@@ -4570,13 +4764,44 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
                c_buffer_append(&emitter->buffer, "    return 0;") &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "}");
-    } else {
+    }
+
+    if (returns_int) {
         /* int main() -> int main(void) { return func(); } */
         return c_begin_line(emitter) &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "int main(void) {") &&
                c_begin_line(emitter) &&
                c_buffer_append_format(&emitter->buffer, "    return (int)%s();", symbol) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "}");
+    }
+
+    /* result<void,text> main() -> int main(void) mapping */
+    {
+        char c_return_type[128];
+        if (!c_type_to_c(module_decl, function_decl->return_type, c_return_type, sizeof(c_return_type), result)) {
+            return 0;
+        }
+        return c_begin_line(emitter) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "int main(void) {") &&
+               c_begin_line(emitter) &&
+               c_buffer_append_format(&emitter->buffer, "    %s __zt_main_result = %s();", c_return_type, symbol) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    if (!__zt_main_result.is_success) {") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "        if (__zt_main_result.error != NULL) {") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "            (void)zt_host_write_stderr(__zt_main_result.error);") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "        }") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "        return 1;") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    }") &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    return 0;") &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "}");
     }
@@ -4644,6 +4869,3 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
     c_emit_result_init(result);
     return 1;
 }
-
-
-

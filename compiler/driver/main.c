@@ -13,6 +13,7 @@
 
 #include "compiler/semantic/diagnostics/diagnostics.h"
 #include "compiler/tooling/formatter.h"
+#include "compiler/utils/l10n.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -25,6 +26,7 @@
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
+#include <windows.h>
 #define ZT_MKDIR(path) _mkdir(path)
 #define ZT_GETCWD(buffer, size) _getcwd((buffer), (int)(size))
 #else
@@ -36,6 +38,19 @@
 #endif
 
 static int zt_ci_mode_enabled = 0;
+
+static void zt_apply_manifest_lang(const zt_project_manifest *manifest) {
+    if (manifest != NULL && manifest->lang[0] != '\0') {
+        /* Only apply if not already overridden by CLI */
+        if (!zt_l10n_is_explicitly_set()) {
+            zt_lang lang = zt_l10n_from_str(manifest->lang);
+            if (lang != ZT_LANG_UNSPECIFIED) {
+                zt_l10n_set_lang(lang);
+            }
+        }
+    }
+}
+
 
 static zt_arena global_arena;
 static zt_string_pool global_pool;
@@ -886,6 +901,7 @@ static zt_diag_code zt_diag_code_from_project_error(zt_project_error_code code) 
         case ZT_PROJECT_INVALID_KIND: return ZT_DIAG_PROJECT_INVALID_KIND;
         case ZT_PROJECT_INVALID_TARGET: return ZT_DIAG_PROJECT_INVALID_TARGET;
         case ZT_PROJECT_INVALID_PROFILE: return ZT_DIAG_PROJECT_INVALID_PROFILE;
+        case ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT: return ZT_DIAG_PROJECT_INVALID_MONOMORPHIZATION_LIMIT;
         case ZT_PROJECT_PATH_TOO_LONG: return ZT_DIAG_PROJECT_PATH_TOO_LONG;
         case ZT_PROJECT_TOO_MANY_DEPENDENCIES: return ZT_DIAG_PROJECT_TOO_MANY_DEPENDENCIES;
         case ZT_PROJECT_OK: return ZT_DIAG_PROJECT_ERROR;
@@ -1120,6 +1136,415 @@ static int zt_resolve_project_paths(
     return 0;
 }
 
+typedef struct zt_string_set {
+    char **items;
+    size_t count;
+    size_t capacity;
+} zt_string_set;
+
+static void zt_string_set_init(zt_string_set *set) {
+    if (set == NULL) return;
+    set->items = NULL;
+    set->count = 0;
+    set->capacity = 0;
+}
+
+static void zt_string_set_dispose(zt_string_set *set) {
+    size_t i;
+    if (set == NULL) return;
+    for (i = 0; i < set->count; i += 1) {
+        free(set->items[i]);
+    }
+    free(set->items);
+    set->items = NULL;
+    set->count = 0;
+    set->capacity = 0;
+}
+
+static int zt_string_set_add(zt_string_set *set, const char *value) {
+    size_t i;
+    char *copy;
+
+    if (set == NULL || value == NULL || value[0] == '\0') return 1;
+
+    for (i = 0; i < set->count; i += 1) {
+        if (strcmp(set->items[i], value) == 0) {
+            return 1;
+        }
+    }
+
+    if (set->count == set->capacity) {
+        size_t new_capacity = set->capacity == 0 ? 8 : set->capacity * 2;
+        char **new_items = (char **)realloc(set->items, new_capacity * sizeof(char *));
+        if (new_items == NULL) return 0;
+        set->items = new_items;
+        set->capacity = new_capacity;
+    }
+
+    copy = zt_heap_strdup(value);
+    if (copy == NULL) return 0;
+
+    set->items[set->count] = copy;
+    set->count += 1;
+    return 1;
+}
+
+static int zt_string_set_add_slice(zt_string_set *set, const char *text, size_t start, size_t end) {
+    char *value;
+    size_t length;
+    int ok;
+
+    if (set == NULL || text == NULL || end <= start) return 1;
+
+    length = end - start;
+    value = (char *)malloc(length + 1);
+    if (value == NULL) return 0;
+
+    memcpy(value, text + start, length);
+    value[length] = '\0';
+
+    ok = zt_string_set_add(set, value);
+    free(value);
+    return ok;
+}
+
+static int zt_type_ident_char(int ch) {
+    return isalnum((unsigned char)ch) || ch == '_' || ch == '.';
+}
+
+static char *zt_strip_type_whitespace(const char *text) {
+    size_t i;
+    size_t out = 0;
+    size_t length;
+    char *clean;
+
+    if (text == NULL) return NULL;
+
+    length = strlen(text);
+    clean = (char *)malloc(length + 1);
+    if (clean == NULL) return NULL;
+
+    for (i = 0; i < length; i += 1) {
+        if (!isspace((unsigned char)text[i])) {
+            clean[out++] = text[i];
+        }
+    }
+
+    clean[out] = '\0';
+    return clean;
+}
+
+static void zt_collect_generic_instances_in_range(
+        const char *text,
+        size_t start,
+        size_t end,
+        zt_string_set *set) {
+    size_t i;
+
+    if (text == NULL || set == NULL || end <= start) return;
+
+    i = start;
+    while (i < end) {
+        if (!zt_type_ident_char((unsigned char)text[i])) {
+            i += 1;
+            continue;
+        }
+
+        {
+            size_t ident_start = i;
+            size_t ident_end = i;
+            size_t j;
+            size_t depth;
+
+            while (ident_end < end && zt_type_ident_char((unsigned char)text[ident_end])) {
+                ident_end += 1;
+            }
+
+            j = ident_end;
+            if (j >= end || text[j] != '<') {
+                i = ident_end;
+                continue;
+            }
+
+            depth = 1;
+            j += 1;
+            while (j < end && depth > 0) {
+                if (text[j] == '<') depth += 1;
+                else if (text[j] == '>') depth -= 1;
+                j += 1;
+            }
+
+            if (depth != 0) {
+                return;
+            }
+
+            if (!zt_string_set_add_slice(set, text, ident_start, j)) {
+                return;
+            }
+
+            zt_collect_generic_instances_in_range(text, ident_end + 1, j - 1, set);
+            i = j;
+        }
+    }
+}
+
+static void zt_collect_generic_instances_from_type_name(const char *type_name, zt_string_set *set) {
+    char *clean;
+
+    if (type_name == NULL || type_name[0] == '\0' || set == NULL) return;
+
+    clean = zt_strip_type_whitespace(type_name);
+    if (clean == NULL) return;
+
+    zt_collect_generic_instances_in_range(clean, 0, strlen(clean), set);
+    free(clean);
+}
+
+static void zt_collect_generic_instances_from_expr(const zir_expr *expr, zt_string_set *set) {
+    size_t i;
+
+    if (expr == NULL || set == NULL) return;
+
+    switch (expr->kind) {
+        case ZIR_EXPR_COPY:
+        case ZIR_EXPR_LIST_LEN:
+        case ZIR_EXPR_MAP_LEN:
+        case ZIR_EXPR_OPTIONAL_PRESENT:
+        case ZIR_EXPR_OPTIONAL_IS_PRESENT:
+        case ZIR_EXPR_OUTCOME_SUCCESS:
+        case ZIR_EXPR_OUTCOME_FAILURE:
+        case ZIR_EXPR_OUTCOME_IS_SUCCESS:
+        case ZIR_EXPR_OUTCOME_VALUE:
+        case ZIR_EXPR_TRY_PROPAGATE:
+            zt_collect_generic_instances_from_expr(expr->as.single.value, set);
+            return;
+        case ZIR_EXPR_UNARY:
+            zt_collect_generic_instances_from_expr(expr->as.unary.operand, set);
+            return;
+        case ZIR_EXPR_BINARY:
+            zt_collect_generic_instances_from_expr(expr->as.binary.left, set);
+            zt_collect_generic_instances_from_expr(expr->as.binary.right, set);
+            return;
+        case ZIR_EXPR_CALL_DIRECT:
+        case ZIR_EXPR_CALL_EXTERN:
+        case ZIR_EXPR_CALL_RUNTIME_INTRINSIC:
+            for (i = 0; i < expr->as.call.args.count; i += 1) {
+                zt_collect_generic_instances_from_expr(expr->as.call.args.items[i], set);
+            }
+            return;
+        case ZIR_EXPR_MAKE_STRUCT:
+            zt_collect_generic_instances_from_type_name(expr->as.make_struct.type_name, set);
+            for (i = 0; i < expr->as.make_struct.fields.count; i += 1) {
+                zt_collect_generic_instances_from_expr(expr->as.make_struct.fields.items[i].value, set);
+            }
+            return;
+        case ZIR_EXPR_MAKE_LIST: {
+            size_t len;
+            char *type_name;
+            zt_collect_generic_instances_from_type_name(expr->as.make_list.item_type_name, set);
+            len = strlen(expr->as.make_list.item_type_name != NULL ? expr->as.make_list.item_type_name : "") + 16;
+            type_name = (char *)malloc(len);
+            if (type_name != NULL) {
+                snprintf(type_name, len, "list<%s>", expr->as.make_list.item_type_name != NULL ? expr->as.make_list.item_type_name : "");
+                zt_collect_generic_instances_from_type_name(type_name, set);
+                free(type_name);
+            }
+            for (i = 0; i < expr->as.make_list.items.count; i += 1) {
+                zt_collect_generic_instances_from_expr(expr->as.make_list.items.items[i], set);
+            }
+            return;
+        }
+        case ZIR_EXPR_MAKE_MAP: {
+            size_t len;
+            char *type_name;
+            zt_collect_generic_instances_from_type_name(expr->as.make_map.key_type_name, set);
+            zt_collect_generic_instances_from_type_name(expr->as.make_map.value_type_name, set);
+            len = strlen(expr->as.make_map.key_type_name != NULL ? expr->as.make_map.key_type_name : "") +
+                  strlen(expr->as.make_map.value_type_name != NULL ? expr->as.make_map.value_type_name : "") + 24;
+            type_name = (char *)malloc(len);
+            if (type_name != NULL) {
+                snprintf(type_name, len, "map<%s,%s>",
+                    expr->as.make_map.key_type_name != NULL ? expr->as.make_map.key_type_name : "",
+                    expr->as.make_map.value_type_name != NULL ? expr->as.make_map.value_type_name : "");
+                zt_collect_generic_instances_from_type_name(type_name, set);
+                free(type_name);
+            }
+            for (i = 0; i < expr->as.make_map.entries.count; i += 1) {
+                zt_collect_generic_instances_from_expr(expr->as.make_map.entries.items[i].key, set);
+                zt_collect_generic_instances_from_expr(expr->as.make_map.entries.items[i].value, set);
+            }
+            return;
+        }
+        case ZIR_EXPR_GET_FIELD:
+            zt_collect_generic_instances_from_expr(expr->as.field.object, set);
+            return;
+        case ZIR_EXPR_SET_FIELD:
+            zt_collect_generic_instances_from_expr(expr->as.field.object, set);
+            zt_collect_generic_instances_from_expr(expr->as.field.value, set);
+            return;
+        case ZIR_EXPR_INDEX_SEQ:
+        case ZIR_EXPR_COALESCE:
+        case ZIR_EXPR_LIST_PUSH:
+            zt_collect_generic_instances_from_expr(expr->as.sequence.first, set);
+            zt_collect_generic_instances_from_expr(expr->as.sequence.second, set);
+            return;
+        case ZIR_EXPR_SLICE_SEQ:
+        case ZIR_EXPR_LIST_SET:
+        case ZIR_EXPR_MAP_SET:
+            zt_collect_generic_instances_from_expr(expr->as.sequence.first, set);
+            zt_collect_generic_instances_from_expr(expr->as.sequence.second, set);
+            zt_collect_generic_instances_from_expr(expr->as.sequence.third, set);
+            return;
+        case ZIR_EXPR_OPTIONAL_EMPTY: {
+            size_t len;
+            char *type_name;
+            zt_collect_generic_instances_from_type_name(expr->as.type_only.type_name, set);
+            len = strlen(expr->as.type_only.type_name != NULL ? expr->as.type_only.type_name : "") + 20;
+            type_name = (char *)malloc(len);
+            if (type_name != NULL) {
+                snprintf(type_name, len, "optional<%s>", expr->as.type_only.type_name != NULL ? expr->as.type_only.type_name : "");
+                zt_collect_generic_instances_from_type_name(type_name, set);
+                free(type_name);
+            }
+            return;
+        }
+        default:
+            return;
+    }
+}
+
+static void zt_collect_generic_instances_from_module(const zir_module *module_decl, zt_string_set *set) {
+    size_t i;
+
+    if (module_decl == NULL || set == NULL) return;
+
+    for (i = 0; i < module_decl->struct_count; i += 1) {
+        size_t f;
+        const zir_struct_decl *struct_decl = &module_decl->structs[i];
+        for (f = 0; f < struct_decl->field_count; f += 1) {
+            zt_collect_generic_instances_from_type_name(struct_decl->fields[f].type_name, set);
+        }
+    }
+
+    for (i = 0; i < module_decl->enum_count; i += 1) {
+        size_t v;
+        const zir_enum_decl *enum_decl = &module_decl->enums[i];
+        for (v = 0; v < enum_decl->variant_count; v += 1) {
+            size_t f;
+            const zir_enum_variant_decl *variant = &enum_decl->variants[v];
+            for (f = 0; f < variant->field_count; f += 1) {
+                zt_collect_generic_instances_from_type_name(variant->fields[f].type_name, set);
+            }
+        }
+    }
+
+    for (i = 0; i < module_decl->function_count; i += 1) {
+        size_t p;
+        size_t b;
+        const zir_function *function_decl = &module_decl->functions[i];
+
+        zt_collect_generic_instances_from_type_name(function_decl->return_type, set);
+        zt_collect_generic_instances_from_type_name(function_decl->receiver_type_name, set);
+
+        for (p = 0; p < function_decl->param_count; p += 1) {
+            zt_collect_generic_instances_from_type_name(function_decl->params[p].type_name, set);
+            zt_collect_generic_instances_from_expr(function_decl->params[p].where_clause, set);
+        }
+
+        for (b = 0; b < function_decl->block_count; b += 1) {
+            size_t instr;
+            const zir_block *block = &function_decl->blocks[b];
+
+            for (instr = 0; instr < block->instruction_count; instr += 1) {
+                const zir_instruction *instruction = &block->instructions[instr];
+                zt_collect_generic_instances_from_type_name(instruction->type_name, set);
+                zt_collect_generic_instances_from_expr(instruction->expr, set);
+            }
+
+            zt_collect_generic_instances_from_expr(block->terminator.value, set);
+            zt_collect_generic_instances_from_expr(block->terminator.condition, set);
+            zt_collect_generic_instances_from_expr(block->terminator.message, set);
+        }
+    }
+}
+
+static void zt_format_generic_preview(const zt_string_set *set, char *dest, size_t capacity) {
+    size_t i;
+    size_t max_items;
+
+    if (dest == NULL || capacity == 0) return;
+    dest[0] = '\0';
+
+    if (set == NULL || set->count == 0) return;
+
+    max_items = set->count < 3 ? set->count : 3;
+    for (i = 0; i < max_items; i += 1) {
+        size_t used = strlen(dest);
+        size_t left = used < capacity ? capacity - used : 0;
+        if (left <= 1) break;
+        if (i > 0) {
+            snprintf(dest + used, left, ", ");
+            used = strlen(dest);
+            left = used < capacity ? capacity - used : 0;
+            if (left <= 1) break;
+        }
+        snprintf(dest + used, left, "%s", set->items[i]);
+    }
+
+    if (set->count > max_items) {
+        size_t used = strlen(dest);
+        size_t left = used < capacity ? capacity - used : 0;
+        if (left > 1) {
+            snprintf(dest + used, left, ", ...");
+        }
+    }
+}
+
+static int zt_enforce_monomorphization_limit(
+        const char *manifest_path,
+        size_t monomorphization_limit,
+        const zir_module *module_decl) {
+    zt_string_set generic_instances;
+
+    if (module_decl == NULL || monomorphization_limit == 0) return 1;
+
+    zt_string_set_init(&generic_instances);
+    zt_collect_generic_instances_from_module(module_decl, &generic_instances);
+
+    if (generic_instances.count > monomorphization_limit) {
+        char preview[256];
+        zt_source_span span = zt_source_span_make(
+            manifest_path != NULL && manifest_path[0] != '\0' ? manifest_path : "<project>",
+            1,
+            1,
+            1);
+
+        zt_format_generic_preview(&generic_instances, preview, sizeof(preview));
+        if (preview[0] != '\0') {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED,
+                span,
+                "build.monomorphization_limit exceeded: found %zu generic instantiations, limit is %zu (examples: %s)",
+                generic_instances.count,
+                monomorphization_limit,
+                preview);
+        } else {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED,
+                span,
+                "build.monomorphization_limit exceeded: found %zu generic instantiations, limit is %zu",
+                generic_instances.count,
+                monomorphization_limit);
+        }
+        zt_string_set_dispose(&generic_instances);
+        return 0;
+    }
+
+    zt_string_set_dispose(&generic_instances);
+    return 1;
+}
 typedef struct zt_project_compile_result {
     zt_project_manifest manifest;
     char project_root[512];
@@ -1176,6 +1601,7 @@ static int zt_compile_project(const char *input_path, zt_project_compile_result 
     }
 
     out->manifest = project.manifest;
+    zt_apply_manifest_lang(&out->manifest);
 
     if (zt_project_manifest_kind(&out->manifest) == ZT_PROJECT_KIND_APP &&
             !zt_project_resolve_entry_source_path(
@@ -1340,6 +1766,10 @@ static int zt_compile_project(const char *input_path, zt_project_compile_result 
         goto fail;
     }
 
+    if (!zt_enforce_monomorphization_limit(out->manifest_path, out->manifest.build_monomorphization_limit, &zir.module)) {
+        goto fail;
+    }
+
     out->zir = zir;
     out->has_zir = 1;
     zir_ready = 0;
@@ -1347,7 +1777,7 @@ static int zt_compile_project(const char *input_path, zt_project_compile_result 
     if (hir_ready) zt_hir_lower_result_dispose(&hir);
     if (checked_ready) zt_check_result_dispose(&checked);
     if (bound_ready) zt_bind_result_dispose(&bound);
-    if (program_ready) 
+    if (program_ready) { (void)program_root; }
     return 1;
 
 fail:
@@ -1355,7 +1785,7 @@ fail:
     if (hir_ready) zt_hir_lower_result_dispose(&hir);
     if (checked_ready) zt_check_result_dispose(&checked);
     if (bound_ready) zt_bind_result_dispose(&bound);
-    if (program_ready) 
+    if (program_ready) { (void)program_root; }
     zt_project_source_file_list_dispose(&out->source_files);
     return 0;
 }
@@ -1498,6 +1928,7 @@ static int zt_collect_project_sources(
     }
 
     *manifest = project.manifest;
+    zt_apply_manifest_lang(manifest);
 
     if (!zt_join_path(source_root_path, sizeof(source_root_path), project_root, manifest->source_root)) {
         zt_print_single_diag("project", ZT_DIAG_PROJECT_PATH_TOO_LONG, zt_source_span_unknown(), "source.root path is too long");
@@ -1695,6 +2126,8 @@ static int zt_handle_project_info(const char *input_path) {
         return 1;
     }
 
+    zt_apply_manifest_lang(&project.manifest);
+
     kind = zt_project_manifest_kind(&project.manifest);
     if (kind == ZT_PROJECT_KIND_APP &&
             !zt_project_resolve_entry_source_path(&project.manifest, project_root, entry_path, sizeof(entry_path))) {
@@ -1716,6 +2149,7 @@ static int zt_handle_project_info(const char *input_path) {
     }
     printf("  build.target: %s\n", project.manifest.build_target);
     printf("  build.profile: %s\n", project.manifest.build_profile);
+    printf("  build.monomorphization_limit: %zu\n", project.manifest.build_monomorphization_limit);
     printf("  build.output: %s\n", project.manifest.build_output);
     printf("  test.root: %s\n", project.manifest.test_root);
     printf("  zdoc.root: %s\n", project.manifest.zdoc_root);
@@ -1759,6 +2193,17 @@ static int zt_handle_project_command(const char *command, const char *input_path
     if (strcmp(command, "build") == 0 &&
             zt_project_manifest_kind(&compiled.manifest) == ZT_PROJECT_KIND_LIB) {
         fprintf(stderr, "project error: build for lib projects is not implemented in the bootstrap driver; use verify or emit-c\n");
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+    if (strcmp(command, "build") == 0 &&
+            zt_project_manifest_kind(&compiled.manifest) == ZT_PROJECT_KIND_APP &&
+            compiled.zir.module.function_count == 0) {
+        zt_print_single_diag(
+            "zir.lower",
+            ZT_DIAG_BACKEND_C_EMIT_ERROR,
+            zt_source_span_unknown(),
+            "build de app bloqueado: modulo ZIR sem funcoes (verifique compiler/zir/lowering/from_hir.c; source atual esta em stub)");
         zt_project_compile_result_dispose(&compiled);
         return 1;
     }
@@ -2045,6 +2490,10 @@ static int zt_handle_zir_command(const char *command, const char *input_path, co
 }
 
 int main(int argc, char *argv[]) {
+#ifdef _WIN32
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+#endif
     zt_arena_init(&global_arena, 1048576);
     zt_string_pool_init(&global_pool, &global_arena);
 
@@ -2053,6 +2502,7 @@ int main(int argc, char *argv[]) {
     const char *input_path = NULL;
     int run_output = 0;
     const char *output_path = NULL;
+    const char *lang_override = NULL;
     int fmt_check = 0;
     int ci_mode = 0;
     int parse_start = 2;
@@ -2114,6 +2564,9 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
             output_path = argv[i + 1];
             i += 1;
+        } else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) {
+            lang_override = argv[i + 1];
+            i += 1;
         } else if (strcmp(argv[i], "--check") == 0) {
             fmt_check = 1;
         } else if (strcmp(argv[i], "--ci") == 0) {
@@ -2142,6 +2595,15 @@ int main(int argc, char *argv[]) {
     }
 
     zt_ci_mode_enabled = ci_mode;
+
+    if (lang_override != NULL) {
+        zt_lang lang = zt_l10n_from_str(lang_override);
+        if (lang != ZT_LANG_UNSPECIFIED) {
+            zt_l10n_set_lang(lang);
+        } else {
+            fprintf(stderr, "warning: unsupported language '%s', falling back to detection\n", lang_override);
+        }
+    }
 
     if (fmt_check && strcmp(effective_command, "fmt") != 0) {
         zt_print_single_diag(

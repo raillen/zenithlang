@@ -1,0 +1,4 @@
+error[project.monomorphization_limit_exceeded]
+build.monomorphization_limit exceeded
+where
+zenith.ztproj:1:1

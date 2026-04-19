@@ -7,16 +7,32 @@
 #include "compiler/zir/model.h"
 #include "compiler/zir/verifier.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>#include <stdlib.h>
 #include <string.h>
-
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
+#define ARRAY_COUNT(items) (sizeof(items) / sizeof((items)[0]))
 
-#define ARRAY_COUNT(items) (sizeof(items) / sizeof((items)[0]))
-
+static void ensure_generated_output_dir(void) {
+#ifdef _WIN32
+    (void)_mkdir(".ztc-tmp");
+    (void)_mkdir(".ztc-tmp/tests");
+    (void)_mkdir(".ztc-tmp/tests/targets");
+    (void)_mkdir(".ztc-tmp/tests/targets/c");
+#else
+    (void)mkdir(".ztc-tmp", 0777);
+    (void)mkdir(".ztc-tmp/tests", 0777);
+    (void)mkdir(".ztc-tmp/tests/targets", 0777);
+    (void)mkdir(".ztc-tmp/tests/targets/c", 0777);
+#endif
+}
 static void verify_or_fail(const char *name, const zir_module *module_decl) {
     zir_verifier_result result;
 
@@ -121,8 +137,8 @@ static void write_rendered_file(const char *name, const zir_module *module_decl,
 
 static void test_add(void) {
     const zir_param params[] = {
-        zir_make_param("a", "int"),
-        zir_make_param("b", "int"),
+        zir_make_param("a", "int", NULL),
+        zir_make_param("b", "int", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "int", "binary.add a, b"),
@@ -138,13 +154,13 @@ static void test_add(void) {
     assert_rendered(
         "emit_add",
         &module_decl,
-        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__add(zt_int a, zt_int b);\n\nstatic zt_int zt_main__add(zt_int a, zt_int b) {\n    zt_int t0;\n    goto zt_block_entry;\n\nzt_block_entry:\n    t0 = (a + b);\n    return t0;\n}"
+        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__add(zt_int a, zt_int b);\n\nstatic zt_int zt_main__add(zt_int a, zt_int b) {\n    zt_int t0;\n    goto zt_block_entry;\n\nzt_block_entry:\n    t0 = zt_add_i64(a, b);\n    return t0;\n}"
     );
 }
 
 static void test_if_else(void) {
     const zir_param params[] = {
-        zir_make_param("x", "int"),
+        zir_make_param("x", "int", NULL),
     };
     const zir_instruction entry_instructions[] = {
         zir_make_assign_instruction("t0", "bool", "binary.lt x, 0"),
@@ -190,7 +206,7 @@ static void test_text_return_transfer(void) {
 
 static void test_text_index_seq(void) {
     const zir_param params[] = {
-        zir_make_param("name", "text"),
+        zir_make_param("name", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "text", "index_seq name, 2"),
@@ -212,7 +228,7 @@ static void test_text_index_seq(void) {
 
 static void test_text_slice_seq(void) {
     const zir_param params[] = {
-        zir_make_param("name", "text"),
+        zir_make_param("name", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "text", "slice_seq name, 2, 4"),
@@ -234,7 +250,7 @@ static void test_text_slice_seq(void) {
 
 static void test_list_index_seq(void) {
     const zir_param params[] = {
-        zir_make_param("xs", "list<int>"),
+        zir_make_param("xs", "list<int>", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "int", "index_seq xs, 1"),
@@ -256,7 +272,7 @@ static void test_list_index_seq(void) {
 
 static void test_list_slice_seq(void) {
     const zir_param params[] = {
-        zir_make_param("xs", "list<int>"),
+        zir_make_param("xs", "list<int>", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "list<int>", "slice_seq xs, 2, 4"),
@@ -278,7 +294,7 @@ static void test_list_slice_seq(void) {
 
 static void test_list_len_expr(void) {
     const zir_param params[] = {
-        zir_make_param("xs", "list<int>"),
+        zir_make_param("xs", "list<int>", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "int", "list_len xs"),
@@ -300,8 +316,8 @@ static void test_list_len_expr(void) {
 
 static void test_make_list_text_expr(void) {
     const zir_param params[] = {
-        zir_make_param("a", "text"),
-        zir_make_param("b", "text"),
+        zir_make_param("a", "text", NULL),
+        zir_make_param("b", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "list<text>", "make_list<text> [a, b]"),
@@ -327,10 +343,10 @@ static void test_make_list_text_expr(void) {
 
 static void test_make_map_text_text_expr(void) {
     const zir_param params[] = {
-        zir_make_param("k1", "text"),
-        zir_make_param("v1", "text"),
-        zir_make_param("k2", "text"),
-        zir_make_param("v2", "text"),
+        zir_make_param("k1", "text", NULL),
+        zir_make_param("v1", "text", NULL),
+        zir_make_param("k2", "text", NULL),
+        zir_make_param("v2", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "map<text,text>", "make_map<text,text> [k1: v1, k2: v2]"),
@@ -355,7 +371,7 @@ static void test_make_map_text_text_expr(void) {
 
 static void test_optional_present_empty_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("flag", "bool"),
+        zir_make_param("flag", "bool", NULL),
     };
     const zir_instruction some_instructions[] = {
         zir_make_assign_instruction("t0", "Optional<int>", "optional_present 7"),
@@ -383,8 +399,8 @@ static void test_optional_present_empty_exprs(void) {
 
 static void test_optional_coalesce_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("v", "Optional<int>"),
-        zir_make_param("fallback", "int"),
+        zir_make_param("v", "Optional<int>", NULL),
+        zir_make_param("fallback", "int", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "bool", "optional_is_present v"),
@@ -408,7 +424,7 @@ static void test_optional_coalesce_exprs(void) {
 
 static void test_outcome_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("value", "Outcome<int,text>"),
+        zir_make_param("value", "Outcome<int,text>", NULL),
     };
     const zir_instruction entry_instructions[] = {
         zir_make_assign_instruction("t0", "bool", "outcome_is_success value"),
@@ -430,7 +446,7 @@ static void test_outcome_exprs(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_i64_text *zt_main__read_value(zt_outcome_i64_text *value);",
+        "static zt_outcome_i64_text zt_main__read_value(zt_outcome_i64_text value);",
         "t0 = zt_outcome_i64_text_is_success(value);",
         "t1 = zt_outcome_i64_text_value(value);",
         "t2 = zt_outcome_i64_text_success(t1);",
@@ -442,7 +458,7 @@ static void test_outcome_exprs(void) {
 
 static void test_outcome_failure_expr(void) {
     const zir_param params[] = {
-        zir_make_param("err", "text"),
+        zir_make_param("err", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "Outcome<int,text>", "outcome_failure err"),
@@ -455,7 +471,7 @@ static void test_outcome_failure_expr(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_i64_text *zt_main__fail(zt_text *err);",
+        "static zt_outcome_i64_text zt_main__fail(zt_text *err);",
         "t0 = zt_outcome_i64_text_failure(err);",
     };
 
@@ -464,9 +480,9 @@ static void test_outcome_failure_expr(void) {
 
 static void test_optional_text_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("flag", "bool"),
-        zir_make_param("value", "text"),
-        zir_make_param("fallback", "text"),
+        zir_make_param("flag", "bool", NULL),
+        zir_make_param("value", "text", NULL),
+        zir_make_param("fallback", "text", NULL),
     };
     const zir_instruction some_instructions[] = {
         zir_make_assign_instruction("t0", "Optional<text>", "optional_present value"),
@@ -488,7 +504,7 @@ static void test_optional_text_exprs(void) {
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
         "static zt_text *zt_main__with_text(zt_bool flag, zt_text *value, zt_text *fallback);",
-        "zt_optional_text *t0 = NULL;",
+        "zt_optional_text t0;",
         "t0 = zt_optional_text_present(value);",
         "t1 = zt_optional_text_is_present(t0);",
         "t2 = zt_optional_text_coalesce(t0, fallback);",
@@ -501,9 +517,9 @@ static void test_optional_text_exprs(void) {
 
 static void test_optional_list_i64_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("flag", "bool"),
-        zir_make_param("value", "list<int>"),
-        zir_make_param("fallback", "list<int>"),
+        zir_make_param("flag", "bool", NULL),
+        zir_make_param("value", "list<int>", NULL),
+        zir_make_param("fallback", "list<int>", NULL),
     };
     const zir_instruction some_instructions[] = {
         zir_make_assign_instruction("t0", "Optional<list<int>>", "optional_present value"),
@@ -525,7 +541,7 @@ static void test_optional_list_i64_exprs(void) {
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
         "static zt_list_i64 *zt_main__with_list(zt_bool flag, zt_list_i64 *value, zt_list_i64 *fallback);",
-        "zt_optional_list_i64 *t0 = NULL;",
+        "zt_optional_list_i64 t0;",
         "t0 = zt_optional_list_i64_present(value);",
         "t1 = zt_optional_list_i64_is_present(t0);",
         "t2 = zt_optional_list_i64_coalesce(t0, fallback);",
@@ -538,7 +554,7 @@ static void test_optional_list_i64_exprs(void) {
 
 static void test_outcome_void_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("value", "Outcome<void,text>"),
+        zir_make_param("value", "Outcome<void,text>", NULL),
     };
     const zir_instruction entry_instructions[] = {
         zir_make_assign_instruction("t0", "bool", "outcome_is_success value"),
@@ -559,7 +575,7 @@ static void test_outcome_void_exprs(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_void_text *zt_main__run(zt_outcome_void_text *value);",
+        "static zt_outcome_void_text zt_main__run(zt_outcome_void_text value);",
         "t0 = zt_outcome_void_text_is_success(value);",
         "t1 = zt_outcome_void_text_success();",
         "t2 = zt_outcome_void_text_propagate(value);",
@@ -570,7 +586,7 @@ static void test_outcome_void_exprs(void) {
 
 static void test_outcome_void_failure_expr(void) {
     const zir_param params[] = {
-        zir_make_param("err", "text"),
+        zir_make_param("err", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "Outcome<void,text>", "outcome_failure err"),
@@ -583,7 +599,7 @@ static void test_outcome_void_failure_expr(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_void_text *zt_main__fail_void(zt_text *err);",
+        "static zt_outcome_void_text zt_main__fail_void(zt_text *err);",
         "t0 = zt_outcome_void_text_failure(err);",
     };
 
@@ -592,7 +608,7 @@ static void test_outcome_void_failure_expr(void) {
 
 static void test_outcome_text_text_exprs(void) {
     const zir_param params[] = {
-        zir_make_param("value", "Outcome<text,text>"),
+        zir_make_param("value", "Outcome<text,text>", NULL),
     };
     const zir_instruction entry_instructions[] = {
         zir_make_assign_instruction("t0", "bool", "outcome_is_success value"),
@@ -614,7 +630,7 @@ static void test_outcome_text_text_exprs(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_text_text *zt_main__read_text(zt_outcome_text_text *value);",
+        "static zt_outcome_text_text zt_main__read_text(zt_outcome_text_text value);",
         "t0 = zt_outcome_text_text_is_success(value);",
         "t1 = zt_outcome_text_text_value(value);",
         "t2 = zt_outcome_text_text_success(t1);",
@@ -626,7 +642,7 @@ static void test_outcome_text_text_exprs(void) {
 
 static void test_outcome_text_text_failure_expr(void) {
     const zir_param params[] = {
-        zir_make_param("err", "text"),
+        zir_make_param("err", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction("t0", "Outcome<text,text>", "outcome_failure err"),
@@ -639,7 +655,7 @@ static void test_outcome_text_text_failure_expr(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "static zt_outcome_text_text *zt_main__fail_text(zt_text *err);",
+        "static zt_outcome_text_text zt_main__fail_text(zt_text *err);",
         "t0 = zt_outcome_text_text_failure(err);",
     };
 
@@ -648,8 +664,8 @@ static void test_outcome_text_text_failure_expr(void) {
 
 static void test_list_set_effects(void) {
     const zir_param int_params[] = {
-        zir_make_param("xs", "list<int>"),
-        zir_make_param("v", "int"),
+        zir_make_param("xs", "list<int>", NULL),
+        zir_make_param("v", "int", NULL),
     };
     const zir_instruction int_instructions[] = {
         zir_make_effect_instruction("list_set xs, 2, v"),
@@ -668,8 +684,8 @@ static void test_list_set_effects(void) {
     };
 
     const zir_param text_params[] = {
-        zir_make_param("xs", "list<text>"),
-        zir_make_param("value", "text"),
+        zir_make_param("xs", "list<text>", NULL),
+        zir_make_param("value", "text", NULL),
     };
     const zir_instruction text_instructions[] = {
         zir_make_effect_instruction("list_set xs, 1, value"),
@@ -693,9 +709,9 @@ static void test_list_set_effects(void) {
 
 static void test_map_set_and_len_effects(void) {
     const zir_param params[] = {
-        zir_make_param("cfg", "map<text,text>"),
-        zir_make_param("key", "text"),
-        zir_make_param("value", "text"),
+        zir_make_param("cfg", "map<text,text>", NULL),
+        zir_make_param("key", "text", NULL),
+        zir_make_param("value", "text", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_effect_instruction("map_set cfg, key, value"),
@@ -720,7 +736,7 @@ static void test_map_set_and_len_effects(void) {
 
 static void test_managed_param_return_retain(void) {
     const zir_param params[] = {
-        zir_make_param("name", "text"),
+        zir_make_param("name", "text", NULL),
     };
     const zir_block blocks[] = {
         zir_make_block("entry", NULL, 0, zir_make_return_terminator("name")),
@@ -865,10 +881,10 @@ static void test_structured_zir_emission(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "t0 = (1 + 2);",
+        "t0 = zt_add_i64(1, 2);",
         "nums = zt_list_i64_from_array(((zt_int[]){4, 7, 9}), 3);",
         "t1 = zt_list_i64_get(nums, 2);",
-        "zt_return_value = (t0 + t1);",
+        "zt_return_value = zt_add_i64(t0, t1);",
     };
 
     zir_expr_make_list_add_item(list_expr, zir_expr_make_int("4"));
@@ -897,7 +913,7 @@ static void test_real_lowering_to_c(void) {    zt_arena test_arena;
     static const char *const fragments[] = {
         "a = 1;",
         "b = 2;",
-        "return (a + b);",
+        "return zt_add_i64(a, b);",
         "int main(void) {",
     };
 
@@ -984,6 +1000,7 @@ static void test_main_wrapper_and_outputs(void) {
 }
 
 int main(void) {
+    ensure_generated_output_dir();
     test_add();
     test_if_else();
     test_text_return_transfer();
@@ -1013,5 +1030,6 @@ int main(void) {
     puts("C emitter tests OK");
     return 0;
 }
+
 
 

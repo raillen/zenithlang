@@ -107,6 +107,7 @@ static void test_manifest_parse(void) {
         "target = \"native\"\n"
         "output = \"build\"\n"
         "profile = \"release\"\n"
+        "monomorphization_limit = 2048\n"
         "\n"
         "[test]\n"
         "root = \"spec\"\n"
@@ -132,6 +133,7 @@ static void test_manifest_parse(void) {
     ASSERT_STR_EQ(result.manifest.build_target, "native", "manifest build target");
     ASSERT_STR_EQ(result.manifest.build_output, "build", "manifest build output");
     ASSERT_STR_EQ(result.manifest.build_profile, "release", "manifest build profile");
+    ASSERT_TRUE(result.manifest.build_monomorphization_limit == 2048, "manifest build monomorphization limit");
     ASSERT_STR_EQ(result.manifest.test_root, "spec", "manifest test root");
     ASSERT_STR_EQ(result.manifest.zdoc_root, "docs", "manifest zdoc root");
     ASSERT_STR_EQ(result.manifest.output_name, "demo-app", "manifest output_name default");
@@ -184,6 +186,26 @@ static void test_manifest_rejects_invalid_target(void) {
     ASSERT_TRUE(result.code == ZT_PROJECT_INVALID_TARGET, "manifest reports invalid target");
 }
 
+static void test_manifest_rejects_invalid_monomorphization_limit(void) {
+    const char *manifest =
+        "[project]\n"
+        "name = \"demo-app\"\n"
+        "kind = \"app\"\n"
+        "version = \"0.1.0\"\n"
+        "\n"
+        "[source]\n"
+        "root = \"src\"\n"
+        "\n"
+        "[app]\n"
+        "entry = \"app.main\"\n"
+        "\n"
+        "[build]\n"
+        "monomorphization_limit = 0\n";
+    zt_project_parse_result result;
+
+    ASSERT_TRUE(!zt_project_parse_text(manifest, strlen(manifest), &result), "manifest rejects invalid monomorphization limit");
+    ASSERT_TRUE(result.code == ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, "manifest reports invalid monomorphization limit");
+}
 static void test_manifest_rejects_invalid_dependency_spec(void) {
     const char *manifest =
         "[project]\n"
@@ -238,6 +260,7 @@ static void test_manifest_lib_parse(void) {
     ASSERT_TRUE(zt_project_manifest_kind(&result.manifest) == ZT_PROJECT_KIND_LIB, "lib manifest kind");
     ASSERT_STR_EQ(result.manifest.lib_root_namespace, "demo_lib", "manifest lib root namespace");
     ASSERT_STR_EQ(result.manifest.entry, "demo_lib", "manifest lib internal entry");
+    ASSERT_TRUE(result.manifest.build_monomorphization_limit == ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT, "manifest default monomorphization limit");
 }
 
 static void test_entry_resolution(void) {
@@ -358,6 +381,7 @@ int main(void) {
     test_manifest_parse();
     test_manifest_rejects_unknown_legacy_key();
     test_manifest_rejects_invalid_target();
+    test_manifest_rejects_invalid_monomorphization_limit();
     test_manifest_rejects_invalid_dependency_spec();
     test_manifest_lib_requires_root_namespace();
     test_manifest_lib_parse();

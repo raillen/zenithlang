@@ -23,8 +23,8 @@ static int tests_passed = 0;
 
 #define ASSERT_NO_PARSE_ERRORS(result, msg) do { \
     tests_run++; \
-    if ((result).error_count == 0) { tests_passed++; } \
-    else { fprintf(stderr, "FAIL: %s: parse errors=%zu\n", msg, (result).error_count); } \
+    if ((result).diagnostics.count == 0) { tests_passed++; } \
+    else { fprintf(stderr, "FAIL: %s: parse errors=%zu\n", msg, (result).diagnostics.count); } \
 } while(0)
 
 #define ASSERT_NO_BIND_ERRORS(result, msg) do { \
@@ -213,6 +213,33 @@ static void test_unresolved_qualified_type_prefix(void) {    zt_arena test_arena
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_match_payload_bindings_resolved(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Shape\n"
+        "    Circle(radius: int)\n"
+        "    Point\n"
+        "end\n"
+        "func demo(shape: Shape) -> int\n"
+        "    match shape\n"
+        "        case Shape.Circle(r)\n"
+        "            return r\n"
+        "        case Shape.Point\n"
+        "            return 0\n"
+        "    end\n"
+        "end";
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "match_payload_bindings_resolved parse");
+    zt_bind_result bound = zt_bind_file(parsed.root);
+    ASSERT_NO_BIND_ERRORS(bound, "match_payload_bindings_resolved bind");
+    zt_bind_result_dispose(&bound);
+    zt_parser_result_dispose(&parsed);
+}
 int main(void) {
     test_simple_bind_ok();
     test_duplicate_top_level();
@@ -223,6 +250,7 @@ int main(void) {
     test_it_resolution_in_where();
     test_duplicate_import_alias();
     test_unresolved_qualified_type_prefix();
+    test_match_payload_bindings_resolved();
 
     printf("Binder tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

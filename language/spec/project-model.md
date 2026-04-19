@@ -30,6 +30,7 @@ entry = "app.main"
 target = "native"
 output = "build"
 profile = "debug"
+monomorphization_limit = 1024
 
 [test]
 root = "tests"
@@ -45,7 +46,7 @@ Rules:
 - app projects require `[app] entry`
 - `app.entry` points to a namespace containing `func main()`
 - `source.root` is required
-- build defaults are `target = "native"`, `output = "build"` and `profile = "debug"`
+- build defaults are `target = "native"`, `output = "build"`, `profile = "debug"` and `monomorphization_limit = 1024`
 - accepted MVP profiles are `debug` and `release`
 - `test.root` defaults to `tests`
 - `zdoc.root` defaults to `zdoc`
@@ -68,6 +69,7 @@ root_namespace = "text_utils"
 target = "native"
 output = "build"
 profile = "debug"
+monomorphization_limit = 1024
 
 [test]
 root = "tests"

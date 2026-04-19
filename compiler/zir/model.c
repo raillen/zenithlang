@@ -906,6 +906,32 @@ zir_struct_decl zir_make_struct_decl(const char *name, const zir_field_decl *fie
     return struct_decl;
 }
 
+zir_enum_variant_field_decl zir_make_enum_variant_field_decl(const char *name, const char *type_name) {
+    zir_enum_variant_field_decl field_decl;
+    field_decl.name = name;
+    field_decl.type_name = type_name;
+    field_decl.span = zir_make_span(NULL, 0, 0);
+    return field_decl;
+}
+
+zir_enum_variant_decl zir_make_enum_variant_decl(const char *name, const zir_enum_variant_field_decl *fields, size_t field_count) {
+    zir_enum_variant_decl variant_decl;
+    variant_decl.name = name;
+    variant_decl.fields = fields;
+    variant_decl.field_count = field_count;
+    variant_decl.span = zir_make_span(NULL, 0, 0);
+    return variant_decl;
+}
+
+zir_enum_decl zir_make_enum_decl(const char *name, const zir_enum_variant_decl *variants, size_t variant_count) {
+    zir_enum_decl enum_decl;
+    enum_decl.name = name;
+    enum_decl.variants = variants;
+    enum_decl.variant_count = variant_count;
+    enum_decl.span = zir_make_span(NULL, 0, 0);
+    return enum_decl;
+}
+
 zir_function zir_make_function(const char *name, const zir_param *params, size_t param_count, const char *return_type, const zir_block *blocks, size_t block_count) {
     zir_function function_decl;
     function_decl.name = name;
@@ -930,9 +956,25 @@ zir_module zir_make_module_with_structs(const char *name, const zir_struct_decl 
     module_decl.name = name;
     module_decl.structs = structs;
     module_decl.struct_count = struct_count;
+    module_decl.enums = NULL;
+    module_decl.enum_count = 0;
     module_decl.functions = functions;
     module_decl.function_count = function_count;
     module_decl.span = zir_make_span(NULL, 0, 0);
+    return module_decl;
+}
+
+zir_module zir_make_module_with_decls(
+        const char *name,
+        const zir_struct_decl *structs,
+        size_t struct_count,
+        const zir_enum_decl *enums,
+        size_t enum_count,
+        const zir_function *functions,
+        size_t function_count) {
+    zir_module module_decl = zir_make_module_with_structs(name, structs, struct_count, functions, function_count);
+    module_decl.enums = enums;
+    module_decl.enum_count = enum_count;
     return module_decl;
 }
 
@@ -986,6 +1028,26 @@ void zir_struct_decl_dispose_owned(zir_struct_decl *struct_decl) {
     memset(struct_decl, 0, sizeof(*struct_decl));
 }
 
+void zir_enum_decl_dispose_owned(zir_enum_decl *enum_decl) {
+    size_t i;
+    zir_enum_variant_decl *variants;
+    if (enum_decl == NULL) return;
+    free((void *)enum_decl->name);
+    variants = (zir_enum_variant_decl *)enum_decl->variants;
+    for (i = 0; i < enum_decl->variant_count; i++) {
+        size_t j;
+        zir_enum_variant_field_decl *fields = (zir_enum_variant_field_decl *)variants[i].fields;
+        free((void *)variants[i].name);
+        for (j = 0; j < variants[i].field_count; j++) {
+            free((void *)fields[j].name);
+            free((void *)fields[j].type_name);
+        }
+        free(fields);
+    }
+    free(variants);
+    memset(enum_decl, 0, sizeof(*enum_decl));
+}
+
 void zir_function_dispose_owned(zir_function *function_decl) {
     size_t i;
     zir_param *params;
@@ -1011,12 +1073,16 @@ void zir_function_dispose_owned(zir_function *function_decl) {
 void zir_module_dispose_owned(zir_module *module_decl) {
     size_t i;
     zir_struct_decl *structs;
+    zir_enum_decl *enums;
     zir_function *functions;
     if (module_decl == NULL) return;
     free((void *)module_decl->name);
     structs = (zir_struct_decl *)module_decl->structs;
     for (i = 0; i < module_decl->struct_count; i++) zir_struct_decl_dispose_owned(&structs[i]);
     free(structs);
+    enums = (zir_enum_decl *)module_decl->enums;
+    for (i = 0; i < module_decl->enum_count; i++) zir_enum_decl_dispose_owned(&enums[i]);
+    free(enums);
     functions = (zir_function *)module_decl->functions;
     for (i = 0; i < module_decl->function_count; i++) zir_function_dispose_owned(&functions[i]);
     free(functions);

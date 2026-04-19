@@ -63,6 +63,7 @@ Legend:
 | `multifile_duplicate_symbol` | Duplicate effective symbol rejection |
 | `multifile_import_cycle` | Import cycle rejection |
 | `project_unknown_key_manifest` | Manifest unknown key diagnostic (`project.*`) |
+| `monomorphization_limit_error` | Monomorphization gate diagnostic when generic instantiations exceed `build.monomorphization_limit` |
 | `mutability_const_reassign_error` | Const reassignment mutability diagnostic |
 | `result_optional_propagation_error` | `?` propagation rejected outside `result<T,E>` return context |
 | `runtime_index_error` | Runtime index diagnostic from C runtime guard |
@@ -77,7 +78,7 @@ These forms remain accepted language direction but are not in the M16 executable
 - Generic collection iteration beyond the C backend combinations already covered by behavior tests.
 - Optional `?` propagation and expression-level unwrap outside the current `result<T,E>` const/var initialization subset.
 - Full generic monomorphization beyond the current checked semantic model.
-- Enum value construction and exhaustive enum matching in generated C.
+- Enum value construction and exhaustive enum matching in generated C (semantic coverage exists in `tests/semantic`; check path is validated with fixtures `tests/behavior/enum_match` / `tests/behavior/enum_match_non_exhaustive_error`; full build E2E remains blocked while `compiler/zir/lowering/from_hir.c` is a stub in source).
 - Broader stdlib-facing collection APIs beyond the current compiler intrinsic `len(...)`.
 
 

@@ -1,4 +1,5 @@
 #include "compiler/semantic/diagnostics/diagnostics.h"
+#include "compiler/utils/l10n.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -132,6 +133,8 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_PROJECT_INVALID_PROFILE: return "project_invalid_profile";
         case ZT_DIAG_PROJECT_PATH_TOO_LONG: return "project_path_too_long";
         case ZT_DIAG_PROJECT_TOO_MANY_DEPENDENCIES: return "project_too_many_dependencies";
+        case ZT_DIAG_PROJECT_INVALID_MONOMORPHIZATION_LIMIT: return "project_invalid_monomorphization_limit";
+        case ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED: return "project_monomorphization_limit_exceeded";
         case ZT_DIAG_ZIR_PARSE_ERROR: return "zir_parse_error";
         case ZT_DIAG_ZIR_VERIFY_ERROR: return "zir_verify_error";
         case ZT_DIAG_BACKEND_C_EMIT_ERROR: return "backend_c_emit_error";
@@ -188,6 +191,8 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_PROJECT_INVALID_PROFILE: return "project.invalid_profile";
         case ZT_DIAG_PROJECT_PATH_TOO_LONG: return "project.path_too_long";
         case ZT_DIAG_PROJECT_TOO_MANY_DEPENDENCIES: return "project.too_many_dependencies";
+        case ZT_DIAG_PROJECT_INVALID_MONOMORPHIZATION_LIMIT: return "project.invalid_monomorphization_limit";
+        case ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED: return "project.monomorphization_limit_exceeded";
         case ZT_DIAG_ZIR_PARSE_ERROR: return "zir.parse";
         case ZT_DIAG_ZIR_VERIFY_ERROR: return "zir.verify";
         case ZT_DIAG_BACKEND_C_EMIT_ERROR: return "backend.c.emit";
@@ -228,6 +233,9 @@ const char *zt_diag_code_stable(zt_diag_code code) {
 }
 
 const char *zt_diag_default_help(zt_diag_code code) {
+    const char *localized = zt_l10n_default_help(code);
+    if (localized != NULL) return localized;
+
     switch (code) {
         case ZT_DIAG_PROJECT_ERROR: return "Check the zenith.ztproj file for errors.";
         case ZT_DIAG_PROJECT_IMPORT_CYCLE: return "Refactor dependencies to eliminate circular imports.";
@@ -245,6 +253,8 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_PROJECT_INVALID_PROFILE: return "Set build.profile to debug or release.";
         case ZT_DIAG_PROJECT_PATH_TOO_LONG: return "Shorten manifest paths or project root path length.";
         case ZT_DIAG_PROJECT_TOO_MANY_DEPENDENCIES: return "Reduce dependencies or increase parser limits.";
+        case ZT_DIAG_PROJECT_INVALID_MONOMORPHIZATION_LIMIT: return "Set build.monomorphization_limit to a positive integer.";
+        case ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED: return "Reduce generic combinations or raise build.monomorphization_limit.";
         case ZT_DIAG_ZIR_PARSE_ERROR: return "Check ZIR syntax and block/function structure around the reported line.";
         case ZT_DIAG_ZIR_VERIFY_ERROR: return "Fix invalid SSA/control-flow invariants in the generated or handwritten ZIR.";
         case ZT_DIAG_BACKEND_C_EMIT_ERROR: return "Adjust unsupported constructs or types before C emission.";
@@ -285,13 +295,7 @@ const char *zt_diag_default_help(zt_diag_code code) {
 }
 
 const char *zt_diag_severity_name(zt_diag_severity severity) {
-    switch (severity) {
-        case ZT_DIAG_SEVERITY_ERROR: return "error";
-        case ZT_DIAG_SEVERITY_WARNING: return "warning";
-        case ZT_DIAG_SEVERITY_NOTE: return "note";
-        case ZT_DIAG_SEVERITY_HELP: return "help";
-        default: return "error";
-    }
+    return zt_l10n_severity_name(severity);
 }
 
 zt_diag_list zt_diag_list_make(void) {
@@ -364,30 +368,57 @@ void zt_diag_list_add_severity(
     zt_diag_list_add_va(list, code, severity, span, format, args);
     va_end(args);
 }
+#define ANSI_RED     "\x1b[1;31m"
+#define ANSI_GREEN   "\x1b[1;32m"
+#define ANSI_YELLOW  "\x1b[1;33m"
+#define ANSI_BLUE    "\x1b[1;34m"
+#define ANSI_CYAN    "\x1b[1;36m"
+#define ANSI_RESET   "\x1b[0m"
+
 void zt_diag_render_detailed(FILE *stream, const char *stage, const zt_diag *diag) {
     const char *help;
     char source_line[1024];
+    int use_color = 1; /* For simple MVP, enable colors. In production we'd check isatty. */
 
     if (stream == NULL || diag == NULL) return;
 
-    fprintf(stream, "%s[%s]\n", zt_diag_severity_name(diag->severity), zt_diag_code_stable(diag->code));
+    /* Header: Severity[code] */
+    const char *sev_color = (diag->severity == ZT_DIAG_SEVERITY_ERROR) ? ANSI_RED : ANSI_YELLOW;
+    if (use_color) fprintf(stream, "%s", sev_color);
+    fprintf(stream, "%s", zt_diag_severity_name(diag->severity));
+    if (use_color) fprintf(stream, ANSI_CYAN);
+    fprintf(stream, "[%s]\n", zt_diag_code_stable(diag->code));
+    if (use_color) fprintf(stream, ANSI_RESET);
+
+    /* Main message */
     fprintf(stream, "%s\n", diag->message);
 
-    fprintf(stream, "\nwhere\n  ");
+    /* Where section */
+    if (use_color) fprintf(stream, "\n" ANSI_BLUE "%s" ANSI_RESET "\n  ", zt_l10n_label_where());
+    else fprintf(stream, "\n%s\n  ", zt_l10n_label_where());
     zt_diag_print_source_span(stream, diag->span);
 
+    /* Source code and Caret section */
     if (diag->span.source_name != NULL && zt_diag_read_source_line(diag->span.source_name, diag->span.line, source_line, sizeof(source_line))) {
-        fprintf(stream, "\n\ncode\n  %zu | %s\n", diag->span.line, source_line);
+        if (use_color) fprintf(stream, "\n\n" ANSI_BLUE "%s" ANSI_RESET "\n  %zu | %s\n", zt_l10n_label_code(), diag->span.line, source_line);
+        else fprintf(stream, "\n\n%s\n  %zu | %s\n", zt_l10n_label_code(), diag->span.line, source_line);
+        
+        if (use_color) fprintf(stream, ANSI_RED);
         zt_diag_render_caret(stream, diag->span);
+        if (use_color) fprintf(stream, ANSI_RESET);
     }
 
+    /* Note section */
     if (stage != NULL && stage[0] != '\0') {
-        fprintf(stream, "\nnote\n  stage: %s\n", stage);
+        if (use_color) fprintf(stream, "\n" ANSI_CYAN "%s" ANSI_RESET "\n  stage: %s\n", zt_l10n_label_note(), stage);
+        else fprintf(stream, "\n%s\n  stage: %s\n", zt_l10n_label_note(), stage);
     }
 
+    /* Help section */
     help = zt_diag_default_help(diag->code);
     if (help != NULL && help[0] != '\0') {
-        fprintf(stream, "\nhelp\n  %s\n", help);
+        if (use_color) fprintf(stream, "\n" ANSI_GREEN "%s" ANSI_RESET "\n  %s\n", zt_l10n_label_help(), help);
+        else fprintf(stream, "\n%s\n  %s\n", zt_l10n_label_help(), help);
     }
 
     fprintf(stream, "\n");

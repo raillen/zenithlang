@@ -142,7 +142,7 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
         case ZT_AST_IDENT_EXPR:
             symbol = zt_scope_lookup(scope, node->as.ident_expr.name);
             if (symbol == NULL) {
-                zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "unresolved name '%s'", node->as.ident_expr.name);
+                zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "unresolved name '%s' (from expression)", node->as.ident_expr.name);
             }
             break;
         case ZT_AST_BINARY_EXPR:
@@ -204,37 +204,44 @@ static void zt_bind_match_pattern(zt_binder *binder, const zt_ast_node *pattern,
     size_t i;
     if (pattern == NULL) return;
 
-    switch (pattern->kind) {
-        case ZT_AST_CALL_EXPR:
-            /* VariantName(binding) pattern */
-            /* We don't bind the callee (VariantName) because it will be handled by the typechecker
-               as a variant name. But we DO bind the arguments as new locals in the case scope. */
-            for (i = 0; i < pattern->as.call_expr.positional_args.count; i++) {
-                const zt_ast_node *arg = pattern->as.call_expr.positional_args.items[i];
+    if (pattern->kind == ZT_AST_CALL_EXPR) {
+        /* VariantName(binding) pattern */
+        /* Resolve callee */
+        zt_bind_expression(binder, pattern->as.call_expr.callee, case_scope);
+        
+        /* Bind arguments as locals */
+        for (i = 0; i < pattern->as.call_expr.positional_args.count; i++) {
+            const zt_ast_node *arg = pattern->as.call_expr.positional_args.items[i];
+            if (arg != NULL) {
                 if (arg->kind == ZT_AST_IDENT_EXPR) {
                     zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, arg->as.ident_expr.name, arg->span, 0);
                 } else {
-                    /* Nested pattern? Not supported in MVP but let's recurse */
                     zt_bind_match_pattern(binder, arg, case_scope);
                 }
             }
-            break;
-        case ZT_AST_IDENT_EXPR:
-            /* Could be a variant name or a simple binding. 
-               If it's not a known variant, it's a binding. 
-               But binder doesn't know enums yet. 
-               Strategy: if it's not found in outer scope, declare it. */
-            {
-                zt_symbol *existing = zt_scope_lookup(case_scope, pattern->as.ident_expr.name);
-                if (existing == NULL) {
-                    zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, pattern->as.ident_expr.name, pattern->span, 0);
-                }
-            }
-            break;
-        default:
-            /* Literais etc. don't introduce bindings */
-            break;
+        }
+        return;
     }
+
+    if (pattern->kind == ZT_AST_FIELD_EXPR) {
+        /* Enum.Variant pattern (no payload) -> resolve it */
+        zt_bind_expression(binder, pattern, case_scope);
+        return;
+    }
+
+    if (pattern->kind == ZT_AST_IDENT_EXPR) {
+        /* Could be a variant name (resolve) or a binding (declare) */
+        zt_symbol *existing = zt_scope_lookup(case_scope, pattern->as.ident_expr.name);
+        if (existing != NULL) {
+            zt_bind_expression(binder, pattern, case_scope);
+        } else {
+            zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, pattern->as.ident_expr.name, pattern->span, 0);
+        }
+        return;
+    }
+
+    /* Literals etc: check normally */
+    zt_bind_expression(binder, pattern, case_scope);
 }
 
 static void zt_bind_statement(zt_binder *binder, const zt_ast_node *node, zt_scope *scope) {

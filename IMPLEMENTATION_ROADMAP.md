@@ -834,6 +834,10 @@ Dependencias: M21.
 
 Status: concluido para o corte inicial bootstrap.
 
+Pendencias pos-MVP deste tema foram extraidas para `M35` (Concurrency/FFI/Dyn Dispatch), mantendo M24 fechado para o corte bootstrap.
+
+
+
 Objetivo: tornar RC, COW, temporarios, cleanup e custos do backend C confiaveis para value semantics e programas maiores.
 
 Escopo minimo:
@@ -859,12 +863,16 @@ Escopo minimo:
 - implementar canonical type keys para monomorfizacao
 - implementar cache/deduplicacao de instancias monomorfizadas
 - criar diagnostico ou build report para explosao de monomorfizacao
+- progresso: gate de monomorfizacao ativo no driver via `build.monomorphization_limit`, com diagnosticos `project.invalid_monomorphization_limit` e `project.monomorphization_limit_exceeded`.
 
 Dependencias: M21; recomendado antes de expandir stdlib pesada.
 
 ## M25. Value semantics conformance
 
 Status: concluido para o corte inicial bootstrap.
+
+Pendencia bloqueada herdada de M24 foi extraida para `M35`: behavior de colecao heterogenea por iterador `dyn Trait` (junto da implementacao de dispatch dinamico no backend C).
+
 
 Objetivo: provar em behavior tests que copia semantica nao vaza mutacao compartilhada.
 
@@ -912,7 +920,7 @@ Dependencias: M23 e M24.
 
 ## M27. Enums com payload e match forte
 
-Status: em andamento (AST/HIR + lowering ZIR + layout C tagged union fechados).
+Status: concluido no source e no pipeline E2E (binder/typechecker/HIR + lowering ZIR + backend C + behavior checks).
 
 Objetivo: fechar modelagem de estados sem POO classica.
 
@@ -930,7 +938,9 @@ Escopo minimo:
 - progresso: parser/AST e HIR agora preservam declaracoes `enum` com variantes e payload nomeado/posicional.
 - progresso: lowering ZIR de enum payload implementado e validado por teste dedicado (`tests/zir/test_enum_lowering.c`).
 - progresso: emissao C de layout tagged union implementada e validada por teste dedicado (`tests/targets/c/test_enum_payload.c`).
-- pendente: construtores qualificados, match por case de enum com binding de payload, e exaustividade de match.
+- progresso: cobertura semantica de enum/match reforcada em `tests/semantic/test_types.c` e binder em `tests/semantic/test_binder.c`.
+- fechado no source: construtores qualificados, match por case de enum com binding de payload, `case default` validado (duplicado/fora da posicao final), e exaustividade em enum conhecido sem default via `ZT_DIAG_NON_EXHAUSTIVE_MATCH`.
+- progresso: `compiler/zir/lowering/from_hir.c` saiu do stub e voltou a baixar `enum`/`match` (incluindo payload binding) no caminho real de build; `tests/behavior/enum_match` voltou a validar em `zt check`.
 
 Dependencias: M24.
 
@@ -1053,7 +1063,7 @@ Dependencias: M21-M31.
 
 ## M33. Implementacao das Stdlibs MVP
 
-Status: bloqueado aguardando definicao fina do runtime (M24, M26, M27).
+Status: bloqueado aguardando definicao fina do runtime (M24, M26).
 
 Objetivo: Fornecer os modulos da biblioteca padrao (alem da base de bytes/utf-8 iniciada em M19), fundamentados num backend e runtime estaveis. As decisoes de design destas APIs ja estao fechadas e documentadas em `language/decisions/`.
 
@@ -1074,8 +1084,50 @@ Escopo minimo:
 - Criar behavior tests para cada modulo
 - Validar ownership ARC em cada implementacao
 
-Dependencias: M24 (ARC nao-atomico para buffers e resources), M26 (Runtime where contracts para `std.validate`) e M27 (Enums com payload para `Result<T, Error>`).
+Dependencias: M24 (ARC nao-atomico para buffers e resources) e M26 (Runtime where contracts para `std.validate`).
 
+## M34. Cognitive Accessibility by Design
+
+Status: iniciado (spec consolidada em `language/spec/cognitive-accessibility.md`).
+
+Objetivo: transformar diretrizes de acessibilidade cognitiva em comportamento observavel no toolchain.
+
+Escopo minimo:
+
+- manter `language/spec/cognitive-accessibility.md` como referencia canonica de acessibilidade cognitiva
+- manter fontes de pesquisa e nivel de evidencia atualizados dentro do spec
+- implementar perfis de diagnostico (`beginner`, `balanced`, `full`) no fluxo principal de `zt check` e `zt build`
+- implementar formato de diagnostico action-first (`ACTION`, `WHY`, `NEXT`)
+- implementar hints de esforco opcionais (`quick fix`, `moderate`, `requires thinking`)
+- implementar checks de nomes confundiveis com sugestao ativa para `name.unresolved`
+- implementar retomada de contexto com `zt summary`/`zt resume`
+- implementar reducao de ruido com `zt check --focus` e `zt check --since`
+- definir e medir metricas de impacto com coleta opt-in
+
+Dependencias: M23 e M30.
+
+Pode rodar em paralelo:
+
+- M33 (stdlibs)
+- M32 (matriz de conformidade final)
+
+
+
+## M35. Concurrency/FFI/Dyn Dispatch
+
+Status: planejado (post-MVP).
+
+Objetivo: fechar recursos de concorrencia, interoperabilidade FFI e dispatch dinamico que ficaram explicitamente fora do corte bootstrap de M24/M25.
+
+Escopo minimo:
+
+- implementar isolamento estrito de threads com deep-copy entre fronteiras
+- esbocar e validar wrapper `Shared<T>` para casos raros de ARC atomico explicito
+- implementar e baixar `dyn Trait` (fat pointers) para colecoes heterogeneas
+- automatizar blindagem de referencias C contra ARC durante blocos FFI `extern("C")`
+- criar behavior test para colecao heterogenea baseada em iterador `dyn Trait`
+
+Dependencias: M24, M25, M32.
 
 ## Ordem recomendada (execucao pratica)
 
@@ -1111,8 +1163,10 @@ Dependencias: M24 (ARC nao-atomico para buffers e resources), M26 (Runtime where
 30. `M22`
 31. `M30`
 32. `M31`
-33. `M33`
-34. `M32`
+33. `M34`
+34. `M33`
+35. `M32`
+36. `M35`
 
 Justificativa curta: diagnostics e runtime precisam fechar antes de formatter, CLI e ZDoc para evitar retrabalho estrutural.
 

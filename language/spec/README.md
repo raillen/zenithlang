@@ -31,6 +31,7 @@ These spec files are the implementation-facing reference used after the design c
 ## Supporting Documents
 
 - `legibility-evaluation.md`: protocol for validating reading-first legibility, metrics, tasks, approval criteria and release gates.
+- `cognitive-accessibility.md`: design principles and tooling proposals for ADHD, Dyslexia, Autism and neurodiversity.
 
 ## Reading Order
 
@@ -48,6 +49,7 @@ These spec files are the implementation-facing reference used after the design c
 12. `implementation-status.md`
 13. `decision-conflict-audit.md`
 14. `legibility-evaluation.md`
+15. `cognitive-accessibility.md`
 
 ## Relationship To Decisions
 

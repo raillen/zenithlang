@@ -56,7 +56,11 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 - `multifile_missing_import/`: projeto invalido. Deve falhar quando um import nao existe em `source.root`.
 - `multifile_namespace_mismatch/`: projeto invalido. Deve falhar quando `namespace` nao corresponde ao caminho do arquivo.
 - `multifile_duplicate_symbol/`: projeto invalido. Deve falhar quando dois arquivos geram o mesmo simbolo efetivo no programa agregado.
+- `monomorphization_limit_error/`: projeto invalido. Deve falhar no gate de monomorfizacao quando `build.monomorphization_limit` ficar abaixo das instancias genericas reais.
 - `where_contracts_ok/`: projeto valido. Exercita contratos `where` em parametro, construcao de `struct` e atribuicao de campo.
 - `where_contract_param_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em parametro.
 - `where_contract_construct_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em construcao de `struct`.
 - `where_contract_field_assign_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em atribuicao de campo.
+
+- `enum_match/`: fixture de comportamento para enum com payload + match com binding de payload (check semantico OK; build E2E bloqueado pelo stub de lowering HIR->ZIR no source atual).
+- `enum_match_non_exhaustive_error/`: fixture invalida para diagnostico de match nao exaustivo em enum conhecido.

@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <limits.h>
 
 typedef enum zt_project_section {
     ZT_PROJECT_SECTION_NONE = 0,
@@ -218,6 +220,52 @@ static int zt_project_parse_string_value(
     return 0;
 }
 
+static int zt_project_parse_positive_size_value(
+        const char *value_text,
+        size_t *dest,
+        zt_project_parse_result *result,
+        int line_number) {
+    char *end = NULL;
+    unsigned long long parsed = 0;
+    const char *cursor;
+
+    if (dest == NULL) {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_INPUT, line_number, "destination numeric buffer is invalid");
+        return 0;
+    }
+
+    cursor = zt_project_trim_left(value_text);
+    if (*cursor == '\0') {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, line_number, "build.monomorphization_limit must be a positive integer");
+        return 0;
+    }
+
+    if (*cursor == '"') {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, line_number, "build.monomorphization_limit must be a numeric value without quotes");
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtoull(cursor, &end, 10);
+    if (errno != 0 || end == cursor) {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, line_number, "build.monomorphization_limit must be a positive integer");
+        return 0;
+    }
+
+    end = (char *)zt_project_trim_left(end);
+    if (*end != '\0') {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, line_number, "unexpected characters after build.monomorphization_limit");
+        return 0;
+    }
+
+    if (parsed == 0 || parsed > (unsigned long long)SIZE_MAX) {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT, line_number, "build.monomorphization_limit must be in range 1..SIZE_MAX");
+        return 0;
+    }
+
+    *dest = (size_t)parsed;
+    return 1;
+}
 static zt_project_section zt_project_section_from_name(const char *name) {
     if (strcmp(name, "project") == 0) return ZT_PROJECT_SECTION_PROJECT;
     if (strcmp(name, "source") == 0) return ZT_PROJECT_SECTION_SOURCE;
@@ -406,6 +454,7 @@ static int zt_project_assign_value(
         if (strcmp(key, "name") == 0) return zt_project_parse_string_value(value, manifest->project_name, sizeof(manifest->project_name), result, line_number);
         if (strcmp(key, "kind") == 0) return zt_project_parse_string_value(value, manifest->project_kind, sizeof(manifest->project_kind), result, line_number);
         if (strcmp(key, "version") == 0) return zt_project_parse_string_value(value, manifest->version, sizeof(manifest->version), result, line_number);
+        if (strcmp(key, "lang") == 0) return zt_project_parse_string_value(value, manifest->lang, sizeof(manifest->lang), result, line_number);
         zt_project_set_unknown_key(result, section, key, line_number);
         return 0;
     }
@@ -432,6 +481,7 @@ static int zt_project_assign_value(
         if (strcmp(key, "target") == 0) return zt_project_parse_string_value(value, manifest->build_target, sizeof(manifest->build_target), result, line_number);
         if (strcmp(key, "output") == 0) return zt_project_parse_string_value(value, manifest->build_output, sizeof(manifest->build_output), result, line_number);
         if (strcmp(key, "profile") == 0) return zt_project_parse_string_value(value, manifest->build_profile, sizeof(manifest->build_profile), result, line_number);
+        if (strcmp(key, "monomorphization_limit") == 0) return zt_project_parse_positive_size_value(value, &manifest->build_monomorphization_limit, result, line_number);
         zt_project_set_unknown_key(result, section, key, line_number);
         return 0;
     }
@@ -549,6 +599,10 @@ static int zt_project_validate(zt_project_parse_result *result) {
         return 0;
     }
 
+    if (manifest->build_monomorphization_limit == 0) {
+        manifest->build_monomorphization_limit = ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT;
+    }
+
     if (manifest->test_root[0] == '\0') {
         if (!zt_project_copy_default(result, manifest->test_root, sizeof(manifest->test_root), "tests", "test.root")) return 0;
     }
@@ -590,6 +644,7 @@ const char *zt_project_error_code_name(zt_project_error_code code) {
         case ZT_PROJECT_INVALID_KIND: return "project.invalid_kind";
         case ZT_PROJECT_INVALID_TARGET: return "project.invalid_target";
         case ZT_PROJECT_INVALID_PROFILE: return "project.invalid_profile";
+        case ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT: return "project.invalid_monomorphization_limit";
         case ZT_PROJECT_PATH_TOO_LONG: return "project.path_too_long";
         case ZT_PROJECT_TOO_MANY_DEPENDENCIES: return "project.too_many_dependencies";
         default: return "project.unknown_error";

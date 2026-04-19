@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #define ZT_PROJECT_MAX_DEPENDENCIES 64
+#define ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT 1024u
 
 typedef enum zt_project_error_code {
     ZT_PROJECT_OK = 0,
@@ -20,6 +21,7 @@ typedef enum zt_project_error_code {
     ZT_PROJECT_INVALID_KIND,
     ZT_PROJECT_INVALID_TARGET,
     ZT_PROJECT_INVALID_PROFILE,
+    ZT_PROJECT_INVALID_MONOMORPHIZATION_LIMIT,
     ZT_PROJECT_PATH_TOO_LONG,
     ZT_PROJECT_TOO_MANY_DEPENDENCIES
 } zt_project_error_code;
@@ -39,6 +41,7 @@ typedef struct zt_project_manifest {
     char project_name[128];
     char project_kind[16];
     char version[64];
+    char lang[16];
 
     char source_root[256];
     char test_root[256];
@@ -50,6 +53,7 @@ typedef struct zt_project_manifest {
     char build_target[32];
     char build_profile[32];
     char build_output[256];
+    size_t build_monomorphization_limit;
 
     size_t dependency_count;
     zt_project_dependency_entry dependencies[ZT_PROJECT_MAX_DEPENDENCIES];

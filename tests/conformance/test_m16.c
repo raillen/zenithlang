@@ -319,6 +319,7 @@ int main(void) {
         { "tests/behavior/multifile_duplicate_symbol", "multifile_duplicate_symbol", "build", "tests/fixtures/diagnostics/multifile_duplicate_symbol.contains.txt" },
         { "tests/behavior/multifile_import_cycle", "multifile_import_cycle", "build", "tests/fixtures/diagnostics/multifile_import_cycle.contains.txt" },
         { "tests/behavior/project_unknown_key_manifest", "project_unknown_key_manifest", "verify", "tests/fixtures/diagnostics/project_unknown_key_manifest.contains.txt" },
+        { "tests/behavior/monomorphization_limit_error", "monomorphization_limit_error", "verify", "tests/fixtures/diagnostics/monomorphization_limit_error.contains.txt" },
         { "tests/behavior/mutability_const_reassign_error", "mutability_const_reassign_error", "verify", "tests/fixtures/diagnostics/mutability_const_reassign.contains.txt" },
         { "tests/behavior/result_optional_propagation_error", "result_optional_propagation_error", "verify", "tests/fixtures/diagnostics/result_optional_propagation.contains.txt" },
         { "tests/behavior/runtime_index_error --run", "runtime_index_error", "build", "tests/fixtures/diagnostics/runtime_index_error.contains.txt" },

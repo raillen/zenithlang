@@ -37,7 +37,17 @@ static int tests_passed = 0;
     } \
 } while(0)
 
-static void test_const_reassignment_rejected(void) {    zt_arena test_arena;
+static int has_diag_code(const zt_check_result *checked, zt_diag_code code) {
+    size_t i;
+    if (checked == NULL) return 0;
+    for (i = 0; i < checked->diagnostics.count; i++) {
+        if (checked->diagnostics.items[i].code == code) return 1;
+    }
+    return 0;
+}
+
+static void test_const_reassignment_rejected(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -57,7 +67,8 @@ static void test_const_reassignment_rejected(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_optional_none_return_ok(void) {    zt_arena test_arena;
+static void test_optional_none_return_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -75,7 +86,8 @@ static void test_optional_none_return_ok(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_result_success_error_ok(void) {    zt_arena test_arena;
+static void test_result_success_error_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -96,7 +108,8 @@ static void test_result_success_error_ok(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_named_args_and_defaults_ok(void) {    zt_arena test_arena;
+static void test_named_args_and_defaults_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -117,7 +130,8 @@ static void test_named_args_and_defaults_ok(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_named_args_out_of_order_rejected(void) {    zt_arena test_arena;
+static void test_named_args_out_of_order_rejected(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -140,12 +154,17 @@ static void test_named_args_out_of_order_rejected(void) {    zt_arena test_arena
 }
 
 static void test_invalid_map_key_type_rejected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
     const char *src =
         "namespace app\n"
         "func demo() -> map<float, text>\n"
         "    return {}\n"
         "end";
-    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, test", src, strlen(src));
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_PARSE_ERRORS(parsed, "invalid_map_key_type_rejected parse");
     zt_check_result checked = zt_check_file(parsed.root);
     ASSERT_EQ((int)checked.diagnostics.count, 1, "invalid_map_key_type_rejected diag count");
@@ -154,7 +173,8 @@ static void test_invalid_map_key_type_rejected(void) {
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_explicit_conversion_rules(void) {    zt_arena test_arena;
+static void test_explicit_conversion_rules(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -184,7 +204,8 @@ static void test_explicit_conversion_rules(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed_bad);
 }
 
-static void test_non_mutating_self_assignment_rejected(void) {    zt_arena test_arena;
+static void test_non_mutating_self_assignment_rejected(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -208,7 +229,8 @@ static void test_non_mutating_self_assignment_rejected(void) {    zt_arena test_
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_integer_overflow_rejected(void) {    zt_arena test_arena;
+static void test_integer_overflow_rejected(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -227,7 +249,8 @@ static void test_integer_overflow_rejected(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_contextual_integer_literal_arithmetic_ok(void) {    zt_arena test_arena;
+static void test_contextual_integer_literal_arithmetic_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -245,7 +268,8 @@ static void test_contextual_integer_literal_arithmetic_ok(void) {    zt_arena te
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_bytes_literal_and_len_ok(void) {    zt_arena test_arena;
+static void test_bytes_literal_and_len_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -266,7 +290,8 @@ static void test_bytes_literal_and_len_ok(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_std_bytes_ops_ok(void) {    zt_arena test_arena;
+static void test_std_bytes_ops_ok(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -294,7 +319,9 @@ static void test_std_bytes_ops_ok(void) {    zt_arena test_arena;
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
-static void test_for_and_match_type_checking(void) {    zt_arena test_arena;
+
+static void test_for_and_match_type_checking(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -332,7 +359,8 @@ static void test_for_and_match_type_checking(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed_bad);
 }
 
-static void test_const_collection_index_mutation_rejected(void) {    zt_arena test_arena;
+static void test_const_collection_index_mutation_rejected(void) {
+    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -352,6 +380,126 @@ static void test_const_collection_index_mutation_rejected(void) {    zt_arena te
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_enum_constructor_and_match_binding_ok(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Shape\n"
+        "    Circle(radius: int)\n"
+        "    Rectangle(width: int, height: int)\n"
+        "    Point\n"
+        "end\n"
+        "func area(shape: Shape) -> int\n"
+        "    match shape\n"
+        "        case Shape.Circle(r)\n"
+        "            return r * r\n"
+        "        case Shape.Rectangle(w, h)\n"
+        "            return w * h\n"
+        "        case Shape.Point\n"
+        "            return 0\n"
+        "    end\n"
+        "end\n"
+        "func make() -> Shape\n"
+        "    return Shape.Circle(radius: 10)\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "enum_constructor_and_match_binding_ok parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_NO_TYPE_ERRORS(checked, "enum_constructor_and_match_binding_ok type");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_enum_match_duplicate_default_rejected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Status\n"
+        "    Ok\n"
+        "    Error\n"
+        "end\n"
+        "func demo(status: Status) -> int\n"
+        "    match status\n"
+        "        case default\n"
+        "            return 1\n"
+        "        case default\n"
+        "            return 2\n"
+        "    end\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "enum_match_duplicate_default_rejected parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_EQ(has_diag_code(&checked, ZT_DIAG_INVALID_ARGUMENT), 1, "enum_match_duplicate_default_rejected code");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_enum_match_default_must_be_last_rejected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Status\n"
+        "    Ok\n"
+        "    Error\n"
+        "end\n"
+        "func demo(status: Status) -> int\n"
+        "    match status\n"
+        "        case default\n"
+        "            return 1\n"
+        "        case Status.Ok\n"
+        "            return 2\n"
+        "    end\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "enum_match_default_must_be_last_rejected parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_EQ(has_diag_code(&checked, ZT_DIAG_INVALID_ARGUMENT), 1, "enum_match_default_must_be_last_rejected code");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_enum_match_non_exhaustive_rejected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Status\n"
+        "    Ok\n"
+        "    Error(message: text)\n"
+        "end\n"
+        "func demo(status: Status) -> int\n"
+        "    match status\n"
+        "        case Status.Ok\n"
+        "            return 1\n"
+        "    end\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "enum_match_non_exhaustive_rejected parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_EQ(has_diag_code(&checked, ZT_DIAG_NON_EXHAUSTIVE_MATCH), 1, "enum_match_non_exhaustive_rejected code");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
 int main(void) {
     test_const_reassignment_rejected();
     test_optional_none_return_ok();
@@ -367,8 +515,11 @@ int main(void) {
     test_std_bytes_ops_ok();
     test_for_and_match_type_checking();
     test_const_collection_index_mutation_rejected();
+    test_enum_constructor_and_match_binding_ok();
+    test_enum_match_duplicate_default_rejected();
+    test_enum_match_default_must_be_last_rejected();
+    test_enum_match_non_exhaustive_rejected();
 
     printf("Type tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
-

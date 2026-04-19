@@ -1,191 +1,222 @@
 """
-Zenith Comprehensive Test Runner
-Runs all available tests and produces a summary report.
+Zenith consolidated test runner.
+
+Goals:
+- Keep output ASCII-only (Windows CP1252 friendly).
+- Separate expected failures by stage (check/build/run).
+- Avoid false negatives caused by mixed expectation modes.
 """
-import os, subprocess, sys, time
+
+import os
+import subprocess
+import sys
+
 
 ZT_EXE = os.path.abspath("zt.exe")
 ZT_OLD = os.path.abspath(os.path.join("compiler", "driver", "zt-next-v2.exe"))
 BEHAVIOR_DIR = os.path.join("tests", "behavior")
 
-results = {"pass": [], "fail": [], "error": [], "skip": []}
+RESULTS = {"pass": [], "fail": [], "skip": []}
 
-def run_test(name, cmd, cwd=".", expect_fail=False):
-    """Run a test command. Returns (passed, output)"""
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15, cwd=cwd)
-        output = (r.stdout + r.stderr).strip()
-        if expect_fail:
-            passed = r.returncode != 0
-        else:
-            passed = r.returncode == 0
-        return passed, output
-    except subprocess.TimeoutExpired:
-        return False, "TIMEOUT"
-    except Exception as e:
-        return False, str(e)
 
 def section(title):
-    print(f"\n{'='*60}")
+    print("\n" + "=" * 60)
     print(f"  {title}")
-    print(f"{'='*60}")
+    print("=" * 60)
 
-# ---- SECTION 1: Compiler Build Verification ----
-section("1. VERIFICAÇÃO DO BUILD DO COMPILADOR")
 
-# Test that zt.exe exists and runs
-if os.path.exists(ZT_EXE):
-    passed, output = run_test("zt.exe exists", [ZT_EXE])
-    # It returns 1 with usage, that's fine
-    print(f"  ✅ zt.exe existe ({os.path.getsize(ZT_EXE)} bytes)")
-    results["pass"].append("compiler_binary_exists")
-else:
-    print(f"  ❌ zt.exe NÃO EXISTE")
-    results["fail"].append("compiler_binary_exists")
+def run_cmd(name, cmd, cwd=".", timeout=30):
+    try:
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
+        )
+        output = (completed.stdout + completed.stderr).strip()
+        return completed.returncode, output
+    except subprocess.TimeoutExpired:
+        return 124, "TIMEOUT"
+    except Exception as exc:  # pragma: no cover - defensive
+        return 125, str(exc)
 
-# Test that it can be rebuilt
-print("  Testando rebuild do compilador...")
-passed, output = run_test("rebuild", [sys.executable, "build.py"])
-if passed and "SUCCESS" in output:
-    print(f"  ✅ Rebuild bem-sucedido")
-    results["pass"].append("compiler_rebuild")
-else:
-    print(f"  ❌ Rebuild falhou: {output[:100]}")
-    results["fail"].append("compiler_rebuild")
 
-# ---- SECTION 2: Behavior Tests with new zt.exe ----
-section("2. BEHAVIOR TESTS (zt.exe compilado)")
-
-behavior_dirs = sorted([d for d in os.listdir(BEHAVIOR_DIR) 
-                        if os.path.isdir(os.path.join(BEHAVIOR_DIR, d))])
-
-# Categorize tests
-expect_error_tests = [
-    "error_syntax", "error_type_mismatch", 
-    "functions_invalid_call_error", "functions_main_signature_error",
-    "multifile_duplicate_symbol", "multifile_import_cycle", 
-    "multifile_missing_import", "multifile_namespace_mismatch",
-    "mutability_const_reassign_error", "project_unknown_key_manifest",
-    "result_optional_propagation_error",
-    "where_contract_construct_error", "where_contract_field_assign_error",
-    "where_contract_param_error"
-]
-
-for test_name in behavior_dirs:
-    test_path = os.path.join(BEHAVIOR_DIR, test_name)
-    ztproj = os.path.join(test_path, "zenith.ztproj")
-    
-    if not os.path.exists(ztproj):
-        results["skip"].append(f"behavior/{test_name}")
-        continue
-    
-    expect_fail = test_name in expect_error_tests
-    passed, output = run_test(test_name, [ZT_EXE, "check", test_path], expect_fail=expect_fail)
-    
-    if expect_fail:
-        if passed:  # returncode != 0, which is expected
-            status = "✅"
-            results["pass"].append(f"behavior/{test_name}")
-        else:
-            status = "⚠️"
-            results["fail"].append(f"behavior/{test_name} (expected error but got success)")
+def mark(passed, key, detail=None):
+    if passed:
+        RESULTS["pass"].append(key)
     else:
-        if passed and "verification ok" in output:
-            status = "✅"
-            results["pass"].append(f"behavior/{test_name}")
-        elif "verification ok" in output:
-            status = "✅"
-            results["pass"].append(f"behavior/{test_name}")
-        else:
-            status = "❌"
-            # Get last meaningful line
-            error_line = ""
-            for line in output.split('\n'):
-                line = line.strip()
-                if line and not line.startswith('where') and not line.startswith('code') and not line.startswith('note'):
-                    error_line = line
-            results["fail"].append(f"behavior/{test_name}")
-    
-    max_len = 45
-    padded = test_name.ljust(max_len)
-    mode = "expect-err" if expect_fail else "check    "
-    print(f"  {status} {padded} [{mode}]")
+        entry = key if detail is None else f"{key}: {detail}"
+        RESULTS["fail"].append(entry)
 
-# ---- SECTION 3: Cross-validation with zt-next-v2.exe ----
-section("3. VALIDAÇÃO CRUZADA (zt-next-v2.exe vs zt.exe)")
 
-if os.path.exists(ZT_OLD):
-    key_tests = ["std_io_basic", "simple_app", "result_question_basic", "optional_result_basic"]
-    for test_name in key_tests:
-        test_path = os.path.join(BEHAVIOR_DIR, test_name)
-        if not os.path.isdir(test_path):
-            continue
-        
-        _, new_out = run_test(f"new-{test_name}", [ZT_EXE, "check", test_path])
-        _, old_out = run_test(f"old-{test_name}", [ZT_OLD, "check", test_path])
-        
-        new_ok = "verification ok" in new_out
-        old_ok = "verification ok" in old_out
-        
-        print(f"  {test_name.ljust(40)} new={'✅' if new_ok else '❌'}  old={'✅' if old_ok else '❌'}")
-        if new_ok:
-            results["pass"].append(f"crossval/{test_name}")
-        else:
-            results["fail"].append(f"crossval/{test_name}")
-else:
-    print("  ⚠️ zt-next-v2.exe não encontrado, pulando validação cruzada")
+def print_behavior_status(name, mode, ok):
+    status = "OK" if ok else "FAIL"
+    print(f"  [{status:<4}] {name.ljust(45)} [{mode}]")
 
-# ---- SECTION 4: C Unit Tests ----
-section("4. UNIT TESTS C (testes unitários compilados)")
 
-c_tests = []
-for root, dirs, files in os.walk("tests"):
-    for f in files:
-        if f.endswith('.exe') and 'test_' in f:
-            c_tests.append(os.path.join(root, f))
+def test_behavior_project(name, path):
+    """
+    Modes:
+    - check-pass: check must pass.
+    - check-fail: check must fail.
+    - build-fail: check must pass, build must fail.
+    - run-fail: check/build must pass, run must fail.
+    """
+    check_fail = {
+        "enum_match_non_exhaustive_error",
+        "error_syntax",
+        "error_type_mismatch",
+        "functions_invalid_call_error",
+        "multifile_duplicate_symbol",
+        "multifile_import_cycle",
+        "multifile_missing_import",
+        "multifile_namespace_mismatch",
+        "mutability_const_reassign_error",
+        "project_unknown_key_manifest",
+        "monomorphization_limit_error",
+    }
 
-if c_tests:
-    for test_exe in sorted(c_tests):
-        name = os.path.basename(test_exe)
-        passed, output = run_test(name, [test_exe])
-        status = "✅" if passed else "❌"
-        print(f"  {status} {name}")
-        if passed:
-            results["pass"].append(f"unit/{name}")
-        else:
-            results["fail"].append(f"unit/{name}")
-else:
-    print("  ⚠️ Nenhum teste unitário compilado encontrado")
+    build_fail = {
+        "functions_main_signature_error",
+        "result_optional_propagation_error",
+    }
 
-# ---- SECTION 5: Stdlib Module Verification ----
-section("5. VERIFICAÇÃO DE MÓDULOS STDLIB")
+    run_fail = {
+        "where_contract_construct_error",
+        "where_contract_field_assign_error",
+        "where_contract_param_error",
+    }
 
-stdlib_modules = []
-for root, dirs, files in os.walk("stdlib"):
-    for f in files:
-        if f.endswith('.zt'):
-            stdlib_modules.append(os.path.join(root, f))
+    rc, out = run_cmd(f"check:{name}", [ZT_EXE, "check", path], timeout=45)
 
-for mod in sorted(stdlib_modules):
-    print(f"  📦 {mod} ({os.path.getsize(mod)} bytes)")
-    results["pass"].append(f"stdlib/{os.path.basename(mod)}")
+    if name in check_fail:
+        ok = rc != 0
+        print_behavior_status(name, "check-fail", ok)
+        mark(ok, f"behavior/{name}", out[:160] if not ok else None)
+        return
 
-# ---- SUMMARY ----
-section("RESUMO FINAL")
-total = len(results["pass"]) + len(results["fail"]) + len(results["error"]) + len(results["skip"])
-print(f"  Total:    {total}")
-print(f"  ✅ Pass:  {len(results['pass'])}")
-print(f"  ❌ Fail:  {len(results['fail'])}")
-print(f"  ⚠️ Skip:  {len(results['skip'])}")
+    if rc != 0:
+        print_behavior_status(name, "check-pass", False)
+        mark(False, f"behavior/{name}", out[:160])
+        return
 
-if results["fail"]:
-    print(f"\n  Falhas detalhadas:")
-    for f in results["fail"]:
-        print(f"    ❌ {f}")
+    if name in build_fail:
+        rc_build, out_build = run_cmd(f"build:{name}", [ZT_EXE, "build", path], timeout=120)
+        ok = rc_build != 0
+        print_behavior_status(name, "build-fail", ok)
+        mark(ok, f"behavior/{name}", out_build[:160] if not ok else None)
+        return
 
-print(f"\n{'='*60}")
-if len(results["fail"]) == 0:
-    print("  🎉 TODOS OS TESTES PASSARAM!")
-else:
-    print(f"  ⚠️ {len(results['fail'])} teste(s) falharam")
-print(f"{'='*60}")
+    if name in run_fail:
+        rc_build, out_build = run_cmd(f"build:{name}", [ZT_EXE, "build", path], timeout=120)
+        if rc_build != 0:
+            print_behavior_status(name, "run-fail", False)
+            mark(False, f"behavior/{name}", f"build failed unexpectedly: {out_build[:120]}")
+            return
+        rc_run, out_run = run_cmd(f"run:{name}", [ZT_EXE, "run", path], timeout=45)
+        ok = rc_run != 0
+        print_behavior_status(name, "run-fail", ok)
+        mark(ok, f"behavior/{name}", out_run[:160] if not ok else None)
+        return
+
+    ok = "verification ok" in out or "check ok" in out
+    print_behavior_status(name, "check-pass", ok)
+    mark(ok, f"behavior/{name}", out[:160] if not ok else None)
+
+
+def main():
+    section("1. Compiler Build Verification")
+
+    if os.path.exists(ZT_EXE):
+        print(f"  [OK  ] zt.exe found ({os.path.getsize(ZT_EXE)} bytes)")
+        RESULTS["pass"].append("compiler_binary_exists")
+    else:
+        print("  [FAIL] zt.exe not found")
+        RESULTS["fail"].append("compiler_binary_exists")
+
+    print("  [....] rebuilding compiler")
+    rc, out = run_cmd("rebuild", [sys.executable, "build.py"], timeout=120)
+    rebuild_ok = rc == 0 and "SUCCESS" in out
+    print(f"  [{'OK' if rebuild_ok else 'FAIL':<4}] compiler rebuild")
+    mark(rebuild_ok, "compiler_rebuild", out[:200] if not rebuild_ok else None)
+
+    section("2. Behavior Tests")
+    if not os.path.isdir(BEHAVIOR_DIR):
+        print("  [FAIL] tests/behavior not found")
+        RESULTS["fail"].append("behavior_root_missing")
+    else:
+        for test_name in sorted(os.listdir(BEHAVIOR_DIR)):
+            test_path = os.path.join(BEHAVIOR_DIR, test_name)
+            if not os.path.isdir(test_path):
+                continue
+            if not os.path.exists(os.path.join(test_path, "zenith.ztproj")):
+                RESULTS["skip"].append(f"behavior/{test_name}")
+                continue
+            test_behavior_project(test_name, test_path)
+
+    section("3. Cross Validation (new vs old driver)")
+    if os.path.exists(ZT_OLD):
+        for test_name in ["std_io_basic", "simple_app", "result_question_basic", "optional_result_basic"]:
+            test_path = os.path.join(BEHAVIOR_DIR, test_name)
+            if not os.path.isdir(test_path):
+                continue
+            rc_new, out_new = run_cmd(f"new:{test_name}", [ZT_EXE, "check", test_path], timeout=45)
+            rc_old, out_old = run_cmd(f"old:{test_name}", [ZT_OLD, "check", test_path], timeout=45)
+            new_ok = rc_new == 0 and ("verification ok" in out_new or "check ok" in out_new)
+            old_ok = rc_old == 0 and ("verification ok" in out_old or "check ok" in out_old)
+            print(f"  {test_name.ljust(40)} new={'OK' if new_ok else 'FAIL'} old={'OK' if old_ok else 'FAIL'}")
+            mark(new_ok, f"crossval/{test_name}")
+    else:
+        print("  [SKIP] old driver not found (compiler/driver/zt-next-v2.exe)")
+        RESULTS["skip"].append("crossval/old_driver_missing")
+
+    section("4. Unit Test Binaries")
+    unit_bins = []
+    for root, _dirs, files in os.walk("tests"):
+        for filename in files:
+            if filename.endswith(".exe") and "test_" in filename:
+                unit_bins.append(os.path.join(root, filename))
+
+    if not unit_bins:
+        print("  [SKIP] no compiled unit test binaries found")
+        RESULTS["skip"].append("unit/no_binaries")
+    else:
+        for test_exe in sorted(unit_bins):
+            name = os.path.basename(test_exe)
+            rc, out = run_cmd(name, [test_exe], timeout=30)
+            ok = rc == 0
+            print(f"  [{'OK' if ok else 'FAIL':<4}] {name}")
+            mark(ok, f"unit/{name}", out[:160] if not ok else None)
+
+    section("5. Stdlib Modules")
+    if os.path.isdir("stdlib"):
+        for root, _dirs, files in os.walk("stdlib"):
+            for filename in sorted(files):
+                if filename.endswith(".zt"):
+                    full_path = os.path.join(root, filename)
+                    print(f"  [INFO] {full_path} ({os.path.getsize(full_path)} bytes)")
+                    RESULTS["pass"].append(f"stdlib/{filename}")
+    else:
+        print("  [SKIP] stdlib folder not found")
+        RESULTS["skip"].append("stdlib/missing")
+
+    section("Summary")
+    total = len(RESULTS["pass"]) + len(RESULTS["fail"]) + len(RESULTS["skip"])
+    print(f"  Total: {total}")
+    print(f"  Pass : {len(RESULTS['pass'])}")
+    print(f"  Fail : {len(RESULTS['fail'])}")
+    print(f"  Skip : {len(RESULTS['skip'])}")
+
+    if RESULTS["fail"]:
+        print("\n  Failures:")
+        for failure in RESULTS["fail"]:
+            print(f"    - {failure}")
+        return 1
+
+    print("\n  All checks passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

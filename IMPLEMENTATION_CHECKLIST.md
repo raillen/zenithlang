@@ -437,36 +437,35 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 
 ## M24. Runtime C ownership and backend scalability hardening
 
-- [ ] Implementar ARC Não-Atômico genérico como padrão do back-end C.
-- [ ] Implementar Isolamento estrito de threads, providenciando deep-copy entre passagens.
-- [ ] Esboçar Wrapper `Shared<T>` para raras necessidades de ARC Atômico explícito.
-- [ ] Implementar e baixar `dyn Trait` (Fat Pointers) para instanciar arrays genéricos heterogêneos.
-- [ ] Automatizar blindagem de referências C contra o ARC durante execução de blocos FFI `extern("C")`.
-- [ ] Injetar *bounds checks* preventivos nas coleções, acionando Panic (Unwind) em vez de C Segfault.
-- [x] Cobrir guards de bounds em text/bytes/list/map no runtime C com erro `ZT_ERR_INDEX`.
-- [ ] Mapear exceções e injeções matemáticas de Panic para overflow não tratado.
+- [x] Implementar ARC nao-atomico como padrao do backend C no runtime atual.
+- [x] Extrair isolamento estrito de threads com deep-copy entre fronteiras para trilha dedicada pos-MVP (`M35`), fora do corte bootstrap.
+- [x] Extrair wrapper `Shared<T>` (ARC atomico explicito) para trilha dedicada pos-MVP (`M35`), fora do corte bootstrap.
+- [x] Extrair `dyn Trait` (fat pointers) para trilha dedicada pos-MVP (`M35`), fora do corte bootstrap.
+- [x] Extrair blindagem ARC em fronteiras FFI `extern("C")` para trilha dedicada pos-MVP (`M35`), fora do corte bootstrap.
+- [x] Injetar bounds checks preventivos nas colecoes, com panic limpo em vez de segfault.
+- [x] Cobrir guards de bounds em text/bytes/list/map no runtime C com erro ZT_ERR_INDEX.
+- [x] Mapear panic matematico para overflow/divisao por zero (ZT_ERR_MATH).
 - [x] Implementar COW para collections managed onde for pragmatico.
-- [x] Atualizar emitter C para rebind com `*_set_owned` em mutacoes de list/map.
-- [x] Corrigir runtime de `map<text,text>` no MVP para insercao/get/iteracao sem crash (fallback seguro por busca linear).
-- [x] Corrigir emissao de `eq/ne` para `outcome<text,text>` no backend C (comparacao semantica via helper, sem `!=` em struct C).
-- [ ] Garantir propagação `?`, early returns e cleanups normais alinhados ao tempo do ARC.
-- [ ] Representar `optional<T>` e `result<T,E>` in-place na *stack* sempre que possível.
-- [x] Garantir `result<void,E>` success sem heap allocation no runtime C atual (singleton imortal).
-- [ ] Definir limite/diagnóstico formal para a explosão de monomorfização da base genérica regular.
+- [x] Atualizar emitter C para rebind com *_set_owned em mutacoes de list/map.
+- [x] Corrigir runtime de map<text,text> no MVP para insercao/get/iteracao sem crash (fallback seguro por busca linear).
+- [x] Corrigir emissao de eq/ne para outcome<text,text> no backend C (comparacao semantica via helper, sem != em struct C).
+- [x] Garantir propagacao ? no subset MVP com early return e cleanup de locais managed no emitter C.
+- [x] Representar optional<T> e result<T,E> in-place na stack no runtime C atual.
+- [x] Garantir result<void,E> success sem heap allocation no runtime C atual (singleton imortal).
+- [x] Definir limite/diagnostico formal para explosao de monomorfizacao em codigo generico (gate de escala via `build.monomorphization_limit` + `project.monomorphization_limit_exceeded`).
 
 ## M25. Value semantics and Behavior conformance
 
-- [x] Criar behavior test para a divisa do Isolamento garantindo que *deep copy* quebra os laços de ARC.
-- [ ] Criar behavior test para coleção heterogênea baseada em iterador `dyn Trait`.
-- [x] Criar behavior test garantindo que acessos fora do limite lancem *Panic* limpo no lugar de crash.
-- [x] Validar bounds guard em behavior conformance (`tests/behavior/runtime_index_error`).
+- [x] Criar behavior test para a divisa de isolamento garantindo que deep copy quebra compartilhamento de ARC.
+- [x] Extrair behavior de colecao heterogenea baseada em iterador `dyn Trait` para trilha dedicada pos-MVP (`M35`) junto da implementacao de dispatch dinamico.
+- [x] Criar behavior test garantindo que acessos fora do limite lancem panic limpo no lugar de crash.
+- [x] Validar bounds guard em behavior conformance (tests/behavior/runtime_index_error).
 - [x] Criar behavior para copy/mutate de list e map (COW validation).
 - [x] Criar behavior para copy/mutate de struct com campos managed.
 - [x] Criar behavior para optional/result com payload managed.
-- [x] Criar diagnostics para mutação observável proibida em *const collection*.
+- [x] Criar diagnostics para mutacao observavel proibida em const collection.
 - [x] Integrar nova value semantics (ARC puro) na matrix de testes oficial.
-
-## M26. Runtime `where` contracts completos
+## M26. Runtime where contracts completos
 
 - [x] Gerar checks de field `where` em construcao
 - [x] Gerar checks de field `where` em atribuicao
@@ -485,15 +484,15 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 - [x] Fechar AST/HIR de enum payload
 - [x] Baixar enum payload para ZIR
 - [x] Emitir layout C com tag/payload
-- [ ] Implementar construtores qualificados
-- [ ] Implementar match por case de enum
-- [ ] Implementar binding de payload
-- [ ] Implementar case default
-- [ ] Criar diagnostics de match invalido
-- [ ] Implementar exaustividade quando enum conhecido e nao houver `case default`
-- [ ] Criar diagnostics para enum case ausente
-- [ ] Documentar `case default` como opt-out de exaustividade futura
-- [ ] Criar behavior tests de enum/match
+- [x] Implementar construtores qualificados
+- [x] Implementar match por case de enum
+- [x] Implementar binding de payload
+- [x] Implementar case default
+- [x] Criar diagnostics de match invalido
+- [x] Implementar exaustividade quando enum conhecido e nao houver `case default`
+- [x] Criar diagnostics para enum case ausente
+- [x] Documentar `case default` como opt-out de exaustividade futura
+- [x] Criar behavior tests de enum/match (cobertura semantica em `tests/semantic`; fixtures E2E em `tests/behavior/enum_match` e `tests/behavior/enum_match_non_exhaustive_error`)
 
 ## M28. Bytes, UTF-8 e stdlib base
 
@@ -568,23 +567,42 @@ Observacao M30:
 - [ ] Cobrir where runtime e match exaustivo na matriz
 - [ ] Rodar suite completa antes de declarar MVP estavel
 
-## M33. Implementação das Stdlibs MVP
+## M33. Implementacao das Stdlibs MVP
 
-- [ ] Implementar `std.io` (Terminal, print explícito)
-- [ ] Implementar `std.fs` e `std.fs.path`
-- [ ] Implementar `std.json` (Parser/Emitter básico)
-- [ ] Implementar `std.math` (Vetores e álgebra linear básica)
-- [ ] Implementar `std.collections` (Queue, Grid2D, etc.)
-- [ ] Implementar `std.random` (Xoshiro/PCG)
-- [ ] Implementar `std.validate`
-- [ ] Implementar `std.time` (Instant, Duration)
-- [ ] Implementar `std.format`
-- [ ] Implementar `std.os` e `std.os.process`
-- [ ] Implementar `std.test` (Harness para `@test`)
-- [ ] Implementar `std.net` (TCP Client, Multi-IP DNS)
-- [ ] Criar behavior tests para cada módulo
-- [ ] Validar ownership ARC em cada implementação
+- [ ] Implementar std.io (terminal, print explicito)
+- [ ] Implementar std.fs e std.fs.path
+- [ ] Implementar std.json (parser/emitter basico)
+- [ ] Implementar std.math (vetores e algebra linear basica)
+- [ ] Implementar std.collections (Queue, Grid2D, etc.)
+- [ ] Implementar std.random (Xoshiro/PCG)
+- [ ] Implementar std.validate
+- [ ] Implementar std.time (Instant, Duration)
+- [ ] Implementar std.format
+- [ ] Implementar std.os e std.os.process
+- [ ] Implementar std.test (harness para tests)
+- [ ] Implementar std.net (TCP client, multi-IP DNS)
+- [ ] Criar behavior tests para cada modulo
+- [ ] Validar ownership ARC em cada implementacao
+## M34. Cognitive Accessibility by Design
 
+- [x] Consolidar spec canonica em `language/spec/cognitive-accessibility.md`
+- [x] Registrar fontes de pesquisa no spec de acessibilidade cognitiva
+- [ ] Implementar perfis de diagnostico (`beginner`, `balanced`, `full`) no fluxo principal
+- [ ] Implementar formato action-first (`ACTION`, `WHY`, `NEXT`) no renderer de diagnostics
+- [ ] Implementar hints de esforco opcionais (`quick fix`, `moderate`, `requires thinking`)
+- [ ] Implementar linter de nomes confundiveis + sugestao ativa para `name.unresolved`
+- [ ] Implementar `zt summary` e `zt resume` para retomada de contexto
+- [ ] Implementar `zt check --focus <path-or-module>` e `zt check --since <git-ref>`
+- [ ] Definir metricas e validacao opt-in para medir impacto de acessibilidade cognitiva
+
+
+## M35. Concurrency/FFI/Dyn Dispatch (Post-MVP)
+
+- [ ] Implementar isolamento estrito de threads com deep-copy entre fronteiras
+- [ ] Esbocar e validar wrapper `Shared<T>` para ARC atomico explicito
+- [ ] Implementar e baixar `dyn Trait` (fat pointers) para colecoes heterogeneas
+- [ ] Automatizar blindagem de referencias C contra ARC durante blocos FFI `extern("C")`
+- [ ] Criar behavior test para colecao heterogenea baseada em iterador `dyn Trait`
 ## Ordem de execucao pos-M20 (recomendada)
 
 1. `M21`
@@ -598,8 +616,10 @@ Observacao M30:
 9. `M22`
 10. `M30`
 11. `M31`
-12. `M33`
-13. `M32`
+12. `M34`
+13. `M33`
+14. `M32`
+15. `M35` (post-MVP)
 
 Observacao: mantemos a numeracao original dos marcos para preservar referencias historicas, mas a execucao pratica segue a ordem acima.
 
@@ -616,4 +636,5 @@ Release v1 nao deve ser declarado pronto ate que todos os itens abaixo estejam v
 - [ ] conformance cobre comportamento observavel, nao apenas parsing
 - [ ] ZDoc esta funcional o suficiente para manter codigo publico limpo
 - [ ] nenhuma feature critica de release possui duas formas canonicas conflitantes ou dois docs conflitantes
+
 
