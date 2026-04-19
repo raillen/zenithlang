@@ -1,0 +1,11 @@
+namespace std.test
+
+func fail(message: text) -> void
+    const _ignored: text = message
+    return
+end
+
+func skip(reason: text = "") -> void
+    const _ignored: text = reason
+    return
+end

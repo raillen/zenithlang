@@ -1086,6 +1086,7 @@ Escopo minimo:
 - progresso: `std.io` ja cobre output textual explicito (`write`/`print` e variants de linha) com behavior `std_io_basic`; pendente completar `read_line`/`read_all` e tipos de stream/erro canonicos (`io.Input`/`io.Output`/`io.Error`).
 - progresso: `std.validate` recebeu baseline puro (predicados int/text) com behavior `std_validate_basic`.
 - progresso: `std.math` recebeu baseline inicial (operacoes escalares int + helpers angulares/`approx_equal`) com behavior `std_math_basic`; funcoes avancadas continuam pendentes.
+- progresso: `std.test` recebeu baseline inicial (`fail`/`skip`), com `std_test_basic`; integracao real com harness e estados fail/skip do runner permanece pendente.
 
 Dependencias: M24 (ARC nao-atomico para buffers e resources) e M26 (Runtime where contracts para `std.validate`).
 

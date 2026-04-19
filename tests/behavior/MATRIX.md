@@ -49,6 +49,7 @@ Legend:
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, text length and whitespace checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
+| `std_test_basic` | `std.test` baseline helpers (`skip`, `fail` placeholder no-op) | `9` |
 | `multifile_import_alias` | Multi-file source root and import alias | `42` |
 | `where_contracts_ok` | Runtime `where` contracts on parameter, struct construction and field assignment | `40` |
 

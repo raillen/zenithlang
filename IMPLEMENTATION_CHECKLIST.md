@@ -583,6 +583,7 @@ Observacao M30:
 - [ ] Implementar std.format
 - [ ] Implementar std.os e std.os.process
 - [ ] Implementar std.test (harness para tests)
+- [x] std.test: baseline inicial implementado (`fail`/`skip` no-op temporario, sem integracao com runner ainda)
 - [ ] Implementar std.net (TCP client, multi-IP DNS)
 - [ ] Criar behavior tests para cada modulo
 - [ ] Validar ownership ARC em cada implementacao
