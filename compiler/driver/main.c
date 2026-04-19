@@ -1201,23 +1201,70 @@ static int zt_compile_project(const char *input_path, zt_project_compile_result 
         goto fail;
     }
 
+    /* Load only the specific stdlib modules that are actually imported */
     {
-        const char *stdlib_path = getenv("ZENITH_HOME");
-        char default_stdlib_path[768];
-        if (stdlib_path == NULL) {
-            strcpy(default_stdlib_path, "stdlib");
-            stdlib_path = default_stdlib_path;
+        const char *stdlib_base = getenv("ZENITH_HOME");
+        char default_base[768];
+        char import_buf[256];
+        size_t si;
+
+        if (stdlib_base == NULL) {
+            strcpy(default_base, "stdlib");
+            stdlib_base = default_base;
         } else {
-            // Usually ZENITH_HOME points to install root, stdlib is inside it
-            if (!zt_join_path(default_stdlib_path, sizeof(default_stdlib_path), stdlib_path, "stdlib")) {
-                strcpy(default_stdlib_path, "stdlib");
+            if (!zt_join_path(default_base, sizeof(default_base), stdlib_base, "stdlib")) {
+                strcpy(default_base, "stdlib");
             }
-            stdlib_path = default_stdlib_path;
+            stdlib_base = default_base;
         }
-        
-        if (zt_path_is_dir(stdlib_path)) {
-            if (!zt_project_discover_zt_files(stdlib_path, &out->source_files)) {
-                goto fail;
+
+        for (si = 0; si < out->source_files.count; si++) {
+            const char *src_path = out->source_files.items[si].path;
+            FILE *sf = fopen(src_path, "r");
+            if (sf != NULL) {
+                char line[512];
+                while (fgets(line, sizeof(line), sf) != NULL) {
+                    /* Look for: import std.X or import std.X as Y */
+                    const char *imp = strstr(line, "import std.");
+                    if (imp != NULL) {
+                        const char *mod_start = imp + 7; /* skip "import " -> "std.X..." */
+                        const char *end = mod_start;
+                        char mod_path[768];
+                        size_t j;
+                        int already_loaded;
+
+                        while (*end && *end != ' ' && *end != '\t' && *end != '\n' && *end != '\r') end++;
+                        if ((size_t)(end - mod_start) < sizeof(import_buf)) {
+                            memcpy(import_buf, mod_start, end - mod_start);
+                            import_buf[end - mod_start] = '\0';
+
+                            /* Convert std.io -> stdlib_base/std/io.zt */
+                            snprintf(mod_path, sizeof(mod_path), "%s", stdlib_base);
+                            for (j = 0; import_buf[j]; j++) {
+                                if (import_buf[j] == '.') import_buf[j] = '/';
+                            }
+                            if (strlen(mod_path) + 1 + strlen(import_buf) + 3 < sizeof(mod_path)) {
+                                strcat(mod_path, "/");
+                                strcat(mod_path, import_buf);
+                                strcat(mod_path, ".zt");
+                            }
+
+                            /* Check if already loaded */
+                            already_loaded = 0;
+                            for (j = 0; j < out->source_files.count; j++) {
+                                if (strcmp(out->source_files.items[j].path, mod_path) == 0) {
+                                    already_loaded = 1;
+                                    break;
+                                }
+                            }
+
+                            if (!already_loaded && zt_path_is_file(mod_path)) {
+                                zt_project_source_file_list_push(&out->source_files, mod_path);
+                            }
+                        }
+                    }
+                }
+                fclose(sf);
             }
         }
     }
