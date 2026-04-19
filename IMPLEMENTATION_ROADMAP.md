@@ -1063,7 +1063,7 @@ Dependencias: M21-M31.
 
 ## M33. Implementacao das Stdlibs MVP
 
-Status: bloqueado aguardando definicao fina do runtime (M24, M26).
+Status: em andamento (baseline std.io de output explicito fechado; demais modulos ainda pendentes).
 
 Objetivo: Fornecer os modulos da biblioteca padrao (alem da base de bytes/utf-8 iniciada em M19), fundamentados num backend e runtime estaveis. As decisoes de design destas APIs ja estao fechadas e documentadas em `language/decisions/`.
 
@@ -1083,6 +1083,9 @@ Escopo minimo:
 - Implementar `std.net` (TCP Client, Multi-IP DNS)
 - Criar behavior tests para cada modulo
 - Validar ownership ARC em cada implementacao
+- progresso: `std.io` ja cobre output textual explicito (`write`/`print` e variants de linha) com behavior `std_io_basic`; pendente completar `read_line`/`read_all` e tipos de stream/erro canonicos (`io.Input`/`io.Output`/`io.Error`).
+- progresso: `std.validate` recebeu baseline puro (predicados int/text) com behavior `std_validate_basic`.
+- progresso: `std.math` recebeu baseline inicial (operacoes escalares int + helpers angulares/`approx_equal`) com behavior `std_math_basic`; funcoes avancadas continuam pendentes.
 
 Dependencias: M24 (ARC nao-atomico para buffers e resources) e M26 (Runtime where contracts para `std.validate`).
 

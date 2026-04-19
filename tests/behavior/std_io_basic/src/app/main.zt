@@ -3,7 +3,12 @@ namespace app.main
 import std.io as io
 
 func main() -> result<void, text>
-    io.print_line("Hello from std.io!")?
-    io.eprint_line("Stderr outputs correctly.")?
+    io.write("Hello from std.io!")?
+    io.write("\n")?
+
+    io.print("Stderr outputs correctly.", target_stderr: true)?
+    io.print("\n", target_stderr: true)?
+
     return success()
 end
+

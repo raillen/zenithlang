@@ -1,0 +1,60 @@
+namespace std.math
+
+func pi() -> float
+    return 3.141592653589793
+end
+
+func e() -> float
+    return 2.718281828459045
+end
+
+func tau() -> float
+    return 6.283185307179586
+end
+
+func abs(value: int) -> int
+    if value < 0
+        return 0 - value
+    end
+    return value
+end
+
+func min(a: int, b: int) -> int
+    if a < b
+        return a
+    end
+    return b
+end
+
+func max(a: int, b: int) -> int
+    if a > b
+        return a
+    end
+    return b
+end
+
+func clamp(value: int, min: int, max: int) -> int
+    if value < min
+        return min
+    end
+    if value > max
+        return max
+    end
+    return value
+end
+
+func deg_to_rad(x: float) -> float
+    return x * (math.pi() / 180.0)
+end
+
+func rad_to_deg(x: float) -> float
+    return x * (180.0 / math.pi())
+end
+
+func approx_equal(a: float, b: float, epsilon: float) -> bool
+    var diff: float = a - b
+    if diff < 0.0
+        diff = 0.0 - diff
+    end
+    return diff <= epsilon
+end

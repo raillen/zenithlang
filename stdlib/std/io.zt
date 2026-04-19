@@ -5,20 +5,27 @@ extern c
     func zt_host_write_stderr(value: text) -> result<void, text>
 end
 
-func print(value: text) -> result<void, text>
+func write(value: text, target_stderr: bool = false) -> result<void, text>
+    if target_stderr
+        return io.zt_host_write_stderr(value)
+    end
     return io.zt_host_write_stdout(value)
 end
 
-func print_line(value: text) -> result<void, text>
-    io.print(value)?
-    return io.print("\n")
+func print(value: text, target_stderr: bool = false) -> result<void, text>
+    return io.write(value, target_stderr: target_stderr)
+end
+
+func print_line(value: text, target_stderr: bool = false) -> result<void, text>
+    io.print(value, target_stderr: target_stderr)?
+    return io.print("\n", target_stderr: target_stderr)
 end
 
 func eprint(value: text) -> result<void, text>
-    return io.zt_host_write_stderr(value)
+    return io.write(value, target_stderr: true)
 end
 
 func eprint_line(value: text) -> result<void, text>
-    io.eprint(value)?
-    return io.eprint("\n")
+    return io.print_line(value, target_stderr: true)
 end
+

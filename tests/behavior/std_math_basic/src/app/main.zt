@@ -1,0 +1,23 @@
+namespace app.main
+
+import std.math as math
+
+func main() -> int
+    const abs_v: int = math.abs(-5)
+    const min_v: int = math.min(-2, 7)
+    const max_v: int = math.max(3, 9)
+    const clamp_v: int = math.clamp(15, min: 0, max: 10)
+
+    const angle: float = math.deg_to_rad(180.0)
+    const pi_ok: bool = math.approx_equal(math.pi(), math.pi(), epsilon: 0.0001)
+
+    if pi_ok
+        return abs_v + min_v + max_v + clamp_v
+    end
+
+    if angle > 0.0
+        return 1
+    end
+
+    return 0
+end

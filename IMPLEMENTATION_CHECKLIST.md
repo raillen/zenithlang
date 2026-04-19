@@ -569,13 +569,16 @@ Observacao M30:
 
 ## M33. Implementacao das Stdlibs MVP
 
-- [ ] Implementar std.io (terminal, print explicito)
+- [x] Implementar std.io (terminal, print explicito)
+- [ ] std.io: fechar `read_line` e `read_all` com suporte completo de `result<optional<text>, io.Error>` no backend C
 - [ ] Implementar std.fs e std.fs.path
 - [ ] Implementar std.json (parser/emitter basico)
 - [ ] Implementar std.math (vetores e algebra linear basica)
+- [x] std.math: baseline inicial implementado (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `rad_to_deg`, `approx_equal`, `pi()`/`e()`/`tau()`)
 - [ ] Implementar std.collections (Queue, Grid2D, etc.)
 - [ ] Implementar std.random (Xoshiro/PCG)
 - [ ] Implementar std.validate
+- [x] std.validate: baseline inicial implementado (`between`, `positive`, `non_negative`, `negative`, `non_zero`, `one_of`, `not_empty`, `min_length`, `max_length`, `length_between`, `no_whitespace`)
 - [ ] Implementar std.time (Instant, Duration)
 - [ ] Implementar std.format
 - [ ] Implementar std.os e std.os.process
@@ -583,6 +586,7 @@ Observacao M30:
 - [ ] Implementar std.net (TCP client, multi-IP DNS)
 - [ ] Criar behavior tests para cada modulo
 - [ ] Validar ownership ARC em cada implementacao
+
 ## M34. Cognitive Accessibility by Design
 
 - [x] Consolidar spec canonica em `language/spec/cognitive-accessibility.md`

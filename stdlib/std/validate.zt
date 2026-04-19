@@ -1,0 +1,62 @@
+namespace std.validate
+
+func between(value: int, min: int, max: int) -> bool
+    return value >= min and value <= max
+end
+
+func positive(value: int) -> bool
+    return value > 0
+end
+
+func non_negative(value: int) -> bool
+    return value >= 0
+end
+
+func negative(value: int) -> bool
+    return value < 0
+end
+
+func non_zero(value: int) -> bool
+    return value != 0
+end
+
+func one_of(value: int, candidates: list<int>) -> bool
+    for item in candidates
+        if item == value
+            return true
+        end
+    end
+    return false
+end
+
+func not_empty(value: text) -> bool
+    return len(value) > 0
+end
+
+func min_length(value: text, min: int) -> bool
+    return len(value) >= min
+end
+
+func max_length(value: text, max: int) -> bool
+    return len(value) <= max
+end
+
+func length_between(value: text, min: int, max: int) -> bool
+    const count: int = len(value)
+    return count >= min and count <= max
+end
+
+func no_whitespace(value: text) -> bool
+    const space: text = " "
+    const tab: text = "\t"
+    const newline: text = "\n"
+    const carriage: text = "\r"
+
+    for ch in value
+        if ch == space or ch == tab or ch == newline or ch == carriage
+            return false
+        end
+    end
+
+    return true
+end
