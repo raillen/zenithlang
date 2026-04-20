@@ -570,18 +570,28 @@ Observacao M30:
 ## M33. Implementacao das Stdlibs MVP
 
 - [x] Implementar std.io (terminal, print explicito)
-- [ ] std.io: fechar `read_line` e `read_all` com suporte completo de `result<optional<text>, io.Error>` no backend C
-- [ ] Implementar std.fs e std.fs.path
-- [ ] Implementar std.json (parser/emitter basico)
+- [x] std.io: implementar `read_line` e `read_all` no backend C atual (`result<optional<text>, text>` + host stdin)
+- [ ] std.io: migrar erros/handles para forma canonica (`result<optional<text>, io.Error>`, `io.Input`, `io.Output`)
+- [x] Implementar std.fs e std.fs.path
+- [x] std.fs: baseline inicial implementado (`read_text`, `write_text`, `exists`) via host runtime wrappers
+- [x] std.fs.path: baseline inicial implementado (`join`)
+- [ ] std.fs.path: pendente operacoes adicionais (`base`, `dir`, `ext`, `normalize`, `absolute`, `relative`)
+- [x] Implementar std.json (parser/emitter basico)
+- [x] std.json: baseline inicial implementado (`parse`, `stringify`, `pretty`) para `map<text,text>` + behavior `std_json_basic`
 - [ ] Implementar std.math (vetores e algebra linear basica)
 - [x] std.math: baseline inicial implementado (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `rad_to_deg`, `approx_equal`, `pi()`/`e()`/`tau()`)
 - [ ] Implementar std.collections (Queue, Grid2D, etc.)
 - [ ] Implementar std.random (Xoshiro/PCG)
 - [ ] Implementar std.validate
 - [x] std.validate: baseline inicial implementado (`between`, `positive`, `non_negative`, `negative`, `non_zero`, `one_of`, `not_empty`, `min_length`, `max_length`, `length_between`, `no_whitespace`)
-- [ ] Implementar std.time (Instant, Duration)
+- [ ] Implementar std.time (Instant, Duration tipados na surface canonica)
+- [x] std.time: baseline inicial implementado (API em `int` unix-ms no corte atual: `now`, `sleep`, `since`, `until`, `diff`, `add`, `sub`, conversoes unix e helpers de duracao) + behavior `std_time_basic`
 - [ ] Implementar std.format
-- [ ] Implementar std.os e std.os.process
+- [x] std.format: baseline inicial implementado (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`)
+- [ ] std.format: adicionar seletor tipado (`BytesStyle`) quando enum match qualificado estiver 100% no caminho executable
+- [ ] Implementar std.os e std.os.process (tipos canonicos completos: `os.Platform`, `os.Arch`, `os.Error`, `process.ExitStatus`, `process.Error`)
+- [x] std.os: baseline inicial implementado (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) via host runtime wrappers
+- [x] std.os.process: baseline inicial implementado (`run(program, args, cwd)`) com status de saida em `int` no corte atual
 - [ ] Implementar std.test (harness para tests)
 - [x] std.test: baseline inicial implementado (`fail`/`skip` no-op temporario, sem integracao com runner ainda)
 - [ ] Implementar std.net (TCP client, multi-IP DNS)
@@ -641,5 +651,3 @@ Release v1 nao deve ser declarado pronto ate que todos os itens abaixo estejam v
 - [ ] conformance cobre comportamento observavel, nao apenas parsing
 - [ ] ZDoc esta funcional o suficiente para manter codigo publico limpo
 - [ ] nenhuma feature critica de release possui duas formas canonicas conflitantes ou dois docs conflitantes
-
-

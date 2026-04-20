@@ -1,0 +1,24 @@
+namespace std.format
+
+extern c
+    func zt_format_hex_i64(value: int) -> text
+    func zt_format_bin_i64(value: int) -> text
+    func zt_format_bytes_binary(value: int, decimals: int) -> text
+    func zt_format_bytes_decimal(value: int, decimals: int) -> text
+end
+
+func hex(value: int) -> text
+    return format.zt_format_hex_i64(value)
+end
+
+func bin(value: int) -> text
+    return format.zt_format_bin_i64(value)
+end
+
+func bytes(value: int, decimals: int = 1) -> text
+    return format.zt_format_bytes_binary(value, decimals)
+end
+
+func bytes_decimal(value: int, decimals: int = 1) -> text
+    return format.zt_format_bytes_decimal(value, decimals)
+end

@@ -1,0 +1,34 @@
+namespace std.os
+
+extern c
+    func zt_host_os_current_dir() -> result<text, text>
+    func zt_host_os_change_dir(path: text) -> result<void, text>
+    func zt_host_os_env(name: text) -> optional<text>
+    func zt_host_os_pid() -> int
+    func zt_host_os_platform() -> text
+    func zt_host_os_arch() -> text
+end
+
+func current_dir() -> result<text, text>
+    return os.zt_host_os_current_dir()
+end
+
+func change_dir(path: text) -> result<void, text>
+    return os.zt_host_os_change_dir(path)
+end
+
+func env(name: text) -> optional<text>
+    return os.zt_host_os_env(name)
+end
+
+func pid() -> int
+    return os.zt_host_os_pid()
+end
+
+func platform() -> text
+    return os.zt_host_os_platform()
+end
+
+func arch() -> text
+    return os.zt_host_os_arch()
+end

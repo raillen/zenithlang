@@ -119,6 +119,11 @@ typedef struct zt_outcome_text_text {
     zt_text *error;
 } zt_outcome_text_text;
 
+typedef struct zt_outcome_optional_text_text {
+    zt_bool is_success;
+    zt_optional_text value;
+    zt_text *error;
+} zt_outcome_optional_text_text;
 typedef struct zt_outcome_list_i64_text {
     zt_bool is_success;
     zt_list_i64 *value;
@@ -281,15 +286,41 @@ zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome
 
 typedef struct zt_host_api {
     zt_outcome_text_text (*read_file)(const zt_text *path);
+    zt_outcome_void_text (*write_file)(const zt_text *path, const zt_text *value);
+    zt_bool (*path_exists)(const zt_text *path);
+    zt_outcome_optional_text_text (*read_line_stdin)(void);
+    zt_outcome_text_text (*read_all_stdin)(void);
     zt_outcome_void_text (*write_stdout)(const zt_text *value);
     zt_outcome_void_text (*write_stderr)(const zt_text *value);
+    zt_int (*time_now_unix_ms)(void);
+    zt_outcome_void_text (*time_sleep_ms)(zt_int duration_ms);
+    zt_outcome_text_text (*os_current_dir)(void);
+    zt_outcome_void_text (*os_change_dir)(const zt_text *path);
+    zt_optional_text (*os_env)(const zt_text *name);
+    zt_int (*os_pid)(void);
+    zt_text *(*os_platform)(void);
+    zt_text *(*os_arch)(void);
+    zt_outcome_i64_text (*process_run)(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 } zt_host_api;
 
 void zt_host_set_api(const zt_host_api *api);
 const zt_host_api *zt_host_get_api(void);
 zt_outcome_text_text zt_host_read_file(const zt_text *path);
+zt_outcome_void_text zt_host_write_file(const zt_text *path, const zt_text *value);
+zt_bool zt_host_path_exists(const zt_text *path);
+zt_outcome_optional_text_text zt_host_read_line_stdin(void);
+zt_outcome_text_text zt_host_read_all_stdin(void);
 zt_outcome_void_text zt_host_write_stdout(const zt_text *value);
 zt_outcome_void_text zt_host_write_stderr(const zt_text *value);
+zt_int zt_host_time_now_unix_ms(void);
+zt_outcome_void_text zt_host_time_sleep_ms(zt_int duration_ms);
+zt_outcome_text_text zt_host_os_current_dir(void);
+zt_outcome_void_text zt_host_os_change_dir(const zt_text *path);
+zt_optional_text zt_host_os_env(const zt_text *name);
+zt_int zt_host_os_pid(void);
+zt_text *zt_host_os_platform(void);
+zt_text *zt_host_os_arch(void);
+zt_outcome_i64_text zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 
 zt_outcome_text_text zt_outcome_text_text_success(zt_text *value);
 zt_outcome_text_text zt_outcome_text_text_failure(zt_text *error);
@@ -298,7 +329,12 @@ zt_bool zt_outcome_text_text_is_success(zt_outcome_text_text outcome);
 zt_text *zt_outcome_text_text_value(zt_outcome_text_text outcome);
 zt_outcome_text_text zt_outcome_text_text_propagate(zt_outcome_text_text outcome);
 zt_bool zt_outcome_text_text_eq(zt_outcome_text_text left, zt_outcome_text_text right);
-
+zt_outcome_optional_text_text zt_outcome_optional_text_text_success(zt_optional_text value);
+zt_outcome_optional_text_text zt_outcome_optional_text_text_failure(zt_text *error);
+zt_outcome_optional_text_text zt_outcome_optional_text_text_failure_message(const char *message);
+zt_bool zt_outcome_optional_text_text_is_success(zt_outcome_optional_text_text outcome);
+zt_optional_text zt_outcome_optional_text_text_value(zt_outcome_optional_text_text outcome);
+zt_outcome_optional_text_text zt_outcome_optional_text_text_propagate(zt_outcome_optional_text_text outcome);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_success(zt_list_i64 *value);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_failure(zt_text *error);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_failure_message(const char *message);
@@ -314,18 +350,31 @@ zt_outcome_list_text_text zt_outcome_list_text_text_propagate(zt_outcome_list_te
 
 zt_outcome_map_text_text zt_outcome_map_text_text_success(zt_map_text_text *value);
 zt_outcome_map_text_text zt_outcome_map_text_text_failure(zt_text *error);
+zt_outcome_map_text_text zt_outcome_map_text_text_failure_message(const char *message);
 zt_bool zt_outcome_map_text_text_is_success(zt_outcome_map_text_text outcome);
 zt_map_text_text *zt_outcome_map_text_text_value(zt_outcome_map_text_text outcome);
 zt_outcome_map_text_text zt_outcome_map_text_text_propagate(zt_outcome_map_text_text outcome);
+
+zt_outcome_map_text_text zt_json_parse_map_text_text(const zt_text *input);
+zt_text *zt_json_stringify_map_text_text(const zt_map_text_text *value);
+zt_text *zt_json_pretty_map_text_text(const zt_map_text_text *value, zt_int indent);
+
+zt_text *zt_format_hex_i64(zt_int value);
+zt_text *zt_format_bin_i64(zt_int value);
+zt_text *zt_format_bytes_binary(zt_int value, zt_int decimals);
+zt_text *zt_format_bytes_decimal(zt_int value, zt_int decimals);
 
 zt_int zt_add_i64(zt_int a, zt_int b);
 zt_int zt_sub_i64(zt_int a, zt_int b);
 zt_int zt_mul_i64(zt_int a, zt_int b);
 zt_int zt_div_i64(zt_int a, zt_int b);
 zt_int zt_rem_i64(zt_int a, zt_int b);
+zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
+
+

@@ -1,0 +1,32 @@
+namespace app.main
+
+import std.os as os
+
+func main() -> result<void, text>
+    const current_pid: int = os.pid()
+    if current_pid <= 0
+        return error("std.os.pid should be positive")
+    end
+
+    const current_platform: text = os.platform()
+    if len(current_platform) == 0
+        return error("std.os.platform returned empty text")
+    end
+
+    const current_arch: text = os.arch()
+    if len(current_arch) == 0
+        return error("std.os.arch returned empty text")
+    end
+
+    const maybe_path: optional<text> = os.env("PATH")
+    const maybe_home: optional<text> = os.env("HOME")
+
+    const cwd: text = os.current_dir()?
+    if len(cwd) == 0
+        return error("std.os.current_dir returned empty text")
+    end
+
+    os.change_dir(cwd)?
+
+    return success()
+end

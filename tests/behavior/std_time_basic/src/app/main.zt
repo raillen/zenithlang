@@ -1,0 +1,46 @@
+namespace app.main
+
+import std.time as time
+
+func main() -> result<void, text>
+    const start: int = time.now()
+    const one_ms: int = time.milliseconds(1)
+
+    time.sleep(one_ms)?
+
+    const elapsed: int = time.since(start)
+    if elapsed < 0
+        return error("std.time.since returned negative elapsed time")
+    end
+
+    const unix_ms_start: int = time.to_unix_ms(start)
+    const from_ms: int = time.from_unix_ms(unix_ms_start)
+    if time.to_unix_ms(from_ms) != unix_ms_start
+        return error("std.time from/to unix_ms roundtrip failed")
+    end
+
+    const unix_s: int = time.to_unix(start)
+    const from_s: int = time.from_unix(unix_s)
+    if time.to_unix(from_s) != unix_s
+        return error("std.time from/to unix roundtrip failed")
+    end
+
+    const later: int = time.add(start, time.seconds(2))
+    const back: int = time.sub(later, time.seconds(2))
+    if time.to_unix_ms(back) != unix_ms_start
+        return error("std.time add/sub should preserve instant")
+    end
+
+    const diff_forward: int = time.diff(start, later)
+    if diff_forward != 2000
+        return error("std.time diff should preserve signed duration in ms")
+    end
+
+    const future: int = time.add(time.now(), time.minutes(1))
+    const remaining: int = time.until(future)
+    if remaining <= 0
+        return error("std.time until should be positive for a future instant")
+    end
+
+    return success()
+end

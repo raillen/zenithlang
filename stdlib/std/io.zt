@@ -1,8 +1,18 @@
 namespace std.io
 
 extern c
+    func zt_host_read_line_stdin() -> result<optional<text>, text>
+    func zt_host_read_all_stdin() -> result<text, text>
     func zt_host_write_stdout(value: text) -> result<void, text>
     func zt_host_write_stderr(value: text) -> result<void, text>
+end
+
+func read_line() -> result<optional<text>, text>
+    return io.zt_host_read_line_stdin()
+end
+
+func read_all() -> result<text, text>
+    return io.zt_host_read_all_stdin()
 end
 
 func write(value: text, target_stderr: bool = false) -> result<void, text>
@@ -28,4 +38,3 @@ end
 func eprint_line(value: text) -> result<void, text>
     return io.print_line(value, target_stderr: true)
 end
-

@@ -1,0 +1,33 @@
+namespace app.main
+
+import std.json as json
+
+func main() -> result<void, text>
+    const source: text = "{\"name\":\"Zenith\",\"mode\":\"debug\",\"version\":\"2\"}"
+    const parsed: map<text, text> = json.parse(source)?
+    const ok: text = "ok"
+
+    const parsed_name: text = parsed["name"]
+    const name_probe: map<text, text> = { parsed_name: ok }
+    const name_ok: text = name_probe["Zenith"]
+    if len(name_ok) == 0
+        return error("std.json.parse failed for key 'name'")
+    end
+
+    const compact: text = json.stringify(parsed)
+    const parsed_again: map<text, text> = json.parse(compact)?
+
+    const parsed_mode: text = parsed_again["mode"]
+    const mode_probe: map<text, text> = { parsed_mode: ok }
+    const mode_ok: text = mode_probe["debug"]
+    if len(mode_ok) == 0
+        return error("std.json.stringify generated invalid payload")
+    end
+
+    const pretty_text: text = json.pretty(parsed_again, indent: 2)
+    if len(pretty_text) == 0
+        return error("std.json.pretty returned empty text")
+    end
+
+    return success()
+end

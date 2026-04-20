@@ -16,6 +16,7 @@ Legend:
 | `control_flow_while` | `while` lowering and C emission | `6` |
 | `control_flow_repeat` | `repeat N times` lowering and C emission | `9` |
 | `control_flow_match` | `match case/default` lowering and C emission | `7` |
+| `enum_match` | Enum construction and payload match (`case Enum.Variant(...)`) | `0` |
 | `control_flow_break_continue` | `break` and `continue` in loops | `8` |
 | `control_flow_for_list` | `for item, index in list<int>` lowering and C emission | `13` |
 | `control_flow_for_map` | `for key, value in map<text,text>` lowering and C emission | `6` |
@@ -49,7 +50,14 @@ Legend:
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, text length and whitespace checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
+| `std_format_basic` | `std.format` baseline (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) | `0` |
+| `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
+| `std_fs_path_basic` | `std.fs.path` baseline (`join`) | `0` |
+| `std_json_basic` | `std.json` baseline (`parse`, `stringify`, `pretty`) para objeto plano `map<text,text>` | `0` |
 | `std_test_basic` | `std.test` baseline helpers (`skip`, `fail` placeholder no-op) | `9` |
+| `std_time_basic` | `std.time` baseline (`now`, `sleep`, `since`, `until`, unix-ms helpers) | `0` |
+| `std_os_basic` | `std.os` baseline (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
+| `std_os_process_basic` | `std.os.process` baseline (`run`) com comando explicito (`program` + `args`) | `0` |
 | `multifile_import_alias` | Multi-file source root and import alias | `42` |
 | `where_contracts_ok` | Runtime `where` contracts on parameter, struct construction and field assignment | `40` |
 

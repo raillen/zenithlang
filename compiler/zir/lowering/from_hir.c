@@ -471,6 +471,116 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "io", "zt_host_read_line_stdin")) {
+        call = zir_expr_make_call_extern("c.zt_host_read_line_stdin");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "io", "zt_host_read_all_stdin")) {
+        call = zir_expr_make_call_extern("c.zt_host_read_all_stdin");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "fs", "zt_host_read_file")) {
+        call = zir_expr_make_call_extern("c.zt_host_read_file");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "fs", "zt_host_write_file")) {
+        call = zir_expr_make_call_extern("c.zt_host_write_file");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "fs", "zt_host_path_exists")) {
+        call = zir_expr_make_call_extern("c.zt_host_path_exists");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "time", "zt_host_time_now_unix_ms")) {
+        call = zir_expr_make_call_extern("c.zt_host_time_now_unix_ms");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "time", "zt_host_time_sleep_ms")) {
+        call = zir_expr_make_call_extern("c.zt_host_time_sleep_ms");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_current_dir")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_current_dir");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_change_dir")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_change_dir");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_env")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_env");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_pid")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_pid");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_platform")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_platform");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "os", "zt_host_os_arch")) {
+        call = zir_expr_make_call_extern("c.zt_host_os_arch");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "process", "zt_host_process_run")) {
+        call = zir_expr_make_call_extern("c.zt_host_process_run");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "path", "zt_text_concat")) {
+        call = zir_expr_make_call_extern("c.zt_text_concat");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "json", "zt_json_parse_map_text_text")) {
+        call = zir_expr_make_call_extern("c.zt_json_parse_map_text_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "json", "zt_json_stringify_map_text_text")) {
+        call = zir_expr_make_call_extern("c.zt_json_stringify_map_text_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "json", "zt_json_pretty_map_text_text")) {
+        call = zir_expr_make_call_extern("c.zt_json_pretty_map_text_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_hex_i64")) {
+        call = zir_expr_make_call_extern("c.zt_format_hex_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_bin_i64")) {
+        call = zir_expr_make_call_extern("c.zt_format_bin_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_binary")) {
+        call = zir_expr_make_call_extern("c.zt_format_bytes_binary");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
+        call = zir_expr_make_call_extern("c.zt_format_bytes_decimal");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_starts_with(callee_name, "c.")) {
         call = zir_expr_make_call_extern(callee_name);
     } else {
@@ -2153,3 +2263,4 @@ void zir_lower_result_dispose(zir_lower_result *result) {
     zt_diag_list_dispose(&result->diagnostics);
     memset(result, 0, sizeof(*result));
 }
+

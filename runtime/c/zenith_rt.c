@@ -1,9 +1,20 @@
 #include "runtime/c/zenith_rt.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
+#ifdef _WIN32
+#include <direct.h>
+#include <process.h>
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/wait.h>
+#endif
 
 static uint32_t zt_hash_text(const zt_text *key) {
     uint32_t hash = 2166136261u;
@@ -140,6 +151,12 @@ zt_outcome_text_text zt_outcome_text_text_failure_message(const char *message) {
     return outcome;
 }
 
+zt_outcome_optional_text_text zt_outcome_optional_text_text_failure_message(const char *message) {
+    zt_text *error = zt_text_from_utf8_literal(zt_safe_message(message));
+    zt_outcome_optional_text_text outcome = zt_outcome_optional_text_text_failure(error);
+    zt_release(error);
+    return outcome;
+}
 zt_outcome_void_text zt_outcome_void_text_failure_message(const char *message) {
     zt_text *error = zt_text_from_utf8_literal(zt_safe_message(message));
     zt_outcome_void_text outcome = zt_outcome_void_text_failure(error);
@@ -155,13 +172,39 @@ zt_outcome_list_i64_text zt_outcome_list_i64_text_failure_message(const char *me
 }
 
 static zt_outcome_text_text zt_host_default_read_file(const zt_text *path);
+static zt_outcome_void_text zt_host_default_write_file(const zt_text *path, const zt_text *value);
+static zt_bool zt_host_default_path_exists(const zt_text *path);
+static zt_outcome_optional_text_text zt_host_default_read_line_stdin(void);
+static zt_outcome_text_text zt_host_default_read_all_stdin(void);
 static zt_outcome_void_text zt_host_default_write_stdout(const zt_text *value);
 static zt_outcome_void_text zt_host_default_write_stderr(const zt_text *value);
+static zt_int zt_host_default_time_now_unix_ms(void);
+static zt_outcome_void_text zt_host_default_time_sleep_ms(zt_int duration_ms);
+static zt_outcome_text_text zt_host_default_os_current_dir(void);
+static zt_outcome_void_text zt_host_default_os_change_dir(const zt_text *path);
+static zt_optional_text zt_host_default_os_env(const zt_text *name);
+static zt_int zt_host_default_os_pid(void);
+static zt_text *zt_host_default_os_platform(void);
+static zt_text *zt_host_default_os_arch(void);
+static zt_outcome_i64_text zt_host_default_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 
 static zt_host_api zt_host_api_state = {
     zt_host_default_read_file,
+    zt_host_default_write_file,
+    zt_host_default_path_exists,
+    zt_host_default_read_line_stdin,
+    zt_host_default_read_all_stdin,
     zt_host_default_write_stdout,
-    zt_host_default_write_stderr
+    zt_host_default_write_stderr,
+    zt_host_default_time_now_unix_ms,
+    zt_host_default_time_sleep_ms,
+    zt_host_default_os_current_dir,
+    zt_host_default_os_change_dir,
+    zt_host_default_os_env,
+    zt_host_default_os_pid,
+    zt_host_default_os_platform,
+    zt_host_default_os_arch,
+    zt_host_default_process_run
 };
 
 zt_runtime_span zt_runtime_span_unknown(void) {
@@ -1880,6 +1923,53 @@ zt_bool zt_outcome_text_text_eq(zt_outcome_text_text left, zt_outcome_text_text 
     return zt_text_eq(left.error, right.error);
 }
 
+zt_outcome_optional_text_text zt_outcome_optional_text_text_success(zt_optional_text value) {
+    zt_outcome_optional_text_text outcome;
+
+    outcome.is_success = true;
+    outcome.value = value;
+    outcome.error = NULL;
+    if (value.is_present) {
+        zt_runtime_require_text(value.value, "zt_outcome_optional_text_text_success requires present text");
+        zt_retain(value.value);
+    }
+    return outcome;
+}
+
+zt_outcome_optional_text_text zt_outcome_optional_text_text_failure(zt_text *error) {
+    zt_outcome_optional_text_text outcome;
+
+    zt_runtime_require_text(error, "zt_outcome_optional_text_text_failure requires error text");
+
+    outcome.is_success = false;
+    outcome.value = zt_optional_text_empty();
+    outcome.error = error;
+    zt_retain(error);
+    return outcome;
+}
+
+zt_bool zt_outcome_optional_text_text_is_success(zt_outcome_optional_text_text outcome) {
+    return outcome.is_success;
+}
+
+zt_optional_text zt_outcome_optional_text_text_value(zt_outcome_optional_text_text outcome) {
+    zt_optional_text value;
+
+    if (!outcome.is_success) {
+        zt_runtime_error(ZT_ERR_UNWRAP, "outcome_value on failure");
+    }
+
+    value = outcome.value;
+    if (value.is_present) {
+        zt_runtime_require_text(value.value, "outcome<optional<text>,text> present value cannot be null");
+        zt_retain(value.value);
+    }
+    return value;
+}
+
+zt_outcome_optional_text_text zt_outcome_optional_text_text_propagate(zt_outcome_optional_text_text outcome) {
+    return outcome;
+}
 zt_outcome_list_i64_text zt_outcome_list_i64_text_success(zt_list_i64 *value) {
     zt_outcome_list_i64_text outcome;
 
@@ -1996,6 +2086,13 @@ zt_outcome_map_text_text zt_outcome_map_text_text_failure(zt_text *error) {
     return outcome;
 }
 
+zt_outcome_map_text_text zt_outcome_map_text_text_failure_message(const char *message) {
+    zt_text *error = zt_text_from_utf8_literal(zt_safe_message(message));
+    zt_outcome_map_text_text outcome = zt_outcome_map_text_text_failure(error);
+    zt_release(error);
+    return outcome;
+}
+
 zt_bool zt_outcome_map_text_text_is_success(zt_outcome_map_text_text outcome) {
     return outcome.is_success;
 }
@@ -2042,7 +2139,7 @@ zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome
     return outcome;
 }
 
-// Implementação inicial da detecção de ciclos no ARC
+// Initial ARC cycle detection scaffolding
 void zt_detect_cycles(zt_header *header) {
     if (header == NULL || header->rc == 0) {
         return;
@@ -2051,7 +2148,7 @@ void zt_detect_cycles(zt_header *header) {
     // Marcar o objeto como visitado
     header->rc |= 0x80000000; // Usar o bit mais significativo como marcador
 
-    // Iterar sobre referências internas (exemplo para listas e mapas)
+    // Iterate internal references (example for lists and maps)
     if (header->kind == ZT_HEAP_LIST_I64) {
         zt_list_i64 *list = (zt_list_i64 *)header;
         for (size_t i = 0; i < list->len; i++) {
@@ -2065,17 +2162,17 @@ void zt_detect_cycles(zt_header *header) {
         }
     }
 
-    // Desmarcar o objeto após a verificação
+    // Clear visit mark after verification
     header->rc &= ~0x80000000;
 }
 
 void zt_runtime_check_for_cycles(void) {
-    // Função pública para verificar ciclos em todos os objetos gerenciados
+    // Public function to inspect cycles on managed objects
     // Exemplo simplificado: iterar sobre todos os objetos conhecidos
-    // (a implementação real dependeria de uma lista global de objetos gerenciados)
+    // Real implementation depends on a global managed-object registry
 }
 
-// Implementação de pools de memória para tipos frequentemente usados
+// Memory pool scaffolding for frequently-used types
 #include <stdlib.h>
 
 #define POOL_SIZE 128
@@ -2112,13 +2209,13 @@ void zt_runtime_safe_function_example(const zt_text *text) {
         return;
     }
 
-    // ... lógica da função ...
+    // ... function logic ...
 }
 
-// Adicionar verificações de integridade em funções de liberação de memória
+// Add integrity checks to memory-release helpers
 void zt_validate_and_free_text(zt_text *value) {
     if (value == NULL || value->data == NULL || value->len == 0) {
-        fprintf(stderr, "Erro: tentativa de liberar zt_text inválido\n");
+        fprintf(stderr, "Erro: tentativa de liberar zt_text invalido\n");
         return;
     }
     zt_free_text(value);
@@ -2126,7 +2223,7 @@ void zt_validate_and_free_text(zt_text *value) {
 
 void zt_validate_and_free_list_i64(zt_list_i64 *list) {
     if (list == NULL || list->data == NULL || list->len > list->capacity) {
-        fprintf(stderr, "Erro: tentativa de liberar zt_list_i64 inválido\n");
+        fprintf(stderr, "Erro: tentativa de liberar zt_list_i64 invalido\n");
         return;
     }
     zt_free_list_i64(list);
@@ -2134,7 +2231,7 @@ void zt_validate_and_free_list_i64(zt_list_i64 *list) {
 
 void zt_validate_and_free_map_text_text(zt_map_text_text *map) {
     if (map == NULL || map->keys == NULL || map->values == NULL || map->len > map->capacity) {
-        fprintf(stderr, "Erro: tentativa de liberar zt_map_text_text inválido\n");
+        fprintf(stderr, "Erro: tentativa de liberar zt_map_text_text invalido\n");
         return;
     }
     zt_free_map_text_text(map);
@@ -2201,6 +2298,146 @@ static zt_outcome_text_text zt_host_default_read_file(const zt_text *path) {
     return outcome;
 }
 
+static zt_outcome_void_text zt_host_default_write_file(const zt_text *path, const zt_text *value) {
+    const char *path_data;
+    FILE *file;
+    size_t write_count;
+
+    zt_runtime_require_text(path, "zt_host_write_file requires path");
+    zt_runtime_require_text(value, "zt_host_write_file requires value");
+
+    path_data = zt_text_data(path);
+    file = fopen(path_data, "wb");
+    if (file == NULL) {
+        return zt_outcome_void_text_failure_message(strerror(errno));
+    }
+
+    if (value->len > 0) {
+        write_count = fwrite(value->data, 1, value->len, file);
+        if (write_count != value->len) {
+            fclose(file);
+            return zt_outcome_void_text_failure_message(strerror(errno));
+        }
+    }
+
+    if (fclose(file) != 0) {
+        return zt_outcome_void_text_failure_message(strerror(errno));
+    }
+
+    return zt_outcome_void_text_success();
+}
+
+static zt_bool zt_host_default_path_exists(const zt_text *path) {
+    struct stat info;
+    const char *path_data;
+
+    zt_runtime_require_text(path, "zt_host_path_exists requires path");
+    path_data = zt_text_data(path);
+
+    return stat(path_data, &info) == 0;
+}
+
+static zt_outcome_optional_text_text zt_host_default_read_line_stdin(void) {
+    zt_outcome_optional_text_text outcome;
+    size_t capacity = 128;
+    size_t len = 0;
+    char *buffer = (char *)malloc(capacity);
+    int ch;
+
+    if (buffer == NULL) {
+        return zt_outcome_optional_text_text_failure_message("failed to allocate stdin line buffer");
+    }
+
+    while ((ch = fgetc(stdin)) != EOF) {
+        if (ch == '\r') {
+            int maybe_lf = fgetc(stdin);
+            if (maybe_lf != '\n' && maybe_lf != EOF) {
+                ungetc(maybe_lf, stdin);
+            }
+            break;
+        }
+        if (ch == '\n') {
+            break;
+        }
+
+        if (len + 1 >= capacity) {
+            size_t new_capacity = capacity * 2;
+            char *new_buffer = (char *)realloc(buffer, new_capacity);
+            if (new_buffer == NULL) {
+                free(buffer);
+                return zt_outcome_optional_text_text_failure_message("failed to grow stdin line buffer");
+            }
+            buffer = new_buffer;
+            capacity = new_capacity;
+        }
+
+        buffer[len++] = (char)ch;
+    }
+
+    if (ferror(stdin)) {
+        free(buffer);
+        clearerr(stdin);
+        return zt_outcome_optional_text_text_failure_message(strerror(errno));
+    }
+
+    if (ch == EOF && len == 0) {
+        free(buffer);
+        return zt_outcome_optional_text_text_success(zt_optional_text_empty());
+    }
+
+    {
+        zt_text *line;
+        zt_optional_text value;
+
+        line = zt_text_from_utf8(buffer, len);
+        free(buffer);
+
+        value = zt_optional_text_present(line);
+        zt_release(line);
+
+        outcome = zt_outcome_optional_text_text_success(value);
+        return outcome;
+    }
+}
+
+static zt_outcome_text_text zt_host_default_read_all_stdin(void) {
+    size_t capacity = 256;
+    size_t len = 0;
+    char *buffer = (char *)malloc(capacity);
+    int ch;
+    zt_text *value;
+    zt_outcome_text_text outcome;
+
+    if (buffer == NULL) {
+        return zt_outcome_text_text_failure_message("failed to allocate stdin buffer");
+    }
+
+    while ((ch = fgetc(stdin)) != EOF) {
+        if (len + 1 >= capacity) {
+            size_t new_capacity = capacity * 2;
+            char *new_buffer = (char *)realloc(buffer, new_capacity);
+            if (new_buffer == NULL) {
+                free(buffer);
+                return zt_outcome_text_text_failure_message("failed to grow stdin buffer");
+            }
+            buffer = new_buffer;
+            capacity = new_capacity;
+        }
+        buffer[len++] = (char)ch;
+    }
+
+    if (ferror(stdin)) {
+        free(buffer);
+        clearerr(stdin);
+        return zt_outcome_text_text_failure_message(strerror(errno));
+    }
+
+    value = zt_text_from_utf8(buffer, len);
+    free(buffer);
+    outcome = zt_outcome_text_text_success(value);
+    zt_release(value);
+    return outcome;
+}
 static zt_outcome_void_text zt_host_default_write_stream(FILE *stream, const zt_text *value, const char *label) {
     size_t write_count;
 
@@ -2228,17 +2465,379 @@ static zt_outcome_void_text zt_host_default_write_stderr(const zt_text *value) {
     return zt_host_default_write_stream(stderr, value, "zt_host_write_stderr requires text");
 }
 
+static zt_int zt_host_default_time_now_unix_ms(void) {
+    struct timespec ts;
+    long long millis;
+
+    if (timespec_get(&ts, TIME_UTC) == 0) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to read system time");
+    }
+
+    millis = (long long)ts.tv_sec * 1000LL + (long long)(ts.tv_nsec / 1000000L);
+    return (zt_int)millis;
+}
+
+static zt_outcome_void_text zt_host_default_time_sleep_ms(zt_int duration_ms) {
+    if (duration_ms < 0) {
+        return zt_outcome_void_text_failure_message("time.sleep requires non-negative duration");
+    }
+
+#ifdef _WIN32
+    Sleep((DWORD)duration_ms);
+    return zt_outcome_void_text_success();
+#else
+    struct timespec req;
+    struct timespec rem;
+
+    req.tv_sec = (time_t)(duration_ms / 1000);
+    req.tv_nsec = (long)((duration_ms % 1000) * 1000000L);
+
+    while (nanosleep(&req, &rem) != 0) {
+        if (errno != EINTR) {
+            return zt_outcome_void_text_failure_message(strerror(errno));
+        }
+        req = rem;
+    }
+
+    return zt_outcome_void_text_success();
+#endif
+}
+
+static char *zt_host_strdup_text(const zt_text *value, const char *label) {
+    char *copy;
+    if (value == NULL) {
+        zt_runtime_error(ZT_ERR_PANIC, label);
+    }
+    copy = (char *)malloc(value->len + 1);
+    if (copy == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate host string");
+    }
+    memcpy(copy, value->data, value->len);
+    copy[value->len] = '\0';
+    return copy;
+}
+
+static zt_outcome_text_text zt_host_default_os_current_dir(void) {
+    size_t capacity = 256;
+    char *buffer = NULL;
+
+    while (1) {
+        char *grown = (char *)realloc(buffer, capacity);
+        if (grown == NULL) {
+            free(buffer);
+            return zt_outcome_text_text_failure_message("os.current_dir allocation failed");
+        }
+        buffer = grown;
+
+#ifdef _WIN32
+        if (_getcwd(buffer, (int)capacity) != NULL) {
+            break;
+        }
+#else
+        if (getcwd(buffer, capacity) != NULL) {
+            break;
+        }
+#endif
+
+        if (errno != ERANGE) {
+            zt_outcome_text_text failure = zt_outcome_text_text_failure_message(strerror(errno));
+            free(buffer);
+            return failure;
+        }
+
+        if (capacity > (SIZE_MAX / 2)) {
+            free(buffer);
+            return zt_outcome_text_text_failure_message("os.current_dir path too long");
+        }
+        capacity *= 2;
+    }
+
+    {
+        zt_text *text = zt_text_from_utf8_literal(buffer);
+        zt_outcome_text_text outcome = zt_outcome_text_text_success(text);
+        zt_release(text);
+        free(buffer);
+        return outcome;
+    }
+}
+
+static zt_outcome_void_text zt_host_default_os_change_dir(const zt_text *path) {
+    char *path_copy = zt_host_strdup_text(path, "os.change_dir requires path text");
+    int rc;
+#ifdef _WIN32
+    rc = _chdir(path_copy);
+#else
+    rc = chdir(path_copy);
+#endif
+    free(path_copy);
+    if (rc != 0) {
+        return zt_outcome_void_text_failure_message(strerror(errno));
+    }
+    return zt_outcome_void_text_success();
+}
+
+static zt_optional_text zt_host_default_os_env(const zt_text *name) {
+    zt_optional_text empty = zt_optional_text_empty();
+    char *name_copy = zt_host_strdup_text(name, "os.env requires variable name text");
+    const char *value = getenv(name_copy);
+    free(name_copy);
+
+    if (value == NULL) {
+        return empty;
+    }
+
+    {
+        zt_text *text_value = zt_text_from_utf8_literal(value);
+        zt_optional_text result = zt_optional_text_present(text_value);
+        zt_release(text_value);
+        return result;
+    }
+}
+
+static zt_int zt_host_default_os_pid(void) {
+#ifdef _WIN32
+    return (zt_int)_getpid();
+#else
+    return (zt_int)getpid();
+#endif
+}
+
+static zt_text *zt_host_default_os_platform(void) {
+#if defined(_WIN32)
+    return zt_text_from_utf8_literal("windows");
+#elif defined(__APPLE__)
+    return zt_text_from_utf8_literal("macos");
+#elif defined(__linux__)
+    return zt_text_from_utf8_literal("linux");
+#else
+    return zt_text_from_utf8_literal("unknown");
+#endif
+}
+
+static zt_text *zt_host_default_os_arch(void) {
+#if defined(__x86_64__) || defined(_M_X64)
+    return zt_text_from_utf8_literal("x64");
+#elif defined(__i386__) || defined(_M_IX86)
+    return zt_text_from_utf8_literal("x86");
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    return zt_text_from_utf8_literal("arm64");
+#elif defined(__arm__) || defined(_M_ARM)
+    return zt_text_from_utf8_literal("arm");
+#elif defined(__riscv) && __riscv_xlen == 64
+    return zt_text_from_utf8_literal("riscv64");
+#else
+    return zt_text_from_utf8_literal("unknown");
+#endif
+}
+
+static int zt_host_command_append(char **buffer, size_t *length, size_t *capacity, const char *text) {
+    size_t text_len;
+    size_t needed;
+    char *grown;
+
+    if (buffer == NULL || length == NULL || capacity == NULL || text == NULL) {
+        return 0;
+    }
+
+    text_len = strlen(text);
+    needed = *length + text_len + 1;
+    if (needed > *capacity) {
+        size_t next_capacity = (*capacity == 0) ? 128 : *capacity;
+        while (next_capacity < needed) {
+            if (next_capacity > (SIZE_MAX / 2)) return 0;
+            next_capacity *= 2;
+        }
+        grown = (char *)realloc(*buffer, next_capacity);
+        if (grown == NULL) return 0;
+        *buffer = grown;
+        *capacity = next_capacity;
+    }
+
+    memcpy((*buffer) + *length, text, text_len);
+    *length += text_len;
+    (*buffer)[*length] = '\0';
+    return 1;
+}
+
+static int zt_host_command_append_quoted(char **buffer, size_t *length, size_t *capacity, const char *text) {
+    const unsigned char *cursor = (const unsigned char *)text;
+
+    if (!zt_host_command_append(buffer, length, capacity, "\"")) return 0;
+
+    while (*cursor != 0) {
+        char ch = (char)*cursor;
+        if (ch == '\\' || ch == '"') {
+            if (!zt_host_command_append(buffer, length, capacity, "\\")) return 0;
+        }
+        {
+            char one[2];
+            one[0] = ch;
+            one[1] = '\0';
+            if (!zt_host_command_append(buffer, length, capacity, one)) return 0;
+        }
+        cursor += 1;
+    }
+
+    return zt_host_command_append(buffer, length, capacity, "\"");
+}
+
+static zt_outcome_i64_text zt_host_default_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd) {
+    char *command = NULL;
+    size_t length = 0;
+    size_t capacity = 0;
+    int system_status;
+    int exit_code;
+    char *saved_cwd = NULL;
+    zt_bool cwd_changed = false;
+
+    if (program == NULL || program->len == 0) {
+        return zt_outcome_i64_text_failure_message("process.run requires non-empty program");
+    }
+
+    if (args == NULL) {
+        return zt_outcome_i64_text_failure_message("process.run requires args list");
+    }
+
+    if (!zt_host_command_append(&command, &length, &capacity, zt_text_data(program))) {
+        free(command);
+        return zt_outcome_i64_text_failure_message("process.run command allocation failed");
+    }
+
+    {
+        size_t i;
+        for (i = 0; i < args->len; i += 1) {
+            zt_text *arg = args->data[i];
+            if (arg == NULL) {
+                free(command);
+                return zt_outcome_i64_text_failure_message("process.run args cannot contain null text");
+            }
+            if (!zt_host_command_append(&command, &length, &capacity, " ")) {
+                free(command);
+                return zt_outcome_i64_text_failure_message("process.run command allocation failed");
+            }
+            if (!zt_host_command_append(&command, &length, &capacity, zt_text_data(arg))) {
+                free(command);
+                return zt_outcome_i64_text_failure_message("process.run command allocation failed");
+            }
+        }
+    }
+
+    if (cwd.is_present) {
+        zt_outcome_text_text cwd_now = zt_host_default_os_current_dir();
+        if (!cwd_now.is_success) {
+            free(command);
+            {
+                zt_outcome_i64_text fail_outcome = zt_outcome_i64_text_failure(cwd_now.error);
+                zt_release(cwd_now.error);
+                return fail_outcome;
+            }
+        }
+        saved_cwd = zt_host_strdup_text(cwd_now.value, "process.run failed to copy cwd");
+        zt_release(cwd_now.value);
+
+        if (cwd.value == NULL) {
+            free(command);
+            free(saved_cwd);
+            return zt_outcome_i64_text_failure_message("process.run cwd present with null text");
+        }
+
+        {
+            zt_outcome_void_text cd_outcome = zt_host_default_os_change_dir(cwd.value);
+            if (!cd_outcome.is_success) {
+                free(command);
+                free(saved_cwd);
+                {
+                    zt_outcome_i64_text fail_outcome = zt_outcome_i64_text_failure(cd_outcome.error);
+                    zt_release(cd_outcome.error);
+                    return fail_outcome;
+                }
+            }
+            cwd_changed = true;
+        }
+    }
+
+    system_status = system(command);
+    free(command);
+
+    if (system_status == -1) {
+        if (cwd_changed) {
+            zt_text *saved = zt_text_from_utf8_literal(saved_cwd);
+            zt_outcome_void_text restore_ignored = zt_host_default_os_change_dir(saved);
+            if (!restore_ignored.is_success) {
+                zt_release(restore_ignored.error);
+            }
+            zt_release(saved);
+        }
+        free(saved_cwd);
+        return zt_outcome_i64_text_failure_message(strerror(errno));
+    }
+
+#ifdef _WIN32
+    exit_code = system_status;
+#else
+    if (WIFEXITED(system_status)) {
+        exit_code = WEXITSTATUS(system_status);
+    } else if (WIFSIGNALED(system_status)) {
+        exit_code = 128 + WTERMSIG(system_status);
+    } else {
+        exit_code = system_status;
+    }
+#endif
+
+    if (cwd_changed) {
+        zt_text *saved = zt_text_from_utf8_literal(saved_cwd);
+        zt_outcome_void_text restore = zt_host_default_os_change_dir(saved);
+        zt_release(saved);
+        free(saved_cwd);
+        if (!restore.is_success) {
+            {
+                zt_outcome_i64_text fail_outcome = zt_outcome_i64_text_failure(restore.error);
+                zt_release(restore.error);
+                return fail_outcome;
+            }
+        }
+    }
+
+    return zt_outcome_i64_text_success((zt_int)exit_code);
+}
+
 void zt_host_set_api(const zt_host_api *api) {
     if (api == NULL) {
         zt_host_api_state.read_file = zt_host_default_read_file;
+        zt_host_api_state.write_file = zt_host_default_write_file;
+        zt_host_api_state.path_exists = zt_host_default_path_exists;
+        zt_host_api_state.read_line_stdin = zt_host_default_read_line_stdin;
+        zt_host_api_state.read_all_stdin = zt_host_default_read_all_stdin;
         zt_host_api_state.write_stdout = zt_host_default_write_stdout;
         zt_host_api_state.write_stderr = zt_host_default_write_stderr;
+        zt_host_api_state.time_now_unix_ms = zt_host_default_time_now_unix_ms;
+        zt_host_api_state.time_sleep_ms = zt_host_default_time_sleep_ms;
+        zt_host_api_state.os_current_dir = zt_host_default_os_current_dir;
+        zt_host_api_state.os_change_dir = zt_host_default_os_change_dir;
+        zt_host_api_state.os_env = zt_host_default_os_env;
+        zt_host_api_state.os_pid = zt_host_default_os_pid;
+        zt_host_api_state.os_platform = zt_host_default_os_platform;
+        zt_host_api_state.os_arch = zt_host_default_os_arch;
+        zt_host_api_state.process_run = zt_host_default_process_run;
         return;
     }
 
     zt_host_api_state.read_file = api->read_file != NULL ? api->read_file : zt_host_default_read_file;
+    zt_host_api_state.write_file = api->write_file != NULL ? api->write_file : zt_host_default_write_file;
+    zt_host_api_state.path_exists = api->path_exists != NULL ? api->path_exists : zt_host_default_path_exists;
+    zt_host_api_state.read_line_stdin = api->read_line_stdin != NULL ? api->read_line_stdin : zt_host_default_read_line_stdin;
+    zt_host_api_state.read_all_stdin = api->read_all_stdin != NULL ? api->read_all_stdin : zt_host_default_read_all_stdin;
     zt_host_api_state.write_stdout = api->write_stdout != NULL ? api->write_stdout : zt_host_default_write_stdout;
     zt_host_api_state.write_stderr = api->write_stderr != NULL ? api->write_stderr : zt_host_default_write_stderr;
+    zt_host_api_state.time_now_unix_ms = api->time_now_unix_ms != NULL ? api->time_now_unix_ms : zt_host_default_time_now_unix_ms;
+    zt_host_api_state.time_sleep_ms = api->time_sleep_ms != NULL ? api->time_sleep_ms : zt_host_default_time_sleep_ms;
+    zt_host_api_state.os_current_dir = api->os_current_dir != NULL ? api->os_current_dir : zt_host_default_os_current_dir;
+    zt_host_api_state.os_change_dir = api->os_change_dir != NULL ? api->os_change_dir : zt_host_default_os_change_dir;
+    zt_host_api_state.os_env = api->os_env != NULL ? api->os_env : zt_host_default_os_env;
+    zt_host_api_state.os_pid = api->os_pid != NULL ? api->os_pid : zt_host_default_os_pid;
+    zt_host_api_state.os_platform = api->os_platform != NULL ? api->os_platform : zt_host_default_os_platform;
+    zt_host_api_state.os_arch = api->os_arch != NULL ? api->os_arch : zt_host_default_os_arch;
+    zt_host_api_state.process_run = api->process_run != NULL ? api->process_run : zt_host_default_process_run;
 }
 
 const zt_host_api *zt_host_get_api(void) {
@@ -2249,6 +2848,22 @@ zt_outcome_text_text zt_host_read_file(const zt_text *path) {
     return zt_host_api_state.read_file(path);
 }
 
+
+zt_outcome_void_text zt_host_write_file(const zt_text *path, const zt_text *value) {
+    return zt_host_api_state.write_file(path, value);
+}
+
+zt_bool zt_host_path_exists(const zt_text *path) {
+    return zt_host_api_state.path_exists(path);
+}
+zt_outcome_optional_text_text zt_host_read_line_stdin(void) {
+    return zt_host_api_state.read_line_stdin();
+}
+
+zt_outcome_text_text zt_host_read_all_stdin(void) {
+    return zt_host_api_state.read_all_stdin();
+}
+
 zt_outcome_void_text zt_host_write_stdout(const zt_text *value) {
     return zt_host_api_state.write_stdout(value);
 }
@@ -2257,6 +2872,570 @@ zt_outcome_void_text zt_host_write_stderr(const zt_text *value) {
     return zt_host_api_state.write_stderr(value);
 }
 
+zt_int zt_host_time_now_unix_ms(void) {
+    return zt_host_api_state.time_now_unix_ms();
+}
+
+zt_outcome_void_text zt_host_time_sleep_ms(zt_int duration_ms) {
+    return zt_host_api_state.time_sleep_ms(duration_ms);
+}
+
+zt_outcome_text_text zt_host_os_current_dir(void) {
+    return zt_host_api_state.os_current_dir();
+}
+
+zt_outcome_void_text zt_host_os_change_dir(const zt_text *path) {
+    return zt_host_api_state.os_change_dir(path);
+}
+
+zt_optional_text zt_host_os_env(const zt_text *name) {
+    return zt_host_api_state.os_env(name);
+}
+
+zt_int zt_host_os_pid(void) {
+    return zt_host_api_state.os_pid();
+}
+
+zt_text *zt_host_os_platform(void) {
+    return zt_host_api_state.os_platform();
+}
+
+zt_text *zt_host_os_arch(void) {
+    return zt_host_api_state.os_arch();
+}
+
+zt_outcome_i64_text zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd) {
+    return zt_host_api_state.process_run(program, args, cwd);
+}
+
+static zt_outcome_map_text_text zt_outcome_map_text_text_failure_message_local(const char *message) {
+    zt_text *error = zt_text_from_utf8_literal(zt_safe_message(message));
+    zt_outcome_map_text_text outcome = zt_outcome_map_text_text_failure(error);
+    zt_release(error);
+    return outcome;
+}
+
+static const char *zt_json_skip_whitespace(const char *cursor, const char *end) {
+    while (cursor < end && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+    return cursor;
+}
+
+static void zt_json_buffer_reserve(char **buffer, size_t *capacity, size_t current_len, size_t additional) {
+    size_t required;
+    size_t next_capacity;
+    char *resized;
+
+    if (buffer == NULL || capacity == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "invalid JSON buffer state");
+    }
+
+    required = current_len + additional + 1;
+    if (*capacity >= required) {
+        return;
+    }
+
+    next_capacity = *capacity > 0 ? *capacity : 32;
+    while (next_capacity < required) {
+        next_capacity *= 2;
+    }
+
+    resized = (char *)realloc(*buffer, next_capacity);
+    if (resized == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate JSON buffer");
+    }
+
+    *buffer = resized;
+    *capacity = next_capacity;
+}
+
+static void zt_json_buffer_append_char(char **buffer, size_t *len, size_t *capacity, char value) {
+    zt_json_buffer_reserve(buffer, capacity, *len, 1);
+    (*buffer)[*len] = value;
+    *len += 1;
+    (*buffer)[*len] = '\0';
+}
+
+static void zt_json_buffer_append_bytes(char **buffer, size_t *len, size_t *capacity, const char *value, size_t value_len) {
+    if (value_len == 0) {
+        return;
+    }
+
+    zt_json_buffer_reserve(buffer, capacity, *len, value_len);
+    memcpy((*buffer) + *len, value, value_len);
+    *len += value_len;
+    (*buffer)[*len] = '\0';
+}
+
+static void zt_json_buffer_append_escaped_text(char **buffer, size_t *len, size_t *capacity, const zt_text *value) {
+    static const char *hex = "0123456789abcdef";
+    size_t index;
+
+    zt_runtime_require_text(value, "zt_json_buffer_append_escaped_text requires text");
+
+    for (index = 0; index < value->len; index++) {
+        unsigned char ch = (unsigned char)value->data[index];
+        char escaped[7] = "\\u0000";
+
+        switch (ch) {
+            case '"':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\\"", 2);
+                break;
+            case '\\':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\\\", 2);
+                break;
+            case '\b':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\b", 2);
+                break;
+            case '\f':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\f", 2);
+                break;
+            case '\n':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\n", 2);
+                break;
+            case '\r':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\r", 2);
+                break;
+            case '\t':
+                zt_json_buffer_append_bytes(buffer, len, capacity, "\\t", 2);
+                break;
+            default:
+                if (ch < 0x20) {
+                    escaped[4] = hex[(ch >> 4) & 0x0f];
+                    escaped[5] = hex[ch & 0x0f];
+                    zt_json_buffer_append_bytes(buffer, len, capacity, escaped, 6);
+                } else {
+                    zt_json_buffer_append_char(buffer, len, capacity, (char)ch);
+                }
+                break;
+        }
+    }
+}
+
+static zt_bool zt_json_parse_string(const char **cursor, const char *end, zt_text **out_value, const char **out_error) {
+    const char *it;
+    char *buffer;
+    size_t len;
+    size_t capacity;
+
+    if (cursor == NULL || out_value == NULL || out_error == NULL) {
+        return false;
+    }
+
+    it = *cursor;
+    if (it >= end || *it != '"') {
+        *out_error = "JSON string must start with quote";
+        return false;
+    }
+
+    it++;
+    capacity = 32;
+    len = 0;
+    buffer = (char *)malloc(capacity);
+    if (buffer == NULL) {
+        *out_error = "failed to allocate JSON string buffer";
+        return false;
+    }
+    buffer[0] = '\0';
+
+    while (it < end) {
+        unsigned char ch = (unsigned char)*it;
+        it++;
+
+        if (ch == '"') {
+            *out_value = zt_text_from_utf8(buffer, len);
+            free(buffer);
+            *cursor = it;
+            return true;
+        }
+
+        if (ch == '\\') {
+            unsigned char esc;
+            if (it >= end) {
+                free(buffer);
+                *out_error = "unterminated JSON escape sequence";
+                return false;
+            }
+
+            esc = (unsigned char)*it;
+            it++;
+
+            switch (esc) {
+                case '"': zt_json_buffer_append_char(&buffer, &len, &capacity, '"'); break;
+                case '\\': zt_json_buffer_append_char(&buffer, &len, &capacity, '\\'); break;
+                case '/': zt_json_buffer_append_char(&buffer, &len, &capacity, '/'); break;
+                case 'b': zt_json_buffer_append_char(&buffer, &len, &capacity, '\b'); break;
+                case 'f': zt_json_buffer_append_char(&buffer, &len, &capacity, '\f'); break;
+                case 'n': zt_json_buffer_append_char(&buffer, &len, &capacity, '\n'); break;
+                case 'r': zt_json_buffer_append_char(&buffer, &len, &capacity, '\r'); break;
+                case 't': zt_json_buffer_append_char(&buffer, &len, &capacity, '\t'); break;
+                case 'u':
+                    free(buffer);
+                    *out_error = "unicode escapes are not supported in std.json MVP";
+                    return false;
+                default:
+                    free(buffer);
+                    *out_error = "invalid JSON escape sequence";
+                    return false;
+            }
+
+            continue;
+        }
+
+        if (ch < 0x20) {
+            free(buffer);
+            *out_error = "control character in JSON string";
+            return false;
+        }
+
+        zt_json_buffer_append_char(&buffer, &len, &capacity, (char)ch);
+    }
+
+    free(buffer);
+    *out_error = "unterminated JSON string";
+    return false;
+}
+
+static zt_bool zt_json_parse_unquoted_value(const char **cursor, const char *end, zt_text **out_value, const char **out_error) {
+    const char *start;
+    const char *finish;
+    const char *trimmed_start;
+    const char *trimmed_end;
+
+    if (cursor == NULL || out_value == NULL || out_error == NULL) {
+        return false;
+    }
+
+    start = *cursor;
+    finish = start;
+
+    while (finish < end && *finish != ',' && *finish != '}') {
+        finish++;
+    }
+
+    trimmed_start = start;
+    trimmed_end = finish;
+
+    while (trimmed_start < trimmed_end && isspace((unsigned char)*trimmed_start)) {
+        trimmed_start++;
+    }
+    while (trimmed_end > trimmed_start && isspace((unsigned char)*(trimmed_end - 1))) {
+        trimmed_end--;
+    }
+
+    if (trimmed_start == trimmed_end) {
+        *out_error = "expected JSON value";
+        return false;
+    }
+
+    if (*trimmed_start == '{' || *trimmed_start == '[') {
+        *out_error = "nested JSON values are not supported in std.json MVP";
+        return false;
+    }
+
+    *out_value = zt_text_from_utf8(trimmed_start, (size_t)(trimmed_end - trimmed_start));
+    *cursor = finish;
+    return true;
+}
+
+zt_outcome_map_text_text zt_json_parse_map_text_text(const zt_text *input) {
+    const char *cursor;
+    const char *end;
+    zt_map_text_text *map;
+
+    zt_runtime_require_text(input, "zt_json_parse_map_text_text requires input");
+
+    cursor = input->data;
+    end = input->data + input->len;
+    cursor = zt_json_skip_whitespace(cursor, end);
+
+    if (cursor >= end || *cursor != '{') {
+        return zt_outcome_map_text_text_failure_message_local("std.json.parse expects a JSON object");
+    }
+
+    cursor++;
+    map = zt_map_text_text_new();
+    cursor = zt_json_skip_whitespace(cursor, end);
+
+    if (cursor < end && *cursor == '}') {
+        zt_outcome_map_text_text ok;
+        cursor++;
+        cursor = zt_json_skip_whitespace(cursor, end);
+        if (cursor != end) {
+            zt_release(map);
+            return zt_outcome_map_text_text_failure_message_local("unexpected trailing content after JSON object");
+        }
+        ok = zt_outcome_map_text_text_success(map);
+        zt_release(map);
+        return ok;
+    }
+
+    while (cursor < end) {
+        zt_text *key = NULL;
+        zt_text *value_text = NULL;
+        const char *error_message = NULL;
+
+        cursor = zt_json_skip_whitespace(cursor, end);
+        if (cursor >= end || *cursor != '"') {
+            zt_release(map);
+            return zt_outcome_map_text_text_failure_message_local("expected quoted JSON object key");
+        }
+
+        if (!zt_json_parse_string(&cursor, end, &key, &error_message)) {
+            zt_release(map);
+            return zt_outcome_map_text_text_failure_message_local(error_message);
+        }
+
+        cursor = zt_json_skip_whitespace(cursor, end);
+        if (cursor >= end || *cursor != ':') {
+            zt_release(key);
+            zt_release(map);
+            return zt_outcome_map_text_text_failure_message_local("expected ':' after JSON object key");
+        }
+
+        cursor++;
+        cursor = zt_json_skip_whitespace(cursor, end);
+
+        if (cursor < end && *cursor == '"') {
+            if (!zt_json_parse_string(&cursor, end, &value_text, &error_message)) {
+                zt_release(key);
+                zt_release(map);
+                return zt_outcome_map_text_text_failure_message_local(error_message);
+            }
+        } else {
+            if (!zt_json_parse_unquoted_value(&cursor, end, &value_text, &error_message)) {
+                zt_release(key);
+                zt_release(map);
+                return zt_outcome_map_text_text_failure_message_local(error_message);
+            }
+        }
+
+        zt_map_text_text_set(map, key, value_text);
+        zt_release(key);
+        zt_release(value_text);
+
+        cursor = zt_json_skip_whitespace(cursor, end);
+        if (cursor < end && *cursor == ',') {
+            cursor++;
+            continue;
+        }
+
+        if (cursor < end && *cursor == '}') {
+            zt_outcome_map_text_text ok;
+            cursor++;
+            cursor = zt_json_skip_whitespace(cursor, end);
+            if (cursor != end) {
+                zt_release(map);
+                return zt_outcome_map_text_text_failure_message_local("unexpected trailing content after JSON object");
+            }
+            ok = zt_outcome_map_text_text_success(map);
+            zt_release(map);
+            return ok;
+        }
+
+        zt_release(map);
+        return zt_outcome_map_text_text_failure_message_local("expected ',' or '}' in JSON object");
+    }
+
+    zt_release(map);
+    return zt_outcome_map_text_text_failure_message_local("unterminated JSON object");
+}
+
+zt_text *zt_json_stringify_map_text_text(const zt_map_text_text *value) {
+    char *buffer;
+    size_t len;
+    size_t capacity;
+    zt_int count;
+    zt_int i;
+
+    zt_runtime_require_map_text_text(value, "zt_json_stringify_map_text_text requires map");
+
+    capacity = 64;
+    len = 0;
+    buffer = (char *)malloc(capacity);
+    if (buffer == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate JSON buffer");
+    }
+    buffer[0] = '\0';
+
+    zt_json_buffer_append_char(&buffer, &len, &capacity, '{');
+
+    count = zt_map_text_text_len(value);
+    for (i = 0; i < count; i++) {
+        zt_text *key = zt_map_text_text_key_at(value, i);
+        zt_text *item_value = zt_map_text_text_value_at(value, i);
+
+        if (i > 0) {
+            zt_json_buffer_append_char(&buffer, &len, &capacity, ',');
+        }
+
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+        zt_json_buffer_append_escaped_text(&buffer, &len, &capacity, key);
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+        zt_json_buffer_append_char(&buffer, &len, &capacity, ':');
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+        zt_json_buffer_append_escaped_text(&buffer, &len, &capacity, item_value);
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+    }
+
+    zt_json_buffer_append_char(&buffer, &len, &capacity, '}');
+
+    {
+        zt_text *result = zt_text_from_utf8(buffer, len);
+        free(buffer);
+        return result;
+    }
+}
+
+zt_text *zt_json_pretty_map_text_text(const zt_map_text_text *value, zt_int indent) {
+    char *buffer;
+    size_t len;
+    size_t capacity;
+    zt_int count;
+    zt_int i;
+    size_t indent_size;
+
+    zt_runtime_require_map_text_text(value, "zt_json_pretty_map_text_text requires map");
+
+    indent_size = indent > 0 ? (size_t)indent : 0;
+    capacity = 64;
+    len = 0;
+    buffer = (char *)malloc(capacity);
+    if (buffer == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate JSON buffer");
+    }
+    buffer[0] = '\0';
+
+    count = zt_map_text_text_len(value);
+    if (count == 0) {
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '{');
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '}');
+    } else {
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '{');
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '\n');
+
+        for (i = 0; i < count; i++) {
+            zt_text *key = zt_map_text_text_key_at(value, i);
+            zt_text *item_value = zt_map_text_text_value_at(value, i);
+            size_t spacing;
+
+            for (spacing = 0; spacing < indent_size; spacing++) {
+                zt_json_buffer_append_char(&buffer, &len, &capacity, ' ');
+            }
+
+            zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+            zt_json_buffer_append_escaped_text(&buffer, &len, &capacity, key);
+            zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+            zt_json_buffer_append_char(&buffer, &len, &capacity, ':');
+            zt_json_buffer_append_char(&buffer, &len, &capacity, ' ');
+            zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+            zt_json_buffer_append_escaped_text(&buffer, &len, &capacity, item_value);
+            zt_json_buffer_append_char(&buffer, &len, &capacity, '"');
+
+            if (i + 1 < count) {
+                zt_json_buffer_append_char(&buffer, &len, &capacity, ',');
+            }
+
+            zt_json_buffer_append_char(&buffer, &len, &capacity, '\n');
+        }
+
+        zt_json_buffer_append_char(&buffer, &len, &capacity, '}');
+    }
+
+    {
+        zt_text *result = zt_text_from_utf8(buffer, len);
+        free(buffer);
+        return result;
+    }
+}
+
+static uint64_t zt_u64_magnitude(zt_int value) {
+    if (value >= 0) {
+        return (uint64_t)value;
+    }
+    return (uint64_t)(-(value + 1)) + 1u;
+}
+
+zt_text *zt_format_hex_i64(zt_int value) {
+    char buffer[80];
+    uint64_t magnitude = zt_u64_magnitude(value);
+
+    if (value < 0) {
+        snprintf(buffer, sizeof(buffer), "-%llx", (unsigned long long)magnitude);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%llx", (unsigned long long)magnitude);
+    }
+
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_bin_i64(zt_int value) {
+    char digits[65];
+    size_t count = 0;
+    uint64_t magnitude = zt_u64_magnitude(value);
+    char buffer[96];
+
+    if (magnitude == 0) {
+        digits[count++] = '0';
+    } else {
+        while (magnitude > 0 && count < sizeof(digits)) {
+            digits[count++] = (char)('0' + (magnitude & 1u));
+            magnitude >>= 1u;
+        }
+    }
+
+    if (value < 0) {
+        size_t out = 0;
+        buffer[out++] = '-';
+        while (count > 0 && out + 1 < sizeof(buffer)) {
+            buffer[out++] = digits[--count];
+        }
+        buffer[out] = '\0';
+    } else {
+        size_t out = 0;
+        while (count > 0 && out + 1 < sizeof(buffer)) {
+            buffer[out++] = digits[--count];
+        }
+        buffer[out] = '\0';
+    }
+
+    return zt_text_from_utf8_literal(buffer);
+}
+
+static zt_text *zt_format_bytes_impl(zt_int value, zt_float base, const char *const *units, size_t unit_count, zt_int decimals) {
+    zt_float scaled = (zt_float)value;
+    size_t unit_index = 0;
+    zt_int clamped_decimals = decimals;
+    char format_spec[16];
+    char buffer[96];
+
+    if (clamped_decimals < 0) {
+        clamped_decimals = 0;
+    }
+    if (clamped_decimals > 6) {
+        clamped_decimals = 6;
+    }
+
+    while ((scaled <= -base || scaled >= base) && (unit_index + 1) < unit_count) {
+        scaled /= base;
+        unit_index += 1;
+    }
+
+    snprintf(format_spec, sizeof(format_spec), "%%.%df %%s", (int)clamped_decimals);
+    snprintf(buffer, sizeof(buffer), format_spec, (double)scaled, units[unit_index]);
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_bytes_binary(zt_int value, zt_int decimals) {
+    static const char *const units[] = {"B", "KiB", "MiB", "GiB", "TiB", "PiB"};
+    return zt_format_bytes_impl(value, 1024.0, units, sizeof(units) / sizeof(units[0]), decimals);
+}
+
+zt_text *zt_format_bytes_decimal(zt_int value, zt_int decimals) {
+    static const char *const units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
+    return zt_format_bytes_impl(value, 1000.0, units, sizeof(units) / sizeof(units[0]), decimals);
+}
 zt_int zt_add_i64(zt_int a, zt_int b) {
     zt_int result;
     if (__builtin_add_overflow(a, b, &result)) {
@@ -2300,3 +3479,9 @@ zt_int zt_rem_i64(zt_int a, zt_int b) {
     }
     return a % b;
 }
+
+
+zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max) {
+    return value >= min && value <= max;
+}
+

@@ -27,7 +27,7 @@ Subset implementado neste corte:
 - `Outcome<text,text>`: `zt_outcome_text_text_success`, `zt_outcome_text_text_failure`, `zt_outcome_text_text_is_success`, `zt_outcome_text_text_value`, `zt_outcome_text_text_propagate`
 - `Outcome<list<int>,text>`: `zt_outcome_list_i64_text_success`, `zt_outcome_list_i64_text_failure`, `zt_outcome_list_i64_text_is_success`, `zt_outcome_list_i64_text_value`, `zt_outcome_list_i64_text_propagate`
 - `Outcome<list<text>,text>`: `zt_outcome_list_text_text_success`, `zt_outcome_list_text_text_failure`, `zt_outcome_list_text_text_is_success`, `zt_outcome_list_text_text_value`, `zt_outcome_list_text_text_propagate`
-- `Outcome<map<text,text>,text>`: `zt_outcome_map_text_text_success`, `zt_outcome_map_text_text_failure`, `zt_outcome_map_text_text_is_success`, `zt_outcome_map_text_text_value`, `zt_outcome_map_text_text_propagate`
+- `Outcome<map<text,text>,text>`: `zt_outcome_map_text_text_success`, `zt_outcome_map_text_text_failure`, `zt_outcome_map_text_text_failure_message`, `zt_outcome_map_text_text_is_success`, `zt_outcome_map_text_text_value`, `zt_outcome_map_text_text_propagate`
 
 Compatibilidade semantica atual:
 

@@ -1,0 +1,16 @@
+namespace app.main
+
+import std.fs.path as path
+
+func main() -> int
+    const joined: text = path.join("docs", "guide.md")
+    const ok: text = "ok"
+    const probe: map<text, text> = { joined: ok }
+    const value: text = probe["docs/guide.md"]
+
+    if len(value) == 0
+        return 1
+    end
+
+    return 0
+end

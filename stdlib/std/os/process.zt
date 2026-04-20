@@ -1,0 +1,13 @@
+namespace std.os.process
+
+extern c
+    func zt_host_process_run(program: text, args: list<text>, cwd: optional<text>) -> result<int, text>
+end
+
+func run(program: text, args: list<text>, cwd: optional<text>) -> result<int, text>
+    return process.zt_host_process_run(program, args, cwd)
+end
+
+func run_program(program: text) -> result<int, text>
+    return process.run(program, [], none)
+end

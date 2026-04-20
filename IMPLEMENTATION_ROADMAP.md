@@ -1063,7 +1063,7 @@ Dependencias: M21-M31.
 
 ## M33. Implementacao das Stdlibs MVP
 
-Status: em andamento (baseline std.io de output explicito fechado; demais modulos ainda pendentes).
+Status: em andamento (baselines de std.io, std.fs, std.fs.path, std.math, std.validate, std.format, std.test, std.json, std.time, std.os e std.os.process fechados; modulos restantes pendentes).
 
 Objetivo: Fornecer os modulos da biblioteca padrao (alem da base de bytes/utf-8 iniciada em M19), fundamentados num backend e runtime estaveis. As decisoes de design destas APIs ja estao fechadas e documentadas em `language/decisions/`.
 
@@ -1083,10 +1083,19 @@ Escopo minimo:
 - Implementar `std.net` (TCP Client, Multi-IP DNS)
 - Criar behavior tests para cada modulo
 - Validar ownership ARC em cada implementacao
-- progresso: `std.io` ja cobre output textual explicito (`write`/`print` e variants de linha) com behavior `std_io_basic`; pendente completar `read_line`/`read_all` e tipos de stream/erro canonicos (`io.Input`/`io.Output`/`io.Error`).
+- progresso: `std.io` cobre output textual explicito (`write`/`print` e variants de linha) e leitura de stdin (`read_line`/`read_all`) no backend C atual, com `result<optional<text>, text>`/`result<text, text>` e suporte de `outcome<optional<text>,text>` no emitter/runtime.
+- pendente: migrar `std.io` para os tipos canonicos de stream/erro (`io.Input`/`io.Output`/`io.Error`) conforme decision 058.
+- progresso: `std.fs` recebeu baseline inicial (`read_text`, `write_text`, `exists`) com wrappers host (`zt_host_read_file`/`zt_host_write_file`/`zt_host_path_exists`) e behavior `std_fs_basic`.
+- progresso: `std.fs.path` recebeu baseline inicial (`join`) com behavior `std_fs_path_basic`; operacoes adicionais (`base`, `dir`, `ext`, `normalize`, `absolute`, `relative`, `is_file`, `is_dir`, `list`, `create_dir`, metadados) seguem pendentes.
+- progresso: std.json recebeu baseline inicial (parse, stringify, pretty) para map<text,text>, com behavior std_json_basic; no MVP atual o parser aceita objeto JSON plano e valores escalares (sem nested/object-array e sem \\uXXXX).
+- progresso: emitter C passou a cobrir Outcome<map<text,text>,text> em outcome_is_success/outcome_value/try_propagate, incluindo propagacao T? para retorno result<void,text> quando T = map<text,text> (e demais outcomes ja materializados).
 - progresso: `std.validate` recebeu baseline puro (predicados int/text) com behavior `std_validate_basic`.
 - progresso: `std.math` recebeu baseline inicial (operacoes escalares int + helpers angulares/`approx_equal`) com behavior `std_math_basic`; funcoes avancadas continuam pendentes.
+- progresso: `std.format` recebeu baseline inicial (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) com behavior `std_format_basic`; seletor tipado (`BytesStyle`) e familias `number/percent/date/datetime` seguem pendentes.
 - progresso: `std.test` recebeu baseline inicial (`fail`/`skip`), com `std_test_basic`; integracao real com harness e estados fail/skip do runner permanece pendente.
+- progresso: `std.time` recebeu baseline inicial com wrappers de host runtime no target C (`now`, `sleep`, `since`, `until`, `diff`, `add`, `sub`, conversoes unix e helpers de duracao), com behavior `std_time_basic`; tipagem canonica `Instant`/`Duration` permanece pendente neste corte e esta representada temporariamente como `int` unix-ms.
+- progresso: `std.os` recebeu baseline inicial (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) via wrappers host runtime, com behavior `std_os_basic`; tipos canonicos (`os.Platform`, `os.Arch`, `os.Error`) seguem pendentes.
+- progresso: `std.os.process` recebeu baseline inicial com `run(program, args, cwd)` sem shell implicito e retorno de status em `int`, com behavior `std_os_process_basic`; tipos canonicos (`process.ExitStatus`, `process.Error`, `process.CapturedRun`) seguem pendentes.
 
 Dependencias: M24 (ARC nao-atomico para buffers e resources) e M26 (Runtime where contracts para `std.validate`).
 

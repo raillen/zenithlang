@@ -935,6 +935,32 @@ static const zt_ast_node *zt_checker_find_apply_method(const zt_checker *checker
     return NULL;
 }
 
+static int zt_checker_build_qualified_name(const zt_ast_node *node, char *buffer, size_t buffer_size) {
+    size_t len;
+    size_t field_len;
+
+    if (node == NULL || buffer == NULL || buffer_size == 0) return 0;
+
+    if (node->kind == ZT_AST_IDENT_EXPR) {
+        if (node->as.ident_expr.name == NULL) return 0;
+        if (snprintf(buffer, buffer_size, "%s", node->as.ident_expr.name) < 0) return 0;
+        return strlen(buffer) < buffer_size;
+    }
+
+    if (node->kind == ZT_AST_FIELD_EXPR) {
+        if (node->as.field_expr.field_name == NULL) return 0;
+        if (!zt_checker_build_qualified_name(node->as.field_expr.object, buffer, buffer_size)) return 0;
+        len = strlen(buffer);
+        field_len = strlen(node->as.field_expr.field_name);
+        if (len + 1 + field_len + 1 > buffer_size) return 0;
+        buffer[len] = '.';
+        memcpy(buffer + len + 1, node->as.field_expr.field_name, field_len + 1);
+        return 1;
+    }
+
+    return 0;
+}
+
 static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_ast_node *node, zt_binding_scope *scope, zt_function_context *fn_ctx) {
     zt_expr_info object_info;
     zt_expr_info result;
@@ -2232,14 +2258,15 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                         const zt_ast_node *variant_decl = NULL;
                         size_t variant_index = 0;
                         size_t field_count = 0;
+                        char pattern_enum_name[256];
 
                         if (pattern == NULL) continue;
 
                         if (pattern->kind == ZT_AST_FIELD_EXPR &&
                             pattern->as.field_expr.object != NULL &&
-                            pattern->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
                             pattern->as.field_expr.field_name != NULL &&
-                            strcmp(pattern->as.field_expr.object->as.ident_expr.name, subject_decl->as.enum_decl.name) == 0) {
+                            zt_checker_build_qualified_name(pattern->as.field_expr.object, pattern_enum_name, sizeof(pattern_enum_name)) &&
+                            strcmp(pattern_enum_name, subject_decl->as.enum_decl.name) == 0) {
                             variant_decl = zt_checker_find_enum_variant_decl(subject_decl, pattern->as.field_expr.field_name, &variant_index);
                             if (variant_decl == NULL) {
                                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, pattern->span, "unknown enum variant '%s.%s' in match", subject_decl->as.enum_decl.name, pattern->as.field_expr.field_name);
@@ -2258,9 +2285,9 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                             pattern->as.call_expr.callee != NULL &&
                             pattern->as.call_expr.callee->kind == ZT_AST_FIELD_EXPR &&
                             pattern->as.call_expr.callee->as.field_expr.object != NULL &&
-                            pattern->as.call_expr.callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
                             pattern->as.call_expr.callee->as.field_expr.field_name != NULL &&
-                            strcmp(pattern->as.call_expr.callee->as.field_expr.object->as.ident_expr.name, subject_decl->as.enum_decl.name) == 0) {
+                            zt_checker_build_qualified_name(pattern->as.call_expr.callee->as.field_expr.object, pattern_enum_name, sizeof(pattern_enum_name)) &&
+                            strcmp(pattern_enum_name, subject_decl->as.enum_decl.name) == 0) {
                             const zt_ast_node *callee_field = pattern->as.call_expr.callee;
                             variant_decl = zt_checker_find_enum_variant_decl(subject_decl, callee_field->as.field_expr.field_name, &variant_index);
                             if (variant_decl == NULL) {

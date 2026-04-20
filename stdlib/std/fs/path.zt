@@ -1,0 +1,19 @@
+namespace std.fs.path
+
+extern c
+    func zt_text_concat(a: text, b: text) -> text
+end
+
+func join(base: text, child: text) -> text
+    if len(base) == 0
+        return child
+    end
+
+    if len(child) == 0
+        return base
+    end
+
+    const slash: text = "/"
+    const with_sep: text = path.zt_text_concat(base, slash)
+    return path.zt_text_concat(with_sep, child)
+end

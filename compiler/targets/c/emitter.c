@@ -483,6 +483,7 @@ static const c_type_mapping C_TYPE_TABLE[] = {
     {"outcome<list<int>,text>", "zt_outcome_list_i64_text", C_TYPE_MANAGED, 0},
     {"outcome<list<text>,text>", "zt_outcome_list_text_text", C_TYPE_MANAGED, 0},
     {"outcome<map<text,text>,text>", "zt_outcome_map_text_text", C_TYPE_MANAGED, 0},
+    {"outcome<optional<text>,text>", "zt_outcome_optional_text_text", C_TYPE_MANAGED, 0},
     {"outcome<text,text>", "zt_outcome_text_text", C_TYPE_MANAGED, 0},
     {"outcome<void,text>", "zt_outcome_void_text", C_TYPE_MANAGED, 0},
     {"text", "zt_text *", C_TYPE_MANAGED, 1},
@@ -829,6 +830,20 @@ static int c_expression_is_materialized_list_i64_ref(const zir_function *functio
     return result;
 }
 
+static int c_expression_is_materialized_map_text_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "map<text,text>");
+    free(trimmed);
+    return result;
+}
+
 static int c_expression_is_materialized_optional_text_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     const char *type_name;
@@ -899,6 +914,20 @@ static int c_expression_is_materialized_outcome_text_text_ref(const zir_function
     return result;
 }
 
+static int c_expression_is_materialized_outcome_optional_text_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "outcome<optional<text>,text>");
+    free(trimmed);
+    return result;
+}
+
 static int c_expression_is_materialized_outcome_list_i64_text_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     const char *type_name;
@@ -909,6 +938,20 @@ static int c_expression_is_materialized_outcome_list_i64_text_ref(const zir_func
 
     type_name = c_find_symbol_type(function_decl, trimmed);
     int result = c_type_is(type_name, "outcome<list<int>,text>");
+    free(trimmed);
+    return result;
+}
+
+static int c_expression_is_materialized_outcome_map_text_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "outcome<map<text,text>,text>");
     free(trimmed);
     return result;
 }
@@ -1881,6 +1924,22 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
+            if (!c_expression_is_materialized_map_text_text_ref(function_decl, value_expr)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "outcome_success for Outcome<map<text,text>,text> currently requires a materialized map<text,text> value, got '%s'",
+                    value_expr
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_success(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "map<text,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_type_is(expected_type_name, "outcome<text,text>")) {
             if (!c_expression_is_materialized_text_ref(function_decl, value_expr)) {
                 c_emit_set_result(
@@ -1897,14 +1956,32 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
+            if (!c_expression_is_materialized_optional_text_ref(function_decl, value_expr)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "outcome_success for Outcome<optional<text>,text> currently requires a materialized optional<text> value, got '%s'",
+                    value_expr
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_success(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "optional<text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (!c_is_blank(expected_type_name) &&
                 !c_type_is(expected_type_name, "outcome<int,text>") &&
                 !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>")) {
+                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
+                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
+                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "outcome_success with a value produces Outcome<int,text>, Outcome<text,text> or Outcome<list<int>,text>, but the expected type is '%s'",
+                "outcome_success with a value produces Outcome<int,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
@@ -1931,8 +2008,14 @@ static int c_emit_expr(
             if (c_type_is(expected_type_name, "outcome<text,text>")) {
                 return c_buffer_append_format(&emitter->buffer, "zt_outcome_text_text_failure_message(%s)", error_trimmed + 6);
             }
+            if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
+                return c_buffer_append_format(&emitter->buffer, "zt_outcome_optional_text_text_failure_message(%s)", error_trimmed + 6);
+            }
             if (c_type_is(expected_type_name, "outcome<list<int>,text>")) {
                 return c_buffer_append_format(&emitter->buffer, "zt_outcome_list_i64_text_failure_message(%s)", error_trimmed + 6);
+            }
+            if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
+                return c_buffer_append_format(&emitter->buffer, "zt_outcome_map_text_text_failure_message(%s)", error_trimmed + 6);
             }
             if (c_is_blank(expected_type_name) || c_type_is(expected_type_name, "outcome<int,text>")) {
                 return c_buffer_append_format(&emitter->buffer, "zt_outcome_i64_text_failure_message(%s)", error_trimmed + 6);
@@ -1961,8 +2044,20 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_failure(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_type_is(expected_type_name, "outcome<list<int>,text>")) {
             return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_failure(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_failure(") &&
                    c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
@@ -1971,11 +2066,13 @@ static int c_emit_expr(
                 !c_type_is(expected_type_name, "outcome<int,text>") &&
                 !c_type_is(expected_type_name, "outcome<void,text>") &&
                 !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>")) {
+                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
+                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
+                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "outcome_failure produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text> or Outcome<list<int>,text>, but the expected type is '%s'",
+                "outcome_failure produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
@@ -2001,9 +2098,21 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_is_success(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
             return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_is_success(") &&
                    c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_is_success(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
 
@@ -2011,7 +2120,7 @@ static int c_emit_expr(
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_is_success currently requires a materialized Outcome<int,text>, Outcome<void,text>, Outcome<text,text> or Outcome<list<int>,text> value, got '%s'",
+                "outcome_is_success currently requires a materialized Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text> value, got '%s'",
                 outcome_expr
             );
             return 0;
@@ -2040,9 +2149,21 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_value(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
             return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_value(") &&
                    c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_value(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
 
@@ -2050,7 +2171,7 @@ static int c_emit_expr(
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_value currently requires a materialized Outcome<int,text>, Outcome<text,text> or Outcome<list<int>,text> value, got '%s'",
+                "outcome_value currently requires a materialized Outcome<int,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text> value, got '%s'",
                 outcome_expr
             );
             return 0;
@@ -2064,17 +2185,53 @@ static int c_emit_expr(
     if (strncmp(trimmed, "try_propagate ", 14) == 0) {
         const char *outcome_expr = trimmed + 14;
 
-        if (c_type_is(expected_type_name, "outcome<void,text>") || c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
-            if (!c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "try_propagate for Outcome<void,text> currently requires a materialized value, got '%s'",
-                    outcome_expr
-                );
-                return 0;
+        if (c_type_is(expected_type_name, "outcome<void,text>")) {
+            if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_propagate(") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<void,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ")");
             }
 
+            if (c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<text,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ").error)");
+            }
+
+            if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ").error)");
+            }
+
+            if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ").error)");
+            }
+
+            if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ").error)");
+            }
+
+            if (c_expression_is_materialized_outcome_i64_text_ref(function_decl, outcome_expr)) {
+                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
+                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
+                       c_buffer_append(&emitter->buffer, ").error)");
+            }
+
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "try_propagate for Outcome<void,text> currently requires a materialized outcome value, got '%s'",
+                outcome_expr
+            );
+            return 0;
+        }
+
+        if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
             return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_propagate(") &&
                    c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<void,text>", result) &&
                    c_buffer_append(&emitter->buffer, ")");
@@ -2096,6 +2253,22 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "outcome<optional<text>,text>") || c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
+            if (!c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "try_propagate for Outcome<optional<text>,text> currently requires a materialized value, got '%s'",
+                    outcome_expr
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_propagate(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_type_is(expected_type_name, "outcome<list<int>,text>") || c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
             if (!c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
                 c_emit_set_result(
@@ -2112,15 +2285,33 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>") || c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
+            if (!c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "try_propagate for Outcome<map<text,text>,text> currently requires a materialized value, got '%s'",
+                    outcome_expr
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_propagate(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (!c_is_blank(expected_type_name) &&
                 !c_type_is(expected_type_name, "outcome<int,text>") &&
                 !c_type_is(expected_type_name, "outcome<void,text>") &&
                 !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>")) {
+                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
+                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
+                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "try_propagate produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text> or Outcome<list<int>,text>, but the expected type is '%s'",
+                "try_propagate produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
@@ -2140,7 +2331,6 @@ static int c_emit_expr(
                c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
                c_buffer_append(&emitter->buffer, ")");
     }
-
     if (strncmp(trimmed, "list_len ", 9) == 0) {
         c_legalized_seq_expr legalized;
         c_legalize_result legalize_result;
