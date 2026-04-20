@@ -342,6 +342,40 @@ static int zt_name_has_dot(const char *name) {
     return name != NULL && strchr(name, '.') != NULL;
 }
 
+static int zt_checker_is_self_prefix(const zt_checker *checker, const char *prefix) {
+    const char *ns;
+    const char *last_dot;
+    const char *last_part;
+
+    if (checker == NULL || checker->root == NULL || checker->root->kind != ZT_AST_FILE) return 0;
+    ns = checker->root->as.file.module_name;
+    if (ns == NULL || prefix == NULL) return 0;
+
+    last_dot = strrchr(ns, '.');
+    last_part = last_dot != NULL ? last_dot + 1 : ns;
+    return strcmp(last_part, prefix) == 0;
+}
+
+static int zt_checker_decl_is_public(const zt_ast_node *decl) {
+    if (decl == NULL) return 0;
+    switch (decl->kind) {
+        case ZT_AST_FUNC_DECL:
+            return decl->as.func_decl.is_public;
+        case ZT_AST_STRUCT_DECL:
+            return decl->as.struct_decl.is_public;
+        case ZT_AST_TRAIT_DECL:
+            return decl->as.trait_decl.is_public;
+        case ZT_AST_ENUM_DECL:
+            return decl->as.enum_decl.is_public;
+        case ZT_AST_CONST_DECL:
+            return decl->as.const_decl.is_public;
+        case ZT_AST_EXTERN_DECL:
+            return decl->as.extern_decl.is_public;
+        default:
+            return 1;
+    }
+}
+
 static const char *zt_type_base_name(const zt_type *type) {
     return type != NULL ? type->name : NULL;
 }
@@ -389,6 +423,7 @@ static int zt_type_expected_arity(const char *name) {
     if (strcmp(name, "btreemap") == 0) return 2;
     if (strcmp(name, "btreeset") == 0) return 1;
     if (strcmp(name, "grid3d") == 0) return 1;
+    if (strcmp(name, "dyn") == 0) return 1;
     if (strcmp(name, "result") == 0) return 2;
     if (strcmp(name, "map") == 0) return 2;
     return -1;
@@ -588,6 +623,23 @@ static zt_type *zt_checker_resolve_user_type(zt_checker *checker, const char *na
     }
 
     if (zt_name_has_dot(name)) {
+        decl = zt_catalog_find_decl(&checker->catalog, name);
+        if (decl == NULL) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, span, "unknown type '%s'", name);
+            zt_type_list_dispose(&args);
+            return zt_type_make(ZT_TYPE_UNKNOWN);
+        }
+        if (!zt_checker_decl_is_public(decl)) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, span, "type '%s' is not public", name);
+            zt_type_list_dispose(&args);
+            return zt_type_make(ZT_TYPE_UNKNOWN);
+        }
+        expected_arity = (int)zt_decl_type_param_count(decl);
+        if (expected_arity != (int)args.count) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, span, "type '%s' expects %d type arguments but got %d", name, expected_arity, (int)args.count);
+            zt_type_list_dispose(&args);
+            return zt_type_make(ZT_TYPE_UNKNOWN);
+        }
         return zt_type_make_with_args(ZT_TYPE_USER, name, args);
     }
 
@@ -629,6 +681,12 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
         return zt_checker_resolve_user_type(checker, name, zt_type_list_make(), node->span);
     }
 
+    if (node->kind == ZT_AST_TYPE_DYN) {
+        zt_type_list dyn_args = zt_type_list_make();
+        zt_type_list_push(&dyn_args, zt_checker_resolve_type(checker, node->as.type_dyn.inner_type, scope));
+        return zt_type_make_with_args(ZT_TYPE_DYN, NULL, dyn_args);
+    }
+
     if (node->kind != ZT_AST_TYPE_GENERIC) {
         return zt_type_make(ZT_TYPE_UNKNOWN);
     }
@@ -656,6 +714,7 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
         if (strcmp(name, "btreemap") == 0) return zt_type_make_with_args(ZT_TYPE_BTREEMAP, NULL, args);
         if (strcmp(name, "btreeset") == 0) return zt_type_make_with_args(ZT_TYPE_BTREESET, NULL, args);
         if (strcmp(name, "grid3d") == 0) return zt_type_make_with_args(ZT_TYPE_GRID3D, NULL, args);
+        if (strcmp(name, "dyn") == 0) return zt_type_make_with_args(ZT_TYPE_DYN, NULL, args);
         if (strcmp(name, "map") == 0) {
             zt_type *map_type = zt_type_make_with_args(ZT_TYPE_MAP, NULL, args);
             if (!zt_checker_type_implements_trait(checker, scope, map_type->args.items[0], "Hashable") ||
@@ -721,6 +780,9 @@ static int zt_checker_type_implements_trait(zt_checker *checker, zt_binding_scop
             if (type->args.count != 2) return 0;
             return zt_checker_type_implements_trait(checker, scope, type->args.items[0], trait_name) &&
                    zt_checker_type_implements_trait(checker, scope, type->args.items[1], trait_name);
+        case ZT_TYPE_DYN:
+            if (type->args.count != 1 || type->args.items[0] == NULL || type->args.items[0]->name == NULL) return 0;
+            return strcmp(type->args.items[0]->name, trait_name) == 0;
         case ZT_TYPE_MAP:
             return 0;
         case ZT_TYPE_TYPE_PARAM:
@@ -782,6 +844,25 @@ static int zt_checker_same_or_contextually_assignable(zt_checker *checker, zt_bi
        any overflow/invalid-conversion diagnostic should have been emitted
        at the expression site. Avoid cascading assignment/return errors. */
     if (zt_type_equals(effective_expected, actual->type)) return 1;
+
+    if (effective_expected->kind == ZT_TYPE_DYN) {
+        const zt_type *expected_trait;
+
+        if (effective_expected->args.count != 1) return 0;
+        expected_trait = effective_expected->args.items[0];
+        if (expected_trait == NULL || expected_trait->name == NULL) return 0;
+
+        if (actual->type->kind == ZT_TYPE_DYN) {
+            if (actual->type->args.count != 1 ||
+                actual->type->args.items[0] == NULL ||
+                actual->type->args.items[0]->name == NULL) {
+                return 0;
+            }
+            return strcmp(actual->type->args.items[0]->name, expected_trait->name) == 0;
+        }
+
+        return zt_checker_type_implements_trait(checker, scope, actual->type, expected_trait->name);
+    }
 
     if (actual->has_int_value || actual->is_int_literal) {
         long long value = actual->int_value;
@@ -992,20 +1073,38 @@ static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_as
     result = zt_expr_info_make(zt_type_make(ZT_TYPE_UNKNOWN));
 
     if (node->as.field_expr.object != NULL &&
-        node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
-        zt_catalog_has_import_alias(&checker->catalog, node->as.field_expr.object->as.ident_expr.name)) {
+        node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
         char combined_name[512];
         const zt_ast_node *member_decl = NULL;
+        const char *alias = node->as.field_expr.object->as.ident_expr.name;
+        const char *import_path = zt_catalog_import_path_for_alias(&checker->catalog, alias);
+        
         snprintf(combined_name, sizeof(combined_name), "%s.%s",
-            node->as.field_expr.object->as.ident_expr.name,
+            alias,
             node->as.field_expr.field_name != NULL ? node->as.field_expr.field_name : "");
+        
         member_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
-        if (member_decl != NULL && member_decl->kind == ZT_AST_CONST_DECL) {
-            zt_type_dispose(result.type);
-            result.type = zt_checker_resolve_type(checker, member_decl->as.const_decl.type_node, scope);
+        
+        if (member_decl != NULL) {
+            if (!zt_checker_decl_is_public(member_decl) && 
+                (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                !zt_checker_is_self_prefix(checker, alias)) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "member '%s' is not public", combined_name);
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
+            
+            if (member_decl->kind == ZT_AST_CONST_DECL) {
+                zt_type_dispose(result.type);
+                result.type = zt_checker_resolve_type(checker, member_decl->as.const_decl.type_node, scope);
+            } else {
+                /* Function or other decl used in field expr context (likely part of a call) */
+                zt_type_dispose(result.type);
+                result.type = zt_type_make(ZT_TYPE_UNKNOWN);
+            }
+            zt_expr_info_dispose(&object_info);
+            return result;
         }
-        zt_expr_info_dispose(&object_info);
-        return result;
     }
 
     if (object_info.type == NULL || object_info.type->kind == ZT_TYPE_UNKNOWN) {
@@ -1074,6 +1173,8 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
     size_t i;
 
     if (callee == NULL) return result;
+
+    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: callee kind is %s", zt_ast_kind_name(callee->kind));
 
     if (callee->kind == ZT_AST_IDENT_EXPR) {
         const char *name = callee->as.ident_expr.name;
@@ -1287,10 +1388,48 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
         const zt_ast_node *apply_decl = NULL;
         const zt_ast_node *method_decl = NULL;
         zt_expr_info object_info = zt_checker_check_expression(checker, callee->as.field_expr.object, scope, fn_ctx, NULL);
-        
+
+        if (callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
+            const char *alias = callee->as.field_expr.object->as.ident_expr.name;
+            const char *member = callee->as.field_expr.field_name;
+            char combined_name[512];
+            const zt_ast_node *func_decl = NULL;
+
+            snprintf(combined_name, sizeof(combined_name), "%s.%s", alias, member != NULL ? member : "");
+            func_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
+
+            if (func_decl != NULL && func_decl->kind == ZT_AST_FUNC_DECL) {
+                const char *import_path = zt_catalog_import_path_for_alias(&checker->catalog, alias);
+                size_t p;
+
+                if (!zt_checker_decl_is_public(func_decl) &&
+                    (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                    !zt_checker_is_self_prefix(checker, alias)) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "member '%s' is not public", combined_name);
+                }
+
+                zt_type_dispose(result.type);
+                result.type = zt_checker_resolve_type(checker, func_decl->as.func_decl.return_type, scope);
+
+                /* Validate arguments for generic qualified call */
+                for (p = 0; p < node->as.call_expr.positional_args.count && p < func_decl->as.func_decl.params.count; p++) {
+                    const zt_ast_node *param = func_decl->as.func_decl.params.items[p];
+                    zt_type *param_type = zt_checker_resolve_type(checker, param->as.param.type_node, scope);
+                    zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[p], scope, fn_ctx, param_type);
+                    if (!zt_checker_same_or_contextually_assignable(checker, scope, param_type, &arg_info, node->as.call_expr.positional_args.items[p]->span)) {
+                        zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, node->as.call_expr.positional_args.items[p]->span, "argument type mismatch", param_type, arg_info.type);
+                    }
+                    zt_expr_info_dispose(&arg_info);
+                    zt_type_dispose(param_type);
+                }
+
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
+        }
+
         if (callee->as.field_expr.object != NULL &&
-            callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
-            callee->as.field_expr.field_name != NULL) {
+            callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
             const char *enum_name = callee->as.field_expr.object->as.ident_expr.name;
             const char *variant_name = callee->as.field_expr.field_name;
             const zt_ast_node *enum_decl = zt_catalog_find_decl(&checker->catalog, enum_name);
@@ -1400,6 +1539,16 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             const char *alias = callee->as.field_expr.object->as.ident_expr.name;
             const char *import_path = zt_catalog_import_path_for_alias(&checker->catalog, alias);
             const char *member = callee->as.field_expr.field_name;
+            char combined_name[512];
+            const zt_ast_node *member_decl = NULL;
+
+            snprintf(combined_name, sizeof(combined_name), "%s.%s", alias, member != NULL ? member : "");
+            member_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
+            if (member_decl != NULL && !zt_checker_decl_is_public(member_decl) && (import_path == NULL || strncmp(import_path, "std.", 4) != 0)) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "member '%s' is not public", combined_name);
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
 
             if (import_path != NULL && strcmp(import_path, "std.text") == 0 && member != NULL) {
                 if (strcmp(member, "to_utf8") == 0) {
@@ -1598,13 +1747,38 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             return result;
         }
 
-        if (object_info.type != NULL && object_info.type->kind == ZT_TYPE_TYPE_PARAM) {
-            if (strcmp(callee->as.field_expr.field_name, "to_text") == 0 &&
+        if (object_info.type != NULL &&
+            (object_info.type->kind == ZT_TYPE_TYPE_PARAM || object_info.type->kind == ZT_TYPE_DYN)) {
+            const char *method_name = callee->as.field_expr.field_name;
+
+            if (strcmp(method_name, "to_text") == 0 &&
                 zt_checker_type_implements_trait(checker, scope, object_info.type, "TextRepresentable")) {
                 zt_type_dispose(result.type);
                 result.type = zt_type_make(ZT_TYPE_TEXT);
                 if (node->as.call_expr.positional_args.count != 0 || node->as.call_expr.named_args.count != 0) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "to_text() expects no arguments");
+                }
+            } else if (object_info.type->kind == ZT_TYPE_DYN) {
+                /* Lookup method in the trait */
+                const zt_type *trait_type = object_info.type->args.count > 0 ? object_info.type->args.items[0] : NULL;
+                const char *trait_name = trait_type != NULL ? trait_type->name : NULL;
+                const zt_ast_node *trait_decl = zt_catalog_find_decl(&checker->catalog, trait_name);
+
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: looking for '%s' in trait '%s'", method_name, trait_name != NULL ? trait_name : "<null>");
+
+                if (trait_decl != NULL && trait_decl->kind == ZT_AST_TRAIT_DECL) {
+                    size_t m;
+                    for (m = 0; m < trait_decl->as.trait_decl.methods.count; m++) {
+                        const zt_ast_node *method = trait_decl->as.trait_decl.methods.items[m];
+                        if (method != NULL && method->kind == ZT_AST_TRAIT_METHOD && strcmp(method->as.trait_method.name, method_name) == 0) {
+                            zt_type_dispose(result.type);
+                            result.type = zt_checker_resolve_type(checker, method->as.trait_method.return_type, scope);
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: found method '%s' in trait '%s'", method_name, trait_name);
+                            break;
+                        }
+                    }
+                } else {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "could not find trait '%s' for dynamic dispatch", trait_name != NULL ? trait_name : "<null>");
                 }
             }
             zt_expr_info_dispose(&object_info);
@@ -1666,6 +1840,8 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
         info.type = zt_type_make(ZT_TYPE_VOID);
         return info;
     }
+
+    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: expr kind is %s", zt_ast_kind_name(node->kind));
 
     switch (node->kind) {
         case ZT_AST_INT_EXPR:
@@ -1745,6 +1921,12 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                 zt_type_dispose(info.type);
                 info.type = zt_type_clone(expected_type);
                 return info;
+            }
+            if (expected_type != NULL &&
+                expected_type->kind == ZT_TYPE_LIST &&
+                expected_type->args.count > 0 &&
+                expected_type->args.items[0] != NULL) {
+                element_type = zt_type_clone(expected_type->args.items[0]);
             }
             for (i = 0; i < node->as.list_expr.elements.count; i++) {
                 zt_expr_info element_info = zt_checker_check_expression(checker, node->as.list_expr.elements.items[i], scope, fn_ctx, element_type);

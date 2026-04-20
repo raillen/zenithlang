@@ -340,9 +340,19 @@ static char *zt_parser_parse_type_name_path(zt_parser *p, zt_source_span *out_sp
 }
 
 static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
-    zt_source_span type_span = zt_source_span_unknown();
-    char *type_name = zt_parser_parse_type_name_path(p, &type_span);
-    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_SIMPLE, type_span);
+    zt_source_span type_span = p->current.span;
+    if (zt_parser_match(p, ZT_TOKEN_DYN)) {
+        zt_ast_node *inner = zt_parser_parse_type(p);
+        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_DYN, type_span);
+        if (node != NULL) {
+            node->as.type_dyn.inner_type = inner;
+        }
+        return node;
+    }
+
+    zt_source_span name_span = zt_source_span_unknown();
+    char *type_name = zt_parser_parse_type_name_path(p, &name_span);
+    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_SIMPLE, name_span);
     if (node == NULL) return NULL;
     node->as.type_simple.name = type_name;
 
@@ -357,7 +367,7 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
         }
         zt_parser_expect(p, ZT_TOKEN_GT);
 
-        zt_ast_node *generic = zt_parser_ast_make(p, ZT_AST_TYPE_GENERIC, type_span);
+        zt_ast_node *generic = zt_parser_ast_make(p, ZT_AST_TYPE_GENERIC, name_span);
         if (generic == NULL) return NULL;
         generic->as.type_generic.name = node->as.type_simple.name;
         node->as.type_simple.name = NULL;

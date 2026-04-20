@@ -371,9 +371,22 @@ static zir_expr *zir_lower_len_call(
 
     if (arg->type->kind == ZT_TYPE_MAP) {
         return zir_expr_make_map_len(arg_expr);
-    }
+    }    if (arg->type->kind == ZT_TYPE_TEXT) {
+        if (arg->kind == ZT_HIR_CALL_EXPR &&
+                zir_name_matches(arg->as.call_expr.callee_name, "core.dyn_text_repr_to_text") &&
+                arg->as.call_expr.args.count == 1) {
+            call = zir_expr_make_call_extern("c.zt_dyn_text_repr_text_len");
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(
+                    module_decl,
+                    arg->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+            return call;
+        }
 
-    if (arg->type->kind == ZT_TYPE_TEXT) {
         call = zir_expr_make_call_extern("c.zt_text_len");
         zir_expr_call_add_arg(call, arg_expr);
         return call;
@@ -417,7 +430,47 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_name_matches(callee_name, "core.dyn_text_repr_to_text")) {
+        call = zir_expr_make_call_extern("c.zt_dyn_text_repr_to_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
 
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_empty")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_empty");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_from_list_i64")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_from_list_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_to_list_i64")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_to_list_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_join")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_join");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_starts_with")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_starts_with");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_ends_with")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_ends_with");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "bytes", "zt_bytes_contains")) {
+        call = zir_expr_make_call_extern("c.zt_bytes_contains");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "bytes", "from_list")) {
         call = zir_expr_make_call_extern("c.zt_bytes_from_list_i64");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -677,6 +730,7 @@ if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
     if (zir_call_is_module_func(callee_name, "math", "zt_math_atan")) { call = zir_expr_make_call_extern("c.zt_math_atan"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_call_is_module_func(callee_name, "math", "zt_math_atan2")) { call = zir_expr_make_call_extern("c.zt_math_atan2"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_call_is_module_func(callee_name, "math", "zt_math_ln")) { call = zir_expr_make_call_extern("c.zt_math_ln"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_log_ten")) { call = zir_expr_make_call_extern("c.zt_math_log_ten"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_call_is_module_func(callee_name, "math", "zt_math_log10")) { call = zir_expr_make_call_extern("c.zt_math_log10"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_call_is_module_func(callee_name, "math", "zt_math_log2")) { call = zir_expr_make_call_extern("c.zt_math_log2"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_call_is_module_func(callee_name, "math", "zt_math_log")) { call = zir_expr_make_call_extern("c.zt_math_log"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
@@ -2460,4 +2514,6 @@ void zir_lower_result_dispose(zir_lower_result *result) {
     zt_diag_list_dispose(&result->diagnostics);
     memset(result, 0, sizeof(*result));
 }
+
+
 

@@ -1,4 +1,4 @@
-#ifndef ZENITH_NEXT_COMPILER_SEMANTIC_TYPES_TYPES_H
+﻿#ifndef ZENITH_NEXT_COMPILER_SEMANTIC_TYPES_TYPES_H
 #define ZENITH_NEXT_COMPILER_SEMANTIC_TYPES_TYPES_H
 
 #include <stddef.h>
@@ -41,6 +41,7 @@ typedef enum zt_type_kind {
     ZT_TYPE_BTREEMAP,
     ZT_TYPE_BTREESET,
     ZT_TYPE_GRID3D,
+    ZT_TYPE_DYN,
 } zt_type_kind;
 
 typedef struct zt_type zt_type;
@@ -83,3 +84,4 @@ int zt_type_is_numeric(const zt_type *type);
 #endif
 
 #endif
+

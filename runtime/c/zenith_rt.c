@@ -386,6 +386,36 @@ static void zt_free_list_text(zt_list_text *list) {
     free(list);
 }
 
+static void zt_free_dyn_text_repr(zt_dyn_text_repr *value) {
+    if (value == NULL) {
+        return;
+    }
+
+    if (value->tag == (uint32_t)ZT_DYN_TEXT_REPR_TEXT && value->text_value != NULL) {
+        zt_release(value->text_value);
+        value->text_value = NULL;
+    }
+
+    free(value);
+}
+
+static void zt_free_list_dyn_text_repr(zt_list_dyn_text_repr *list) {
+    size_t index;
+
+    if (list == NULL) {
+        return;
+    }
+
+    for (index = 0; index < list->len; index += 1) {
+        zt_release(list->data[index]);
+    }
+
+    free(list->data);
+    list->data = NULL;
+    list->len = 0;
+    list->capacity = 0;
+    free(list);
+}
 static void zt_free_map_text_text(zt_map_text_text *map) {
     size_t index;
 
@@ -465,6 +495,17 @@ static void zt_runtime_require_list_text(const zt_list_text *list, const char *m
     }
 }
 
+static void zt_runtime_require_dyn_text_repr(const zt_dyn_text_repr *value, const char *message) {
+    if (value == NULL) {
+        zt_runtime_error(ZT_ERR_PANIC, message);
+    }
+}
+
+static void zt_runtime_require_list_dyn_text_repr(const zt_list_dyn_text_repr *list, const char *message) {
+    if (list == NULL) {
+        zt_runtime_error(ZT_ERR_PANIC, message);
+    }
+}
 static void zt_runtime_require_map_text_text(const zt_map_text_text *map, const char *message) {
     if (map == NULL) {
         zt_runtime_error(ZT_ERR_PANIC, message);
@@ -793,6 +834,32 @@ static void zt_list_text_reserve(zt_list_text *list, size_t min_capacity) {
     list->capacity = new_capacity;
 }
 
+static void zt_list_dyn_text_repr_reserve(zt_list_dyn_text_repr *list, size_t min_capacity) {
+    size_t new_capacity;
+    zt_dyn_text_repr **new_data;
+
+    zt_runtime_require_list_dyn_text_repr(list, "zt_list_dyn_text_repr_reserve requires list");
+
+    if (min_capacity <= list->capacity) {
+        return;
+    }
+
+    new_capacity = list->capacity > 0 ? list->capacity : 4;
+    while (new_capacity < min_capacity) {
+        if (new_capacity > SIZE_MAX / 2) {
+            zt_runtime_error(ZT_ERR_PLATFORM, "list capacity overflow");
+        }
+        new_capacity *= 2;
+    }
+
+    new_data = (zt_dyn_text_repr **)realloc(list->data, new_capacity * sizeof(zt_dyn_text_repr *));
+    if (new_data == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to grow list<dyn<TextRepresentable>> buffer");
+    }
+
+    list->data = new_data;
+    list->capacity = new_capacity;
+}
 static void zt_map_text_text_reserve(zt_map_text_text *map, size_t min_capacity) {
     size_t new_capacity;
     zt_text **new_keys;
@@ -889,11 +956,6 @@ static void zt_free_grid3d_i64(zt_grid3d_i64 *grid);
 static void zt_free_grid3d_text(zt_grid3d_text *grid);
 static void zt_free_net_connection(zt_net_connection *connection);
 
-struct zt_shared_text {
-    atomic_uint rc;
-    zt_text *value;
-};
-
 void zt_retain(void *ref) {
     zt_header *header;
 
@@ -945,6 +1007,12 @@ void zt_release(void *ref) {
         case ZT_HEAP_LIST_TEXT:
             zt_free_list_text((zt_list_text *)ref);
             return;
+        case ZT_HEAP_DYN_TEXT_REPR:
+            zt_free_dyn_text_repr((zt_dyn_text_repr *)ref);
+            return;
+        case ZT_HEAP_LIST_DYN_TEXT_REPR:
+            zt_free_list_dyn_text_repr((zt_list_dyn_text_repr *)ref);
+            return;
         case ZT_HEAP_MAP_TEXT_TEXT:
             zt_free_map_text_text((zt_map_text_text *)ref);
             return;
@@ -990,6 +1058,289 @@ void zt_release(void *ref) {
     }
 }
 
+void *zt_deep_copy(void *ref) {
+    zt_header *header;
+    size_t i;
+
+    if (ref == NULL) {
+        return NULL;
+    }
+
+    header = zt_header_from_ref(ref);
+    if (header->kind == (uint32_t)ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT) {
+        return ref;
+    }
+
+    switch ((zt_heap_kind)header->kind) {
+        case ZT_HEAP_TEXT: {
+            zt_text *t = (zt_text *)ref;
+            return zt_text_from_utf8(t->data, t->len);
+        }
+        case ZT_HEAP_BYTES: {
+            zt_bytes *b = (zt_bytes *)ref;
+            return zt_bytes_from_array(b->data, b->len);
+        }
+        case ZT_HEAP_LIST_I64: {
+            zt_list_i64 *l = (zt_list_i64 *)ref;
+            return zt_list_i64_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_TEXT: {
+            zt_list_text *l = (zt_list_text *)ref;
+            zt_list_text *clone = zt_list_text_new((zt_int)l->len);
+            for (i = 0; i < l->len; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(l->data[i]);
+            }
+            clone->len = l->len;
+            return clone;
+        }
+        case ZT_HEAP_MAP_TEXT_TEXT: {
+            zt_map_text_text *m = (zt_map_text_text *)ref;
+            zt_map_text_text *clone = zt_map_text_text_new();
+            for (i = 0; i < m->len; i += 1) {
+                zt_text *k = (zt_text *)zt_deep_copy(m->keys[i]);
+                zt_text *v = (zt_text *)zt_deep_copy(m->values[i]);
+                zt_map_text_text_set(clone, k, v);
+                zt_release(k);
+                zt_release(v);
+            }
+            return clone;
+        }
+        case ZT_HEAP_GRID2D_I64: {
+            zt_grid2d_i64 *g = (zt_grid2d_i64 *)ref;
+            zt_grid2d_i64 *clone = zt_grid2d_i64_new((zt_int)g->rows, (zt_int)g->cols);
+            memcpy(clone->data, g->data, g->len * sizeof(zt_int));
+            return clone;
+        }
+        case ZT_HEAP_GRID2D_TEXT: {
+            zt_grid2d_text *g = (zt_grid2d_text *)ref;
+            zt_grid2d_text *clone = zt_grid2d_text_new((zt_int)g->rows, (zt_int)g->cols);
+            for (i = 0; i < g->len; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(g->data[i]);
+            }
+            return clone;
+        }
+        case ZT_HEAP_GRID3D_I64: {
+            zt_grid3d_i64 *g = (zt_grid3d_i64 *)ref;
+            zt_grid3d_i64 *clone = zt_grid3d_i64_new((zt_int)g->depth, (zt_int)g->rows, (zt_int)g->cols);
+            memcpy(clone->data, g->data, g->len * sizeof(zt_int));
+            return clone;
+        }
+        case ZT_HEAP_GRID3D_TEXT: {
+            zt_grid3d_text *g = (zt_grid3d_text *)ref;
+            zt_grid3d_text *clone = zt_grid3d_text_new((zt_int)g->depth, (zt_int)g->rows, (zt_int)g->cols);
+            for (i = 0; i < g->len; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(g->data[i]);
+            }
+            return clone;
+        }
+        case ZT_HEAP_PQUEUE_I64: {
+            zt_pqueue_i64 *q = (zt_pqueue_i64 *)ref;
+            zt_pqueue_i64 *clone = zt_pqueue_i64_new();
+            zt_pqueue_i64_ensure_capacity(clone, q->len);
+            memcpy(clone->data, q->data, q->len * sizeof(zt_int));
+            clone->len = q->len;
+            return clone;
+        }
+        case ZT_HEAP_PQUEUE_TEXT: {
+            zt_pqueue_text *q = (zt_pqueue_text *)ref;
+            zt_pqueue_text *clone = zt_pqueue_text_new();
+            zt_pqueue_text_ensure_capacity(clone, q->len);
+            for (i = 0; i < q->len; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(q->data[i]);
+            }
+            clone->len = q->len;
+            return clone;
+        }
+        case ZT_HEAP_CIRCBUF_I64: {
+            zt_circbuf_i64 *b = (zt_circbuf_i64 *)ref;
+            zt_circbuf_i64 *clone = zt_circbuf_i64_new((zt_int)b->capacity);
+            memcpy(clone->data, b->data, b->capacity * sizeof(zt_int));
+            clone->head = b->head;
+            clone->tail = b->tail;
+            clone->len = b->len;
+            return clone;
+        }
+        case ZT_HEAP_CIRCBUF_TEXT: {
+            zt_circbuf_text *b = (zt_circbuf_text *)ref;
+            zt_circbuf_text *clone = zt_circbuf_text_new((zt_int)b->capacity);
+            for (i = 0; i < b->capacity; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(b->data[i]);
+            }
+            clone->head = b->head;
+            clone->tail = b->tail;
+            clone->len = b->len;
+            return clone;
+        }
+        case ZT_HEAP_BTREEMAP_TEXT_TEXT: {
+            zt_btreemap_text_text *m = (zt_btreemap_text_text *)ref;
+            zt_btreemap_text_text *clone = zt_btreemap_text_text_new();
+            zt_btreemap_text_text_ensure_capacity(clone, m->len);
+            for (i = 0; i < m->len; i += 1) {
+                clone->keys[i] = (zt_text *)zt_deep_copy(m->keys[i]);
+                clone->values[i] = (zt_text *)zt_deep_copy(m->values[i]);
+            }
+            clone->len = m->len;
+            return clone;
+        }
+        case ZT_HEAP_BTREESET_TEXT: {
+            zt_btreeset_text *s = (zt_btreeset_text *)ref;
+            zt_btreeset_text *clone = zt_btreeset_text_new();
+            zt_btreeset_text_ensure_capacity(clone, s->len);
+            for (i = 0; i < s->len; i += 1) {
+                clone->data[i] = (zt_text *)zt_deep_copy(s->data[i]);
+            }
+            clone->len = s->len;
+            return clone;
+        }
+        case ZT_HEAP_DYN_TEXT_REPR: {
+            zt_dyn_text_repr *d = (zt_dyn_text_repr *)ref;
+            zt_dyn_text_repr *clone = (zt_dyn_text_repr *)calloc(1, sizeof(zt_dyn_text_repr));
+            clone->header.rc = 1;
+            clone->header.kind = (uint32_t)ZT_HEAP_DYN_TEXT_REPR;
+            clone->tag = d->tag;
+            clone->int_value = d->int_value;
+            clone->float_value = d->float_value;
+            clone->bool_value = d->bool_value;
+            clone->text_value = (zt_text *)zt_deep_copy(d->text_value);
+            return clone;
+        }
+        case ZT_HEAP_LIST_DYN_TEXT_REPR: {
+            zt_list_dyn_text_repr *l = (zt_list_dyn_text_repr *)ref;
+            zt_list_dyn_text_repr *clone = (zt_list_dyn_text_repr *)calloc(1, sizeof(zt_list_dyn_text_repr));
+            clone->header.rc = 1;
+            clone->header.kind = (uint32_t)ZT_HEAP_LIST_DYN_TEXT_REPR;
+            clone->len = l->len;
+            clone->capacity = l->len;
+            clone->data = (zt_dyn_text_repr **)calloc(l->len, sizeof(zt_dyn_text_repr *));
+            for (i = 0; i < l->len; i += 1) {
+                clone->data[i] = (zt_dyn_text_repr *)zt_deep_copy(l->data[i]);
+            }
+            return clone;
+        }
+        case ZT_HEAP_UNKNOWN:
+        default:
+            return NULL;
+    }
+}
+
+typedef struct zt_shared_ops {
+    void *(*snapshot)(const void *value);
+} zt_shared_ops;
+
+typedef struct zt_shared_handle {
+    atomic_uint rc;
+    void *value;
+    const zt_shared_ops *ops;
+} zt_shared_handle;
+
+struct zt_shared_text {
+    zt_shared_handle handle;
+};
+
+struct zt_shared_bytes {
+    zt_shared_handle handle;
+};
+
+static void *zt_shared_text_snapshot_value(const void *value) {
+    const zt_text *text = (const zt_text *)value;
+
+    zt_runtime_require_text(text, "shared<text> snapshot requires text");
+    return zt_text_from_utf8(zt_text_data(text), text->len);
+}
+
+static void *zt_shared_bytes_snapshot_value(const void *value) {
+    const zt_bytes *bytes = (const zt_bytes *)value;
+
+    zt_runtime_require_bytes(bytes, "shared<bytes> snapshot requires bytes");
+    return zt_bytes_from_array(bytes->data, bytes->len);
+}
+
+static const zt_shared_ops zt_shared_text_ops = {
+    zt_shared_text_snapshot_value
+};
+
+static const zt_shared_ops zt_shared_bytes_ops = {
+    zt_shared_bytes_snapshot_value
+};
+
+static void zt_shared_handle_init(zt_shared_handle *handle, void *value, const zt_shared_ops *ops) {
+    if (handle == NULL || value == NULL || ops == NULL || ops->snapshot == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "invalid shared handle initialization");
+    }
+
+    atomic_init(&handle->rc, 1u);
+    zt_retain(value);
+    handle->value = value;
+    handle->ops = ops;
+}
+
+static void zt_shared_handle_retain(zt_shared_handle *handle) {
+    uint32_t current;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    current = atomic_load_explicit(&handle->rc, memory_order_relaxed);
+    for (;;) {
+        if (current == UINT32_MAX) {
+            zt_runtime_error(ZT_ERR_PLATFORM, "shared reference count overflow");
+        }
+        if (atomic_compare_exchange_weak_explicit(
+                &handle->rc,
+                &current,
+                current + 1,
+                memory_order_relaxed,
+                memory_order_relaxed)) {
+            return;
+        }
+    }
+}
+
+static zt_bool zt_shared_handle_release(zt_shared_handle *handle) {
+    uint32_t current;
+
+    if (handle == NULL) {
+        return false;
+    }
+
+    current = atomic_load_explicit(&handle->rc, memory_order_acquire);
+    for (;;) {
+        if (current == 0) {
+            zt_runtime_error(ZT_ERR_PLATFORM, "release on shared handle with rc=0");
+        }
+        if (atomic_compare_exchange_weak_explicit(
+                &handle->rc,
+                &current,
+                current - 1,
+                memory_order_acq_rel,
+                memory_order_acquire)) {
+            return current == 1;
+        }
+    }
+}
+
+static const void *zt_shared_handle_borrow(const zt_shared_handle *handle, const char *message) {
+    if (handle == NULL || handle->value == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, message);
+    }
+
+    return handle->value;
+}
+
+static void *zt_shared_handle_snapshot(const zt_shared_handle *handle, const char *message) {
+    const void *value = zt_shared_handle_borrow(handle, message);
+    return handle->ops->snapshot(value);
+}
+
+static uint32_t zt_shared_handle_ref_count(const zt_shared_handle *handle, const char *message) {
+    if (handle == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, message);
+    }
+
+    return atomic_load_explicit(&handle->rc, memory_order_acquire);
+}
+
 zt_shared_text *zt_shared_text_new(zt_text *value) {
     zt_shared_text *shared;
 
@@ -999,82 +1350,97 @@ zt_shared_text *zt_shared_text_new(zt_text *value) {
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate shared<text> box");
     }
 
-    atomic_init(&shared->rc, 1u);
-    zt_retain(value);
-    shared->value = value;
+    zt_shared_handle_init(&shared->handle, value, &zt_shared_text_ops);
     return shared;
 }
 
 zt_shared_text *zt_shared_text_retain(zt_shared_text *shared) {
-    uint32_t current;
-
     if (shared == NULL) {
         return NULL;
     }
 
-    current = atomic_load_explicit(&shared->rc, memory_order_relaxed);
-    for (;;) {
-        if (current == UINT32_MAX) {
-            zt_runtime_error(ZT_ERR_PLATFORM, "shared<text> reference count overflow");
-        }
-        if (atomic_compare_exchange_weak_explicit(
-                &shared->rc,
-                &current,
-                current + 1,
-                memory_order_relaxed,
-                memory_order_relaxed)) {
-            return shared;
-        }
-    }
+    zt_shared_handle_retain(&shared->handle);
+    return shared;
 }
 
 void zt_shared_text_release(zt_shared_text *shared) {
-    uint32_t current;
-
     if (shared == NULL) {
         return;
     }
 
-    current = atomic_load_explicit(&shared->rc, memory_order_acquire);
-    for (;;) {
-        if (current == 0) {
-            zt_runtime_error(ZT_ERR_PLATFORM, "release on shared<text> with rc=0");
-        }
-        if (atomic_compare_exchange_weak_explicit(
-                &shared->rc,
-                &current,
-                current - 1,
-                memory_order_acq_rel,
-                memory_order_acquire)) {
-            break;
-        }
-    }
-
-    if (current == 1) {
-        zt_release(shared->value);
+    if (zt_shared_handle_release(&shared->handle)) {
+        zt_release(shared->handle.value);
         free(shared);
     }
 }
 
 const zt_text *zt_shared_text_borrow(const zt_shared_text *shared) {
-    if (shared == NULL || shared->value == NULL) {
-        zt_runtime_error(ZT_ERR_PLATFORM, "zt_shared_text_borrow requires shared text");
-    }
-
-    return shared->value;
+    return (const zt_text *)zt_shared_handle_borrow(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_text_borrow requires shared text");
 }
 
 zt_text *zt_shared_text_snapshot(const zt_shared_text *shared) {
-    const zt_text *value = zt_shared_text_borrow(shared);
-    return zt_text_from_utf8(zt_text_data(value), value->len);
+    return (zt_text *)zt_shared_handle_snapshot(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_text_snapshot requires shared text");
 }
 
 uint32_t zt_shared_text_ref_count(const zt_shared_text *shared) {
+    return zt_shared_handle_ref_count(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_text_ref_count requires shared text");
+}
+
+zt_shared_bytes *zt_shared_bytes_new(zt_bytes *value) {
+    zt_shared_bytes *shared;
+
+    zt_runtime_require_bytes(value, "zt_shared_bytes_new requires bytes");
+    shared = (zt_shared_bytes *)calloc(1, sizeof(zt_shared_bytes));
     if (shared == NULL) {
-        zt_runtime_error(ZT_ERR_PLATFORM, "zt_shared_text_ref_count requires shared text");
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate shared<bytes> box");
     }
 
-    return atomic_load_explicit(&shared->rc, memory_order_acquire);
+    zt_shared_handle_init(&shared->handle, value, &zt_shared_bytes_ops);
+    return shared;
+}
+
+zt_shared_bytes *zt_shared_bytes_retain(zt_shared_bytes *shared) {
+    if (shared == NULL) {
+        return NULL;
+    }
+
+    zt_shared_handle_retain(&shared->handle);
+    return shared;
+}
+
+void zt_shared_bytes_release(zt_shared_bytes *shared) {
+    if (shared == NULL) {
+        return;
+    }
+
+    if (zt_shared_handle_release(&shared->handle)) {
+        zt_release(shared->handle.value);
+        free(shared);
+    }
+}
+
+const zt_bytes *zt_shared_bytes_borrow(const zt_shared_bytes *shared) {
+    return (const zt_bytes *)zt_shared_handle_borrow(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_bytes_borrow requires shared bytes");
+}
+
+zt_bytes *zt_shared_bytes_snapshot(const zt_shared_bytes *shared) {
+    return (zt_bytes *)zt_shared_handle_snapshot(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_bytes_snapshot requires shared bytes");
+}
+
+uint32_t zt_shared_bytes_ref_count(const zt_shared_bytes *shared) {
+    return zt_shared_handle_ref_count(
+        shared != NULL ? &shared->handle : NULL,
+        "zt_shared_bytes_ref_count requires shared bytes");
 }
 
 void zt_runtime_report_error(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span) {
@@ -1538,8 +1904,9 @@ zt_list_i64 *zt_list_i64_push_owned(zt_list_i64 *list, zt_int value) {
     zt_runtime_require_list_i64(list, "zt_list_i64_push_owned requires list");
     if (list->header.rc > 1u) {
         zt_list_i64 *clone = zt_list_i64_from_array(list->data, list->len);
-        zt_release(list);
         list = clone;
+    } else {
+        zt_retain(list);
     }
     zt_list_i64_push(list, value);
     return list;
@@ -1586,8 +1953,9 @@ zt_list_i64 *zt_list_i64_set_owned(zt_list_i64 *list, zt_int index_0, zt_int val
 
     if (list->header.rc > 1u) {
         zt_list_i64 *clone = zt_list_i64_from_array(list->data, list->len);
-        zt_release(list);
         list = clone;
+    } else {
+        zt_retain(list);
     }
 
     zt_list_i64_set(list, index_0, value);
@@ -1663,8 +2031,9 @@ zt_list_text *zt_list_text_push_owned(zt_list_text *list, zt_text *value) {
     zt_runtime_require_list_text(list, "zt_list_text_push_owned requires list");
     if (list->header.rc > 1u) {
         zt_list_text *clone = zt_list_text_from_array(list->data, list->len);
-        zt_release(list);
         list = clone;
+    } else {
+        zt_retain(list);
     }
     zt_list_text_push(list, value);
     return list;
@@ -1726,8 +2095,9 @@ zt_list_text *zt_list_text_set_owned(zt_list_text *list, zt_int index_0, zt_text
 
     if (list->header.rc > 1u) {
         zt_list_text *clone = zt_list_text_from_array(list->data, list->len);
-        zt_release(list);
         list = clone;
+    } else {
+        zt_retain(list);
     }
 
     zt_list_text_set(list, index_0, value);
@@ -1784,6 +2154,219 @@ zt_list_text *zt_list_text_deep_copy(const zt_list_text *list) {
 }
 
 
+static zt_dyn_text_repr *zt_dyn_text_repr_alloc(zt_dyn_text_repr_tag tag) {
+    zt_dyn_text_repr *value = (zt_dyn_text_repr *)calloc(1, sizeof(zt_dyn_text_repr));
+    if (value == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate dyn<TextRepresentable> box");
+    }
+    value->header.rc = 1;
+    value->header.kind = (uint32_t)ZT_HEAP_DYN_TEXT_REPR;
+    value->tag = (uint32_t)tag;
+    return value;
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_from_i64(zt_int value) {
+    zt_dyn_text_repr *boxed = zt_dyn_text_repr_alloc(ZT_DYN_TEXT_REPR_INT);
+    boxed->int_value = value;
+    return boxed;
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_from_float(zt_float value) {
+    zt_dyn_text_repr *boxed = zt_dyn_text_repr_alloc(ZT_DYN_TEXT_REPR_FLOAT);
+    boxed->float_value = value;
+    return boxed;
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_from_bool(zt_bool value) {
+    zt_dyn_text_repr *boxed = zt_dyn_text_repr_alloc(ZT_DYN_TEXT_REPR_BOOL);
+    boxed->bool_value = value;
+    return boxed;
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_from_text_owned(zt_text *value) {
+    zt_dyn_text_repr *boxed;
+    zt_runtime_require_text(value, "zt_dyn_text_repr_from_text_owned requires text");
+    boxed = zt_dyn_text_repr_alloc(ZT_DYN_TEXT_REPR_TEXT);
+    boxed->text_value = value;
+    return boxed;
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_from_text(const zt_text *value) {
+    zt_runtime_require_text(value, "zt_dyn_text_repr_from_text requires text");
+    return zt_dyn_text_repr_from_text_owned(zt_text_deep_copy(value));
+}
+
+zt_dyn_text_repr *zt_dyn_text_repr_clone(const zt_dyn_text_repr *value) {
+    zt_runtime_require_dyn_text_repr(value, "zt_dyn_text_repr_clone requires value");
+
+    switch ((zt_dyn_text_repr_tag)value->tag) {
+        case ZT_DYN_TEXT_REPR_INT:
+            return zt_dyn_text_repr_from_i64(value->int_value);
+        case ZT_DYN_TEXT_REPR_FLOAT:
+            return zt_dyn_text_repr_from_float(value->float_value);
+        case ZT_DYN_TEXT_REPR_BOOL:
+            return zt_dyn_text_repr_from_bool(value->bool_value);
+        case ZT_DYN_TEXT_REPR_TEXT:
+            zt_runtime_require_text(value->text_value, "dyn<TextRepresentable> text payload cannot be null");
+            return zt_dyn_text_repr_from_text(value->text_value);
+        default:
+            zt_runtime_error(ZT_ERR_PANIC, "unknown dyn<TextRepresentable> tag in clone");
+            return NULL;
+    }
+}
+
+zt_text *zt_dyn_text_repr_to_text(const zt_dyn_text_repr *value) {
+    char buffer[96];
+
+    zt_runtime_require_dyn_text_repr(value, "zt_dyn_text_repr_to_text requires value");
+
+    switch ((zt_dyn_text_repr_tag)value->tag) {
+        case ZT_DYN_TEXT_REPR_INT:
+            snprintf(buffer, sizeof(buffer), "%lld", (long long)value->int_value);
+            return zt_text_from_utf8_literal(buffer);
+        case ZT_DYN_TEXT_REPR_FLOAT:
+            snprintf(buffer, sizeof(buffer), "%.17g", (double)value->float_value);
+            return zt_text_from_utf8_literal(buffer);
+        case ZT_DYN_TEXT_REPR_BOOL:
+            return zt_text_from_utf8_literal(value->bool_value ? "true" : "false");
+        case ZT_DYN_TEXT_REPR_TEXT:
+            zt_runtime_require_text(value->text_value, "dyn<TextRepresentable> text payload cannot be null");
+            return zt_text_deep_copy(value->text_value);
+        default:
+            zt_runtime_error(ZT_ERR_PANIC, "unknown dyn<TextRepresentable> tag in to_text");
+            return NULL;
+    }
+}
+
+zt_int zt_dyn_text_repr_text_len(const zt_dyn_text_repr *value) {
+    zt_text *text;
+    zt_int length;
+
+    zt_runtime_require_dyn_text_repr(value, "zt_dyn_text_repr_text_len requires value");
+    text = zt_dyn_text_repr_to_text(value);
+    length = zt_text_len(text);
+    zt_release(text);
+    return length;
+}
+
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_new(void) {
+    zt_list_dyn_text_repr *list = (zt_list_dyn_text_repr *)calloc(1, sizeof(zt_list_dyn_text_repr));
+    if (list == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate list<dyn<TextRepresentable>> header");
+    }
+
+    list->header.rc = 1;
+    list->header.kind = (uint32_t)ZT_HEAP_LIST_DYN_TEXT_REPR;
+    return list;
+}
+
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_from_array(const zt_dyn_text_repr *const *items, size_t count) {
+    zt_list_dyn_text_repr *list;
+    size_t index;
+
+    list = zt_list_dyn_text_repr_new();
+    if (count == 0) {
+        return list;
+    }
+
+    if (items == NULL) {
+        zt_runtime_error(ZT_ERR_PANIC, "zt_list_dyn_text_repr_from_array requires items");
+    }
+
+    zt_list_dyn_text_repr_reserve(list, count);
+    for (index = 0; index < count; index += 1) {
+        zt_runtime_require_dyn_text_repr(items[index], "zt_list_dyn_text_repr_from_array requires dyn items");
+        list->data[index] = (zt_dyn_text_repr *)items[index];
+        zt_retain(list->data[index]);
+    }
+    list->len = count;
+    return list;
+}
+
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_from_array_owned(zt_dyn_text_repr *const *items, size_t count) {
+    zt_list_dyn_text_repr *list;
+    size_t index;
+
+    list = zt_list_dyn_text_repr_new();
+    if (count == 0) {
+        return list;
+    }
+
+    if (items == NULL) {
+        zt_runtime_error(ZT_ERR_PANIC, "zt_list_dyn_text_repr_from_array_owned requires items");
+    }
+
+    zt_list_dyn_text_repr_reserve(list, count);
+    for (index = 0; index < count; index += 1) {
+        zt_runtime_require_dyn_text_repr(items[index], "zt_list_dyn_text_repr_from_array_owned requires dyn items");
+        list->data[index] = items[index];
+    }
+    list->len = count;
+    return list;
+}
+
+zt_dyn_text_repr *zt_list_dyn_text_repr_get(const zt_list_dyn_text_repr *list, zt_int index_0) {
+    zt_dyn_text_repr *value;
+
+    zt_runtime_require_list_dyn_text_repr(list, "zt_list_dyn_text_repr_get requires list");
+    if (index_0 < 0 || (size_t)index_0 >= list->len) {
+        zt_runtime_error(ZT_ERR_INDEX, "list<dyn<TextRepresentable>> index out of bounds");
+    }
+
+    value = list->data[(size_t)index_0];
+    zt_runtime_require_dyn_text_repr(value, "list<dyn<TextRepresentable>> entry cannot be null");
+    zt_retain(value);
+    return value;
+}
+
+zt_int zt_list_dyn_text_repr_len(const zt_list_dyn_text_repr *list) {
+    zt_runtime_require_list_dyn_text_repr(list, "zt_list_dyn_text_repr_len requires list");
+    return (zt_int)list->len;
+}
+
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_deep_copy(const zt_list_dyn_text_repr *list) {
+    zt_list_dyn_text_repr *copy;
+    size_t index;
+
+    zt_runtime_require_list_dyn_text_repr(list, "zt_list_dyn_text_repr_deep_copy requires list");
+
+    copy = zt_list_dyn_text_repr_new();
+    if (list->len == 0) {
+        return copy;
+    }
+
+    zt_list_dyn_text_repr_reserve(copy, list->len);
+    for (index = 0; index < list->len; index += 1) {
+        copy->data[index] = zt_dyn_text_repr_clone(list->data[index]);
+    }
+    copy->len = list->len;
+    return copy;
+}
+
+zt_text *zt_thread_boundary_copy_text(const zt_text *value) {
+    zt_runtime_require_text(value, "zt_thread_boundary_copy_text requires text");
+    return zt_text_deep_copy(value);
+}
+
+zt_bytes *zt_thread_boundary_copy_bytes(const zt_bytes *value) {
+    zt_runtime_require_bytes(value, "zt_thread_boundary_copy_bytes requires bytes");
+    return zt_bytes_from_array(value->data, value->len);
+}
+
+zt_list_text *zt_thread_boundary_copy_list_text(const zt_list_text *list) {
+    zt_runtime_require_list_text(list, "zt_thread_boundary_copy_list_text requires list");
+    return zt_list_text_deep_copy(list);
+}
+
+zt_dyn_text_repr *zt_thread_boundary_copy_dyn_text_repr(const zt_dyn_text_repr *value) {
+    zt_runtime_require_dyn_text_repr(value, "zt_thread_boundary_copy_dyn_text_repr requires value");
+    return zt_dyn_text_repr_clone(value);
+}
+
+zt_list_dyn_text_repr *zt_thread_boundary_copy_list_dyn_text_repr(const zt_list_dyn_text_repr *list) {
+    zt_runtime_require_list_dyn_text_repr(list, "zt_thread_boundary_copy_list_dyn_text_repr requires list");
+    return zt_list_dyn_text_repr_deep_copy(list);
+}
 zt_map_text_text *zt_map_text_text_new(void) {
     return zt_map_text_text_alloc();
 }
@@ -1817,8 +2400,9 @@ zt_map_text_text *zt_map_text_text_set_owned(zt_map_text_text *map, zt_text *key
 
     if (map->header.rc > 1u) {
         zt_map_text_text *clone = zt_map_text_text_from_arrays(map->keys, map->values, map->len);
-        zt_release(map);
         map = clone;
+    } else {
+        zt_retain(map);
     }
 
     zt_map_text_text_set(map, key, value);
@@ -4472,6 +5056,10 @@ zt_float zt_math_log10(zt_float value) {
     return log10(value);
 }
 
+zt_float zt_math_log_ten(zt_float value) {
+    return log10(value);
+}
+
 zt_float zt_math_log2(zt_float value) {
     return log2(value);
 }
@@ -5719,8 +6307,9 @@ zt_grid2d_i64 *zt_grid2d_i64_set_owned(zt_grid2d_i64 *grid, zt_int row, zt_int c
         for (i = 0; i < grid->len; i += 1) {
             clone->data[i] = grid->data[i];
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid2d_i64_set(grid, row, col, value);
 }
@@ -5742,8 +6331,9 @@ zt_grid2d_i64 *zt_grid2d_i64_fill_owned(zt_grid2d_i64 *grid, zt_int value) {
         for (i = 0; i < grid->len; i += 1) {
             clone->data[i] = grid->data[i];
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid2d_i64_fill(grid, value);
 }
@@ -5761,6 +6351,7 @@ zt_int zt_grid2d_i64_cols(const zt_grid2d_i64 *grid) {
 zt_grid2d_text *zt_grid2d_text_new(zt_int rows, zt_int cols) {
     zt_grid2d_text *grid;
     size_t total;
+    size_t i;
 
     if (rows <= 0 || cols <= 0) {
         zt_runtime_error(ZT_ERR_INDEX, "grid2d<text> dimensions must be positive");
@@ -5783,16 +6374,23 @@ zt_grid2d_text *zt_grid2d_text_new(zt_int rows, zt_int cols) {
         free(grid);
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate grid2d<text> data");
     }
+    for (i = 0; i < total; i += 1) {
+        grid->data[i] = zt_text_from_utf8_literal("");
+    }
 
     return grid;
 }
 
 zt_text *zt_grid2d_text_get(const zt_grid2d_text *grid, zt_int row, zt_int col) {
+    zt_text *value;
     zt_runtime_require_grid2d_text(grid, "zt_grid2d_text_get requires grid");
     if (row < 0 || (size_t)row >= grid->rows || col < 0 || (size_t)col >= grid->cols) {
         zt_runtime_error(ZT_ERR_INDEX, "grid2d<text> index out of bounds");
     }
-    return grid->data[(size_t)row * grid->cols + (size_t)col];
+    value = grid->data[(size_t)row * grid->cols + (size_t)col];
+    if (value == NULL) return zt_text_from_utf8_literal("");
+    zt_retain(value);
+    return value;
 }
 
 zt_grid2d_text *zt_grid2d_text_set(zt_grid2d_text *grid, zt_int row, zt_int col, zt_text *value) {
@@ -5817,8 +6415,9 @@ zt_grid2d_text *zt_grid2d_text_set_owned(zt_grid2d_text *grid, zt_int row, zt_in
             clone->data[i] = grid->data[i];
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid2d_text_set(grid, row, col, value);
 }
@@ -5844,8 +6443,9 @@ zt_grid2d_text *zt_grid2d_text_fill_owned(zt_grid2d_text *grid, zt_text *value) 
             clone->data[i] = grid->data[i];
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid2d_text_fill(grid, value);
 }
@@ -5932,8 +6532,9 @@ zt_pqueue_i64 *zt_pqueue_i64_push_owned(zt_pqueue_i64 *heap, zt_int value) {
             clone->data[i] = heap->data[i];
         }
         clone->len = heap->len;
-        zt_release(heap);
         heap = clone;
+    } else {
+        zt_retain(heap);
     }
     return zt_pqueue_i64_push(heap, value);
 }
@@ -6050,14 +6651,16 @@ zt_pqueue_text *zt_pqueue_text_push_owned(zt_pqueue_text *heap, zt_text *value) 
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
         clone->len = heap->len;
-        zt_release(heap);
         heap = clone;
+    } else {
+        zt_retain(heap);
     }
     return zt_pqueue_text_push(heap, value);
 }
 
 zt_optional_text zt_pqueue_text_pop(zt_pqueue_text *heap) {
     zt_text *result;
+    zt_optional_text opt;
     zt_runtime_require_pqueue_text(heap, "zt_pqueue_text_pop requires heap");
     if (heap->len == 0) {
         return zt_optional_text_empty();
@@ -6068,7 +6671,9 @@ zt_optional_text zt_pqueue_text_pop(zt_pqueue_text *heap) {
         heap->data[0] = heap->data[heap->len];
         zt_pqueue_text_sift_down(heap, 0);
     }
-    return zt_optional_text_present(result);
+    opt = zt_optional_text_present(result);
+    zt_release(result);
+    return opt;
 }
 
 zt_optional_text zt_pqueue_text_peek(const zt_pqueue_text *heap) {
@@ -6127,8 +6732,9 @@ zt_circbuf_i64 *zt_circbuf_i64_push_owned(zt_circbuf_i64 *buf, zt_int value) {
             clone->data[i] = buf->data[(buf->head + i) % buf->capacity];
         }
         clone->len = buf->len;
-        zt_release(buf);
         buf = clone;
+    } else {
+        zt_retain(buf);
     }
     return zt_circbuf_i64_push(buf, value);
 }
@@ -6218,14 +6824,16 @@ zt_circbuf_text *zt_circbuf_text_push_owned(zt_circbuf_text *buf, zt_text *value
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
         clone->len = buf->len;
-        zt_release(buf);
         buf = clone;
+    } else {
+        zt_retain(buf);
     }
     return zt_circbuf_text_push(buf, value);
 }
 
 zt_optional_text zt_circbuf_text_pop(zt_circbuf_text *buf) {
     zt_text *value;
+    zt_optional_text opt;
     zt_runtime_require_circbuf_text(buf, "zt_circbuf_text_pop requires buf");
     if (buf->len == 0) {
         return zt_optional_text_empty();
@@ -6234,7 +6842,9 @@ zt_optional_text zt_circbuf_text_pop(zt_circbuf_text *buf) {
     buf->data[buf->head] = NULL;
     buf->head = (buf->head + 1) % buf->capacity;
     buf->len -= 1;
-    return zt_optional_text_present(value);
+    opt = zt_optional_text_present(value);
+    zt_release(value);
+    return opt;
 }
 
 zt_optional_text zt_circbuf_text_peek(const zt_circbuf_text *buf) {
@@ -6346,12 +6956,12 @@ static size_t zt_btreemap_text_text_find(const zt_btreemap_text_text *map, const
     size_t hi = map->len;
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        int cmp = zt_text_eq(map->keys[mid], key);
+        int cmp = strcmp(map->keys[mid]->data, key->data);
         if (cmp == 0) {
             if (pos) *pos = mid;
             return mid;
         }
-        if (strcmp(map->keys[mid]->data, key->data) < 0) {
+        if (cmp < 0) {
             lo = mid + 1;
         } else {
             hi = mid;
@@ -6428,19 +7038,23 @@ zt_btreemap_text_text *zt_btreemap_text_text_set_owned(zt_btreemap_text_text *ma
             if (clone->values[i] != NULL) zt_retain(clone->values[i]);
         }
         clone->len = map->len;
-        zt_release(map);
         map = clone;
+    } else {
+        zt_retain(map);
     }
     return zt_btreemap_text_text_set(map, key, value);
 }
 
 zt_text *zt_btreemap_text_text_get(const zt_btreemap_text_text *map, const zt_text *key) {
     size_t idx;
+    zt_text *value;
     zt_runtime_require_btreemap_text_text(map, "zt_btreemap_text_text_get requires map");
     if (key == NULL) return NULL;
     idx = zt_btreemap_text_text_find(map, key, NULL);
     if (idx >= map->len) return NULL;
-    return map->values[idx];
+    value = map->values[idx];
+    if (value != NULL) zt_retain(value);
+    return value;
 }
 
 zt_optional_text zt_btreemap_text_text_get_optional(const zt_btreemap_text_text *map, const zt_text *key) {
@@ -6493,8 +7107,9 @@ zt_btreemap_text_text *zt_btreemap_text_text_remove_owned(zt_btreemap_text_text 
             if (clone->values[i] != NULL) zt_retain(clone->values[i]);
         }
         clone->len = map->len;
-        zt_release(map);
         map = clone;
+    } else {
+        zt_retain(map);
     }
     return zt_btreemap_text_text_remove(map, key);
 }
@@ -6577,8 +7192,9 @@ zt_btreeset_text *zt_btreeset_text_insert_owned(zt_btreeset_text *set, zt_text *
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
         clone->len = set->len;
-        zt_release(set);
         set = clone;
+    } else {
+        zt_retain(set);
     }
     return zt_btreeset_text_insert(set, value);
 }
@@ -6616,8 +7232,9 @@ zt_btreeset_text *zt_btreeset_text_remove_owned(zt_btreeset_text *set, const zt_
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
         clone->len = set->len;
-        zt_release(set);
         set = clone;
+    } else {
+        zt_retain(set);
     }
     return zt_btreeset_text_remove(set, value);
 }
@@ -6678,8 +7295,9 @@ zt_grid3d_i64 *zt_grid3d_i64_set_owned(zt_grid3d_i64 *grid, zt_int layer, zt_int
         for (i = 0; i < grid->len; i += 1) {
             clone->data[i] = grid->data[i];
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid3d_i64_set(grid, layer, row, col, value);
 }
@@ -6701,8 +7319,9 @@ zt_grid3d_i64 *zt_grid3d_i64_fill_owned(zt_grid3d_i64 *grid, zt_int value) {
         for (i = 0; i < grid->len; i += 1) {
             clone->data[i] = grid->data[i];
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid3d_i64_fill(grid, value);
 }
@@ -6725,6 +7344,7 @@ zt_int zt_grid3d_i64_cols(const zt_grid3d_i64 *grid) {
 zt_grid3d_text *zt_grid3d_text_new(zt_int depth, zt_int rows, zt_int cols) {
     zt_grid3d_text *grid;
     size_t total;
+    size_t i;
     if (depth <= 0 || rows <= 0 || cols <= 0) {
         zt_runtime_error(ZT_ERR_INDEX, "grid3d<text> dimensions must be positive");
     }
@@ -6745,15 +7365,22 @@ zt_grid3d_text *zt_grid3d_text_new(zt_int depth, zt_int rows, zt_int cols) {
         free(grid);
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate grid3d<text> data");
     }
+    for (i = 0; i < total; i += 1) {
+        grid->data[i] = zt_text_from_utf8_literal("");
+    }
     return grid;
 }
 
 zt_text *zt_grid3d_text_get(const zt_grid3d_text *grid, zt_int layer, zt_int row, zt_int col) {
+    zt_text *value;
     zt_runtime_require_grid3d_text(grid, "zt_grid3d_text_get requires grid");
     if (layer < 0 || (size_t)layer >= grid->depth || row < 0 || (size_t)row >= grid->rows || col < 0 || (size_t)col >= grid->cols) {
         zt_runtime_error(ZT_ERR_INDEX, "grid3d<text> index out of bounds");
     }
-    return grid->data[((size_t)layer * grid->rows + (size_t)row) * grid->cols + (size_t)col];
+    value = grid->data[((size_t)layer * grid->rows + (size_t)row) * grid->cols + (size_t)col];
+    if (value == NULL) return zt_text_from_utf8_literal("");
+    zt_retain(value);
+    return value;
 }
 
 zt_grid3d_text *zt_grid3d_text_set(zt_grid3d_text *grid, zt_int layer, zt_int row, zt_int col, zt_text *value) {
@@ -6780,8 +7407,9 @@ zt_grid3d_text *zt_grid3d_text_set_owned(zt_grid3d_text *grid, zt_int layer, zt_
             clone->data[i] = grid->data[i];
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid3d_text_set(grid, layer, row, col, value);
 }
@@ -6807,8 +7435,9 @@ zt_grid3d_text *zt_grid3d_text_fill_owned(zt_grid3d_text *grid, zt_text *value) 
             clone->data[i] = grid->data[i];
             if (clone->data[i] != NULL) zt_retain(clone->data[i]);
         }
-        zt_release(grid);
         grid = clone;
+    } else {
+        zt_retain(grid);
     }
     return zt_grid3d_text_fill(grid, value);
 }
@@ -6827,5 +7456,11 @@ zt_int zt_grid3d_text_cols(const zt_grid3d_text *grid) {
     zt_runtime_require_grid3d_text(grid, "zt_grid3d_text_cols requires grid");
     return (zt_int)grid->cols;
 }
+
+
+
+
+
+
 
 

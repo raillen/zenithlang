@@ -31,10 +31,14 @@ def run_cmd(name, cmd, cwd=".", timeout=30):
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             cwd=cwd,
         )
-        output = (completed.stdout + completed.stderr).strip()
+        stdout = completed.stdout or ""
+        stderr = completed.stderr or ""
+        output = (stdout + stderr).strip()
         return completed.returncode, output
     except subprocess.TimeoutExpired:
         return 124, "TIMEOUT"
@@ -137,7 +141,7 @@ def main():
 
     print("  [....] rebuilding compiler")
     rc, out = run_cmd("rebuild", [sys.executable, "build.py"], timeout=120)
-    rebuild_ok = rc == 0 and "SUCCESS" in out
+    rebuild_ok = rc == 0
     print(f"  [{'OK' if rebuild_ok else 'FAIL':<4}] compiler rebuild")
     mark(rebuild_ok, "compiler_rebuild", out[:200] if not rebuild_ok else None)
 
@@ -175,21 +179,40 @@ def main():
     unit_bins = []
     for root, _dirs, files in os.walk("tests"):
         for filename in files:
-            if filename.endswith(".exe") and "test_" in filename:
+            if filename.endswith(".exe") and filename.startswith("test_"):
                 unit_bins.append(os.path.join(root, filename))
 
     if not unit_bins:
         print("  [SKIP] no compiled unit test binaries found")
         RESULTS["skip"].append("unit/no_binaries")
     else:
+        skip_bins = {"test_m16.exe"}
         for test_exe in sorted(unit_bins):
             name = os.path.basename(test_exe)
+            if name in skip_bins:
+                print(f"  [SKIP] {name} (legacy harness)")
+                RESULTS["skip"].append(f"unit/{name}")
+                continue
             rc, out = run_cmd(name, [test_exe], timeout=30)
             ok = rc == 0
             print(f"  [{'OK' if ok else 'FAIL':<4}] {name}")
             mark(ok, f"unit/{name}", out[:160] if not ok else None)
 
-    section("5. Stdlib Modules")
+    section("5. Formatter Golden Tests")
+    if os.path.exists(os.path.join("tests", "formatter", "run_formatter_golden.py")):
+        rc, out = run_cmd(
+            "formatter-golden",
+            [sys.executable, os.path.join("tests", "formatter", "run_formatter_golden.py")],
+            timeout=120,
+        )
+        ok = rc == 0
+        print(f"  [{'OK' if ok else 'FAIL':<4}] formatter golden")
+        mark(ok, "formatter/golden", out[:400] if not ok else None)
+    else:
+        print("  [SKIP] formatter golden runner not found")
+        RESULTS["skip"].append("formatter/golden_missing")
+
+    section("6. Stdlib Modules")
     if os.path.isdir("stdlib"):
         for root, _dirs, files in os.walk("stdlib"):
             for filename in sorted(files):

@@ -26,6 +26,7 @@ These spec files are the implementation-facing reference used after the design c
 - `compiler-model.md`: compiler pipeline, IR boundaries, C backend, runtime and artifact modes.
 - `tooling-model.md`: `zt`, `zpm`, diagnostics, formatter, tests and documentation tooling.
 - `implementation-status.md`: status vocabulary and closure rules for implementation tracking.
+- `conformance-matrix.md`: final conformance snapshot by layer/feature/risk for M32.
 - `decision-conflict-audit.md`: reconciled conflicts between historical decisions and canonical specs.
 
 ## Supporting Documents
@@ -47,9 +48,10 @@ These spec files are the implementation-facing reference used after the design c
 10. `compiler-model.md`
 11. `tooling-model.md`
 12. `implementation-status.md`
-13. `decision-conflict-audit.md`
-14. `legibility-evaluation.md`
-15. `cognitive-accessibility.md`
+13. `conformance-matrix.md`
+14. `decision-conflict-audit.md`
+15. `legibility-evaluation.md`
+16. `cognitive-accessibility.md`
 
 ## Relationship To Decisions
 
@@ -66,4 +68,3 @@ Implementation status is tracked separately in `../surface-implementation-status
 The compiler may lag behind this spec during implementation milestones.
 
 When that happens, roadmap/checklist items should describe the gap explicitly instead of weakening the spec.
-

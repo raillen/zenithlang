@@ -1,10 +1,4 @@
--- Biblioteca Padrão Zenith — Módulo Math
--- Constantes e funções matemáticas essenciais.
--- 💎 CONSTANTES
--- 🔢 INTEIROS
--- 📐 TRIGONOMETRIA
--- 📉 LOGARITMOS / EXPONENCIAL
--- 🔍 CLASSIFICAÇÃO (NaN, Inf, Finite)
+-- Zenith Standard Library - std.math
 namespace std.math
 
 extern c
@@ -22,7 +16,7 @@ extern c
     func zt_math_atan(value: float) -> float
     func zt_math_atan2(y: float, x: float) -> float
     func zt_math_ln(value: float) -> float
-    func zt_math_log10(value: float) -> float
+    func zt_math_log_ten(value: float) -> float
     func zt_math_log2(value: float) -> float
     func zt_math_log(value: float, base: float) -> float
     func zt_math_exp(value: float) -> float
@@ -35,40 +29,40 @@ public const PI: float = 3.141592653589793
 public const E: float = 2.718281828459045
 public const TAU: float = 6.283185307179586
 
-func pi() -> float
+public func pi() -> float
     return math.PI
 end
 
-func e() -> float
+public func e() -> float
     return math.E
 end
 
-func tau() -> float
+public func tau() -> float
     return math.TAU
 end
 
-func abs(value: int) -> int
+public func abs(value: int) -> int
     if value < 0
         return 0 - value
     end
     return value
 end
 
-func min(a: int, b: int) -> int
+public func min(a: int, b: int) -> int
     if a < b
         return a
     end
     return b
 end
 
-func max(a: int, b: int) -> int
+public func max(a: int, b: int) -> int
     if a > b
         return a
     end
     return b
 end
 
-func clamp(value: int, min: int, max: int) -> int
+public func clamp(value: int, min: int, max: int) -> int
     if value < min
         return min
     end
@@ -78,39 +72,39 @@ func clamp(value: int, min: int, max: int) -> int
     return value
 end
 
-func pow(base: float, exponent: float) -> float
+public func pow(base: float, exponent: float) -> float
     return math.zt_math_pow(base, exponent)
 end
 
-func sqrt(value: float) -> float
+public func sqrt(value: float) -> float
     return math.zt_math_sqrt(value)
 end
 
-func floor(value: float) -> float
+public func floor(value: float) -> float
     return math.zt_math_floor(value)
 end
 
-func ceil(value: float) -> float
+public func ceil(value: float) -> float
     return math.zt_math_ceil(value)
 end
 
-func round(value: float) -> float
+public func round(value: float) -> float
     return math.zt_math_round_half_away_from_zero(value)
 end
 
-func trunc(value: float) -> float
+public func trunc(value: float) -> float
     return math.zt_math_trunc(value)
 end
 
-func deg_to_rad(x: float) -> float
+public func deg_to_rad(x: float) -> float
     return x * (math.PI / 180.0)
 end
 
-func rad_to_deg(x: float) -> float
+public func rad_to_deg(x: float) -> float
     return x * (180.0 / math.PI)
 end
 
-func approx_equal(a: float, b: float, epsilon: float) -> bool
+public func approx_equal(a: float, b: float, epsilon: float) -> bool
     var diff: float = a - b
     if diff < 0.0
         diff = 0.0 - diff
@@ -118,62 +112,62 @@ func approx_equal(a: float, b: float, epsilon: float) -> bool
     return diff <= epsilon
 end
 
-func sin(value: float) -> float
+public func sin(value: float) -> float
     return math.zt_math_sin(value)
 end
 
-func cos(value: float) -> float
+public func cos(value: float) -> float
     return math.zt_math_cos(value)
 end
 
-func tan(value: float) -> float
+public func tan(value: float) -> float
     return math.zt_math_tan(value)
 end
 
-func asin(value: float) -> float
+public func asin(value: float) -> float
     return math.zt_math_asin(value)
 end
 
-func acos(value: float) -> float
+public func acos(value: float) -> float
     return math.zt_math_acos(value)
 end
 
-func atan(value: float) -> float
+public func atan(value: float) -> float
     return math.zt_math_atan(value)
 end
 
-func atan2(y: float, x: float) -> float
+public func atan2(y: float, x: float) -> float
     return math.zt_math_atan2(y, x)
 end
 
-func ln(value: float) -> float
+public func ln(value: float) -> float
     return math.zt_math_ln(value)
 end
 
-func log10(value: float) -> float
-    return math.zt_math_log10(value)
+public func log_ten(value: float) -> float
+    return math.zt_math_log_ten(value)
 end
 
-func log2(value: float) -> float
+public func log2(value: float) -> float
     return math.zt_math_log2(value)
 end
 
-func log(value: float, base: float) -> float
+public func log(value: float, base: float) -> float
     return math.zt_math_log(value, base)
 end
 
-func exp(value: float) -> float
+public func exp(value: float) -> float
     return math.zt_math_exp(value)
 end
 
-func is_nan(value: float) -> bool
+public func is_nan(value: float) -> bool
     return math.zt_math_is_nan(value)
 end
 
-func is_infinite(value: float) -> bool
+public func is_infinite(value: float) -> bool
     return math.zt_math_is_infinite(value)
 end
 
-func is_finite(value: float) -> bool
+public func is_finite(value: float) -> bool
     return math.zt_math_is_finite(value)
 end

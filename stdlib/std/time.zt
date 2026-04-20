@@ -19,63 +19,63 @@ extern c
     func zt_host_time_sleep_ms(duration_ms: int) -> result<void, core.Error>
 end
 
-func now() -> time.Instant
+public func now() -> time.Instant
     return time.Instant(millis: time.zt_host_time_now_unix_ms())
 end
 
-func sleep(duration: time.Duration) -> result<void, core.Error>
+public func sleep(duration: time.Duration) -> result<void, core.Error>
     return time.zt_host_time_sleep_ms(duration.millis)
 end
 
-func since(start: time.Instant) -> time.Duration
+public func since(start: time.Instant) -> time.Duration
     return time.diff(start, time.now())
 end
 
-func until(target: time.Instant) -> time.Duration
+public func until(target: time.Instant) -> time.Duration
     return time.diff(time.now(), target)
 end
 
-func diff(a: time.Instant, b: time.Instant) -> time.Duration
+public func diff(a: time.Instant, b: time.Instant) -> time.Duration
     return time.Duration(millis: b.millis - a.millis)
 end
 
-func add(at: time.Instant, duration: time.Duration) -> time.Instant
+public func add(at: time.Instant, duration: time.Duration) -> time.Instant
     return time.Instant(millis: at.millis + duration.millis)
 end
 
-func sub(at: time.Instant, duration: time.Duration) -> time.Instant
+public func sub(at: time.Instant, duration: time.Duration) -> time.Instant
     return time.Instant(millis: at.millis - duration.millis)
 end
 
-func from_unix(ts: int) -> time.Instant
+public func from_unix(ts: int) -> time.Instant
     return time.Instant(millis: ts * 1000)
 end
 
-func from_unix_ms(ts: int) -> time.Instant
+public func from_unix_ms(ts: int) -> time.Instant
     return time.Instant(millis: ts)
 end
 
-func to_unix(at: time.Instant) -> int
+public func to_unix(at: time.Instant) -> int
     return at.millis / 1000
 end
 
-func to_unix_ms(at: time.Instant) -> int
+public func to_unix_ms(at: time.Instant) -> int
     return at.millis
 end
 
-func milliseconds(n: int) -> time.Duration
+public func milliseconds(n: int) -> time.Duration
     return time.Duration(millis: n)
 end
 
-func seconds(n: int) -> time.Duration
+public func seconds(n: int) -> time.Duration
     return time.Duration(millis: n * 1000)
 end
 
-func minutes(n: int) -> time.Duration
+public func minutes(n: int) -> time.Duration
     return time.Duration(millis: n * 60000)
 end
 
-func hours(n: int) -> time.Duration
+public func hours(n: int) -> time.Duration
     return time.Duration(millis: n * 3600000)
 end
 

@@ -12,40 +12,40 @@ extern c
     func zt_host_write_stderr(value: text) -> result<void, core.Error>
 end
 
-func read_line(from: bool = false) -> result<optional<text>, core.Error>
+public func read_line(from: bool = false) -> result<optional<text>, core.Error>
     if from
         return io.zt_host_read_line_stdin()
     end
     return io.zt_host_read_line_stdin()
 end
 
-func read_all(from: bool = false) -> result<text, core.Error>
+public func read_all(from: bool = false) -> result<text, core.Error>
     if from
         return io.zt_host_read_all_stdin()
     end
     return io.zt_host_read_all_stdin()
 end
 
-func write(value: text, to: bool = false) -> result<void, core.Error>
+public func write(value: text, to: bool = false) -> result<void, core.Error>
     if to
         return io.zt_host_write_stderr(value)
     end
     return io.zt_host_write_stdout(value)
 end
 
-func print(value: text, to: bool = false) -> result<void, core.Error>
+public func print(value: text, to: bool = false) -> result<void, core.Error>
     return io.write(value, to: to)
 end
 
-func print_line(value: text, to: bool = false) -> result<void, core.Error>
+public func print_line(value: text, to: bool = false) -> result<void, core.Error>
     io.print(value, to: to)?
     return io.print("\n", to: to)
 end
 
-func eprint(value: text) -> result<void, core.Error>
+public func eprint(value: text) -> result<void, core.Error>
     return io.write(value, to: true)
 end
 
-func eprint_line(value: text) -> result<void, core.Error>
+public func eprint_line(value: text) -> result<void, core.Error>
     return io.print_line(value, to: true)
 end

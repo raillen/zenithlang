@@ -49,14 +49,18 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 
 - `list_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<int>`.
 - `list_text_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<text>`.
+- `list_dyn_trait_basic/`: projeto valido. Exercita `list<dyn<TextRepresentable>>` heterogenea com iteracao e `item.to_text()`.
 - `map_basic/`: projeto valido. Exercita literal, indexacao por chave e atualizacao de `map<text,text>`.
-- `optional_result_basic/`: projeto valido. Exercita `none`, `success` e `error`.
+- `optional_result_basic/`: projeto valido. Exercita 
+one`, `success` e `error`.
 
 - `multifile_import_alias/`: projeto valido. Exercita varredura de `source.root` e chamada qualificada via import alias.
 - `public_const_module/`: projeto valido. Exercita `public const` em nivel de modulo com import alias (`mod.CONST`).
 - `multifile_missing_import/`: projeto invalido. Deve falhar quando um import nao existe em `source.root`.
-- `multifile_namespace_mismatch/`: projeto invalido. Deve falhar quando `namespace` nao corresponde ao caminho do arquivo.
+- `multifile_namespace_mismatch/`: projeto invalido. Deve falhar quando 
+amespace` nao corresponde ao caminho do arquivo.
 - `multifile_duplicate_symbol/`: projeto invalido. Deve falhar quando dois arquivos geram o mesmo simbolo efetivo no programa agregado.
+- `multifile_private_access/`: projeto invalido. Deve falhar quando um simbolo sem `public` e acessado via import alias.
 - `monomorphization_limit_error/`: projeto invalido. Deve falhar no gate de monomorfizacao quando `build.monomorphization_limit` ficar abaixo das instancias genericas reais.
 - `where_contracts_ok/`: projeto valido. Exercita contratos `where` em parametro, construcao de `struct` e atribuicao de campo.
 - `where_contract_param_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em parametro.
@@ -70,3 +74,4 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 
 - `enum_match/`: fixture de comportamento para enum com payload + match com binding de payload (check semantico OK; build E2E bloqueado pelo stub de lowering HIR->ZIR no source atual).
 - `enum_match_non_exhaustive_error/`: fixture invalida para diagnostico de match nao exaustivo em enum conhecido.
+

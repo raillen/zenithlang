@@ -1,4 +1,4 @@
-#include "compiler/utils/arena.h"
+﻿#include "compiler/utils/arena.h"
 #include "compiler/utils/string_pool.h"
 #include "compiler/frontend/parser/parser.h"
 #include "compiler/semantic/binder/binder.h"
@@ -240,6 +240,31 @@ static void test_match_payload_bindings_resolved(void) {
     zt_bind_result_dispose(&bound);
     zt_parser_result_dispose(&parsed);
 }
+static void test_confusing_name_warning(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "func demo() -> int\n"
+        "    const I1: int = 1\n"
+        "    return I1\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "confusing_name_warning parse");
+
+    zt_bind_result bound = zt_bind_file(parsed.root);
+    ASSERT_EQ((int)bound.diagnostics.count, 1, "confusing_name_warning diag count");
+    ASSERT_EQ(bound.diagnostics.items[0].code, ZT_DIAG_CONFUSING_NAME, "confusing_name_warning code");
+    ASSERT_EQ(bound.diagnostics.items[0].severity, ZT_DIAG_SEVERITY_WARNING, "confusing_name_warning severity");
+
+    zt_bind_result_dispose(&bound);
+    zt_parser_result_dispose(&parsed);
+}
+
 int main(void) {
     test_simple_bind_ok();
     test_duplicate_top_level();
@@ -251,8 +276,11 @@ int main(void) {
     test_duplicate_import_alias();
     test_unresolved_qualified_type_prefix();
     test_match_payload_bindings_resolved();
+    test_confusing_name_warning();
 
     printf("Binder tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
+
+
 

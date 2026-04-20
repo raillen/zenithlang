@@ -1,10 +1,10 @@
--- Biblioteca Padrão Zenith — Módulo OS
--- Interação com o sistema operacional: diretório, env, plataforma, arquitetura.
--- 🏗️ TIPOS
--- 🏗️ EXTERN C
--- 📂 DIRETÓRIO / ENV
--- 💻 DETECÇÃO DE PLATAFORMA
--- 🚨 ERROS
+-- Biblioteca PadrÃ£o Zenith â€” MÃ³dulo OS
+-- InteraÃ§Ã£o com o sistema operacional: diretÃ³rio, env, plataforma, arquitetura.
+-- ðŸ—ï¸ TIPOS
+-- ðŸ—ï¸ EXTERN C
+-- ðŸ“‚ DIRETÃ“RIO / ENV
+-- ðŸ’» DETECÃ‡ÃƒO DE PLATAFORMA
+-- ðŸš¨ ERROS
 namespace std.os
 
 public enum Platform
@@ -32,30 +32,30 @@ end
 
 extern c
     func zt_host_os_current_dir() -> result<text, core.Error>
-    func zt_host_os_change_dir(path: text) -> result<void, core.Error>
+    func zt_host_os_change_dir(dir_path: text) -> result<void, core.Error>
     func zt_host_os_env(name: text) -> optional<text>
     func zt_host_os_pid() -> int
     func zt_host_os_platform() -> text
     func zt_host_os_arch() -> text
 end
 
-func current_dir() -> result<text, core.Error>
+public func current_dir() -> result<text, core.Error>
     return os.zt_host_os_current_dir()
 end
 
-func change_dir(path: text) -> result<void, core.Error>
-    return os.zt_host_os_change_dir(path)
+public func change_dir(dir_path: text) -> result<void, core.Error>
+    return os.zt_host_os_change_dir(dir_path)
 end
 
-func env(name: text) -> optional<text>
+public func env(name: text) -> optional<text>
     return os.zt_host_os_env(name)
 end
 
-func pid() -> int
+public func pid() -> int
     return os.zt_host_os_pid()
 end
 
-func platform() -> os.Platform
+public func platform() -> os.Platform
     const raw: text = os.zt_host_os_platform()
     if raw == "windows"
         return os.Platform.Windows
@@ -69,7 +69,7 @@ func platform() -> os.Platform
     return os.Platform.Unknown
 end
 
-func arch() -> os.Arch
+public func arch() -> os.Arch
     const raw: text = os.zt_host_os_arch()
     if raw == "x64" or raw == "amd64" or raw == "x86_64"
         return os.Arch.X64
@@ -83,30 +83,88 @@ func arch() -> os.Arch
     return os.Arch.Unknown
 end
 
-func platform_text() -> text
+public func platform_text() -> text
     return os.zt_host_os_platform()
 end
 
-func arch_text() -> text
+public func arch_text() -> text
     return os.zt_host_os_arch()
 end
 
-func is_platform(p: os.Platform) -> bool
-    return os.platform() == p
+public func is_platform(p: os.Platform) -> bool
+    match p
+        case os.Platform.Windows
+            return os.is_windows()
+        case os.Platform.Linux
+            return os.is_linux()
+        case os.Platform.MacOS
+            return os.is_macos()
+        case os.Platform.Unknown
+            match os.platform()
+                case os.Platform.Unknown
+                    return true
+                case default
+                    return false
+            end
+    end
 end
 
-func is_arch(a: os.Arch) -> bool
-    return os.arch() == a
+public func is_arch(a: os.Arch) -> bool
+    match a
+        case os.Arch.X64
+            match os.arch()
+                case os.Arch.X64
+                    return true
+                case default
+                    return false
+            end
+        case os.Arch.X86
+            match os.arch()
+                case os.Arch.X86
+                    return true
+                case default
+                    return false
+            end
+        case os.Arch.Arm64
+            match os.arch()
+                case os.Arch.Arm64
+                    return true
+                case default
+                    return false
+            end
+        case os.Arch.Unknown
+            match os.arch()
+                case os.Arch.Unknown
+                    return true
+                case default
+                    return false
+            end
+    end
 end
 
-func is_windows() -> bool
-    return os.is_platform(os.Platform.Windows)
+public func is_windows() -> bool
+    match os.platform()
+        case os.Platform.Windows
+            return true
+        case default
+            return false
+    end
 end
 
-func is_linux() -> bool
-    return os.is_platform(os.Platform.Linux)
+public func is_linux() -> bool
+    match os.platform()
+        case os.Platform.Linux
+            return true
+        case default
+            return false
+    end
 end
 
-func is_macos() -> bool
-    return os.is_platform(os.Platform.MacOS)
+public func is_macos() -> bool
+    match os.platform()
+        case os.Platform.MacOS
+            return true
+        case default
+            return false
+    end
 end

@@ -27,7 +27,7 @@ extern c
     func zt_net_is_closed(connection: net.Connection) -> bool
 end
 
-func connect(
+public func connect(
     host: text,
     port: int where it >= 1 and it <= 65535,
     timeout_ms: int
@@ -35,7 +35,7 @@ func connect(
     return net.zt_net_connect(host, port, timeout_ms)
 end
 
-func read_some(
+public func read_some(
     connection: net.Connection,
     max: int where it > 0,
     timeout_ms: int = -1
@@ -43,7 +43,7 @@ func read_some(
     return net.zt_net_read_some(connection, max, timeout_ms)
 end
 
-func write_all(
+public func write_all(
     connection: net.Connection,
     data: bytes,
     timeout_ms: int = -1
@@ -51,15 +51,15 @@ func write_all(
     return net.zt_net_write_all(connection, data, timeout_ms)
 end
 
-func close(connection: net.Connection) -> result<void, core.Error>
+public func close(connection: net.Connection) -> result<void, core.Error>
     return net.zt_net_close(connection)
 end
 
-func is_closed(connection: net.Connection) -> bool
+public func is_closed(connection: net.Connection) -> bool
     return net.zt_net_is_closed(connection)
 end
 
-func kind(err: core.Error) -> net.Error
+public func kind(err: core.Error) -> net.Error
     if path._text_eq(err.code, "net.ConnectionRefused")
         return net.Error.ConnectionRefused
     end

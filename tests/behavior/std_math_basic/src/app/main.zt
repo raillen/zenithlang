@@ -31,7 +31,7 @@ func main() -> int
 
     const log_ok: bool =
         math.approx_equal(math.log(81.0, base: 3.0), 4.0, epsilon: 0.0001) and
-        math.approx_equal(math.log10(1000.0), 3.0, epsilon: 0.0001) and
+        math.approx_equal(math.log_ten(1000.0), 3.0, epsilon: 0.0001) and
         math.approx_equal(math.log2(1024.0), 10.0, epsilon: 0.0001) and
         math.approx_equal(math.exp(1.0), math.E, epsilon: 0.0001)
 

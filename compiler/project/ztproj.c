@@ -16,6 +16,7 @@ typedef enum zt_project_section {
     ZT_PROJECT_SECTION_TEST,
 ZT_PROJECT_SECTION_ZDOC,
     ZT_PROJECT_SECTION_DIAGNOSTICS,
+    ZT_PROJECT_SECTION_ACCESSIBILITY,
     ZT_PROJECT_SECTION_DEPENDENCIES,
     ZT_PROJECT_SECTION_DEV_DEPENDENCIES
 } zt_project_section;
@@ -34,6 +35,7 @@ static const char *zt_project_section_name(zt_project_section section) {
         case ZT_PROJECT_SECTION_TEST: return "test";
         case ZT_PROJECT_SECTION_ZDOC: return "zdoc";
         case ZT_PROJECT_SECTION_DIAGNOSTICS: return "diagnostics";
+        case ZT_PROJECT_SECTION_ACCESSIBILITY: return "accessibility";
         case ZT_PROJECT_SECTION_DEPENDENCIES: return "dependencies";
         case ZT_PROJECT_SECTION_DEV_DEPENDENCIES: return "dev_dependencies";
         default: return "<none>";
@@ -277,6 +279,7 @@ static zt_project_section zt_project_section_from_name(const char *name) {
     if (strcmp(name, "test") == 0) return ZT_PROJECT_SECTION_TEST;
     if (strcmp(name, "zdoc") == 0) return ZT_PROJECT_SECTION_ZDOC;
     if (strcmp(name, "diagnostics") == 0) return ZT_PROJECT_SECTION_DIAGNOSTICS;
+    if (strcmp(name, "accessibility") == 0) return ZT_PROJECT_SECTION_ACCESSIBILITY;
     if (strcmp(name, "dependencies") == 0) return ZT_PROJECT_SECTION_DEPENDENCIES;
     if (strcmp(name, "dev_dependencies") == 0) return ZT_PROJECT_SECTION_DEV_DEPENDENCIES;
     return ZT_PROJECT_SECTION_NONE;
@@ -436,6 +439,26 @@ static int zt_project_assign_dependency(
     return 1;
 }
 
+static int zt_project_parse_bool_value(
+        const char *value_text,
+        int *dest,
+        zt_project_parse_result *result,
+        int line_number) {
+    const char *cursor = zt_project_trim_left(value_text);
+
+    if (strcmp(cursor, "true") == 0) {
+        *dest = 1;
+        return 1;
+    }
+    if (strcmp(cursor, "false") == 0) {
+        *dest = 0;
+        return 1;
+    }
+
+    zt_project_set_error(result, ZT_PROJECT_INVALID_ASSIGNMENT, line_number, "expected true or false");
+    return 0;
+}
+
 static int zt_project_assign_value(
         zt_project_manifest *manifest,
         zt_project_section section,
@@ -503,6 +526,13 @@ if (section == ZT_PROJECT_SECTION_ZDOC) {
 
     if (section == ZT_PROJECT_SECTION_DIAGNOSTICS) {
         if (strcmp(key, "profile") == 0) return zt_project_parse_string_value(value, manifest->diag_profile, sizeof(manifest->diag_profile), result, line_number);
+        zt_project_set_unknown_key(result, section, key, line_number);
+        return 0;
+    }
+
+    if (section == ZT_PROJECT_SECTION_ACCESSIBILITY) {
+        if (strcmp(key, "profile") == 0) return zt_project_parse_string_value(value, manifest->accessibility_profile, sizeof(manifest->accessibility_profile), result, line_number);
+        if (strcmp(key, "telemetry") == 0) return zt_project_parse_bool_value(value, &manifest->accessibility_telemetry, result, line_number);
         zt_project_set_unknown_key(result, section, key, line_number);
         return 0;
     }
@@ -618,6 +648,10 @@ static int zt_project_validate(zt_project_parse_result *result) {
 
     if (manifest->zdoc_root[0] == '\0') {
         if (!zt_project_copy_default(result, manifest->zdoc_root, sizeof(manifest->zdoc_root), "zdoc", "zdoc.root")) return 0;
+    }
+
+    if (manifest->accessibility_profile[0] == '\0') {
+        if (!zt_project_copy_default(result, manifest->accessibility_profile, sizeof(manifest->accessibility_profile), "balanced", "accessibility.profile")) return 0;
     }
 
     if (!zt_project_copy_default(result, manifest->output_name, sizeof(manifest->output_name), manifest->project_name, "project.name")) return 0;

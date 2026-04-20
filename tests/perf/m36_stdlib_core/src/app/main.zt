@@ -1,0 +1,42 @@
+namespace app.main
+
+import std.format as format
+import std.io as io
+import std.json as json
+import std.math as math
+import std.random as random
+import std.validate as validate
+
+func main() -> result<void, core.Error>
+    const raw: text = "{\"a\":\"1\",\"b\":\"2\"}"
+    const parsed: map<text, text> = json.parse(raw)?
+
+    const compact: text = json.stringify(parsed)
+    const pretty: text = json.pretty(parsed)
+    const hx: text = format.hex(255)
+    const bn: text = format.bin(255)
+    const by: text = format.bytes(4096)
+
+    const root: float = math.sqrt(144.0)
+    const rounded: float = math.round(2.5)
+
+    random.seed(12345)
+    const rv: int = random.next()
+    const rv_mod: int = rv % 100
+    const between_ok: bool = validate.non_negative(rv_mod) and rv_mod <= 99
+
+    if len(compact) == 0 or len(pretty) == 0 or len(hx) == 0 or len(bn) == 0 or len(by) == 0
+        return error("m36 stdlib text formatting failed")
+    end
+
+    if root < 12.0 or rounded < 3.0
+        return error("m36 stdlib math failed")
+    end
+
+    if not between_ok
+        return error("m36 stdlib validate/random failed")
+    end
+
+    io.print_line("m36-stdlib-core-ok")?
+    return success()
+end

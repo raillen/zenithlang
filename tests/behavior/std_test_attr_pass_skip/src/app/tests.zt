@@ -3,12 +3,12 @@ namespace app.tests
 import std.test as test
 
 attr test
-func pass_case() -> void
+public func pass_case() -> void
     return
 end
 
 attr test
-func skip_case() -> void
+public func skip_case() -> void
     test.skip("skip")
     return
 end

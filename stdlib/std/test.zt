@@ -2,20 +2,20 @@
 -- Sinalização de falha e skip para o runner de testes.
 namespace std.test
 
-func zt_test_fail(message: text) -> void
+public func zt_test_fail(message: text) -> void
     const _message: text = message
     return
 end
 
-func zt_test_skip(reason: text) -> void
+public func zt_test_skip(reason: text) -> void
     const _reason: text = reason
     return
 end
 
-func fail(message: text = "test failed") -> void
+public func fail(message: text = "test failed") -> void
     test.zt_test_fail(message)
 end
 
-func skip(reason: text = "") -> void
+public func skip(reason: text = "") -> void
     test.zt_test_skip(reason)
 end

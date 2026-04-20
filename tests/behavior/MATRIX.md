@@ -2,6 +2,8 @@
 
 This matrix is the M16 executable coverage map for the current C backend cut.
 
+For the canonical M32 layered/risk matrix, see language/spec/conformance-matrix.md.
+
 Legend:
 
 - `valid`: project must build and the executable exit code is checked.
@@ -33,6 +35,7 @@ Legend:
 | `methods_trait_apply` | Trait method through `apply Trait to Type` | `8` |
 | `list_basic` | `list<int>` literal, index and update | `18` |
 | `list_text_basic` | `list<text>` literal, index and update | `0` |
+| `list_dyn_trait_basic` | `list<dyn<TextRepresentable>>` heterogenea com `for` + `to_text()` | `16` |
 | `list_slice_len` | `list<int>` slice and `len(list)` | `37` |
 | `text_slice_len` | `text` slice and `len(text)` | `8` |
 | `map_basic` | `map<text,text>` literal, index and update | `0` |
@@ -44,22 +47,27 @@ Legend:
 | `value_semantics_arc_isolation` | Chain-copy isolation (`a -> b -> c`) for `list` and `map` under COW/RC | `158` |
 | `value_semantics_optional_result_managed` | `optional<list<int>>` creation/copy and `result<list<int>, text>` `?` with COW-safe list mutation | `0` |
 | `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
-| `optional_result_basic` | `none`, `success(...)` and `error(...)` | `0` |
+| `optional_result_basic` | 
+one`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
 | `bytes_hex_literal` | `hex bytes "..."`, `len(bytes)`, byte indexing and byte slicing | `9` |
 | `std_bytes_utf8` | `std.bytes.empty`, `std.text.to_utf8`, `std.text.from_utf8` and UTF-8 failure path | `14` |
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, text length and whitespace checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
-| `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) via host runtime wrappers | `0` |
+| `std_random_basic` | `std.random` baseline (`seed`, 
+ext`, `between`) via host runtime wrappers | `0` |
 | `std_format_basic` | `std.format` com `BytesStyle` tipado (`hex`, `bin`, `bytes(style: ...)`, `bytes_binary`, `bytes_decimal`) | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
-| `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`, `normalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-probe | `0` |
+| `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, 
+ame_without_extension`, `has_ext`, `change_ext`, 
+ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-probe | `0` |
 | `std_json_basic` | `std.json` baseline (`parse`, `stringify`, `pretty`) para objeto plano `map<text,text>` | `0` |
 | `std_test_basic` | `std.test` helper direto em `main` (`skip` => skipped outcome, `fail` => failed outcome) | `test-skip` |
 | `std_test_attr_pass_skip` | `zt test` com `attr test` exercitando 1 pass e 1 skip | `test ok (pass=1 skip=1)` |
 | `std_test_attr_fail` | `zt test` com `attr test` exercitando 1 pass, 1 skip e 1 fail | `test failed (pass=1 skip=1 fail=1)` |
-| `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, `now`, `sleep`, `since`, `until`, conversoes unix) | `0` |
+| `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, 
+ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `std_os_basic` | `std.os` tipado (`Platform`, `Arch`, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
 | `std_os_process_basic` | `std.os.process` com `ExitStatus` tipado (`run`, `exit_code`) e comando explicito (`program` + `args`) | `0` |
 | `std_net_basic` | `std.net` TCP client baseline (`connect`, `read_some`, `write_all`, `close`, `is_closed`) em loopback local via `run-loopback.ps1` | `0` |
@@ -79,6 +87,7 @@ Legend:
 | `multifile_namespace_mismatch` | Namespace/path mismatch rejection |
 | `multifile_duplicate_symbol` | Duplicate effective symbol rejection |
 | `multifile_import_cycle` | Import cycle rejection |
+| `multifile_private_access` | Access to non-public symbol via import alias is rejected |
 | `project_unknown_key_manifest` | Manifest unknown key diagnostic (`project.*`) |
 | `monomorphization_limit_error` | Monomorphization gate diagnostic when generic instantiations exceed `build.monomorphization_limit` |
 | `mutability_const_reassign_error` | Const reassignment mutability diagnostic |
@@ -97,6 +106,8 @@ These forms remain accepted language direction but are not in the M16 executable
 - Full generic monomorphization beyond the current checked semantic model.
 - Enum value construction and exhaustive enum matching in generated C (semantic coverage exists in `tests/semantic`; check path is validated with fixtures `tests/behavior/enum_match` / `tests/behavior/enum_match_non_exhaustive_error`; full build E2E remains blocked while `compiler/zir/lowering/from_hir.c` is a stub in source).
 - Broader stdlib-facing collection APIs beyond the current compiler intrinsic `len(...)`.
+
+
 
 
 

@@ -1,4 +1,4 @@
-#include "compiler/semantic/diagnostics/diagnostics.h"
+﻿#include "compiler/semantic/diagnostics/diagnostics.h"
 #include "compiler/utils/l10n.h"
 
 #include <stdarg.h>
@@ -144,6 +144,7 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_DUPLICATE_NAME: return "duplicate_name";
         case ZT_DIAG_SHADOWING: return "shadowing";
         case ZT_DIAG_UNRESOLVED_NAME: return "unresolved_name";
+        case ZT_DIAG_CONFUSING_NAME: return "confusing_name";
         case ZT_DIAG_INVALID_CONSTRAINT_TARGET: return "invalid_constraint_target";
         case ZT_DIAG_INVALID_TYPE: return "invalid_type";
         case ZT_DIAG_TYPE_MISMATCH: return "type_mismatch";
@@ -202,6 +203,7 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_DUPLICATE_NAME: return "name.duplicate";
         case ZT_DIAG_SHADOWING: return "name.shadowing";
         case ZT_DIAG_UNRESOLVED_NAME: return "name.unresolved";
+        case ZT_DIAG_CONFUSING_NAME: return "name.confusing";
         case ZT_DIAG_INVALID_CONSTRAINT_TARGET: return "generic.constraint_target";
         case ZT_DIAG_INVALID_TYPE: return "type.invalid";
         case ZT_DIAG_TYPE_MISMATCH: return "type.mismatch";
@@ -264,6 +266,7 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_DUPLICATE_NAME: return "Rename one of the declarations in this scope.";
         case ZT_DIAG_SHADOWING: return "Use a different local name to avoid shadowing an outer declaration.";
         case ZT_DIAG_UNRESOLVED_NAME: return "Declare or import this name before using it.";
+        case ZT_DIAG_CONFUSING_NAME: return "Rename identifiers that mix confusable characters like l/I/1 or O/0.";
         case ZT_DIAG_INVALID_CONSTRAINT_TARGET: return "Apply constraints only to generic type parameters.";
         case ZT_DIAG_INVALID_TYPE: return "Check the type name and generic arguments.";
         case ZT_DIAG_TYPE_MISMATCH: return "Convert the value explicitly or change the expected type.";
@@ -464,6 +467,7 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
         case ZT_DIAG_SYNTAX_ERROR:
         case ZT_DIAG_UNEXPECTED_TOKEN:
         case ZT_DIAG_UNRESOLVED_NAME:
+        case ZT_DIAG_CONFUSING_NAME:
         case ZT_DIAG_DUPLICATE_NAME:
         case ZT_DIAG_SHADOWING:
         case ZT_DIAG_CONST_REASSIGNMENT:
@@ -519,6 +523,7 @@ const char *zt_diag_effort_label(zt_diag_effort effort) {
 const char *zt_diag_action_text(zt_diag_code code) {
     switch (code) {
         case ZT_DIAG_UNRESOLVED_NAME: return "Declare or import the name before using it.";
+        case ZT_DIAG_CONFUSING_NAME: return "Rename this identifier to reduce visual confusion.";
         case ZT_DIAG_SYNTAX_ERROR: return "Fix the syntax near the reported location.";
         case ZT_DIAG_UNEXPECTED_TOKEN: return "Replace or remove the unexpected token.";
         case ZT_DIAG_TYPE_MISMATCH: return "Convert the value type or change the expected type.";
@@ -546,6 +551,43 @@ size_t zt_cog_profile_error_limit(zt_cog_profile profile) {
         case ZT_COG_PROFILE_FULL: return (size_t)-1;
         default: return 5;
     }
+}
+
+zt_cog_profile zt_cog_profile_from_text(const char *text) {
+    if (text == NULL) return ZT_COG_PROFILE_BALANCED;
+    if (strcmp(text, "beginner") == 0) return ZT_COG_PROFILE_BEGINNER;
+    if (strcmp(text, "balanced") == 0) return ZT_COG_PROFILE_BALANCED;
+    if (strcmp(text, "full") == 0) return ZT_COG_PROFILE_FULL;
+    return ZT_COG_PROFILE_BALANCED;
+}
+
+void zt_diag_telemetry_log(
+        const char *project_root,
+        const char *profile_name,
+        const char *stage,
+        const zt_diag *diag) {
+    FILE *log_file;
+    char log_path[512];
+
+    if (project_root == NULL || diag == NULL) return;
+
+    snprintf(log_path, sizeof(log_path), "%s/.ztc-tmp/accessibility_metrics.jsonl", project_root);
+    
+    log_file = fopen(log_path, "a");
+    if (log_file == NULL) return;
+
+    /* Very simple JSONL record. In a real system we'd escape strings properly. */
+    fprintf(log_file, "{\"timestamp\":\"2026-04-20T12:00:00Z\",\"event\":\"diagnostic_reported\",\"profile\":\"%s\",\"code\":\"%s\",\"severity\":\"%s\",\"effort\":\"%s\",\"stage\":\"%s\",\"file\":\"%s\",\"line\":%zu,\"col\":%zu}\n",
+        profile_name != NULL ? profile_name : "unknown",
+        zt_diag_code_stable(diag->code),
+        zt_diag_severity_name(diag->severity),
+        zt_diag_effort_label(diag->effort),
+        stage != NULL ? stage : "unknown",
+        diag->span.source_name != NULL ? diag->span.source_name : "unknown",
+        diag->span.line,
+        diag->span.column_start);
+
+    fclose(log_file);
 }
 
 #define ANSI_RED     "\x1b[1;31m"
@@ -728,3 +770,5 @@ void zt_diag_render_ci_list(FILE *stream, const char *stage, const zt_diag_list 
         zt_diag_render_ci(stream, stage, &diagnostics->items[i]);
     }
 }
+
+

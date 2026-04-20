@@ -1,0 +1,70 @@
+namespace app.main
+
+import std.bytes as bytes
+import std.collections as collections
+import std.io as io
+
+func main() -> result<void, core.Error>
+    var score: int = 0
+
+    const payload: bytes = bytes.from_list([1, 2, 3, 4])
+    const joined: bytes = bytes.join(payload, hex bytes "05 06")
+    const roundtrip: list<int> = bytes.to_list(joined)
+    if len(roundtrip) == 6
+        score = score + 1
+    end
+
+    var xs: list<int> = [10, 20, 30]
+    xs[1] = 99
+    if xs[1] == 99
+        score = score + 1
+    end
+
+    const mode_key: text = "mode"
+    const mode_value: text = "debug"
+    const theme_key: text = "theme"
+    const theme_value: text = "paper"
+    const dark_value: text = "dark"
+    var cfg: map<text, text> = { mode_key: mode_value, theme_key: theme_value }
+    cfg[theme_key] = dark_value
+    if cfg[theme_key] == dark_value
+        score = score + 1
+    end
+
+    const g2: grid2d<int> = collections.grid2d_int_new(2, 2)
+    if collections.grid2d_int_rows(g2) == 2 and collections.grid2d_int_cols(g2) == 2
+        score = score + 1
+    end
+
+    const pq: pqueue<int> = collections.pqueue_int_new()
+    if collections.pqueue_int_is_empty(pq) and collections.pqueue_int_len(pq) == 0
+        score = score + 1
+    end
+
+    const cb: circbuf<int> = collections.circbuf_int_new(4)
+    if collections.circbuf_int_len(cb) == 0 and collections.circbuf_int_capacity(cb) == 4
+        score = score + 1
+    end
+
+    const bm: btreemap<text,text> = collections.btreemap_text_new()
+    if collections.btreemap_text_is_empty(bm) and collections.btreemap_text_len(bm) == 0
+        score = score + 1
+    end
+
+    const bs: btreeset<text> = collections.btreeset_text_new()
+    if collections.btreeset_text_is_empty(bs) and collections.btreeset_text_len(bs) == 0
+        score = score + 1
+    end
+
+    const g3: grid3d<int> = collections.grid3d_int_new(2, 2, 2)
+    if collections.grid3d_int_depth(g3) == 2 and collections.grid3d_int_rows(g3) == 2 and collections.grid3d_int_cols(g3) == 2
+        score = score + 1
+    end
+
+    if score < 9
+        return error("m36 runtime score below expected")
+    end
+
+    io.print_line("m36-runtime-core-ok")?
+    return success()
+end

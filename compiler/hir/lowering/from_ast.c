@@ -246,6 +246,9 @@ static zt_type *zt_lower_type_from_generic(zt_lower_ctx *ctx, const char *name, 
     } else if (zt_text_eq(name, "grid3d")) {
         kind = ZT_TYPE_GRID3D;
         display_name = "grid3d";
+    } else if (zt_text_eq(name, "dyn")) {
+        kind = ZT_TYPE_DYN;
+        display_name = "dyn";
     } else {
         kind = ZT_TYPE_USER;
         display_name = name;
@@ -1014,6 +1017,31 @@ static zt_hir_expr *zt_lower_call_expr(
                 return NULL;
             }
             result->as.call_expr.callee_name = zt_lower_strdup("core.map_get");
+            result->as.call_expr.args = args;
+            return result;
+        }
+
+        if (receiver_type != NULL &&
+            receiver_type->kind == ZT_TYPE_DYN &&
+            receiver_type->args.count == 1 &&
+            receiver_type->args.items[0] != NULL &&
+            receiver_type->args.items[0]->name != NULL &&
+            zt_text_eq(receiver_type->args.items[0]->name, "TextRepresentable") &&
+            callee->as.field_expr.field_name != NULL &&
+            strcmp(callee->as.field_expr.field_name, "to_text") == 0) {
+            zt_hir_expr_list args = zt_hir_expr_list_make();
+
+            if (expr->as.call_expr.named_args.count != 0 || expr->as.call_expr.positional_args.count != 0) {
+                zt_add_diag(ctx, expr->span, "dyn<TextRepresentable>.to_text lowering expects no arguments");
+            }
+
+            zt_hir_expr_list_push(&args, receiver);
+            result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_TEXT));
+            if (result == NULL) {
+                zt_hir_expr_list_dispose(&args);
+                return NULL;
+            }
+            result->as.call_expr.callee_name = zt_lower_strdup("core.dyn_text_repr_to_text");
             result->as.call_expr.args = args;
             return result;
         }

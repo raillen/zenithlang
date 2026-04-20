@@ -1,0 +1,15 @@
+-- Zenith Standard Library - std.text
+namespace std.text
+
+extern c
+    func zt_text_to_utf8_bytes(value: text) -> bytes
+    func zt_text_from_utf8_bytes(value: bytes) -> result<text, text>
+end
+
+public func to_utf8(value: text) -> bytes
+    return text.zt_text_to_utf8_bytes(value)
+end
+
+public func from_utf8(value: bytes) -> result<text, text>
+    return text.zt_text_from_utf8_bytes(value)
+end

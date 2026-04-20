@@ -1,0 +1,13 @@
+--- @target: to_utf8
+Converte `text` para `bytes` em UTF-8.
+
+**Sintaxe**
+`func to_utf8(value: text) -> bytes`
+---
+--- @target: from_utf8
+Converte `bytes` UTF-8 para `text`.
+Retorna erro textual quando o payload nao for UTF-8 valido.
+
+**Sintaxe**
+`func from_utf8(value: bytes) -> result<text, text>`
+---

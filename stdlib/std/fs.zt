@@ -4,19 +4,19 @@
 namespace std.fs
 
 extern c
-    func zt_host_read_file(path: text) -> result<text, core.Error>
-    func zt_host_write_file(path: text, value: text) -> result<void, core.Error>
-    func zt_host_path_exists(path: text) -> bool
+    func zt_host_read_file(file_path: text) -> result<text, core.Error>
+    func zt_host_write_file(file_path: text, value: text) -> result<void, core.Error>
+    func zt_host_path_exists(file_path: text) -> bool
 end
 
-func read_text(path: text) -> result<text, core.Error>
-    return fs.zt_host_read_file(path)
+public func read_text(file_path: text) -> result<text, core.Error>
+    return fs.zt_host_read_file(file_path)
 end
 
-func write_text(path: text, value: text) -> result<void, core.Error>
-    return fs.zt_host_write_file(path, value)
+public func write_text(file_path: text, value: text) -> result<void, core.Error>
+    return fs.zt_host_write_file(file_path, value)
 end
 
-func exists(path: text) -> bool
-    return fs.zt_host_path_exists(path)
+public func exists(file_path: text) -> bool
+    return fs.zt_host_path_exists(file_path)
 end

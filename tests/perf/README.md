@@ -1,63 +1,99 @@
-# Performance Runner
+﻿# Performance Suite (M36)
 
-Runner unico para benchmarks e gates curtos em `tests/perf`.
+Suite unica de performance E2E para Zenith Next.
 
-Estado atual:
+## O que cobre
 
-- `m37_result_generic`: gate curto para `result<T,E>` generico no backend C
-- `std_validate_vs_c`: benchmark manual, ainda fora do runner
+- micro frontend: lexer/parser/binder/typechecker (via `zt check`)
+- micro lowering/backend: HIR/ZIR/emissao C (via `zt emit-c`)
+- micro runtime: `text`, `bytes`, `list`, `map`, `grid2d`, `pqueue`, `circbuf`, `btreemap`, `btreeset`, `grid3d`
+- micro stdlib: `json`, `format`, `math`, `random`, `validate`
+- macro: `zt check`, `zt build`, `zt run`, `zt test`
+- cenarios `small`, `medium`, `large`, com build `cold` e `warm`
 
-## Uso
-
-Rodar um cenario:
+## Runner
 
 ```powershell
+python tests\perf\run_perf.py --suite quick
+python tests\perf\run_perf.py --suite nightly
+```
+
+Rodar alvo especifico:
+
+```powershell
+python tests\perf\run_perf.py macro_large
 python tests\perf\run_perf.py m37_result_generic
+python tests\perf\run_perf.py --benchmark macro_small_build_cold
 ```
 
-Rodar todos os cenarios ligados ao runner:
+Listar suites/scenarios/benchmarks:
 
 ```powershell
-python tests\perf\run_perf.py
+python tests\perf\run_perf.py --list
 ```
 
-## Reproducao Local
+## Baseline e diff
 
-Pre-requisitos:
-
-- `python` no `PATH`
-- toolchain C funcional para `python build.py`
-- executar a partir da raiz do repo
-
-Fluxo curto para devs e contribuidores:
+Atualizar baseline da plataforma atual:
 
 ```powershell
-python build.py
-python tests\perf\run_perf.py m37_result_generic
+python tests\perf\run_perf.py --suite quick --update-baseline
 ```
 
-Para inspecionar os numeros gerados:
+Comparar com report da branch base:
 
 ```powershell
-Get-Content reports\perf\m37_result_generic.md
+python tests\perf\run_perf.py --suite quick --base-report reports\perf\summary-quick.json
+```
+
+## Gate de release
+
+Bloqueio padrao: qualquer `fail` retorna codigo != 0.
+
+Override documentado:
+
+```powershell
+python tests\perf\run_perf.py --suite nightly --release-gate --override-file docs\perf-override.md
 ```
 
 ## Saida
 
-Cada execucao gera:
+- `reports/perf/summary-quick.json`
+- `reports/perf/summary-quick.md`
+- `reports/perf/summary-nightly.json`
+- `reports/perf/summary-nightly.md`
+- `reports/perf/<suite>-<benchmark>.json`
+- `reports/perf/<suite>-<benchmark>.md`
 
-- `reports/perf/<cenario>.json`
-- `reports/perf/<cenario>.md`
+## Metodologia
 
-Contrato minimo de output:
+- quick: warmup=1, medicao=3, retry de instabilidade=1
+- nightly: warmup=2, medicao=7, retry de instabilidade=2
+- estatisticas: mediana, p95, desvio padrao, throughput
+- memoria: pico de working set
+- alocacoes: proxy por `PrivateMemorySize` (Windows)
+- outliers: IQR (1.5x), com rerun automatico quando instavel
 
-- amostras brutas de build e run
-- mediana de tempo de build
-- tamanho do binario final
-- pico de memoria por execucao
-- spread de memoria entre execucoes
-- status por metrica: `pass`, `warn` ou `fail`
+## Perfis de execucao
 
-## Regra atual
+- `quick`: foco em feedback rapido para PR (micro + macro small + `macro_medium_check`).
+- `nightly`: inclui cenarios pesados (`macro_medium_build_*`, `macro_large_*`, `m37_result_generic`) para regressao longa.
 
-O runner retorna codigo diferente de zero quando qualquer metrica bate em `fail`.
+## Comandos equivalentes no driver
+
+```powershell
+zt perf quick
+zt perf nightly
+```
+
+## Gates prontos
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\perf\gate_pr.ps1
+powershell -ExecutionPolicy Bypass -File tests\perf\gate_nightly.ps1
+```
+
+## Estado atual
+
+- `quick`: validado e verde no ambiente local.
+- `nightly`: definido e documentado; executar em janela longa para fechar gate final de release.

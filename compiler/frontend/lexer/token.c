@@ -51,6 +51,7 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_BTREESET: return "btreeset";
         case ZT_TOKEN_GRID3D: return "grid3d";
         case ZT_TOKEN_EXTERN: return "extern";
+        case ZT_TOKEN_DYN: return "dyn";
         case ZT_TOKEN_VOID: return "void";
         case ZT_TOKEN_MUT: return "mut";
         case ZT_TOKEN_SELF: return "self";

@@ -1013,6 +1013,139 @@ static void test_real_lowering_to_c(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
+
+static void test_structured_extern_managed_arg_shield(void) {
+    zir_expr *call = zir_expr_make_call_extern("c.zt_text_concat");
+    const zir_instruction instructions[] = {
+        zir_make_assign_instruction("t0", "text", "const \"left\""),
+        zir_make_assign_instruction("t1", "text", "const \"right\""),
+        zir_make_assign_instruction_expr("t2", "text", call),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator("t2")),
+    };
+    const zir_function functions[] = {
+        zir_make_function("join_text", NULL, 0, "text", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "zt_text *zt_ffi_arg0 = t0;",
+        "if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }",
+        "zt_text *zt_ffi_arg1 = t1;",
+        "if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }",
+        "t2 = zt_text_concat(zt_ffi_arg0, zt_ffi_arg1);",
+        "if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }",
+        "if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }",
+    };
+
+    zir_expr_call_add_arg(call, zir_expr_make_name("t0"));
+    zir_expr_call_add_arg(call, zir_expr_make_name("t1"));
+
+    assert_rendered_contains_all(
+        "emit_structured_extern_managed_arg_shield",
+        &module_decl,
+        fragments,
+        ARRAY_COUNT(fragments));
+}
+
+static void test_legacy_extern_assign_managed_arg_shield(void) {
+    const zir_instruction instructions[] = {
+        zir_make_assign_instruction("t0", "text", "const \"hello from extern\""),
+        zir_make_assign_instruction("t1", "int", "call_extern c.puts(t0)"),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator("t1")),
+    };
+    const zir_function functions[] = {
+        zir_make_function("puts_result", NULL, 0, "int", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "zt_text *zt_ffi_arg0 = t0;",
+        "if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }",
+        "t1 = puts(zt_text_data(zt_ffi_arg0));",
+        "if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }",
+    };
+
+    assert_rendered_contains_all(
+        "emit_legacy_extern_assign_managed_arg_shield",
+        &module_decl,
+        fragments,
+        ARRAY_COUNT(fragments));
+}
+
+static void test_structured_extern_managed_return_shield(void) {
+    zir_expr *call = zir_expr_make_call_extern("c.zt_text_concat");
+    const zir_param params[] = {
+        zir_make_param("left", "text", NULL),
+        zir_make_param("right", "text", NULL),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", NULL, 0, zir_make_return_terminator_expr(call)),
+    };
+    const zir_function functions[] = {
+        zir_make_function("join_return", params, ARRAY_COUNT(params), "text", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "zt_text *zt_ffi_return_value = NULL;",
+        "zt_text *zt_ffi_arg0 = left;",
+        "if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }",
+        "zt_text *zt_ffi_arg1 = right;",
+        "if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }",
+        "zt_ffi_return_value = zt_text_concat(zt_ffi_arg0, zt_ffi_arg1);",
+        "if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }",
+        "if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }",
+        "return zt_ffi_return_value;",
+    };
+
+    zir_expr_call_add_arg(call, zir_expr_make_name("left"));
+    zir_expr_call_add_arg(call, zir_expr_make_name("right"));
+
+    assert_rendered_contains_all(
+        "emit_structured_extern_managed_return_shield",
+        &module_decl,
+        fragments,
+        ARRAY_COUNT(fragments));
+}
+
+static void test_structured_extern_managed_return_shield_with_cleanup(void) {
+    zir_expr *call = zir_expr_make_call_extern("c.zt_text_concat");
+    const zir_param params[] = {
+        zir_make_param("prefix", "text", NULL),
+    };
+    const zir_instruction instructions[] = {
+        zir_make_assign_instruction("t0", "text", "const \"tail\""),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator_expr(call)),
+    };
+    const zir_function functions[] = {
+        zir_make_function("join_return_cleanup", params, ARRAY_COUNT(params), "text", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "zt_text *zt_return_value = NULL;",
+        "zt_text *zt_ffi_arg0 = prefix;",
+        "if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }",
+        "zt_text *zt_ffi_arg1 = t0;",
+        "if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }",
+        "zt_return_value = zt_text_concat(zt_ffi_arg0, zt_ffi_arg1);",
+        "if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }",
+        "if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }",
+        "goto zt_cleanup;",
+    };
+
+    zir_expr_call_add_arg(call, zir_expr_make_name("prefix"));
+    zir_expr_call_add_arg(call, zir_expr_make_name("t0"));
+
+    assert_rendered_contains_all(
+        "emit_structured_extern_managed_return_shield_with_cleanup",
+        &module_decl,
+        fragments,
+        ARRAY_COUNT(fragments));
+}
+
 static void test_main_wrapper_and_outputs(void) {
     const zir_module branch_main = make_branch_main_module();
     const zir_module puts_main = make_puts_main_module();
@@ -1031,19 +1164,19 @@ static void test_main_wrapper_and_outputs(void) {
     assert_rendered(
         "emit_puts_main",
         &puts_main,
-        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"hello from zenith\");\n    puts(zt_text_data(t0));\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
+        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"hello from zenith\");\n    {\n        zt_text *zt_ffi_arg0 = t0;\n        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }\n        puts(zt_text_data(zt_ffi_arg0));\n        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }\n    }\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
     );
 
     assert_rendered(
         "emit_text_index_main",
         &text_index_main,
-        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_text *t1 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"Zenith\");\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    t1 = zt_text_index(t0, 2);\n    puts(zt_text_data(t1));\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
+        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_text *t1 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"Zenith\");\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    t1 = zt_text_index(t0, 2);\n    {\n        zt_text *zt_ffi_arg0 = t1;\n        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }\n        puts(zt_text_data(zt_ffi_arg0));\n        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }\n    }\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
     );
 
     assert_rendered(
         "emit_text_slice_main",
         &text_slice_main,
-        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_text *t1 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"Zenith\");\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    t1 = zt_text_slice(t0, 2, 4);\n    puts(zt_text_data(t1));\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
+        "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_text *t0 = NULL;\n    zt_text *t1 = NULL;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_text_from_utf8_literal(\"Zenith\");\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    t1 = zt_text_slice(t0, 2, 4);\n    {\n        zt_text *zt_ffi_arg0 = t1;\n        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }\n        puts(zt_text_data(zt_ffi_arg0));\n        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }\n    }\n    zt_return_value = 0;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
     );
 
     assert_rendered(
@@ -1104,6 +1237,10 @@ int main(void) {
     test_list_set_effects();
     test_map_set_and_len_effects();
     test_managed_param_return_retain();
+    test_structured_extern_managed_arg_shield();
+    test_legacy_extern_assign_managed_arg_shield();
+    test_structured_extern_managed_return_shield();
+    test_structured_extern_managed_return_shield_with_cleanup();
     test_structured_zir_emission();
     test_real_lowering_to_c();
     test_main_wrapper_and_outputs();

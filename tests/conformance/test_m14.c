@@ -145,6 +145,10 @@ int main(void) {
         "tests/behavior/multifile_import_cycle",
         "multifile_import_cycle");
 
+    test_project_rejected(
+        "tests/behavior/multifile_private_access",
+        "multifile_private_access");
+
     printf("M14 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }

@@ -59,6 +59,7 @@ static zt_keyword_entry zt_keywords[] = {
     {"btreeset", ZT_TOKEN_BTREESET},
     {"grid3d", ZT_TOKEN_GRID3D},
     {"extern", ZT_TOKEN_EXTERN},
+    {"dyn", ZT_TOKEN_DYN},
     {"void", ZT_TOKEN_VOID},
     {"mut", ZT_TOKEN_MUT},
     {"self", ZT_TOKEN_SELF},

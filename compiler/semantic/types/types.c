@@ -1,4 +1,4 @@
-#include "compiler/semantic/types/types.h"
+﻿#include "compiler/semantic/types/types.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +51,7 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_BTREEMAP: return "btreemap";
         case ZT_TYPE_BTREESET: return "btreeset";
         case ZT_TYPE_GRID3D: return "grid3d";
+        case ZT_TYPE_DYN: return "dyn";
         default: return "unknown";
     }
 }
@@ -197,6 +198,7 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_BTREEMAP:
         case ZT_TYPE_BTREESET:
         case ZT_TYPE_GRID3D:
+        case ZT_TYPE_DYN:
             zt_type_append(buffer, buffer_size, cursor, zt_type_kind_name(type->kind));
             zt_type_append(buffer, buffer_size, cursor, "<");
             for (i = 0; i < type->args.count; i++) {
@@ -274,4 +276,7 @@ int zt_type_is_float(const zt_type *type) {
 int zt_type_is_numeric(const zt_type *type) {
     return zt_type_is_integral(type) || zt_type_is_float(type);
 }
+
+
+
 

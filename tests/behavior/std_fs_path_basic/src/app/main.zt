@@ -7,8 +7,8 @@ func compile_probe() -> void
     const normalized: text = path.normalize("./docs/../docs//guide.md")
     const abs_from_rel: text = path.absolute("guide.md", base: "/docs")
     const abs_passthrough: text = path.absolute("/etc/config", base: "/docs")
-    const rel1: text = path.relative("/docs/guide.md", from: "/docs")
-    const rel2: text = path.relative("/docs/a/b.txt", from: "/docs/x")
+    const rel_from_docs: text = path.relative("/docs/guide.md", from: "/docs")
+    const rel_from_nested: text = path.relative("/docs/a/b.txt", from: "/docs/x")
 
     const file_name: text = path.base(joined)
     const directory: text = path.dir(joined)

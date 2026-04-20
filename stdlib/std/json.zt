@@ -9,14 +9,14 @@ extern c
     func zt_json_pretty_map_text_text(value: map<text, text>, indent: int) -> text
 end
 
-func parse(input: text) -> result<map<text, text>, core.Error>
+public func parse(input: text) -> result<map<text, text>, core.Error>
     return json.zt_json_parse_map_text_text(input)
 end
 
-func stringify(value: map<text, text>) -> text
+public func stringify(value: map<text, text>) -> text
     return json.zt_json_stringify_map_text_text(value)
 end
 
-func pretty(value: map<text, text>, indent: int = 2) -> text
+public func pretty(value: map<text, text>, indent: int = 2) -> text
     return json.zt_json_pretty_map_text_text(value, indent)
 end

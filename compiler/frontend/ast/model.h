@@ -27,6 +27,7 @@ typedef enum zt_ast_kind {
     ZT_AST_PARAM,
     ZT_AST_TYPE_SIMPLE,
     ZT_AST_TYPE_GENERIC,
+    ZT_AST_TYPE_DYN,
     ZT_AST_BLOCK,
     ZT_AST_IF_STMT,
     ZT_AST_WHILE_STMT,
@@ -211,6 +212,10 @@ struct zt_ast_node {
             const char *name;
             zt_ast_node_list type_args;
         } type_generic;
+
+        struct {
+            zt_ast_node *inner_type;
+        } type_dyn;
 
         struct {
             zt_ast_node_list statements;

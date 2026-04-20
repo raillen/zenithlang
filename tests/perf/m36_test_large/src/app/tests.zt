@@ -1,0 +1,106 @@
+namespace app.tests
+
+import std.test as test
+
+attr test
+public func case_01() -> void
+    return
+end
+
+attr test
+public func case_02() -> void
+    return
+end
+
+attr test
+public func case_03() -> void
+    return
+end
+
+attr test
+public func case_04() -> void
+    return
+end
+
+attr test
+public func case_05() -> void
+    return
+end
+
+attr test
+public func case_06() -> void
+    return
+end
+
+attr test
+public func case_07() -> void
+    return
+end
+
+attr test
+public func case_08() -> void
+    return
+end
+
+attr test
+public func case_09() -> void
+    return
+end
+
+attr test
+public func case_10() -> void
+    return
+end
+
+attr test
+public func case_11() -> void
+    return
+end
+
+attr test
+public func case_12() -> void
+    return
+end
+
+attr test
+public func case_13() -> void
+    return
+end
+
+attr test
+public func case_14() -> void
+    return
+end
+
+attr test
+public func case_15() -> void
+    return
+end
+
+attr test
+public func case_16() -> void
+    return
+end
+
+attr test
+public func case_17() -> void
+    return
+end
+
+attr test
+public func case_18() -> void
+    return
+end
+
+attr test
+public func case_19() -> void
+    return
+end
+
+attr test
+public func case_20() -> void
+    test.skip("intentional skip in perf test set")
+    return
+end
+
+

@@ -16,7 +16,7 @@
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define DRIVER "compiler\\driver\\zt-next.exe"
+#define DRIVER "zt.exe"
 #define OUT_DIR ".ztc-tmp/tests/conformance"
 
 #define ASSERT_TRUE(condition, msg) do { \

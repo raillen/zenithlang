@@ -1,6 +1,6 @@
 namespace app.main
 
-func main() -> int
+func main() -> int 
     const a: int = 40
     const b: int = 2
     return a + b

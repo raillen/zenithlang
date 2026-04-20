@@ -17,7 +17,7 @@
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define DRIVER "compiler\\driver\\zt-next.exe"
+#define DRIVER "zt.exe"
 #define OUT_DIR ".ztc-tmp/tests/conformance-m16"
 
 #define ASSERT_TRUE(condition, msg) do { \
@@ -289,6 +289,7 @@ int main(void) {
         { "tests/behavior/methods_trait_apply", "tests\\behavior\\methods_trait_apply\\build\\methods-trait-apply.exe", "methods_trait_apply", 8 },
         { "tests/behavior/list_basic", "tests\\behavior\\list_basic\\build\\list-basic.exe", "list_basic", 18 },
         { "tests/behavior/list_text_basic", "tests\\behavior\\list_text_basic\\build\\list-text-basic.exe", "list_text_basic", 0 },
+        { "tests/behavior/list_dyn_trait_basic", "tests\\behavior\\list_dyn_trait_basic\\build\\list-dyn-trait-basic.exe", "list_dyn_trait_basic", 16 },
         { "tests/behavior/map_basic", "tests\\behavior\\map_basic\\build\\map-basic.exe", "map_basic", 0 },
         { "tests/behavior/map_safe_get", "tests\\behavior\\map_safe_get\\build\\map-safe-get.exe", "map_safe_get", 15 },
         { "tests/behavior/list_safe_get", "tests\\behavior\\list_safe_get\\build\\list-safe-get.exe", "list_safe_get", 27 },
@@ -320,6 +321,7 @@ int main(void) {
         { "tests/behavior/multifile_namespace_mismatch", "multifile_namespace_mismatch", "build", "tests/fixtures/diagnostics/multifile_namespace_mismatch.contains.txt" },
         { "tests/behavior/multifile_duplicate_symbol", "multifile_duplicate_symbol", "build", "tests/fixtures/diagnostics/multifile_duplicate_symbol.contains.txt" },
         { "tests/behavior/multifile_import_cycle", "multifile_import_cycle", "build", "tests/fixtures/diagnostics/multifile_import_cycle.contains.txt" },
+        { "tests/behavior/multifile_private_access", "multifile_private_access", "build", "tests/fixtures/diagnostics/multifile_private_access.contains.txt" },
         { "tests/behavior/project_unknown_key_manifest", "project_unknown_key_manifest", "verify", "tests/fixtures/diagnostics/project_unknown_key_manifest.contains.txt" },
         { "tests/behavior/monomorphization_limit_error", "monomorphization_limit_error", "verify", "tests/fixtures/diagnostics/monomorphization_limit_error.contains.txt" },
         { "tests/behavior/mutability_const_reassign_error", "mutability_const_reassign_error", "verify", "tests/fixtures/diagnostics/mutability_const_reassign.contains.txt" },
@@ -352,6 +354,7 @@ int main(void) {
     printf("M16 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
+
 
 
 

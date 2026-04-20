@@ -14,11 +14,11 @@ extern c
     func zt_path_relative(value: text, from: text) -> text
 end
 
-func _text_eq(a: text, b: text) -> bool
+public func _text_eq(a: text, b: text) -> bool
     return path.zt_text_eq(a, b)
 end
 
-func _last_index_of(value: text, needle: text) -> int
+public func _last_index_of(value: text, needle: text) -> int
     var idx: int = len(value) - 1
 
     while idx >= 0
@@ -31,7 +31,7 @@ func _last_index_of(value: text, needle: text) -> int
     return -1
 end
 
-func join(base: text, child: text) -> text
+public func join(base: text, child: text) -> text
     if len(base) == 0
         return child
     end
@@ -50,30 +50,30 @@ func join(base: text, child: text) -> text
     return path.zt_text_concat(with_sep, child)
 end
 
-func normalize(value: text) -> text
+public func normalize(value: text) -> text
     return path.zt_path_normalize(value)
 end
 
-func is_absolute(value: text) -> bool
+public func is_absolute(value: text) -> bool
     return path.zt_path_is_absolute(value)
 end
 
-func is_relative(value: text) -> bool
+public func is_relative(value: text) -> bool
     if path.is_absolute(value)
         return false
     end
     return true
 end
 
-func absolute(value: text, base: text) -> text
+public func absolute(value: text, base: text) -> text
     return path.zt_path_absolute(value, base)
 end
 
-func relative(value: text, from: text) -> text
+public func relative(value: text, from: text) -> text
     return path.zt_path_relative(value, from)
 end
 
-func base(value: text) -> text
+public func base(value: text) -> text
     if len(value) == 0
         return ""
     end
@@ -91,7 +91,7 @@ func base(value: text) -> text
     return value[(slash_index + 1)..(len(value) - 1)]
 end
 
-func dir(value: text) -> text
+public func dir(value: text) -> text
     if len(value) == 0
         return ""
     end
@@ -109,7 +109,7 @@ func dir(value: text) -> text
     return value[0..(slash_index - 1)]
 end
 
-func ext(value: text) -> text
+public func ext(value: text) -> text
     const file_name: text = path.base(value)
     if len(file_name) == 0
         return ""
@@ -124,7 +124,7 @@ func ext(value: text) -> text
     return file_name[(dot_index + 1)..(len(file_name) - 1)]
 end
 
-func name_without_extension(value: text) -> text
+public func name_without_extension(value: text) -> text
     const file_name: text = path.base(value)
     if len(file_name) == 0
         return ""
@@ -139,7 +139,7 @@ func name_without_extension(value: text) -> text
     return file_name[0..(dot_index - 1)]
 end
 
-func has_ext(value: text, expected_ext: text) -> bool
+public func has_ext(value: text, expected_ext: text) -> bool
     var normalized: text = expected_ext
     const dot: text = "."
 
@@ -154,7 +154,7 @@ func has_ext(value: text, expected_ext: text) -> bool
     return path._text_eq(path.ext(value), normalized)
 end
 
-func change_ext(value: text, new_ext: text) -> text
+public func change_ext(value: text, new_ext: text) -> text
     const file_name: text = path.base(value)
     if len(file_name) == 0
         return value

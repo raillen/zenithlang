@@ -8,15 +8,15 @@ extern c
     func zt_host_random_next_i64() -> int
 end
 
-func seed(seed: int) -> void
+public func seed(seed: int) -> void
     random.zt_host_random_seed(seed)
 end
 
-func next() -> int
+public func next() -> int
     return random.zt_host_random_next_i64()
 end
 
-func between(min: int, max: int) -> result<int, text>
+public func between(min: int, max: int) -> result<int, text>
     if max < min
         return error("std.random.between expects max >= min")
     end

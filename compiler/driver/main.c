@@ -32,19 +32,35 @@
 #include <windows.h>
 #define ZT_MKDIR(path) _mkdir(path)
 #define ZT_GETCWD(buffer, size) _getcwd((buffer), (int)(size))
+#define ZT_POPEN(command, mode) _popen((command), (mode))
+#define ZT_PCLOSE(handle) _pclose((handle))
 #else
 #include <dirent.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #define ZT_MKDIR(path) mkdir((path), 0755)
 #define ZT_GETCWD(buffer, size) getcwd((buffer), (size))
+#define ZT_POPEN(command, mode) popen((command), (mode))
+#define ZT_PCLOSE(handle) pclose((handle))
 #endif
 
 static int zt_ci_mode_enabled = 0;
 static zt_cog_profile zt_active_profile = ZT_COG_PROFILE_BALANCED;
 static int zt_show_all_errors = 0;
 static const char *zt_focus_path = NULL;
+static const char *zt_since_ref = NULL;
 static int zt_use_action_first = 0;
+static const zt_project_manifest *zt_active_manifest = NULL;
+static int zt_telemetry_enabled = 0;
+static char zt_project_root_abs[512] = "";
+
+typedef struct zt_path_filter_list {
+    char **items;
+    size_t count;
+    size_t capacity;
+} zt_path_filter_list;
+
+static zt_path_filter_list zt_since_filter = { 0 };
 
 void zt_apply_manifest_lang(const zt_project_manifest *manifest) {
     if (manifest != NULL && manifest->lang[0] != '\0') {
@@ -315,6 +331,131 @@ static int zt_make_dirs(const char *path) {
     return 1;
 }
 
+static void zt_path_filter_list_dispose(zt_path_filter_list *list) {
+    size_t i;
+
+    if (list == NULL) return;
+    for (i = 0; i < list->count; i += 1) {
+        free(list->items[i]);
+    }
+    free(list->items);
+    list->items = NULL;
+    list->count = 0;
+    list->capacity = 0;
+}
+
+static int zt_path_filter_list_push(zt_path_filter_list *list, const char *value) {
+    char **new_items;
+    size_t new_capacity;
+    size_t len;
+    char *copy;
+
+    if (list == NULL || value == NULL || value[0] == '\0') return 1;
+
+    if (list->count >= list->capacity) {
+        new_capacity = list->capacity == 0 ? 16 : list->capacity * 2;
+        new_items = (char **)realloc(list->items, new_capacity * sizeof(char *));
+        if (new_items == NULL) return 0;
+        list->items = new_items;
+        list->capacity = new_capacity;
+    }
+
+    len = strlen(value);
+    copy = (char *)malloc(len + 1);
+    if (copy == NULL) return 0;
+    memcpy(copy, value, len + 1);
+
+    list->items[list->count] = copy;
+    list->count += 1;
+    return 1;
+}
+
+static void zt_normalize_path_separators(char *text) {
+    size_t i;
+
+    if (text == NULL) return;
+    for (i = 0; text[i] != '\0'; i += 1) {
+        if (text[i] == '\\') text[i] = '/';
+    }
+}
+
+static int zt_git_ref_is_safe(const char *ref) {
+    size_t i;
+    if (ref == NULL || ref[0] == '\0') return 0;
+    for (i = 0; ref[i] != '\0'; i += 1) {
+        const char c = ref[i];
+        if ((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '/' || c == '~' || c == '^' || c == ':') {
+            continue;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+static int zt_load_since_filter(const char *project_root, const char *since_ref) {
+    char command[1024];
+    FILE *pipe;
+    char line[1024];
+    int status;
+
+    zt_path_filter_list_dispose(&zt_since_filter);
+
+    if (since_ref == NULL || since_ref[0] == '\0') {
+        return 1;
+    }
+
+    if (project_root == NULL || project_root[0] == '\0') {
+        fprintf(stderr, "error: --since requires a project root\n");
+        return 0;
+    }
+
+    if (!zt_git_ref_is_safe(since_ref)) {
+        fprintf(stderr, "error: invalid --since ref '%s'\n", since_ref);
+        return 0;
+    }
+
+    if (snprintf(command, sizeof(command), "git -C \"%s\" diff --name-only %s --", project_root, since_ref) >= (int)sizeof(command)) {
+        fprintf(stderr, "error: --since command is too long\n");
+        return 0;
+    }
+
+    pipe = ZT_POPEN(command, "r");
+    if (pipe == NULL) {
+        fprintf(stderr, "error: cannot execute git for --since\n");
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), pipe) != NULL) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+            line[len - 1] = '\0';
+            len -= 1;
+        }
+        if (line[0] == '\0') continue;
+        if (line[0] == '.' && line[1] == '/') {
+            memmove(line, line + 2, strlen(line + 2) + 1);
+        }
+        zt_normalize_path_separators(line);
+        if (!zt_path_filter_list_push(&zt_since_filter, line)) {
+            ZT_PCLOSE(pipe);
+            fprintf(stderr, "error: out of memory while loading --since filter\n");
+            zt_path_filter_list_dispose(&zt_since_filter);
+            return 0;
+        }
+    }
+
+    status = ZT_PCLOSE(pipe);
+    if (status != 0) {
+        fprintf(stderr, "error: git diff failed for --since ref '%s'\n", since_ref);
+        zt_path_filter_list_dispose(&zt_since_filter);
+        return 0;
+    }
+
+    return 1;
+}
 typedef struct zt_project_source_file {
     char path[512];
     char *source_text;
@@ -348,11 +489,37 @@ static void zt_project_source_file_list_dispose(zt_project_source_file_list *lis
     memset(list, 0, sizeof(*list));
 }
 
+static void zt_normalize_path_inplace(char *path) {
+    char *cursor;
+    if (path == NULL) return;
+    for (cursor = path; *cursor != '\0'; cursor += 1) {
+        if (*cursor == '\\') *cursor = '/';
+    }
+    if (path[0] == '.' && path[1] == '/') {
+        memmove(path, path + 2, strlen(path + 2) + 1);
+    }
+}
+
 static int zt_project_source_file_list_push(zt_project_source_file_list *list, const char *path) {
     zt_project_source_file *new_items;
     size_t new_capacity;
+    char normalized[512];
+    size_t i;
 
     if (list == NULL || path == NULL) return 0;
+
+    if (!zt_copy_text(normalized, sizeof(normalized), path)) return 0;
+    zt_normalize_path_inplace(normalized);
+
+    /* printf("DEBUG: pushing source file: %s (original: %s)\n", normalized, path); */
+
+    for (i = 0; i < list->count; i += 1) {
+        if (strcmp(list->items[i].path, normalized) == 0) {
+            /* printf("DEBUG: skipped duplicate: %s\n", normalized); */
+            return 1; /* Already in list */
+        }
+    }
+
     if (list->count >= list->capacity) {
         new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;
         new_items = (zt_project_source_file *)realloc(list->items, new_capacity * sizeof(zt_project_source_file));
@@ -362,7 +529,7 @@ static int zt_project_source_file_list_push(zt_project_source_file_list *list, c
     }
 
     memset(&list->items[list->count], 0, sizeof(list->items[list->count]));
-    if (!zt_copy_text(list->items[list->count].path, sizeof(list->items[list->count].path), path)) {
+    if (!zt_copy_text(list->items[list->count].path, sizeof(list->items[list->count].path), normalized)) {
         return 0;
     }
     list->count += 1;
@@ -884,6 +1051,7 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "  doc show [symbol]                     Show documentation (ex: std.math.clamp)\n");
     fprintf(stderr, "  summary [project|zenith.ztproj]      Show project context summary\n");
     fprintf(stderr, "  resume [project|zenith.ztproj]       Resume context from recent edits and diagnostics\n");
+    fprintf(stderr, "  perf [quick|nightly|scenario]        Run M36 performance suite\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Bootstrap/compat commands:\n");
     fprintf(stderr, "  project-info [project|zenith.ztproj]  Load manifest and print project info\n");
@@ -901,6 +1069,7 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "  --profile <level>    Diagnostic profile: beginner (max 3), balanced (max 5), full (all)\n");
     fprintf(stderr, "  --all                Show all errors regardless of profile limit\n");
     fprintf(stderr, "  --focus <path>       Check only files matching the given path or module\n");
+    fprintf(stderr, "  --since <git-ref>    Check only diagnostics in files changed since <git-ref>\n");
     fprintf(stderr, "  --lang <lang>        Override language (en, pt, es, ja)\n");
 }
 
@@ -971,15 +1140,55 @@ static int zt_diag_matches_focus(const zt_diag *diag, const char *focus) {
     return 0;
 }
 
+
+static int zt_diag_matches_since(const zt_diag *diag) {
+    char normalized_source[1024];
+    size_t i;
+
+    if (zt_since_ref == NULL || zt_since_ref[0] == '\0') return 1;
+    if (diag == NULL || diag->span.source_name == NULL || diag->span.source_name[0] == '\0') return 0;
+    if (zt_since_filter.count == 0) return 0;
+
+    if (snprintf(normalized_source, sizeof(normalized_source), "%s", diag->span.source_name) >= (int)sizeof(normalized_source)) {
+        return 0;
+    }
+    zt_normalize_path_separators(normalized_source);
+
+    for (i = 0; i < zt_since_filter.count; i += 1) {
+        const char *fragment = zt_since_filter.items[i];
+        if (fragment != NULL && fragment[0] != '\0' && strstr(normalized_source, fragment) != NULL) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int zt_diag_matches_filters(const zt_diag *diag) {
+    return zt_diag_matches_focus(diag, zt_focus_path) && zt_diag_matches_since(diag);
+}
 static void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics) {
     zt_diag_list filtered;
     size_t i;
 
+    if (diagnostics == NULL) return;
+
+    /* Log telemetry if enabled */
+    if (zt_telemetry_enabled) {
+        for (i = 0; i < diagnostics->count; i += 1) {
+            zt_diag_telemetry_log(
+                zt_project_root_abs,
+                zt_active_manifest != NULL ? zt_active_manifest->accessibility_profile : "none",
+                stage,
+                &diagnostics->items[i]);
+        }
+    }
+
     if (zt_ci_mode_enabled) {
-        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+        if ((zt_focus_path != NULL && zt_focus_path[0] != '\0') || (zt_since_ref != NULL && zt_since_ref[0] != '\0')) {
             filtered = zt_diag_list_make();
             for (i = 0; i < diagnostics->count; i += 1) {
-                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                if (zt_diag_matches_filters(&diagnostics->items[i])) {
                     zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
                     if (filtered.count > 0) {
                         filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
@@ -994,10 +1203,10 @@ static void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnost
         }
     } else if (zt_use_action_first) {
         size_t limit = zt_show_all_errors ? (size_t)-1 : zt_cog_profile_error_limit(zt_active_profile);
-        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+        if ((zt_focus_path != NULL && zt_focus_path[0] != '\0') || (zt_since_ref != NULL && zt_since_ref[0] != '\0')) {
             filtered = zt_diag_list_make();
             for (i = 0; i < diagnostics->count; i += 1) {
-                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                if (zt_diag_matches_filters(&diagnostics->items[i])) {
                     zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
                     if (filtered.count > 0) {
                         filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
@@ -1014,10 +1223,10 @@ static void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnost
             zt_diag_render_action_first_list(stderr, stage, diagnostics, limit);
         }
     } else {
-        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+        if ((zt_focus_path != NULL && zt_focus_path[0] != '\0') || (zt_since_ref != NULL && zt_since_ref[0] != '\0')) {
             filtered = zt_diag_list_make();
             for (i = 0; i < diagnostics->count; i += 1) {
-                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                if (zt_diag_matches_filters(&diagnostics->items[i])) {
                     zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
                     if (filtered.count > 0) {
                         filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
@@ -2213,6 +2422,17 @@ static int zt_compile_project(const char *input_path, zt_project_compile_result 
 
     out->manifest = project.manifest;
     zt_apply_manifest_lang(&out->manifest);
+
+    /* Set global accessibility state */
+    zt_active_manifest = &out->manifest;
+    if (!zt_use_action_first) {
+        zt_active_profile = zt_cog_profile_from_text(out->manifest.accessibility_profile);
+        if (zt_active_profile != ZT_COG_PROFILE_FULL) {
+            zt_use_action_first = 1;
+        }
+    }
+    zt_telemetry_enabled = out->manifest.accessibility_telemetry;
+    zt_copy_text(zt_project_root_abs, sizeof(zt_project_root_abs), out->project_root);
 
     if (zt_project_manifest_kind(&out->manifest) == ZT_PROJECT_KIND_APP &&
             !zt_project_resolve_entry_source_path(
@@ -3603,6 +3823,39 @@ static int zt_handle_resume(const char *input) {
     }
 }
 
+static int zt_handle_perf(const char *target) {
+    const char *suite = target;
+    char command[1024];
+    int status;
+
+    if (suite == NULL || suite[0] == '\0') {
+        suite = "quick";
+    }
+
+    if (strcmp(suite, "quick") == 0 || strcmp(suite, "nightly") == 0) {
+#ifdef _WIN32
+        snprintf(command, sizeof(command), "python tests\\perf\\run_perf.py --suite %s", suite);
+#else
+        snprintf(command, sizeof(command), "python tests/perf/run_perf.py --suite %s", suite);
+#endif
+    } else {
+#ifdef _WIN32
+        snprintf(command, sizeof(command), "python tests\\perf\\run_perf.py \"%s\"", suite);
+#else
+        snprintf(command, sizeof(command), "python tests/perf/run_perf.py \"%s\"", suite);
+#endif
+    }
+
+    status = system(command);
+
+#ifdef _WIN32
+    return status;
+#else
+    if (status == -1) return 1;
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    return 1;
+#endif
+}
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
@@ -3666,6 +3919,7 @@ int main(int argc, char *argv[]) {
             strcmp(effective_command, "doc-show") == 0 ||
             strcmp(effective_command, "summary") == 0 ||
             strcmp(effective_command, "resume") == 0 ||
+            strcmp(effective_command, "perf") == 0 ||
             strcmp(effective_command, "verify") == 0 ||
             strcmp(effective_command, "emit-c") == 0 ||
             strcmp(effective_command, "build") == 0) {
@@ -3700,6 +3954,8 @@ int main(int argc, char *argv[]) {
             fmt_check = 1;
         } else if (strcmp(argv[i], "--ci") == 0) {
             ci_mode = 1;
+        } else if (strcmp(argv[i], "--telemetry") == 0) {
+            zt_telemetry_enabled = 1;
         } else if (strcmp(argv[i], "--all") == 0) {
             zt_show_all_errors = 1;
         } else if (strcmp(argv[i], "--profile") == 0 && i + 1 < argc) {
@@ -3718,6 +3974,9 @@ int main(int argc, char *argv[]) {
             i += 1;
         } else if (strcmp(argv[i], "--focus") == 0 && i + 1 < argc) {
             zt_focus_path = argv[i + 1];
+            i += 1;
+        } else if (strcmp(argv[i], "--since") == 0 && i + 1 < argc) {
+            zt_since_ref = argv[i + 1];
             i += 1;
         } else if (argv[i][0] == '-') {
             zt_print_single_diag(
@@ -3754,7 +4013,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Apply manifest diagnostic profile if --profile not set via CLI */
-    if (!zt_use_action_first) {
+    if (!zt_use_action_first && strcmp(effective_command, "perf") != 0) {
         zt_project_parse_result proj_result;
         char proj_root[512];
         char proj_manifest[512];
@@ -3773,6 +4032,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (zt_since_ref != NULL && zt_since_ref[0] != '\0') {
+        char since_project_root[512];
+        char since_manifest_path[512];
+        if (!zt_resolve_project_paths(input_path, since_project_root, sizeof(since_project_root), since_manifest_path, sizeof(since_manifest_path))) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_INVALID_INPUT,
+                zt_source_span_unknown(),
+                "option --since requires a project path (or a directory containing zenith.ztproj)");
+            return 1;
+        }
+        if (!zt_load_since_filter(since_project_root, zt_since_ref)) {
+            return 1;
+        }
+    }
     if (fmt_check && strcmp(effective_command, "fmt") != 0) {
         zt_print_single_diag(
             "project",
@@ -3814,6 +4088,10 @@ int main(int argc, char *argv[]) {
 
     if (strcmp(effective_command, "resume") == 0) {
         return zt_handle_resume(input_path);
+    }
+
+    if (strcmp(effective_command, "perf") == 0) {
+        return zt_handle_perf(input_path);
     }
 
     if (strcmp(effective_command, "doc-check") == 0) {
@@ -3881,4 +4159,13 @@ int main(int argc, char *argv[]) {
     zt_print_usage(argv[0]);
     return 1;
 }
+
+
+
+
+
+
+
+
+
 

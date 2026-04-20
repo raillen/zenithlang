@@ -14,3 +14,8 @@ target = "native"
 
 [zdoc]
 root = "stdlib/zdoc"
+
+[accessibility]
+profile = "beginner"
+telemetry = true
+

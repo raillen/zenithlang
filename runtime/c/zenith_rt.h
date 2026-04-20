@@ -47,6 +47,8 @@ typedef enum zt_heap_kind {
     ZT_HEAP_GRID3D_I64 = 24,
     ZT_HEAP_GRID3D_TEXT = 25,
     ZT_HEAP_NET_CONNECTION = 26,
+    ZT_HEAP_DYN_TEXT_REPR = 27,
+    ZT_HEAP_LIST_DYN_TEXT_REPR = 28,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -67,8 +69,32 @@ typedef struct zt_bytes {
     uint8_t *data;
 } zt_bytes;
 
+typedef enum zt_dyn_text_repr_tag {
+    ZT_DYN_TEXT_REPR_INT = 1,
+    ZT_DYN_TEXT_REPR_FLOAT = 2,
+    ZT_DYN_TEXT_REPR_BOOL = 3,
+    ZT_DYN_TEXT_REPR_TEXT = 4
+} zt_dyn_text_repr_tag;
+
+typedef struct zt_dyn_text_repr {
+    zt_header header;
+    uint32_t tag;
+    zt_int int_value;
+    zt_float float_value;
+    zt_bool bool_value;
+    zt_text *text_value;
+} zt_dyn_text_repr;
+
+typedef struct zt_list_dyn_text_repr {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_dyn_text_repr **data;
+} zt_list_dyn_text_repr;
+
 typedef struct zt_net_connection zt_net_connection;
 typedef struct zt_shared_text zt_shared_text;
+typedef struct zt_shared_bytes zt_shared_bytes;
 
 typedef struct zt_list_i64 {
     zt_header header;
@@ -370,6 +396,7 @@ void zt_runtime_report_error(zt_error_kind kind, const char *message, const char
 
 void zt_retain(void *ref);
 void zt_release(void *ref);
+void *zt_deep_copy(void *ref);
 
 zt_shared_text *zt_shared_text_new(zt_text *value);
 zt_shared_text *zt_shared_text_retain(zt_shared_text *shared);
@@ -377,6 +404,13 @@ void zt_shared_text_release(zt_shared_text *shared);
 const zt_text *zt_shared_text_borrow(const zt_shared_text *shared);
 zt_text *zt_shared_text_snapshot(const zt_shared_text *shared);
 uint32_t zt_shared_text_ref_count(const zt_shared_text *shared);
+
+zt_shared_bytes *zt_shared_bytes_new(zt_bytes *value);
+zt_shared_bytes *zt_shared_bytes_retain(zt_shared_bytes *shared);
+void zt_shared_bytes_release(zt_shared_bytes *shared);
+const zt_bytes *zt_shared_bytes_borrow(const zt_shared_bytes *shared);
+zt_bytes *zt_shared_bytes_snapshot(const zt_shared_bytes *shared);
+uint32_t zt_shared_bytes_ref_count(const zt_shared_bytes *shared);
 
 void zt_runtime_error(zt_error_kind kind, const char *message);
 void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span);
@@ -436,6 +470,27 @@ zt_list_text *zt_list_text_set_owned(zt_list_text *list, zt_int index_0, zt_text
 zt_int zt_list_text_len(const zt_list_text *list);
 zt_list_text *zt_list_text_slice(const zt_list_text *list, zt_int start_0, zt_int end_0);
 zt_list_text *zt_list_text_deep_copy(const zt_list_text *list);
+zt_dyn_text_repr *zt_dyn_text_repr_from_i64(zt_int value);
+zt_dyn_text_repr *zt_dyn_text_repr_from_float(zt_float value);
+zt_dyn_text_repr *zt_dyn_text_repr_from_bool(zt_bool value);
+zt_dyn_text_repr *zt_dyn_text_repr_from_text(const zt_text *value);
+zt_dyn_text_repr *zt_dyn_text_repr_from_text_owned(zt_text *value);
+zt_dyn_text_repr *zt_dyn_text_repr_clone(const zt_dyn_text_repr *value);
+zt_text *zt_dyn_text_repr_to_text(const zt_dyn_text_repr *value);
+zt_int zt_dyn_text_repr_text_len(const zt_dyn_text_repr *value);
+
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_new(void);
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_from_array(const zt_dyn_text_repr *const *items, size_t count);
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_from_array_owned(zt_dyn_text_repr *const *items, size_t count);
+zt_dyn_text_repr *zt_list_dyn_text_repr_get(const zt_list_dyn_text_repr *list, zt_int index_0);
+zt_int zt_list_dyn_text_repr_len(const zt_list_dyn_text_repr *list);
+zt_list_dyn_text_repr *zt_list_dyn_text_repr_deep_copy(const zt_list_dyn_text_repr *list);
+
+zt_text *zt_thread_boundary_copy_text(const zt_text *value);
+zt_bytes *zt_thread_boundary_copy_bytes(const zt_bytes *value);
+zt_list_text *zt_thread_boundary_copy_list_text(const zt_list_text *list);
+zt_dyn_text_repr *zt_thread_boundary_copy_dyn_text_repr(const zt_dyn_text_repr *value);
+zt_list_dyn_text_repr *zt_thread_boundary_copy_list_dyn_text_repr(const zt_list_dyn_text_repr *list);
 
 zt_list_i64 *zt_queue_i64_new(void);
 zt_list_i64 *zt_queue_i64_enqueue(zt_list_i64 *queue, zt_int value);
@@ -793,6 +848,7 @@ zt_float zt_math_atan(zt_float value);
 zt_float zt_math_atan2(zt_float y, zt_float x);
 zt_float zt_math_ln(zt_float value);
 zt_float zt_math_log10(zt_float value);
+zt_float zt_math_log_ten(zt_float value);
 zt_float zt_math_log2(zt_float value);
 zt_float zt_math_log(zt_float value, zt_float base);
 zt_float zt_math_exp(zt_float value);
@@ -824,6 +880,7 @@ zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max);
 #endif
 
 #endif
+
 
 
 

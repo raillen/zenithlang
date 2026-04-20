@@ -2,6 +2,12 @@
 
 Status em Abril 2026: M0-M16 concluidos para o corte executavel atual do MVP em C. Depois das decisoes 001-056, os specs canonicos foram consolidados em `language/spec/`. O root do repositorio agora aponta para a raiz como caminho oficial, e a linha Lua/self-host anterior foi isolada em `_legacy/`. O compilador C atual ainda pode carregar manifestos do formato anterior em alguns pontos; esse desalinhamento esta registrado como trabalho pos-M16 antes da stdlib final.
 
+## Cascade Navigation
+
+Para sair do milestone abstrato e chegar nos arquivos, simbolos e testes mais provaveis, use `IMPLEMENTATION_CASCADE.md` junto com este roadmap.
+
+Ordem recomendada: roadmap -> checklist -> cascade -> code maps -> source -> tests.
+
 Este documento traduz o estado atual do projeto em uma sequencia de marcos
 executaveis. A premissa e simples:
 
@@ -1144,6 +1150,24 @@ Escopo minimo:
 
 Dependencias: M24, M25, M32.
 
+## M38. Hardening de Coerencia Frontend->Backend (extern/where/params)
+
+Status: planejado (gate de coerencia antes de release).
+
+Objetivo: fechar inconsistencias entre parser/binder/typechecker/HIR/backend que hoje permitem codigo aceito quebrar tarde no pipeline.
+
+Escopo minimo:
+
+- corrigir lowering HIR de `extern c` para preservar simbolo ABI sem mangling indevido
+- validar chamadas `extern c` em behavior E2E com fixture minima (`puts` ou equivalente)
+- normalizar AST de `where` em parametros para o mesmo contrato semantico de `where` canonico
+- validar `where` de parametro no binder/typechecker com regra de tipo booleano obrigatoria
+- conectar `parameter_validation` ao pipeline e rejeitar required-after-default com diagnostico claro
+- alinhar interpolacao entre docs e implementacao (ou reativar suporte ponta a ponta, ou remover da surface canonica)
+- eliminar risco de truncamento em nomes longos no parser, com erro estavel quando exceder limite
+
+Dependencias: M16, M23, M33.
+
 ## Ordem recomendada (execucao pratica)
 
 1. `M0`
@@ -1180,8 +1204,9 @@ Dependencias: M24, M25, M32.
 32. `M31`
 33. `M34`
 34. `M33`
-35. `M32`
-36. `M35`
+35. `M38`
+36. `M32`
+37. `M35`
 
 Justificativa curta: diagnostics e runtime precisam fechar antes de formatter, CLI e ZDoc para evitar retrabalho estrutural.
 
@@ -1233,7 +1258,6 @@ Se o objetivo for comecar agora sem abrir frente demais:
 
 Esse primeiro corte ja entrega um compilador que le Zenith, mesmo antes da
 tipagem completa.
-
 
 
 

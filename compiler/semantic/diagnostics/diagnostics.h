@@ -1,4 +1,4 @@
-#ifndef ZENITH_NEXT_COMPILER_SEMANTIC_DIAGNOSTICS_H
+﻿#ifndef ZENITH_NEXT_COMPILER_SEMANTIC_DIAGNOSTICS_H
 #define ZENITH_NEXT_COMPILER_SEMANTIC_DIAGNOSTICS_H
 
 #include "compiler/frontend/lexer/token.h"
@@ -38,6 +38,7 @@ typedef enum zt_diag_code {
     ZT_DIAG_DUPLICATE_NAME,
     ZT_DIAG_SHADOWING,
     ZT_DIAG_UNRESOLVED_NAME,
+    ZT_DIAG_CONFUSING_NAME,
     ZT_DIAG_INVALID_CONSTRAINT_TARGET,
     ZT_DIAG_INVALID_TYPE,
     ZT_DIAG_TYPE_MISMATCH,
@@ -122,10 +123,17 @@ void zt_diag_render_action_first_list(FILE *stream, const char *stage, const zt_
 void zt_diag_render_ci(FILE *stream, const char *stage, const zt_diag *diag);
 void zt_diag_render_ci_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics);
 
+zt_cog_profile zt_cog_profile_from_text(const char *text);
 zt_diag_effort zt_diag_code_effort(zt_diag_code code);
 const char *zt_diag_effort_label(zt_diag_effort effort);
 const char *zt_diag_action_text(zt_diag_code code);
 size_t zt_cog_profile_error_limit(zt_cog_profile profile);
+
+void zt_diag_telemetry_log(
+    const char *project_root,
+    const char *profile_name,
+    const char *stage,
+    const zt_diag *diag);
 
 void zt_diag_list_add_suggestion(
     zt_diag_list *list,
@@ -141,3 +149,5 @@ int zt_name_suggest(const char *unknown, const char **candidates, size_t candida
 #endif
 
 #endif
+
+

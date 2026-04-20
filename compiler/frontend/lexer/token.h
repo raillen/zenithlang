@@ -58,6 +58,7 @@ typedef enum zt_token_kind {
     ZT_TOKEN_BTREESET,
     ZT_TOKEN_GRID3D,
     ZT_TOKEN_EXTERN,
+    ZT_TOKEN_DYN,
     ZT_TOKEN_VOID,
     ZT_TOKEN_MUT,
     ZT_TOKEN_SELF,

@@ -1,4 +1,4 @@
-#include "compiler/semantic/binder/binder.h"
+﻿#include "compiler/semantic/binder/binder.h"
 
 #include <string.h>
 
@@ -38,6 +38,48 @@ static void zt_bind_emit_unresolved_with_suggestion(zt_binder *binder, const cha
     }
 }
 
+static void zt_bind_warn_confusing_name(zt_binder *binder, const char *name, zt_source_span span, int is_implicit) {
+    int has_l = 0;
+    int has_I = 0;
+    int has_1 = 0;
+    int has_O = 0;
+    int has_0 = 0;
+    const char *cursor;
+
+    if (binder == NULL || binder->result == NULL || name == NULL || is_implicit) return;
+
+    for (cursor = name; *cursor != '\0'; cursor += 1) {
+        switch (*cursor) {
+            case 'l': has_l = 1; break;
+            case 'I': has_I = 1; break;
+            case '1': has_1 = 1; break;
+            case 'O': has_O = 1; break;
+            case '0': has_0 = 1; break;
+            default: break;
+        }
+    }
+
+    if ((has_l + has_I + has_1) >= 2) {
+        zt_diag_list_add_severity(
+            &binder->result->diagnostics,
+            ZT_DIAG_CONFUSING_NAME,
+            ZT_DIAG_SEVERITY_WARNING,
+            span,
+            "name '%s' mixes confusable characters (l, I, 1)",
+            name);
+        return;
+    }
+
+    if (has_O && has_0) {
+        zt_diag_list_add_severity(
+            &binder->result->diagnostics,
+            ZT_DIAG_CONFUSING_NAME,
+            ZT_DIAG_SEVERITY_WARNING,
+            span,
+            "name '%s' mixes confusable characters (O, 0)",
+            name);
+    }
+}
 static int zt_is_builtin_type_name(const char *name) {
     static const char *builtin_names[] = {
         "bool",
@@ -58,6 +100,7 @@ static int zt_is_builtin_type_name(const char *name) {
         "grid3d",
         "optional",
         "result",
+        "dyn",
         NULL
     };
     size_t i;
@@ -78,6 +121,8 @@ static const char *zt_import_local_name(const char *path) {
 
 static void zt_bind_declare_name(zt_binder *binder, zt_scope *scope, zt_symbol_kind kind, const char *name, zt_source_span span, int is_implicit) {
     if (scope == NULL || name == NULL) return;
+
+    zt_bind_warn_confusing_name(binder, name, span, is_implicit);
 
     if (zt_scope_lookup_current(scope, name) != NULL) {
         zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_DUPLICATE_NAME, span, "duplicate name '%s'", name);
@@ -111,7 +156,11 @@ static void zt_bind_simple_type_name(zt_binder *binder, const char *name, zt_sou
         qualifier[prefix_len] = '\0';
         symbol = zt_scope_lookup(scope, qualifier);
         if (symbol == NULL) {
-            zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, span, "unresolved name '%s'", qualifier);
+            /* Try to resolve the WHOLE name as a qualified type name (e.g. format.BytesStyle) */
+            if (zt_scope_lookup(scope, name) != NULL) {
+                return; /* Satisfied */
+            }
+            zt_bind_emit_unresolved_with_suggestion(binder, qualifier, span, scope);
         }
         return;
     }
@@ -203,6 +252,20 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
             }
             break;
         case ZT_AST_FIELD_EXPR:
+            /* Try to resolve as a qualified name (e.g. bytes.empty) */
+            if (node->as.field_expr.object != NULL && node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
+                char qualified[512];
+                const char *prefix = node->as.field_expr.object->as.ident_expr.name;
+                const char *member = node->as.field_expr.field_name;
+                if (prefix != NULL && member != NULL) {
+                    snprintf(qualified, sizeof(qualified), "%s.%s", prefix, member);
+                    symbol = zt_scope_lookup(scope, qualified);
+                    if (symbol != NULL) {
+                        /* Satisfied as a qualified name */
+                        return;
+                    }
+                }
+            }
             zt_bind_expression(binder, node->as.field_expr.object, scope);
             break;
         case ZT_AST_INDEX_EXPR:
@@ -611,4 +674,10 @@ void zt_bind_result_dispose(zt_bind_result *result) {
     zt_scope_dispose(&result->module_scope);
     zt_diag_list_dispose(&result->diagnostics);
 }
+
+
+
+
+
+
 

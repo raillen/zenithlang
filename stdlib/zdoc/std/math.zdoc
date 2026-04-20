@@ -1,5 +1,3 @@
-# Documentation for std.math (English)
-
 --- @target: PI
 The mathematical constant Pi (3.14159...). Represents the ratio of a circle's circumference to its diameter.
 ---
@@ -10,6 +8,18 @@ The mathematical constant E (2.71828...). The base of natural logarithms.
 
 --- @target: TAU
 The mathematical constant Tau (6.28318...). Equal to 2 * Pi.
+---
+
+--- @target: pi
+Returns the mathematical constant Pi.
+---
+
+--- @target: e
+Returns the mathematical constant E.
+---
+
+--- @target: tau
+Returns the mathematical constant Tau.
 ---
 
 --- @target: abs
@@ -101,6 +111,15 @@ Converts an angle from radians to degrees.
 @return Angle in degrees.
 ---
 
+--- @target: approx_equal
+Checks if two floating-point numbers are approximately equal within a given epsilon.
+
+@param a First number.
+@param b Second number.
+@param epsilon Maximum allowed difference.
+@return True if equal within epsilon.
+---
+
 --- @target: sin
 Computes the sine of an angle in radians.
 
@@ -158,7 +177,7 @@ Computes the natural logarithm (base E).
 @return The natural logarithm of value.
 ---
 
---- @target: log10
+--- @target: log_ten
 Computes the base-10 logarithm.
 
 @param value A positive number.

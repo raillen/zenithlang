@@ -4,6 +4,9 @@ dist/
 bin/
 *.log
 .DS_Store
+.vscode/
+__pycache__/
+*.pyc
 
 .ztc-tmp/
 .selfhost-artifacts/

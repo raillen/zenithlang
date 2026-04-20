@@ -67,7 +67,7 @@ func bench_inline_between() -> int
     return hits
 end
 
-func report_case(label: text, elapsed_ms: int, hits: int) -> result<void, text>
+func report_case(label: text, elapsed_ms: int, hits: int) -> result<void, core.Error>
     io.print(label)?
     io.print(" ms=0x")?
     io.print(format.hex(elapsed_ms))?
@@ -75,30 +75,30 @@ func report_case(label: text, elapsed_ms: int, hits: int) -> result<void, text>
     return io.print_line(format.hex(hits))
 end
 
-func main() -> result<void, text>
+func main() -> result<void, core.Error>
     const iterations: int = 5000000
 
-    var start_ms: int = 0
-    var elapsed_ms: int = 0
+    var start_at: time.Instant = time.now()
+    var elapsed: time.Duration = time.seconds(0)
 
     io.print_line("benchmark std.validate.between vs c helper")?
     io.print("iterations=0x")?
     io.print_line(format.hex(iterations))?
 
-    start_ms = time.now()
+    start_at = time.now()
     const hits_std: int = bench_std_validate_between()
-    elapsed_ms = time.since(start_ms)
-    report_case("std.validate.between", elapsed_ms, hits_std)?
+    elapsed = time.since(start_at)
+    report_case("std.validate.between", elapsed.millis, hits_std)?
 
-    start_ms = time.now()
+    start_at = time.now()
     const hits_c: int = bench_c_validate_between()
-    elapsed_ms = time.since(start_ms)
-    report_case("c.zt_validate_between_i64", elapsed_ms, hits_c)?
+    elapsed = time.since(start_at)
+    report_case("c.zt_validate_between_i64", elapsed.millis, hits_c)?
 
-    start_ms = time.now()
+    start_at = time.now()
     const hits_inline: int = bench_inline_between()
-    elapsed_ms = time.since(start_ms)
-    report_case("inline >= <=", elapsed_ms, hits_inline)?
+    elapsed = time.since(start_at)
+    report_case("inline >= <=", elapsed.millis, hits_inline)?
 
     if hits_std != hits_c or hits_std != hits_inline
         return error("benchmark mismatch: different hit counts across implementations")

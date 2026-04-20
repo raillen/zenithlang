@@ -66,6 +66,10 @@ typedef struct zt_project_manifest {
     char output_name[128];
     char output_dir[256];
     char diag_profile[32];
+
+    /* Accessibility and Telemetry (Cognitive Accessibility by Design) */
+    char accessibility_profile[32];
+    int accessibility_telemetry;
 } zt_project_manifest;
 
 typedef struct zt_project_parse_result {
