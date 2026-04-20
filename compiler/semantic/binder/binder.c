@@ -6,6 +6,38 @@ typedef struct zt_binder {
     zt_bind_result *result;
 } zt_binder;
 
+static size_t zt_scope_collect_names(const zt_scope *scope, const char **out, size_t capacity) {
+    size_t count = 0;
+    const zt_scope *current = scope;
+    while (current != NULL) {
+        size_t i;
+        for (i = 0; i < current->count && count < capacity; i += 1) {
+            out[count] = current->symbols[i].name;
+            count += 1;
+        }
+        current = current->parent;
+    }
+    return count;
+}
+
+static void zt_bind_emit_unresolved_with_suggestion(zt_binder *binder, const char *name, zt_source_span span, zt_scope *scope) {
+    const char *candidates[256];
+    size_t candidate_count;
+    char suggestion[256];
+
+    candidate_count = zt_scope_collect_names(scope, candidates, 256);
+
+    if (candidate_count > 0 && zt_name_suggest(name, candidates, candidate_count, suggestion, sizeof(suggestion))) {
+        zt_diag_list_add_suggestion(&binder->result->diagnostics,
+            ZT_DIAG_UNRESOLVED_NAME, span, suggestion,
+            "unresolved name '%s'", name);
+    } else {
+        zt_diag_list_add(&binder->result->diagnostics,
+            ZT_DIAG_UNRESOLVED_NAME, span,
+            "unresolved name '%s'", name);
+    }
+}
+
 static int zt_is_builtin_type_name(const char *name) {
     static const char *builtin_names[] = {
         "bool",
@@ -13,10 +45,17 @@ static int zt_is_builtin_type_name(const char *name) {
         "uint8", "uint16", "uint32", "uint64",
         "float", "float32", "float64",
         "text",
+        "core.Error",
         "bytes",
         "void",
         "list",
         "map",
+        "grid2d",
+        "pqueue",
+        "circbuf",
+        "btreemap",
+        "btreeset",
+        "grid3d",
         "optional",
         "result",
         NULL
@@ -142,7 +181,7 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
         case ZT_AST_IDENT_EXPR:
             symbol = zt_scope_lookup(scope, node->as.ident_expr.name);
             if (symbol == NULL) {
-                zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "unresolved name '%s' (from expression)", node->as.ident_expr.name);
+                zt_bind_emit_unresolved_with_suggestion(binder, node->as.ident_expr.name, node->span, scope);
             }
             break;
         case ZT_AST_BINARY_EXPR:
@@ -263,7 +302,7 @@ static void zt_bind_statement(zt_binder *binder, const zt_ast_node *node, zt_sco
             break;
         case ZT_AST_ASSIGN_STMT:
             if (zt_scope_lookup(scope, node->as.assign_stmt.name) == NULL) {
-                zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "unresolved name '%s'", node->as.assign_stmt.name);
+                zt_bind_emit_unresolved_with_suggestion(binder, node->as.assign_stmt.name, node->span, scope);
             }
             zt_bind_expression(binder, node->as.assign_stmt.value, scope);
             break;
@@ -487,6 +526,10 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 zt_scope_dispose(&decl_scope);
             }
             break;
+        case ZT_AST_CONST_DECL:
+            zt_bind_type_node(binder, decl->as.const_decl.type_node, module_scope);
+            zt_bind_expression(binder, decl->as.const_decl.init_value, module_scope);
+            break;
         default:
             break;
     }
@@ -517,6 +560,9 @@ static void zt_bind_declare_top_level(zt_binder *binder, const zt_ast_node *decl
                     zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_EXTERN_FUNC, func->as.func_decl.name, func->span, 0);
                 }
             }
+            break;
+        case ZT_AST_CONST_DECL:
+            zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_LOCAL, decl->as.const_decl.name, decl->span, 0);
             break;
         default:
             break;

@@ -2,7 +2,7 @@ namespace app.main
 
 import std.fs as fs
 
-func main() -> result<void, text>
+func main() -> result<void, core.Error>
     const path: text = ".ztc-tmp/std_fs_basic.txt"
 
     fs.write_text(path, "Zenith FS baseline")?

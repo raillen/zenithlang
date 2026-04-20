@@ -339,10 +339,12 @@ static void zt_diag_list_add_va(
         list->capacity = new_capacity;
     }
 
-    list->items[list->count].code = code;
+list->items[list->count].code = code;
     list->items[list->count].severity = severity;
+    list->items[list->count].effort = zt_diag_code_effort(code);
     list->items[list->count].span = span;
     memcpy(list->items[list->count].message, message, sizeof(message));
+    list->items[list->count].suggestion[0] = '\0';
 
     list->count += 1;
 }
@@ -368,6 +370,184 @@ void zt_diag_list_add_severity(
     zt_diag_list_add_va(list, code, severity, span, format, args);
     va_end(args);
 }
+
+void zt_diag_list_add_suggestion(
+        zt_diag_list *list,
+        zt_diag_code code,
+        zt_source_span span,
+        const char *suggestion,
+        const char *format,
+        ...) {
+    va_list args;
+    size_t idx;
+
+    if (list == NULL || format == NULL) return;
+
+    va_start(args, format);
+
+    zt_diag_list_add_va(list, code, ZT_DIAG_SEVERITY_ERROR, span, format, args);
+
+    va_end(args);
+
+    if (list->count == 0) return;
+    idx = list->count - 1;
+    if (suggestion != NULL && suggestion[0] != '\0') {
+        snprintf(list->items[idx].suggestion, sizeof(list->items[idx].suggestion), "%s", suggestion);
+    }
+}
+static int zt_name_edit_distance(const char *a, const char *b) {
+    size_t la, lb;
+    size_t i, j;
+    size_t *dp;
+    size_t result;
+
+    if (a == NULL || b == NULL) return 999;
+    la = strlen(a);
+    lb = strlen(b);
+    if (la == 0) return (int)lb;
+    if (lb == 0) return (int)la;
+
+    dp = (size_t *)malloc((la + 1) * (lb + 1) * sizeof(size_t));
+    if (dp == NULL) return 999;
+
+    for (i = 0; i <= la; i += 1) dp[i * (lb + 1)] = i;
+    for (j = 0; j <= lb; j += 1) dp[j] = j;
+
+    for (i = 1; i <= la; i += 1) {
+        for (j = 1; j <= lb; j += 1) {
+            size_t cost = (a[i - 1] != b[j - 1]) ? 1 : 0;
+            size_t del = dp[(i - 1) * (lb + 1) + j] + 1;
+            size_t ins = dp[i * (lb + 1) + (j - 1)] + 1;
+            size_t sub = dp[(i - 1) * (lb + 1) + (j - 1)] + cost;
+            dp[i * (lb + 1) + j] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+        }
+    }
+
+    result = dp[la * (lb + 1) + lb];
+    free(dp);
+    return (int)result;
+}
+
+int zt_name_suggest(const char *unknown, const char **candidates, size_t candidate_count, char *out, size_t out_capacity) {
+    size_t i;
+    int best_dist;
+    size_t best_idx;
+    int threshold;
+
+    if (unknown == NULL || candidates == NULL || out == NULL || out_capacity == 0) return 0;
+
+    threshold = (int)strlen(unknown);
+    if (threshold > 3) threshold = threshold / 2;
+    if (threshold < 1) threshold = 1;
+
+    best_dist = 999;
+    best_idx = 0;
+
+    for (i = 0; i < candidate_count; i += 1) {
+        int dist = zt_name_edit_distance(unknown, candidates[i]);
+        if (dist < best_dist) {
+            best_dist = dist;
+            best_idx = i;
+        }
+    }
+
+    if (best_dist <= threshold) {
+        snprintf(out, out_capacity, "%s", candidates[best_idx]);
+        return 1;
+    }
+
+    return 0;
+}
+
+zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
+    switch (code) {
+        case ZT_DIAG_SYNTAX_ERROR:
+        case ZT_DIAG_UNEXPECTED_TOKEN:
+        case ZT_DIAG_UNRESOLVED_NAME:
+        case ZT_DIAG_DUPLICATE_NAME:
+        case ZT_DIAG_SHADOWING:
+        case ZT_DIAG_CONST_REASSIGNMENT:
+        case ZT_DIAG_PARAM_ORDERING:
+        case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL:
+        case ZT_DIAG_TOKEN_TOO_LONG:
+            return ZT_DIAG_EFFORT_QUICK_FIX;
+
+        case ZT_DIAG_TYPE_MISMATCH:
+        case ZT_DIAG_INVALID_TYPE:
+        case ZT_DIAG_INVALID_CALL:
+        case ZT_DIAG_INVALID_ARGUMENT:
+        case ZT_DIAG_INVALID_OPERATOR:
+        case ZT_DIAG_INVALID_ASSIGNMENT:
+        case ZT_DIAG_INVALID_MUTATION:
+        case ZT_DIAG_INVALID_CONVERSION:
+        case ZT_DIAG_INVALID_MAP_KEY_TYPE:
+        case ZT_DIAG_INVALID_CONDITION_TYPE:
+        case ZT_DIAG_INVALID_RETURN:
+        case ZT_DIAG_PROJECT_UNRESOLVED_IMPORT:
+        case ZT_DIAG_PROJECT_MISSING_ENTRY:
+        case ZT_DIAG_PROJECT_INVALID_NAMESPACE:
+        case ZT_DIAG_DOC_UNRESOLVED_TARGET:
+        case ZT_DIAG_DOC_UNRESOLVED_LINK:
+        case ZT_DIAG_DOC_MISSING_PUBLIC_DOC:
+            return ZT_DIAG_EFFORT_MODERATE;
+
+        case ZT_DIAG_NON_EXHAUSTIVE_MATCH:
+        case ZT_DIAG_PROJECT_IMPORT_CYCLE:
+        case ZT_DIAG_INTEGER_OVERFLOW:
+        case ZT_DIAG_INVALID_CONSTRAINT_TARGET:
+        case ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED:
+        case ZT_DIAG_ZIR_PARSE_ERROR:
+        case ZT_DIAG_ZIR_VERIFY_ERROR:
+        case ZT_DIAG_BACKEND_C_EMIT_ERROR:
+        case ZT_DIAG_BACKEND_C_LEGALIZE_ERROR:
+            return ZT_DIAG_EFFORT_REQUIRES_THINKING;
+
+        default:
+            return ZT_DIAG_EFFORT_MODERATE;
+    }
+}
+
+const char *zt_diag_effort_label(zt_diag_effort effort) {
+    switch (effort) {
+        case ZT_DIAG_EFFORT_QUICK_FIX: return "\xe2\x9a\xa1 quick fix";
+        case ZT_DIAG_EFFORT_MODERATE: return "\xf0\x9f\x94\xa7 moderate";
+        case ZT_DIAG_EFFORT_REQUIRES_THINKING: return "\xf0\x9f\xa7\xa9 requires thinking";
+        default: return "moderate";
+    }
+}
+
+const char *zt_diag_action_text(zt_diag_code code) {
+    switch (code) {
+        case ZT_DIAG_UNRESOLVED_NAME: return "Declare or import the name before using it.";
+        case ZT_DIAG_SYNTAX_ERROR: return "Fix the syntax near the reported location.";
+        case ZT_DIAG_UNEXPECTED_TOKEN: return "Replace or remove the unexpected token.";
+        case ZT_DIAG_TYPE_MISMATCH: return "Convert the value type or change the expected type.";
+        case ZT_DIAG_CONST_REASSIGNMENT: return "Use var if the binding must be reassigned.";
+        case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "Add missing match cases or a default branch.";
+        case ZT_DIAG_DUPLICATE_NAME: return "Rename one of the duplicate declarations.";
+        case ZT_DIAG_SHADOWING: return "Use a different name to avoid shadowing the outer declaration.";
+        case ZT_DIAG_INVALID_CALL: return "Check the function name and argument count.";
+        case ZT_DIAG_INVALID_ARGUMENT: return "Check argument names, order, and types.";
+        case ZT_DIAG_INVALID_OPERATOR: return "Use compatible operand types for this operator.";
+        case ZT_DIAG_INVALID_ASSIGNMENT: return "Ensure the target is mutable and types match.";
+        case ZT_DIAG_INVALID_MUTATION: return "Mark the receiver or binding as mutable.";
+        case ZT_DIAG_INVALID_CONDITION_TYPE: return "Use a bool expression in the condition.";
+        case ZT_DIAG_INVALID_RETURN: return "Ensure all code paths return the correct type.";
+        case ZT_DIAG_PROJECT_IMPORT_CYCLE: return "Refactor imports to break the cycle.";
+        case ZT_DIAG_PROJECT_MISSING_ENTRY: return "Point app.entry to a valid namespace.";
+        default: return NULL;
+    }
+}
+
+size_t zt_cog_profile_error_limit(zt_cog_profile profile) {
+    switch (profile) {
+        case ZT_COG_PROFILE_BEGINNER: return 3;
+        case ZT_COG_PROFILE_BALANCED: return 5;
+        case ZT_COG_PROFILE_FULL: return (size_t)-1;
+        default: return 5;
+    }
+}
+
 #define ANSI_RED     "\x1b[1;31m"
 #define ANSI_GREEN   "\x1b[1;32m"
 #define ANSI_YELLOW  "\x1b[1;33m"
@@ -431,6 +611,100 @@ void zt_diag_render_detailed_list(FILE *stream, const char *stage, const zt_diag
 
     for (i = 0; i < diagnostics->count; i += 1) {
         zt_diag_render_detailed(stream, stage, &diagnostics->items[i]);
+    }
+}
+
+void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag *diag) {
+    const char *action;
+    const char *effort_label;
+    char source_line[1024];
+    int use_color = 1;
+
+    if (stream == NULL || diag == NULL) return;
+
+    action = zt_diag_action_text(diag->code);
+    effort_label = zt_diag_effort_label(diag->effort);
+
+    fprintf(stream, "\n");
+    if (use_color) fprintf(stream, "\xf0\x9f\x93\x8c ");
+    if (use_color) fprintf(stream, ANSI_GREEN "ACTION:" ANSI_RESET " ");
+    if (action) {
+        fprintf(stream, "%s\n", action);
+    } else {
+        fprintf(stream, "%s\n", diag->message);
+    }
+
+    if (use_color) fprintf(stream, "\xe2\x84\xb9\xef\xb8\x8f ");
+    if (use_color) fprintf(stream, ANSI_BLUE "WHY:" ANSI_RESET " %s\n", diag->message);
+
+    if (diag->suggestion[0] != '\0') {
+        if (use_color) fprintf(stream, "\xf0\x9f\x92\xa1 ");
+        if (use_color) fprintf(stream, ANSI_CYAN "SUGGESTION:" ANSI_RESET " Did you mean `%s`?\n", diag->suggestion);
+    }
+
+    if (use_color) fprintf(stream, "\xe2\x9a\xa0\xef\xb8\x8f ");
+    if (use_color) fprintf(stream, ANSI_RED "%s" ANSI_RESET "[%s] ", zt_diag_severity_name(diag->severity), zt_diag_code_stable(diag->code));
+    else fprintf(stream, "%s[%s] ", zt_diag_severity_name(diag->severity), zt_diag_code_stable(diag->code));
+    if (use_color) fprintf(stream, ANSI_YELLOW "%s" ANSI_RESET "\n", effort_label);
+    else fprintf(stream, "%s\n", effort_label);
+
+    if (use_color) fprintf(stream, "\n" ANSI_BLUE "%s" ANSI_RESET "\n  ", zt_l10n_label_where());
+    else fprintf(stream, "\n%s\n  ", zt_l10n_label_where());
+    zt_diag_print_source_span(stream, diag->span);
+
+    if (diag->span.source_name != NULL && zt_diag_read_source_line(diag->span.source_name, diag->span.line, source_line, sizeof(source_line))) {
+        if (use_color) fprintf(stream, "\n\n" ANSI_BLUE "%s" ANSI_RESET "\n  %zu | %s\n", zt_l10n_label_code(), diag->span.line, source_line);
+        else fprintf(stream, "\n\n%s\n  %zu | %s\n", zt_l10n_label_code(), diag->span.line, source_line);
+        if (use_color) fprintf(stream, ANSI_RED);
+        zt_diag_render_caret(stream, diag->span);
+        if (use_color) fprintf(stream, ANSI_RESET);
+    }
+
+    {
+        const char *help = zt_diag_default_help(diag->code);
+        if (help != NULL && help[0] != '\0') {
+            if (use_color) fprintf(stream, "\n" ANSI_GREEN "%s" ANSI_RESET "\n  %s\n", zt_l10n_label_help(), help);
+            else fprintf(stream, "\n%s\n  %s\n", zt_l10n_label_help(), help);
+        }
+    }
+
+    if (stage != NULL && stage[0] != '\0') {
+        if (use_color) fprintf(stream, "\n" ANSI_CYAN "%s" ANSI_RESET "\n  stage: %s\n", zt_l10n_label_note(), stage);
+        else fprintf(stream, "\n%s\n  stage: %s\n", zt_l10n_label_note(), stage);
+    }
+
+    fprintf(stream, "\n");
+}
+
+void zt_diag_render_action_first_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics, size_t max_errors) {
+    size_t i;
+    size_t error_count;
+    size_t suppressed;
+
+    if (stream == NULL || diagnostics == NULL) return;
+
+    error_count = 0;
+    for (i = 0; i < diagnostics->count; i += 1) {
+        if (diagnostics->items[i].severity == ZT_DIAG_SEVERITY_ERROR) {
+            error_count += 1;
+        }
+    }
+
+    suppressed = 0;
+    for (i = 0; i < diagnostics->count; i += 1) {
+        if (max_errors != (size_t)-1 && i >= max_errors) {
+            suppressed = diagnostics->count - max_errors;
+            break;
+        }
+        zt_diag_render_action_first(stream, stage, &diagnostics->items[i]);
+    }
+
+    if (suppressed > 0) {
+        if (max_errors == 3) {
+            fprintf(stream, "\n... and %zu more error(s). Run `zt check --all` to show everything.\n\n", suppressed);
+        } else {
+            fprintf(stream, "\n... and %zu more error(s). Run `zt check --all` to show everything.\n\n", suppressed);
+        }
     }
 }
 

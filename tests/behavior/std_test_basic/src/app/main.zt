@@ -4,5 +4,5 @@ import std.test as test
 
 func main() -> int
     test.skip("placeholder")
-    return 9
+    return 0
 end

@@ -20,7 +20,7 @@ Estado final deste ciclo:
 
 | Frente | Estado final | Evidencia |
 |---|---|---|
-| Artefatos | outputs temporarios isolados e ignorados | `.gitignore`, `tools/bootstrap.lua`, `tools/selfhost_release.lua`, `tools/selfhost_legacy_audit.lua` |
+| Artefatos | outputs temporarios isolados e ignorados | `.gitignore`, `tools/bootstrap.lua`, `tools/selfhost_release.lua`, `tools/selfhost_release.lua` |
 | Documentacao historica | docs antigos marcados como historicos/superados | roadmaps e RFCs do ciclo anterior |
 | CLI oficial | `zpm`, `zman` e `ztest` com UX mais defendivel em modo estrito | smokes finais deste roadmap |
 
@@ -33,7 +33,7 @@ Entregue:
 - `.selfhost-artifacts/bootstrap`, `.selfhost-artifacts/release` e `.selfhost-artifacts/audit` como destinos padrao dos fluxos oficiais;
 - `.ztc-tmp/` como area unica para temporarios de compilacao e execucao;
 - `.gitignore` alinhado com o fluxo atual;
-- limpeza oficial via `lua tools/selfhost_cleanup.lua`, com opcao `--legacy-scratch` para sobras ignoradas em `.selfhost-bootstrap/`.
+- limpeza oficial via `lua tools/selfhost_cleanup.lua`, com opcao `--strict-selfhost-scratch` para sobras ignoradas em `.selfhost-bootstrap/`.
 
 ### Frente 2. Leitura institucional correta
 
@@ -107,7 +107,7 @@ Recorte executado neste fechamento:
 
 - `lua tools/bootstrap.lua --promote --target ztc_selfhost.lua`
 - `lua tools/selfhost_release.lua`
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 - `lua ztc.lua --strict-selfhost zpm help`
 - `lua ztc.lua --strict-selfhost zpm doctor`
 - smoke local sequencial:

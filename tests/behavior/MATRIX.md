@@ -43,6 +43,7 @@ Legend:
 | `value_semantics_struct_managed` | Copy/mutate isolation para struct com campos `list/map` via rebind COW | `131` |
 | `value_semantics_arc_isolation` | Chain-copy isolation (`a -> b -> c`) for `list` and `map` under COW/RC | `158` |
 | `value_semantics_optional_result_managed` | `optional<list<int>>` creation/copy and `result<list<int>, text>` `?` with COW-safe list mutation | `0` |
+| `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
 | `optional_result_basic` | `none`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
 | `bytes_hex_literal` | `hex bytes "..."`, `len(bytes)`, byte indexing and byte slicing | `9` |
@@ -51,15 +52,19 @@ Legend:
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, text length and whitespace checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
 | `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) via host runtime wrappers | `0` |
-| `std_format_basic` | `std.format` baseline (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) | `0` |
+| `std_format_basic` | `std.format` com `BytesStyle` tipado (`hex`, `bin`, `bytes(style: ...)`, `bytes_binary`, `bytes_decimal`) | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
 | `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`, `normalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-probe | `0` |
 | `std_json_basic` | `std.json` baseline (`parse`, `stringify`, `pretty`) para objeto plano `map<text,text>` | `0` |
-| `std_test_basic` | `std.test` baseline helpers (`skip`, `fail` placeholder no-op) | `9` |
-| `std_time_basic` | `std.time` baseline (`now`, `sleep`, `since`, `until`, unix-ms helpers) | `0` |
-| `std_os_basic` | `std.os` baseline (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
-| `std_os_process_basic` | `std.os.process` baseline (`run`) com comando explicito (`program` + `args`) | `0` |
+| `std_test_basic` | `std.test` helper direto em `main` (`skip` => skipped outcome, `fail` => failed outcome) | `test-skip` |
+| `std_test_attr_pass_skip` | `zt test` com `attr test` exercitando 1 pass e 1 skip | `test ok (pass=1 skip=1)` |
+| `std_test_attr_fail` | `zt test` com `attr test` exercitando 1 pass, 1 skip e 1 fail | `test failed (pass=1 skip=1 fail=1)` |
+| `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, `now`, `sleep`, `since`, `until`, conversoes unix) | `0` |
+| `std_os_basic` | `std.os` tipado (`Platform`, `Arch`, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
+| `std_os_process_basic` | `std.os.process` com `ExitStatus` tipado (`run`, `exit_code`) e comando explicito (`program` + `args`) | `0` |
+| `std_net_basic` | `std.net` TCP client baseline (`connect`, `read_some`, `write_all`, `close`, `is_closed`) em loopback local via `run-loopback.ps1` | `0` |
 | `multifile_import_alias` | Multi-file source root and import alias | `42` |
+| `public_const_module` | Top-level `public const` imported via alias (`module.CONST`) | `42` |
 | `where_contracts_ok` | Runtime `where` contracts on parameter, struct construction and field assignment | `40` |
 
 ## Invalid Projects
@@ -92,6 +97,7 @@ These forms remain accepted language direction but are not in the M16 executable
 - Full generic monomorphization beyond the current checked semantic model.
 - Enum value construction and exhaustive enum matching in generated C (semantic coverage exists in `tests/semantic`; check path is validated with fixtures `tests/behavior/enum_match` / `tests/behavior/enum_match_non_exhaustive_error`; full build E2E remains blocked while `compiler/zir/lowering/from_hir.c` is a stub in source).
 - Broader stdlib-facing collection APIs beyond the current compiler intrinsic `len(...)`.
+
 
 
 

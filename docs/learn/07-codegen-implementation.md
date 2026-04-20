@@ -21,7 +21,7 @@ end
 Isso torna o código extremamente modular. Quer adicionar suporte a um novo `kind` de nó? Basta criar a função correspondente `_emit_meu_novo_no`.
 
 ### 2. Gerenciando Recuo (Indentation)
-Para que o código Lua gerado seja legível para humanos, o Codegen mantém um `indent_level`.
+Para que o código resultado gerado seja legível para humanos, o Codegen mantém um `indent_level`.
 - Chamamos `self:indent()` ao entrar em blocos (`if`, `func`).
 - Chamamos `self:dedent()` ao sair.
 O método `emit` adiciona automaticamente os espaços necessários no início de cada linha.

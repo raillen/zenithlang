@@ -4,7 +4,7 @@
 > Recomendado para: estudo da linguagem atual, contribuicao e validacao do produto atual
 > Referencia de estado real: ../roadmap/selfhost-pos100.md
 
-Zenith Current representa o recorte mais fiel do Zenith de hoje: a linguagem se apresenta por um front door 100% self-hosted, com a trilha legada isolada apenas para recuperacao extraordinaria e com o residuo pos-100 ja fechado.
+Zenith Current representa o recorte mais fiel do Zenith de hoje: a linguagem se apresenta por um front door 100% self-hosted e com leitura institucional consolidada.
 
 ## O que define a linha atual
 
@@ -23,15 +23,14 @@ Zenith Current representa o recorte mais fiel do Zenith de hoje: a linguagem se 
 - bootstrap deterministico e gate recorrente de release self-hosted;
 - politica de `null` promovida para erro dedicado `ZT-S106`;
 - UFCS, genericos, pattern matching e indexacao 1-based validados;
-- politica explicita de artefatos para bootstrap, release, auditoria e smokes locais.
+- politica explicita de artefatos para bootstrap, release e smokes locais.
 
 ## O que nao deve ser escondido
 
-- `ztc.lua` continua existindo como wrapper oficial do produto, mas opera apenas em modo self-hosted;
-- a trilha legada ficou isolada em `tools/ztc_legacy.lua` e `tools/bootstrap_legacy_recovery.lua`;
+- `ztc.lua` continua existindo como wrapper oficial do produto, em modo self-hosted;
 - o core self-hosted canonico vive em `src/compiler/syntax.zt`;
 - `binder.zt`, `parser.zt` e `lexer.zt` em `.zt` nao fazem parte do caminho oficial neste momento; continuam como superficie experimental;
-- Fase 12 segue concluida no recorte `.zt`: demo, stdlib e compilador self-hosted sem blocos `native lua`.
+- Fase 12 segue concluida no recorte `.zt`: demo, stdlib e compilador self-hosted sem blocos nativos legados.
 
 ## Para quem esta chegando agora
 

@@ -66,7 +66,7 @@ Regra:
 - nao definem mais o fluxo oficial;
 - podem permanecer como registro historico versionado ou resquicio local;
 - scratch novo nessa pasta nao deve ser incentivado;
-- limpeza opcional de sobras ignoradas pode ser feita com `lua tools/selfhost_cleanup.lua --legacy-scratch`.
+- limpeza opcional de sobras ignoradas pode ser feita com `lua tools/selfhost_cleanup.lua --strict-selfhost-scratch`.
 
 ## 3. Fluxos Oficiais
 
@@ -82,7 +82,7 @@ Regra:
 
 ### Auditoria
 
-- script: `tools/selfhost_legacy_audit.lua`
+- script: `tools/selfhost_release.lua`
 - output-dir padrao: `.selfhost-artifacts/audit`
 
 ### Front door
@@ -120,7 +120,7 @@ Comando oficial de limpeza:
 
 Limpeza ampliada para sobras ignoradas no diretorio historico:
 
-- `lua tools/selfhost_cleanup.lua --legacy-scratch`
+- `lua tools/selfhost_cleanup.lua --strict-selfhost-scratch`
 
 ## 6. Leitura complementar
 

@@ -1,9 +1,0 @@
---- Shim legado do CLI self-hosted modular.
---- O compilador ativo continua sendo ztc.lua; o core self-hosted canonico
---- esta em src/compiler/syntax.zt.
-
-import std.io
-
-pub func main()
-    io.write_line("ztc.zt legado: use ztc.lua ou src/compiler/syntax.zt")
-end

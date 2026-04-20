@@ -9,7 +9,6 @@ Este documento define a fronteira minima entre o compilador self-hosted canonico
 Este contrato cobre o recorte oficial do self-hosted:
 
 - front door oficial: `ztc.lua` em modo self-hosted estrito;
-- superficie de recuperacao legada: `tools/ztc_legacy.lua`;
 - compilador canonico: `src/compiler/syntax.zt`;
 - artefato promovido: `ztc_selfhost.lua`;
 - manifesto de ABI: `tools/selfhost_abi.lua`;
@@ -91,8 +90,6 @@ O manifesto atual promove este corpus:
 Leitura correta deste corpus:
 
 - os builtins passam pelo front door oficial estrito;
-- fallback legado nao e aceito no release recorrente;
-- o legado fica isolado apenas para recuperacao extraordinaria;
 - artefatos temporarios do gate ficam em `.selfhost-artifacts/`.
 
 ## 6. O que nao faz parte deste contrato

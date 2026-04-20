@@ -14,7 +14,8 @@ typedef enum zt_project_section {
     ZT_PROJECT_SECTION_LIB,
     ZT_PROJECT_SECTION_BUILD,
     ZT_PROJECT_SECTION_TEST,
-    ZT_PROJECT_SECTION_ZDOC,
+ZT_PROJECT_SECTION_ZDOC,
+    ZT_PROJECT_SECTION_DIAGNOSTICS,
     ZT_PROJECT_SECTION_DEPENDENCIES,
     ZT_PROJECT_SECTION_DEV_DEPENDENCIES
 } zt_project_section;
@@ -32,6 +33,7 @@ static const char *zt_project_section_name(zt_project_section section) {
         case ZT_PROJECT_SECTION_BUILD: return "build";
         case ZT_PROJECT_SECTION_TEST: return "test";
         case ZT_PROJECT_SECTION_ZDOC: return "zdoc";
+        case ZT_PROJECT_SECTION_DIAGNOSTICS: return "diagnostics";
         case ZT_PROJECT_SECTION_DEPENDENCIES: return "dependencies";
         case ZT_PROJECT_SECTION_DEV_DEPENDENCIES: return "dev_dependencies";
         default: return "<none>";
@@ -274,6 +276,7 @@ static zt_project_section zt_project_section_from_name(const char *name) {
     if (strcmp(name, "build") == 0) return ZT_PROJECT_SECTION_BUILD;
     if (strcmp(name, "test") == 0) return ZT_PROJECT_SECTION_TEST;
     if (strcmp(name, "zdoc") == 0) return ZT_PROJECT_SECTION_ZDOC;
+    if (strcmp(name, "diagnostics") == 0) return ZT_PROJECT_SECTION_DIAGNOSTICS;
     if (strcmp(name, "dependencies") == 0) return ZT_PROJECT_SECTION_DEPENDENCIES;
     if (strcmp(name, "dev_dependencies") == 0) return ZT_PROJECT_SECTION_DEV_DEPENDENCIES;
     return ZT_PROJECT_SECTION_NONE;
@@ -492,8 +495,14 @@ static int zt_project_assign_value(
         return 0;
     }
 
-    if (section == ZT_PROJECT_SECTION_ZDOC) {
+if (section == ZT_PROJECT_SECTION_ZDOC) {
         if (strcmp(key, "root") == 0) return zt_project_parse_string_value(value, manifest->zdoc_root, sizeof(manifest->zdoc_root), result, line_number);
+        zt_project_set_unknown_key(result, section, key, line_number);
+        return 0;
+    }
+
+    if (section == ZT_PROJECT_SECTION_DIAGNOSTICS) {
+        if (strcmp(key, "profile") == 0) return zt_project_parse_string_value(value, manifest->diag_profile, sizeof(manifest->diag_profile), result, line_number);
         zt_project_set_unknown_key(result, section, key, line_number);
         return 0;
     }

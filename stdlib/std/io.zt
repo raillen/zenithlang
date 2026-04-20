@@ -1,40 +1,51 @@
+-- Biblioteca Padrão Zenith — Módulo IO
+-- Entrada e saída padrão: stdin, stdout, stderr.
+-- 🏗️ EXTERN C
+-- 📖 LEITURA
+-- ✍️ ESCRITA
 namespace std.io
 
 extern c
-    func zt_host_read_line_stdin() -> result<optional<text>, text>
-    func zt_host_read_all_stdin() -> result<text, text>
-    func zt_host_write_stdout(value: text) -> result<void, text>
-    func zt_host_write_stderr(value: text) -> result<void, text>
+    func zt_host_read_line_stdin() -> result<optional<text>, core.Error>
+    func zt_host_read_all_stdin() -> result<text, core.Error>
+    func zt_host_write_stdout(value: text) -> result<void, core.Error>
+    func zt_host_write_stderr(value: text) -> result<void, core.Error>
 end
 
-func read_line() -> result<optional<text>, text>
+func read_line(from: bool = false) -> result<optional<text>, core.Error>
+    if from
+        return io.zt_host_read_line_stdin()
+    end
     return io.zt_host_read_line_stdin()
 end
 
-func read_all() -> result<text, text>
+func read_all(from: bool = false) -> result<text, core.Error>
+    if from
+        return io.zt_host_read_all_stdin()
+    end
     return io.zt_host_read_all_stdin()
 end
 
-func write(value: text, target_stderr: bool = false) -> result<void, text>
-    if target_stderr
+func write(value: text, to: bool = false) -> result<void, core.Error>
+    if to
         return io.zt_host_write_stderr(value)
     end
     return io.zt_host_write_stdout(value)
 end
 
-func print(value: text, target_stderr: bool = false) -> result<void, text>
-    return io.write(value, target_stderr: target_stderr)
+func print(value: text, to: bool = false) -> result<void, core.Error>
+    return io.write(value, to: to)
 end
 
-func print_line(value: text, target_stderr: bool = false) -> result<void, text>
-    io.print(value, target_stderr: target_stderr)?
-    return io.print("\n", target_stderr: target_stderr)
+func print_line(value: text, to: bool = false) -> result<void, core.Error>
+    io.print(value, to: to)?
+    return io.print("\n", to: to)
 end
 
-func eprint(value: text) -> result<void, text>
-    return io.write(value, target_stderr: true)
+func eprint(value: text) -> result<void, core.Error>
+    return io.write(value, to: true)
 end
 
-func eprint_line(value: text) -> result<void, text>
-    return io.print_line(value, target_stderr: true)
+func eprint_line(value: text) -> result<void, core.Error>
+    return io.print_line(value, to: true)
 end

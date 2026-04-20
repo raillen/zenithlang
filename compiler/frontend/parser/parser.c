@@ -77,6 +77,7 @@ static int zt_parser_match(zt_parser *p, zt_token_kind kind) {
 static int zt_parser_is_declaration_start(zt_token_kind kind) {
     switch (kind) {
         case ZT_TOKEN_PUBLIC:
+        case ZT_TOKEN_ATTR:
         case ZT_TOKEN_MUT:
         case ZT_TOKEN_FUNC:
         case ZT_TOKEN_STRUCT:
@@ -84,6 +85,8 @@ static int zt_parser_is_declaration_start(zt_token_kind kind) {
         case ZT_TOKEN_APPLY:
         case ZT_TOKEN_ENUM:
         case ZT_TOKEN_EXTERN:
+        case ZT_TOKEN_CONST:
+        case ZT_TOKEN_VAR:
             return 1;
         default:
             return 0;
@@ -209,6 +212,13 @@ static int zt_parser_is_contextual_ident(const zt_token *tok, const char *text) 
     return tok != NULL && tok->kind == ZT_TOKEN_IDENTIFIER && tok->length == strlen(text) && strncmp(tok->text, text, tok->length) == 0;
 }
 
+static int zt_parser_token_is_identifier_text(const zt_token *tok, const char *text) {
+    size_t length;
+    if (tok == NULL || text == NULL || tok->kind != ZT_TOKEN_IDENTIFIER) return 0;
+    length = strlen(text);
+    return tok->length == length && strncmp(tok->text, text, length) == 0;
+}
+
 static int zt_parser_hex_digit_value(char ch) {
     if (ch >= '0' && ch <= '9') return ch - '0';
     if (ch >= 'a' && ch <= 'f') return 10 + (ch - 'a');
@@ -278,6 +288,12 @@ static int zt_parser_is_type_name(zt_token_kind kind) {
            kind == ZT_TOKEN_RESULT ||
            kind == ZT_TOKEN_LIST ||
            kind == ZT_TOKEN_MAP ||
+           kind == ZT_TOKEN_GRID2D ||
+           kind == ZT_TOKEN_PQUEUE ||
+           kind == ZT_TOKEN_CIRCBUF ||
+           kind == ZT_TOKEN_BTREEMAP ||
+           kind == ZT_TOKEN_BTREESET ||
+           kind == ZT_TOKEN_GRID3D ||
            kind == ZT_TOKEN_VOID ||
            kind == ZT_TOKEN_SELF;
 }
@@ -307,7 +323,7 @@ static char *zt_parser_parse_type_name_path(zt_parser *p, zt_source_span *out_sp
     buf[len] = '\0';
 
     while (zt_parser_match(p, ZT_TOKEN_DOT)) {
-        zt_token part_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+        zt_token part_tok = zt_parser_expect_type_name(p);
         if (len + 1 < 1024 * 8) {
             buf[len++] = '.';
         }
@@ -353,8 +369,12 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
     return node;
 }
 
+static int zt_is_named_arg_label_token(zt_token_kind kind) {
+    return kind == ZT_TOKEN_IDENTIFIER || kind == ZT_TOKEN_TO;
+}
+
 static int zt_is_named_arg_ahead(zt_parser *p) {
-    if (p->current.kind != ZT_TOKEN_IDENTIFIER) return 0;
+    if (!zt_is_named_arg_label_token(p->current.kind)) return 0;
     zt_parser_fill_peek(p);
     return p->peek.kind == ZT_TOKEN_COLON;
 }
@@ -531,7 +551,7 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         }
     }
 
-    if (tok.kind == ZT_TOKEN_IDENTIFIER || tok.kind == ZT_TOKEN_SELF) {
+    if (tok.kind == ZT_TOKEN_IDENTIFIER || tok.kind == ZT_TOKEN_SELF || tok.kind == ZT_TOKEN_TO) {
         zt_parser_advance(p);
         zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_IDENT_EXPR, tok.span);
         if (node == NULL) return NULL;
@@ -605,7 +625,13 @@ static zt_ast_node *zt_parser_parse_postfix(zt_parser *p) {
                         in_named = 1;
                     }
                     if (in_named) {
-                        zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+                        zt_token name_tok = p->current;
+                        if (!zt_is_named_arg_label_token(name_tok.kind)) {
+                            zt_parser_error_contextual(p, "expected named argument label", "named argument labels must be identifiers or 'to'");
+                            name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+                        } else {
+                            zt_parser_advance(p);
+                        }
                         zt_parser_expect(p, ZT_TOKEN_COLON);
                         zt_ast_node *val = zt_parser_parse_expression(p);
                         zt_ast_named_arg arg;
@@ -726,7 +752,13 @@ static zt_ast_node_list zt_parser_parse_params(zt_parser *p) {
 
     if (!zt_parser_check(p, ZT_TOKEN_RPAREN)) {
         do {
-            zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+            zt_token name_tok = p->current;
+            if (!(name_tok.kind == ZT_TOKEN_IDENTIFIER || name_tok.kind == ZT_TOKEN_TO)) {
+                zt_parser_error_contextual(p, "expected parameter name", "parameter names must be identifiers (or 'to')");
+                name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+            } else {
+                zt_parser_advance(p);
+            }
             zt_parser_expect(p, ZT_TOKEN_COLON);
             zt_ast_node *type_node = zt_parser_parse_type(p);
             zt_ast_node *default_value = NULL;
@@ -967,6 +999,8 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
             node->as.const_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
             node->as.const_decl.type_node = type_node;
             node->as.const_decl.init_value = init_value;
+            node->as.const_decl.is_public = 0;
+            node->as.const_decl.is_module_level = 0;
         }
         return node;
     }
@@ -1125,6 +1159,7 @@ static zt_ast_node *zt_parser_parse_func_decl(zt_parser *p, int is_public, int i
     node->as.func_decl.body = body;
     node->as.func_decl.is_public = is_public;
     node->as.func_decl.is_mutating = is_mutating;
+    node->as.func_decl.is_test = 0;
     return node;
 }
 
@@ -1390,6 +1425,7 @@ static zt_ast_node *zt_parser_parse_extern_func(zt_parser *p) {
     func->as.func_decl.body = NULL;
     func->as.func_decl.is_public = 1;
     func->as.func_decl.is_mutating = 0;
+    func->as.func_decl.is_test = 0;
     return func;
 }
 
@@ -1425,9 +1461,35 @@ static zt_ast_node *zt_parser_parse_extern_decl(zt_parser *p) {
 
 static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
     int is_public = 0;
-    if (zt_parser_check(p, ZT_TOKEN_PUBLIC)) {
-        is_public = 1;
-        zt_parser_advance(p);
+    int is_test_attr = 0;
+    int consumed = 1;
+
+    while (consumed) {
+        consumed = 0;
+
+        if (zt_parser_check(p, ZT_TOKEN_PUBLIC) && !is_public) {
+            is_public = 1;
+            zt_parser_advance(p);
+            consumed = 1;
+            continue;
+        }
+
+        if (zt_parser_check(p, ZT_TOKEN_ATTR)) {
+            zt_parser_advance(p);
+            {
+                zt_token attr_name = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+                if (zt_parser_token_is_identifier_text(&attr_name, "test")) {
+                    is_test_attr = 1;
+                } else {
+                    zt_diag_list_add(&p->result->diagnostics, ZT_DIAG_SYNTAX_ERROR, attr_name.span,
+                        "unsupported attr '%.*s' (MVP supports only 'attr test')",
+                        (int)attr_name.length,
+                        attr_name.text != NULL ? attr_name.text : "");
+                }
+            }
+            consumed = 1;
+            continue;
+        }
     }
 
     if (p->current.kind == ZT_TOKEN_MUT) {
@@ -1436,15 +1498,73 @@ static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
     }
 
     switch (p->current.kind) {
-        case ZT_TOKEN_FUNC: return zt_parser_parse_func_decl(p, is_public, 0);
-        case ZT_TOKEN_STRUCT: return zt_parser_parse_struct_decl(p, is_public);
-        case ZT_TOKEN_TRAIT: return zt_parser_parse_trait_decl(p, is_public);
-        case ZT_TOKEN_APPLY: return zt_parser_parse_apply_decl(p);
-        case ZT_TOKEN_ENUM: return zt_parser_parse_enum_decl(p, is_public);
-        case ZT_TOKEN_EXTERN: return zt_parser_parse_extern_decl(p);
+        case ZT_TOKEN_FUNC: {
+            zt_ast_node *func = zt_parser_parse_func_decl(p, is_public, 0);
+            if (func != NULL) {
+                func->as.func_decl.is_test = is_test_attr;
+            }
+            return func;
+        }
+        case ZT_TOKEN_STRUCT:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_struct_decl(p, is_public);
+        case ZT_TOKEN_TRAIT:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_trait_decl(p, is_public);
+        case ZT_TOKEN_APPLY:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_apply_decl(p);
+        case ZT_TOKEN_ENUM:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_enum_decl(p, is_public);
+        case ZT_TOKEN_EXTERN:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_extern_decl(p);
+        case ZT_TOKEN_CONST: {
+            zt_token const_tok = p->current;
+            zt_parser_advance(p);
+            zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+            zt_parser_expect(p, ZT_TOKEN_COLON);
+            zt_ast_node *type_node = zt_parser_parse_type(p);
+            zt_ast_node *init_value = NULL;
+            zt_ast_node *node;
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            if (zt_parser_match(p, ZT_TOKEN_EQ)) {
+                init_value = zt_parser_parse_expression(p);
+            }
+            node = zt_parser_ast_make(p, ZT_AST_CONST_DECL, const_tok.span);
+            if (node != NULL) {
+                node->as.const_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                node->as.const_decl.type_node = type_node;
+                node->as.const_decl.init_value = init_value;
+                node->as.const_decl.is_public = is_public;
+                node->as.const_decl.is_module_level = 1;
+            }
+            return node;
+        }
+        case ZT_TOKEN_VAR:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            zt_parser_error_contextual(p, "invalid top-level var",
+                "top-level var is not supported; use const at module scope");
+            zt_parser_advance(p);
+            return NULL;
         default:
             zt_parser_error_contextual(p, "expected declaration",
-                "expected top-level declaration (func, struct, trait, apply, enum, or extern)");
+                "expected top-level declaration (func, struct, trait, apply, enum, extern, or const)");
             zt_parser_advance(p);
             return NULL;
     }
@@ -1548,13 +1668,16 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
 
     while (!zt_parser_check(&parser, ZT_TOKEN_EOF)) {
         if (zt_parser_check(&parser, ZT_TOKEN_PUBLIC) ||
+            zt_parser_check(&parser, ZT_TOKEN_ATTR) ||
             zt_parser_check(&parser, ZT_TOKEN_MUT) ||
             zt_parser_check(&parser, ZT_TOKEN_FUNC) ||
             zt_parser_check(&parser, ZT_TOKEN_STRUCT) ||
             zt_parser_check(&parser, ZT_TOKEN_TRAIT) ||
             zt_parser_check(&parser, ZT_TOKEN_APPLY) ||
             zt_parser_check(&parser, ZT_TOKEN_ENUM) ||
-            zt_parser_check(&parser, ZT_TOKEN_EXTERN)) {
+            zt_parser_check(&parser, ZT_TOKEN_EXTERN) ||
+            zt_parser_check(&parser, ZT_TOKEN_CONST) ||
+            zt_parser_check(&parser, ZT_TOKEN_VAR)) {
             zt_ast_node *decl = zt_parser_parse_declaration(&parser);
             if (decl != NULL) {
                 zt_ast_node_list_push(parser.arena, &declarations, decl);
@@ -1587,4 +1710,6 @@ void zt_parser_result_dispose(zt_parser_result *result) {
     }
     zt_diag_list_dispose(&result->diagnostics);
 }
+
+
 

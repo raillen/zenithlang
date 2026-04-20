@@ -1,0 +1,55 @@
+--- @target: std.io
+Input and output operations for terminal and standard streams.
+---
+
+--- @target: read_line
+Reads a single line of text from standard input.
+
+@param from If true, reads from the beginning of stdin buffer. Defaults to false.
+@return A result containing the line as @link optional text, or an error. Returns none on EOF.
+---
+
+--- @target: read_all
+Reads all remaining text from standard input until EOF.
+
+@param from If true, reads from the beginning of stdin buffer. Defaults to false.
+@return A result containing the text, or an error.
+---
+
+--- @target: write
+Writes text to a standard output stream.
+
+@param value The text to write.
+@param to If true, writes to stderr. Defaults to false (stdout).
+@return A result indicating success or error.
+---
+
+--- @target: print
+Writes text to the output stream (alias for @link write).
+
+@param value The text to print.
+@param to If true, prints to stderr. Defaults to false (stdout).
+@return A result indicating success or error.
+---
+
+--- @target: print_line
+Writes text followed by a newline to the output stream.
+
+@param value The text to print.
+@param to If true, prints to stderr. Defaults to false (stdout).
+@return A result indicating success or error.
+---
+
+--- @target: eprint
+Writes text to the standard error stream.
+
+@param value The text to write.
+@return A result indicating success or error.
+---
+
+--- @target: eprint_line
+Writes text followed by a newline to the standard error stream.
+
+@param value The text to print.
+@return A result indicating success or error.
+---

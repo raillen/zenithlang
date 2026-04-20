@@ -318,6 +318,9 @@ static void zt_catalog_build(zt_module_catalog *catalog, const zt_ast_node *root
             case ZT_AST_ENUM_DECL:
                 zt_decl_list_push(&catalog->decls, decl->as.enum_decl.name, decl);
                 break;
+            case ZT_AST_CONST_DECL:
+                zt_decl_list_push(&catalog->decls, decl->as.const_decl.name, decl);
+                break;
             case ZT_AST_EXTERN_DECL: {
                 size_t f;
                 for (f = 0; f < decl->as.extern_decl.functions.count; f++) {
@@ -370,6 +373,7 @@ static zt_type *zt_builtin_type_by_name(const char *name) {
     if (strcmp(name, "float32") == 0) return zt_type_make(ZT_TYPE_FLOAT32);
     if (strcmp(name, "float64") == 0) return zt_type_make(ZT_TYPE_FLOAT64);
     if (strcmp(name, "text") == 0) return zt_type_make(ZT_TYPE_TEXT);
+    if (strcmp(name, "core.Error") == 0) return zt_type_make(ZT_TYPE_CORE_ERROR);
     if (strcmp(name, "bytes") == 0) return zt_type_make(ZT_TYPE_BYTES);
     if (strcmp(name, "void") == 0) return zt_type_make(ZT_TYPE_VOID);
     return NULL;
@@ -379,6 +383,12 @@ static int zt_type_expected_arity(const char *name) {
     if (name == NULL) return -1;
     if (strcmp(name, "optional") == 0) return 1;
     if (strcmp(name, "list") == 0) return 1;
+    if (strcmp(name, "grid2d") == 0) return 1;
+    if (strcmp(name, "pqueue") == 0) return 1;
+    if (strcmp(name, "circbuf") == 0) return 1;
+    if (strcmp(name, "btreemap") == 0) return 2;
+    if (strcmp(name, "btreeset") == 0) return 1;
+    if (strcmp(name, "grid3d") == 0) return 1;
     if (strcmp(name, "result") == 0) return 2;
     if (strcmp(name, "map") == 0) return 2;
     return -1;
@@ -640,6 +650,12 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
         if (strcmp(name, "optional") == 0) return zt_type_make_with_args(ZT_TYPE_OPTIONAL, NULL, args);
         if (strcmp(name, "result") == 0) return zt_type_make_with_args(ZT_TYPE_RESULT, NULL, args);
         if (strcmp(name, "list") == 0) return zt_type_make_with_args(ZT_TYPE_LIST, NULL, args);
+        if (strcmp(name, "grid2d") == 0) return zt_type_make_with_args(ZT_TYPE_GRID2D, NULL, args);
+        if (strcmp(name, "pqueue") == 0) return zt_type_make_with_args(ZT_TYPE_PQUEUE, NULL, args);
+        if (strcmp(name, "circbuf") == 0) return zt_type_make_with_args(ZT_TYPE_CIRCBUF, NULL, args);
+        if (strcmp(name, "btreemap") == 0) return zt_type_make_with_args(ZT_TYPE_BTREEMAP, NULL, args);
+        if (strcmp(name, "btreeset") == 0) return zt_type_make_with_args(ZT_TYPE_BTREESET, NULL, args);
+        if (strcmp(name, "grid3d") == 0) return zt_type_make_with_args(ZT_TYPE_GRID3D, NULL, args);
         if (strcmp(name, "map") == 0) {
             zt_type *map_type = zt_type_make_with_args(ZT_TYPE_MAP, NULL, args);
             if (!zt_checker_type_implements_trait(checker, scope, map_type->args.items[0], "Hashable") ||
@@ -689,6 +705,9 @@ static int zt_checker_type_implements_trait(zt_checker *checker, zt_binding_scop
         case ZT_TYPE_TEXT:
             return strcmp(trait_name, "Equatable") == 0 ||
                    strcmp(trait_name, "Hashable") == 0 ||
+                   strcmp(trait_name, "TextRepresentable") == 0;
+        case ZT_TYPE_CORE_ERROR:
+            return strcmp(trait_name, "Equatable") == 0 ||
                    strcmp(trait_name, "TextRepresentable") == 0;
         case ZT_TYPE_BYTES:
             return strcmp(trait_name, "Equatable") == 0 ||
@@ -749,6 +768,7 @@ static int zt_checker_same_or_contextually_assignable(zt_checker *checker, zt_bi
         if (expected->kind != ZT_TYPE_RESULT || expected->args.count != 2) return 0;
         if (actual->type->args.count == 0 || actual->type->args.items[0] == NULL) return 0;
         inner = actual->type->args.items[0];
+        if (expected->args.items[1]->kind == ZT_TYPE_CORE_ERROR && inner->kind == ZT_TYPE_TEXT) return 1;
         return zt_type_equals(expected->args.items[1], inner) || inner->kind == ZT_TYPE_UNKNOWN;
     }
 
@@ -971,13 +991,41 @@ static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_as
     object_info = zt_checker_check_expression(checker, node->as.field_expr.object, scope, fn_ctx, NULL);
     result = zt_expr_info_make(zt_type_make(ZT_TYPE_UNKNOWN));
 
+    if (node->as.field_expr.object != NULL &&
+        node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
+        zt_catalog_has_import_alias(&checker->catalog, node->as.field_expr.object->as.ident_expr.name)) {
+        char combined_name[512];
+        const zt_ast_node *member_decl = NULL;
+        snprintf(combined_name, sizeof(combined_name), "%s.%s",
+            node->as.field_expr.object->as.ident_expr.name,
+            node->as.field_expr.field_name != NULL ? node->as.field_expr.field_name : "");
+        member_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
+        if (member_decl != NULL && member_decl->kind == ZT_AST_CONST_DECL) {
+            zt_type_dispose(result.type);
+            result.type = zt_checker_resolve_type(checker, member_decl->as.const_decl.type_node, scope);
+        }
+        zt_expr_info_dispose(&object_info);
+        return result;
+    }
+
     if (object_info.type == NULL || object_info.type->kind == ZT_TYPE_UNKNOWN) {
         zt_expr_info_dispose(&object_info);
         return result;
     }
 
-    if (node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
-        zt_catalog_has_import_alias(&checker->catalog, node->as.field_expr.object->as.ident_expr.name)) {
+    if (object_info.type->kind == ZT_TYPE_CORE_ERROR) {
+        zt_type_dispose(result.type);
+        if (strcmp(node->as.field_expr.field_name, "context") == 0) {
+            zt_type_list args = zt_type_list_make();
+            zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+            result.type = zt_type_make_with_args(ZT_TYPE_OPTIONAL, NULL, args);
+        } else if (strcmp(node->as.field_expr.field_name, "code") == 0 ||
+                   strcmp(node->as.field_expr.field_name, "message") == 0) {
+            result.type = zt_type_make(ZT_TYPE_TEXT);
+        } else {
+            result.type = zt_type_make(ZT_TYPE_UNKNOWN);
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "core.Error has fields code, message and context");
+        }
         zt_expr_info_dispose(&object_info);
         return result;
     }
@@ -2475,12 +2523,31 @@ static void zt_checker_check_func_like(zt_checker *checker, const zt_ast_node *f
     zt_binding_scope_dispose(&scope);
 }
 
+
+static void zt_checker_seed_module_const_bindings(zt_checker *checker, zt_binding_scope *scope) {
+    size_t i;
+    if (checker == NULL || scope == NULL) return;
+    for (i = 0; i < checker->catalog.decls.count; i++) {
+        const zt_ast_node *decl = checker->catalog.decls.items[i].node;
+        if (decl == NULL || decl->kind != ZT_AST_CONST_DECL || decl->as.const_decl.name == NULL) continue;
+        zt_binding_scope_declare(
+            scope,
+            ZT_BINDING_VALUE,
+            decl->as.const_decl.name,
+            zt_checker_resolve_type(checker, decl->as.const_decl.type_node, scope),
+            0);
+    }
+}
+
 static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) {
     zt_binding_scope scope;
+    zt_type *decl_type;
+    zt_expr_info expr_info;
     size_t i;
 
     if (decl == NULL) return;
     zt_binding_scope_init(&scope, NULL);
+    zt_checker_seed_module_const_bindings(checker, &scope);
 
     switch (decl->kind) {
         case ZT_AST_FUNC_DECL:
@@ -2568,6 +2635,15 @@ static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) 
                 }
                 zt_type_dispose(zt_checker_resolve_type(checker, func->as.func_decl.return_type, &scope));
             }
+            break;
+        case ZT_AST_CONST_DECL:
+            decl_type = zt_checker_resolve_type(checker, decl->as.const_decl.type_node, &scope);
+            expr_info = zt_checker_check_expression(checker, decl->as.const_decl.init_value, &scope, NULL, decl_type);
+            if (!zt_checker_same_or_contextually_assignable(checker, &scope, decl_type, &expr_info, decl->as.const_decl.init_value != NULL ? decl->as.const_decl.init_value->span : decl->span)) {
+                zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, decl->span, "const initializer type mismatch", decl_type, expr_info.type);
+            }
+            zt_expr_info_dispose(&expr_info);
+            zt_type_dispose(decl_type);
             break;
         default:
             break;

@@ -13,7 +13,7 @@ Comando base de compilacao da suite de legalization:
 
 Comando base de compilacao da suite do emitter:
 
-- \`gcc -std=c11 -Wall -Wextra -pedantic -I. compiler/zir/model.c compiler/zir/verifier.c compiler/targets/c/legalization.c compiler/targets/c/emitter.c tests/targets/c/test_emitter.c -o .ztc-tmp/tests/targets/c/test_emitter.exe\`
+- \`powershell -Command "$files = Get-ChildItem compiler -Recurse -Filter *.c | Where-Object { $_.FullName -notlike *compiler\driver\* -and $_.FullName -notlike *compiler\tooling\* } | ForEach-Object { $_.FullName }; gcc -std=c11 -Wall -Wextra -pedantic -I. @files tests/targets/c/test_emitter.c -o .ztc-tmp/tests/targets/c/test_emitter.exe"\`
 
 Validacao adicional esperada:
 

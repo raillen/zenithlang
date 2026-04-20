@@ -1,0 +1,107 @@
+--- @target: now
+Pega exatamente o número atual de Milissegundos Unix (Tempo percorrido desde 1 de Janeiro de 1970) consultando o Relógio Interno Real do OS de forma super rápida.
+
+⚡ **Sintaxe**
+`func now() -> int`
+
+🎯 **Retorno**
+`int` representando estritamente Milissegundos passados do Epic Unix.
+---
+--- @target: sleep
+Pausa o avanço do bloco atual (E trava a Thread nativa do sistema) por completo num coma temporário da Duração informada em Milissegundos por ti!
+
+Ótimo e comum no gamedev (Game Loops) e redes.
+
+⚡ **Sintaxe**
+`func sleep(duration_ms: int) -> result<void, text>`
+
+📌 **Parâmetros**
+- `duration_ms`: Inteiro. Duração explícita obrigatoriamente medida em `ms`.
+
+💡 **Dica**
+Melhore a legibilidade visual acoplando um ajudante explícito da formatação: `sleep(time.seconds(5))` ao invés de `sleep(5000)`.
+---
+--- @target: since
+Faz uma continha Delta retroativa subtraindo o número Unix MS que você passou, revelando rapidamente "Quanto tempo se passou desse ponto antigo até a contagem DO EXATO SEGUNDO em que essa instrução foi processada".
+
+⚡ **Sintaxe**
+`func since(start_unix_ms: int) -> int`
+
+📌 **Parâmetros**
+- `start_unix_ms`: Relógio ancorado do passado distante (Ou milissegundos crus iterados).
+
+🎯 **Retorno**
+A diferença resultante e viva do percurso em ms.
+---
+--- @target: until
+O inverso cronológico do `@link since`. Recebe um momento futuro na fita e revela quantos milissegundos de delta estão faltando para a agulha atual do Presente chegar até ela, fazendo as faturas de `time.diff(time.now(), futuro)`.
+
+⚡ **Sintaxe**
+`func until(end_unix_ms: int) -> int`
+
+📌 **Parâmetros**
+- `end_unix_ms`: Ponteiro no futuro do Time Epoch do terminal.
+
+🎯 **Retorno**
+Os ms entre o seu dedo que executou essa linha e a estaca no futuro injetada.
+---
+--- @target: diff
+Encontra o vazio não preenchido entre 2 pontas literais no arame.
+
+⚡ **Sintaxe**
+`func diff(a_unix_ms: int, b_unix_ms: int) -> int`
+
+📌 **Parâmetros**
+- `a_unix_ms`: Posição menor.
+- `b_unix_ms`: Posição maior à frente.
+
+🎯 **Retorno**
+`b` esvaziando o `a`. O resultado positivo matemático.
+---
+--- @target: add
+Move a barra virtual e injeta uma extensão de ms retornando esse futuro literal cravado para salvar num DB temporário de "expiração" em Caching ou Session de Games.
+
+⚡ **Sintaxe**
+`func add(at_unix_ms: int, duration_ms: int) -> int`
+
+📌 **Parâmetros**
+- `at_unix_ms`: Anchor (Geralmente `now()`).
+- `duration_ms`: Tempo de voo positivo no relógio.
+---
+--- @target: sub
+Recua posições e destrói o tempo injetado para voltar ao passado numa fita virtual simulada.
+
+⚡ **Sintaxe**
+`func sub(at_unix_ms: int, duration_ms: int) -> int`
+
+📌 **Parâmetros**
+- `at_unix_ms`: O momento alvo.
+- `duration_ms`: Duração do castigo ou do recuo.
+---
+--- @target: seconds
+Açúcar Sintático visual para deixar a passagem explícita no Zenith. Ex: `sleep(time.seconds(5))` ao invés de decorar milésimos.
+
+⚡ **Sintaxe**
+`func seconds(n: int) -> int`
+
+🎯 **Retorno**
+Conversão cravada `n * 1000`. Veja @link hours e @link minutes.
+---
+--- @target: minutes
+Converte o Inteiro pra MS instantâneo (Matemática `n * 60000`).
+
+⚡ **Sintaxe**
+`func minutes(n: int) -> int`
+---
+--- @target: from_unix
+Garante coerência ao receber carimbos Web Unix normais (Não-MS) transformando pro modelo MS do Zenith base Kernel via mutação base-10 clássica (`ts * 1000`).
+
+⚡ **Sintaxe**
+`func from_unix(ts: int) -> int`
+---
+--- @target: to_unix
+Corta a precisão bruta do Zenith de MS em puro Unix Carimbo Tradicional (Corta os ultimos 3 digitos e resgata `unix_ms / 1000`).
+
+⚡ **Sintaxe**
+`func to_unix(unix_ms: int) -> int`
+---

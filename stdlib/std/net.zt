@@ -1,0 +1,94 @@
+namespace std.net
+
+import std.fs.path as path
+
+public enum Error
+    ConnectionRefused
+    HostUnreachable
+    Timeout
+    AddressInUse
+    AlreadyConnected
+    NotConnected
+    NetworkDown
+    Overflow
+    PeerReset
+    SystemLimit
+    Unknown
+end
+
+public struct Connection
+end
+
+extern c
+    func zt_net_connect(host: text, port: int, timeout_ms: int) -> result<net.Connection, core.Error>
+    func zt_net_read_some(connection: net.Connection, max: int, timeout_ms: int) -> result<optional<bytes>, core.Error>
+    func zt_net_write_all(connection: net.Connection, data: bytes, timeout_ms: int) -> result<void, core.Error>
+    func zt_net_close(connection: net.Connection) -> result<void, core.Error>
+    func zt_net_is_closed(connection: net.Connection) -> bool
+end
+
+func connect(
+    host: text,
+    port: int where it >= 1 and it <= 65535,
+    timeout_ms: int
+) -> result<net.Connection, core.Error>
+    return net.zt_net_connect(host, port, timeout_ms)
+end
+
+func read_some(
+    connection: net.Connection,
+    max: int where it > 0,
+    timeout_ms: int = -1
+) -> result<optional<bytes>, core.Error>
+    return net.zt_net_read_some(connection, max, timeout_ms)
+end
+
+func write_all(
+    connection: net.Connection,
+    data: bytes,
+    timeout_ms: int = -1
+) -> result<void, core.Error>
+    return net.zt_net_write_all(connection, data, timeout_ms)
+end
+
+func close(connection: net.Connection) -> result<void, core.Error>
+    return net.zt_net_close(connection)
+end
+
+func is_closed(connection: net.Connection) -> bool
+    return net.zt_net_is_closed(connection)
+end
+
+func kind(err: core.Error) -> net.Error
+    if path._text_eq(err.code, "net.ConnectionRefused")
+        return net.Error.ConnectionRefused
+    end
+    if path._text_eq(err.code, "net.HostUnreachable") or path._text_eq(err.code, "net.DnsFailed")
+        return net.Error.HostUnreachable
+    end
+    if path._text_eq(err.code, "net.Timeout")
+        return net.Error.Timeout
+    end
+    if path._text_eq(err.code, "net.AddressInUse")
+        return net.Error.AddressInUse
+    end
+    if path._text_eq(err.code, "net.AlreadyConnected")
+        return net.Error.AlreadyConnected
+    end
+    if path._text_eq(err.code, "net.NotConnected")
+        return net.Error.NotConnected
+    end
+    if path._text_eq(err.code, "net.NetworkDown")
+        return net.Error.NetworkDown
+    end
+    if path._text_eq(err.code, "net.Overflow")
+        return net.Error.Overflow
+    end
+    if path._text_eq(err.code, "net.PeerReset")
+        return net.Error.PeerReset
+    end
+    if path._text_eq(err.code, "net.SystemLimit")
+        return net.Error.SystemLimit
+    end
+    return net.Error.Unknown
+end

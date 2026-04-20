@@ -26,6 +26,7 @@ typedef enum zt_type_kind {
     ZT_TYPE_FLOAT32,
     ZT_TYPE_FLOAT64,
     ZT_TYPE_TEXT,
+    ZT_TYPE_CORE_ERROR,
     ZT_TYPE_BYTES,
     ZT_TYPE_VOID,
     ZT_TYPE_USER,
@@ -33,7 +34,13 @@ typedef enum zt_type_kind {
     ZT_TYPE_OPTIONAL,
     ZT_TYPE_RESULT,
     ZT_TYPE_LIST,
-    ZT_TYPE_MAP
+    ZT_TYPE_MAP,
+    ZT_TYPE_GRID2D,
+    ZT_TYPE_PQUEUE,
+    ZT_TYPE_CIRCBUF,
+    ZT_TYPE_BTREEMAP,
+    ZT_TYPE_BTREESET,
+    ZT_TYPE_GRID3D,
 } zt_type_kind;
 
 typedef struct zt_type zt_type;

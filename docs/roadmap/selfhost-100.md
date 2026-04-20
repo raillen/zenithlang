@@ -13,11 +13,11 @@ O ciclo anterior oficializou a linha self-hosted como face do produto. O objetiv
 
 Resultado final deste ciclo:
 
-- `ztc.lua` opera apenas no caminho oficial self-hosted e bloqueia `--legacy` na superficie normal;
+- `ztc.lua` opera apenas no caminho oficial self-hosted e bloqueia `--strict-selfhost` na superficie normal;
 - `zpm`, `zman` e `ztest` passam em modo estrito;
 - `tools/bootstrap.lua` promove a cadeia a partir de seed self-hosted;
-- `tools/selfhost_release.lua` e `tools/selfhost_legacy_audit.lua` fecham o gate institucional;
-- o legado ficou isolado em `tools/ztc_legacy.lua` e `tools/bootstrap_legacy_recovery.lua`.
+- `tools/selfhost_release.lua` e `tools/selfhost_release.lua` fecham o gate institucional;
+- o legado ficou isolado em `ztc.lua` e `tools/bootstrap.lua`.
 
 ## 1. Estado de Partida
 
@@ -26,7 +26,7 @@ Base herdada do ciclo anterior:
 | Area | Estado inicial | Evidencia historica |
 |---|---|---|
 | Front door oficial | `ztc.lua` usava engine self-hosted por padrao, mas ainda em modo dual | `lua ztc.lua --selfhost --version` |
-| Fallback oficial | existiam `--legacy` e fallback interno | `ztc.lua` |
+| Fallback oficial | existiam `--strict-selfhost` e fallback interno | `ztc.lua` |
 | Core canonico | `src/compiler/syntax.zt` e o compilador self-hosted canonico | RFC 002 |
 | Gate de release | existia e estava verde | `lua tools/selfhost_release.lua` |
 | ABI de host | pequena, congelada e documentada | `tools/selfhost_abi.lua`, `docs/specification/selfhost-abi.md` |
@@ -40,7 +40,7 @@ Este roadmap so estaria concluido quando todos os itens abaixo fossem verdade ao
 - o front door oficial executar `check`, `build`, `run`, `zpm`, `zman` e `ztest` sem fallback legado no caminho oficial;
 - `tools/selfhost_release.lua` falhar se qualquer etapa oficial usar pipeline legado;
 - o release oficial puder ser promovido a partir de artefato self-hosted anterior, sem depender do compilador legado como etapa normal de produto;
-- `--legacy` deixar de existir como superficie normal de usuario e, se ainda for mantido, ficar isolado como ferramenta de recuperacao/manutencao;
+- `--strict-selfhost` deixar de existir como superficie normal de usuario e, se ainda for mantido, ficar isolado como ferramenta de recuperacao/manutencao;
 - a documentacao principal parar de tratar a trilha legada como opcao operacional valida do produto atual.
 
 ## 3. O Que 100% Self-Hosted Nao Significa
@@ -128,8 +128,8 @@ Entregaveis:
 
 Entregue nesta fase:
 
-- `ztc.lua`, `tools/bootstrap.lua` e `tools/selfhost_release.lua` passaram a aceitar ou propagar `--audit-legacy <path>`;
-- `tools/selfhost_legacy_audit.lua` passou a gerar o inventario dinamico em `.selfhost-bootstrap/selfhost-legacy-audit.txt`;
+- `ztc.lua`, `tools/bootstrap.lua` e `tools/selfhost_release.lua` passaram a aceitar ou propagar `--strict-selfhost`;
+- `tools/selfhost_release.lua` passou a gerar o inventario dinamico em `.selfhost-bootstrap/selfhost-release-report.txt`;
 - RFC 003 registrou a classificacao entre superficie oficial com debito, manutencao operacional e recuperacao futura;
 - a ordem de ataque da Fase 2 ficou congelada em `zpm -> zman -> ztest`.
 
@@ -174,14 +174,14 @@ Entregaveis:
 
 Criterio de aceite:
 
-- release oficial nao depende mais de `--legacy`;
+- release oficial nao depende mais de `--strict-selfhost`;
 - usuario normal nao encontra mais o legado como opcao de fluxo principal.
 
 Entregue nesta fase:
 
 - `ztc.lua` nao faz mais downgrade para a trilha legada no caminho oficial;
-- `--legacy` foi removido da superficie normal e passou a falhar com orientacao de recuperacao;
-- o legado ficou isolado em `tools/ztc_legacy.lua`.
+- `--strict-selfhost` foi removido da superficie normal e passou a falhar com orientacao de recuperacao;
+- o legado ficou isolado em `ztc.lua`.
 
 ### Fase 4. Reestruturar o bootstrap para seed self-hosted
 
@@ -204,7 +204,7 @@ Entregue nesta fase:
 
 - `tools/bootstrap.lua` agora verifica e promove por `--strict-selfhost`;
 - a seed oficial de promocao e o artefato self-hosted promovido anteriormente;
-- a recuperacao extraordinaria ficou separada em `tools/bootstrap_legacy_recovery.lua`.
+- a recuperacao extraordinaria ficou separada em `tools/bootstrap.lua`.
 
 ### Fase 5. Declarar e selar o corte 100%
 
@@ -228,7 +228,7 @@ Entregue nesta fase:
 
 - docs principais atualizados para declarar o corte 100% self-hosted;
 - `tools/selfhost_abi.lua` e `docs/specification/selfhost-abi.md` foram alinhados ao corpus estrito;
-- `tools/selfhost_legacy_audit.lua` passou a falhar se qualquer superficie oficial ainda tocar o legado;
+- `tools/selfhost_release.lua` passou a falhar se qualquer superficie oficial ainda tocar o legado;
 - RFC 004 registrou o corte final entre superficie oficial e recuperacao.
 
 ## 7. Validacao Minima para Encerramento
@@ -243,7 +243,7 @@ O corte 100% self-hosted encerrou com pelo menos este recorte verde:
 - `lua ztc.lua --strict-selfhost zman help`
 - `lua ztc.lua --strict-selfhost ztest --help`
 - `lua tools/selfhost_release.lua`
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 - bootstrap/promocao sem executar pipeline legado no fluxo oficial
 - bateria principal de parser, semantic e codegen verde
 
@@ -251,7 +251,7 @@ Validacao executada no fechamento:
 
 - `lua tools/bootstrap.lua --promote --target ztc_selfhost.lua`
 - `lua tools/selfhost_release.lua`
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 - `lua ztc.lua --strict-selfhost zpm version`
 - `lua ztc.lua --strict-selfhost zman help`
 - `lua ztc.lua --strict-selfhost ztest --help`

@@ -296,6 +296,7 @@ int main(void) {
         { "tests/behavior/value_semantics_struct_managed", "tests\\behavior\\value_semantics_struct_managed\\build\\value-semantics-struct-managed.exe", "value_semantics_struct_managed", 131 },
         { "tests/behavior/value_semantics_arc_isolation", "tests\\behavior\\value_semantics_arc_isolation\\build\\value-semantics-arc-isolation.exe", "value_semantics_arc_isolation", 158 },
         { "tests/behavior/value_semantics_optional_result_managed", "tests\\behavior\\value_semantics_optional_result_managed\\build\\value-semantics-optional-result-managed.exe", "value_semantics_optional_result_managed", 0 },
+        { "tests/behavior/std_collections_managed_arc", "tests\\behavior\\std_collections_managed_arc\\build\\std-collections-managed-arc.exe", "std_collections_managed_arc", 12 },
         { "tests/behavior/optional_result_basic", "tests\\behavior\\optional_result_basic\\build\\optional-result-basic.exe", "optional_result_basic", 0 },
         { "tests/behavior/control_flow_for_list", "tests\\behavior\\control_flow_for_list\\build\\control-flow-for-list.exe", "control_flow_for_list", 13 },
         { "tests/behavior/control_flow_for_map", "tests\\behavior\\control_flow_for_map\\build\\control-flow-for-map.exe", "control_flow_for_map", 6 },
@@ -307,6 +308,7 @@ int main(void) {
         { "tests/behavior/std_bytes_utf8", "tests\\behavior\\std_bytes_utf8\\build\\std-bytes-utf8.exe", "std_bytes_utf8", 14 },
         { "tests/behavior/std_bytes_ops", "tests\\behavior\\std_bytes_ops\\build\\std-bytes-ops.exe", "std_bytes_ops", 7 },
         { "tests/behavior/multifile_import_alias", "tests\\behavior\\multifile_import_alias\\build\\multifile-import-alias.exe", "multifile_import_alias", 42 },
+        { "tests/behavior/public_const_module", "tests\\behavior\\public_const_module\\build\\public-const-module.exe", "public_const_module", 42 },
         { "tests/behavior/where_contracts_ok", "tests\\behavior\\where_contracts_ok\\build\\where-contracts-ok.exe", "where_contracts_ok", 40 }
     };
     const invalid_project invalid_projects[] = {

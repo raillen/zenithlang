@@ -1,11 +1,21 @@
+-- Biblioteca Padrão Zenith — Módulo Test
+-- Sinalização de falha e skip para o runner de testes.
 namespace std.test
 
-func fail(message: text) -> void
-    const _ignored: text = message
+func zt_test_fail(message: text) -> void
+    const _message: text = message
     return
 end
 
-func skip(reason: text = "") -> void
-    const _ignored: text = reason
+func zt_test_skip(reason: text) -> void
+    const _reason: text = reason
     return
+end
+
+func fail(message: text = "test failed") -> void
+    test.zt_test_fail(message)
+end
+
+func skip(reason: text = "") -> void
+    test.zt_test_skip(reason)
 end

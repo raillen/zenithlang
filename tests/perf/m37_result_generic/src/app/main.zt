@@ -1,0 +1,97 @@
+namespace app.main
+
+import std.io as io
+
+func managed_text(seed: int) -> result<text, core.Error>
+    if seed < 0
+        return error("m37.managed_text negative seed")
+    end
+
+    if (seed % 2) == 0
+        const even_label: text = "zenith"
+        return success(even_label)
+    end
+
+    const odd_label: text = "generic"
+    return success(odd_label)
+end
+
+func managed_flag(value: int) -> result<bool, core.Error>
+    if value < 0
+        return error("m37.managed_flag negative value")
+    end
+
+    return success(value > 0)
+end
+
+func managed_batch(iterations: int) -> result<int, core.Error>
+    var i: int = 0
+    var total: int = 0
+
+    while i < iterations
+        const label: text = managed_text(i)?
+        const ok: bool = managed_flag(len(label))?
+        if ok
+            total = total + len(label)
+        end
+        i = i + 1
+    end
+
+    return success(total)
+end
+
+func bool_guard(seed: int) -> result<void, bool>
+    if seed < 0
+        return error(false)
+    end
+
+    return success()
+end
+
+func bool_text(seed: int) -> result<text, bool>
+    bool_guard(seed)?
+
+    if (seed % 2) == 0
+        const even_label: text = "bool-even"
+        return success(even_label)
+    end
+
+    const odd_label: text = "bool-odd"
+    return success(odd_label)
+end
+
+func bool_batch(iterations: int) -> result<int, bool>
+    var i: int = 0
+    var total: int = 0
+
+    while i < iterations
+        const label: text = bool_text(i)?
+        total = total + len(label)
+        i = i + 1
+    end
+
+    return success(total)
+end
+
+func main() -> result<void, core.Error>
+    const managed_a: int = managed_batch(60000)?
+    const managed_b: int = managed_batch(60000)?
+
+    const bool_total: result<int, bool> = bool_batch(30000)
+    const bool_once: result<text, bool> = bool_text(1)
+    const bool_void: result<void, bool> = bool_guard(1)
+
+    if managed_a <= 0 or managed_b <= 0
+        return error("m37.managed batch should stay positive")
+    end
+
+    if managed_a == managed_b
+        io.print("")?
+    end
+
+    io.print("")?
+    io.print("")?
+
+    io.print_line("m37-result-generic-ok")?
+    return success()
+end

@@ -399,6 +399,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             break;
         case ZT_AST_CONST_DECL:
+            if (node->as.const_decl.is_module_level && node->as.const_decl.is_public) sb_append(sb, "public ");
             sb_append(sb, "const ");
             sb_append(sb, node->as.const_decl.name);
             if (node->as.const_decl.type_node) {

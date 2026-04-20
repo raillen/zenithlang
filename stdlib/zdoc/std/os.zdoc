@@ -1,0 +1,159 @@
+--- @target: current_dir
+Coleta a rota do Diretório Nativo Base na qual o programa Zenith foi acordado e inicializado. Tudo começa à partir daqui!
+
+⚡ **Sintaxe**
+`func current_dir() -> result<text, core.Error>`
+
+🎯 **Retorno**
+`result` de sucesso abrigando o texto da Rota (ex: `C:/Windows/System32`).
+---
+--- @target: change_dir
+Aplica uma Força de Trajeto que joga o contexto atual do processo nativo do Zenith para dentro de outra pasta (Muda o Working Directory virtual).
+
+Qualquer instrução de Load ou de File System no escopo relativo se baseará nisto à partir da confirmação do método.
+
+⚡ **Sintaxe**
+`func change_dir(path: text) -> result<void, core.Error>`
+
+📌 **Parâmetros**
+- `path`: O Endereço (Absoluto ou Relativo ao atual) para aterrisar.
+---
+--- @target: env
+Vasculha todo o espaço virtual de metadados invisíveis assinalados pela Máquina Host e rastreia o valor nominal de alguma chave guardada neles (Environment Variables).
+
+Excelente para interceptar _Tokens_ não comitáveis, chaves da AWS e segredos guardados na aba "Variáveis de Ambiente do Sistema".
+
+⚡ **Sintaxe**
+`func env(name: text) -> optional<text>`
+
+📌 **Parâmetros**
+- `name`: Nome da chave injetada no Sistema ou Terminal (Ex: `PATH` ou `APP_KEY`).
+
+🎯 **Retorno**
+Variável do paradigma `optional`, retornando `text` se a chave realmente abrigava valor ou `none` literal provando que essa consteladora não ativou a flag.
+---
+--- @target: pid
+Inutilitário tático para rastreio profundo do Process Identifier assinalado pro projeto atual dentro da régua Mestre do Kernel (Windows Task Manager, Linux `top`).
+
+⚡ **Sintaxe**
+`func pid() -> int`
+
+🎯 **Retorno**
+O número Inteiro estrito do identificador da Thread.
+---
+--- @target: platform
+Reporta a plataforma de Desktop em que o driver C está processando.
+
+⚡ **Sintaxe**
+`func platform() -> os.Platform`
+
+🎯 **Retorno**
+Enum `os.Platform` com valor `Windows`, `Linux`, `MacOS` ou `Unknown`.
+---
+--- @target: arch
+Verifica a versão do Bitwise e modelo natural de registradores de CPU da máquina em atividade de repouso atual.
+
+⚡ **Sintaxe**
+`func arch() -> os.Arch`
+
+🎯 **Retorno**
+Enum `os.Arch` com valor `X64`, `X86`, `Arm64` ou `Unknown`.
+---
+--- @target: platform_text
+Reporta a plataforma como texto bruto (sem enum).
+
+⚡ **Sintaxe**
+`func platform_text() -> text`
+
+🎯 **Retorno**
+`text` no formato do OS como `windows`, `linux`, `macos`.
+---
+--- @target: arch_text
+Reporta a arquitetura como texto bruto (sem enum).
+
+⚡ **Sintaxe**
+`func arch_text() -> text`
+
+🎯 **Retorno**
+`text` representando comumente chaves em `x86_64` ou `arm64`.
+---
+--- @target: is_platform
+Verifica se a plataforma atual é igual à fornecida.
+
+⚡ **Sintaxe**
+`func is_platform(p: os.Platform) -> bool`
+
+📌 **Parâmetros**
+- `p`: O valor de `os.Platform` para comparar.
+
+🎯 **Retorno**
+`true` se a plataforma atual for igual a `p`.
+---
+--- @target: is_arch
+Verifica se a arquitetura atual é igual à fornecida.
+
+⚡ **Sintaxe**
+`func is_arch(a: os.Arch) -> bool`
+
+📌 **Parâmetros**
+- `a`: O valor de `os.Arch` para comparar.
+
+🎯 **Retorno**
+`true` se a arquitetura atual for igual a `a`.
+---
+--- @target: is_windows
+Atalho de conveniência para detectar plataforma Windows.
+
+⚡ **Sintaxe**
+`func is_windows() -> bool`
+
+🎯 **Retorno**
+`true` se o programa está rodando em Windows.
+---
+--- @target: is_linux
+Atalho de conveniência para detectar plataforma Linux.
+
+⚡ **Sintaxe**
+`func is_linux() -> bool`
+
+🎯 **Retorno**
+`true` se o programa está rodando em Linux.
+---
+--- @target: is_macos
+Atalho de conveniência para detectar plataforma macOS.
+
+⚡ **Sintaxe**
+`func is_macos() -> bool`
+
+🎯 **Retorno**
+`true` se o programa está rodando em macOS.
+---
+--- @target: os.Error
+Enum de erros específicos do módulo OS.
+
+⚡ **Variantes**
+- `NotFound` — Recurso ou caminho não encontrado.
+- `PermissionDenied` — Permissão insuficiente.
+- `AlreadyExists` — Recurso já existe.
+- `NotADirectory` — Caminho não é diretório.
+- `IOError` — Erro genérico de I/O.
+- `Unknown` — Erro não categorizado.
+---
+--- @target: os.Platform
+Enum de plataformas suportadas.
+
+⚡ **Variantes**
+- `Windows` — Microsoft Windows.
+- `Linux` — Linux (qualquer distro).
+- `MacOS` — Apple macOS.
+- `Unknown` — Plataforma não identificada.
+---
+--- @target: os.Arch
+Enum de arquiteturas de CPU suportadas.
+
+⚡ **Variantes**
+- `X64` — x86_64 / AMD64.
+- `X86` — x86 / i386.
+- `Arm64` — AArch64 / ARM64.
+- `Unknown` — Arquitetura não identificada.
+---

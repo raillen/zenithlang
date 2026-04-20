@@ -1,22 +1,16 @@
--- Projeto de Exemplo Zenith
-project meu_projeto
-    version: 0.2.5
-    author:  "Rafael"
-end
+[project]
+name = "zenith-stdlib"
+version = "0.1.0"
+kind = "lib"
 
-build
-    main: tests/core/test_v02_refinement.zt
-    out:  dist/bundle.lua
-    
-    @optimize(true)
-    @target(lua_5_1)
-end
+[lib]
+root_namespace = "std"
 
-dependencies
-    std: official
-end
+[source]
+root = "stdlib"
 
-scripts
-    test:    "zt tests/core/test_v02_refinement.zt"
-    test-os: "zt tests/stdlib/test_os.zt --run"
-end
+[build]
+target = "native"
+
+[zdoc]
+root = "stdlib/zdoc"

@@ -3,20 +3,47 @@ namespace app.main
 import std.math as math
 
 func main() -> int
-    const abs_v: int = math.abs(-5)
-    const min_v: int = math.min(-2, 7)
-    const max_v: int = math.max(3, 9)
-    const clamp_v: int = math.clamp(15, min: 0, max: 10)
+    const discrete_ok: bool =
+        math.abs(-5) == 5 and
+        math.min(-2, 7) == -2 and
+        math.max(3, 9) == 9 and
+        math.clamp(15, min: 0, max: 10) == 10
 
-    const angle: float = math.deg_to_rad(180.0)
-    const pi_ok: bool = math.approx_equal(math.pi(), math.pi(), epsilon: 0.0001)
+    const constants_ok: bool =
+        math.approx_equal(math.PI, math.pi(), epsilon: 0.0000001) and
+        math.approx_equal(math.E, math.e(), epsilon: 0.0000001) and
+        math.approx_equal(math.TAU, math.tau(), epsilon: 0.0000001)
 
-    if pi_ok
-        return abs_v + min_v + max_v + clamp_v
-    end
+    const core_float_ok: bool =
+        math.approx_equal(math.pow(2.0, 3.0), 8.0, epsilon: 0.0001) and
+        math.approx_equal(math.sqrt(49.0), 7.0, epsilon: 0.0001) and
+        math.approx_equal(math.floor(3.9), 3.0, epsilon: 0.0001) and
+        math.approx_equal(math.ceil(3.1), 4.0, epsilon: 0.0001) and
+        math.approx_equal(math.round(2.5), 3.0, epsilon: 0.0001) and
+        math.approx_equal(math.round(-2.5), -3.0, epsilon: 0.0001) and
+        math.approx_equal(math.trunc(-2.9), -2.0, epsilon: 0.0001)
 
-    if angle > 0.0
-        return 1
+    const trig_ok: bool =
+        math.approx_equal(math.sin(math.deg_to_rad(90.0)), 1.0, epsilon: 0.0001) and
+        math.approx_equal(math.cos(math.deg_to_rad(180.0)), -1.0, epsilon: 0.0001) and
+        math.approx_equal(math.tan(math.deg_to_rad(45.0)), 1.0, epsilon: 0.001) and
+        math.approx_equal(math.rad_to_deg(math.deg_to_rad(60.0)), 60.0, epsilon: 0.0001)
+
+    const log_ok: bool =
+        math.approx_equal(math.log(81.0, base: 3.0), 4.0, epsilon: 0.0001) and
+        math.approx_equal(math.log10(1000.0), 3.0, epsilon: 0.0001) and
+        math.approx_equal(math.log2(1024.0), 10.0, epsilon: 0.0001) and
+        math.approx_equal(math.exp(1.0), math.E, epsilon: 0.0001)
+
+    const nan_v: float = math.sqrt(-1.0)
+    const inf_v: float = math.ln(0.0)
+    const special_ok: bool =
+        math.is_nan(nan_v) and
+        math.is_infinite(inf_v) and
+        math.is_finite(1.0)
+
+    if discrete_ok and constants_ok and core_float_ok and trig_ok and log_ok and special_ok
+        return 42
     end
 
     return 0

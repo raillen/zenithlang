@@ -1,12 +1,15 @@
+-- Biblioteca Padrão Zenith — Módulo JSON
+-- Parse e serialização JSON para map<text,text>.
+-- 🏗️ EXTERN C
 namespace std.json
 
 extern c
-    func zt_json_parse_map_text_text(input: text) -> result<map<text, text>, text>
+    func zt_json_parse_map_text_text(input: text) -> result<map<text, text>, core.Error>
     func zt_json_stringify_map_text_text(value: map<text, text>) -> text
     func zt_json_pretty_map_text_text(value: map<text, text>, indent: int) -> text
 end
 
-func parse(input: text) -> result<map<text, text>, text>
+func parse(input: text) -> result<map<text, text>, core.Error>
     return json.zt_json_parse_map_text_text(input)
 end
 

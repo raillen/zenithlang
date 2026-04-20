@@ -78,7 +78,7 @@ export function StatusBar() {
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4 opacity-60">
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="font-bold tracking-widest uppercase text-[9px]">Lua 5.4 Runtime</span>
+          <span className="font-bold tracking-widest uppercase text-[9px]">Zenith Runtime</span>
         </div>
       </div>
 

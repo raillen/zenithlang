@@ -1,13 +1,46 @@
+-- Biblioteca Padrão Zenith — Módulo OS.Process
+-- Execução de processos externos e códigos de saída.
+-- 🏗️ TIPOS
+-- 🏗️ EXTERN C
+-- 🚨 ERROS
 namespace std.os.process
 
-extern c
-    func zt_host_process_run(program: text, args: list<text>, cwd: optional<text>) -> result<int, text>
+public struct ExitStatus
+    code: int
 end
 
-func run(program: text, args: list<text>, cwd: optional<text>) -> result<int, text>
+public enum Error
+    NotFound
+    PermissionDenied
+    IOFailure
+    StillRunning
+    Unknown
+end
+
+extern c
+    func zt_host_process_run(program: text, args: list<text>, cwd: optional<text>) -> result<int, core.Error>
+end
+
+func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<int, core.Error>
     return process.zt_host_process_run(program, args, cwd)
 end
 
-func run_program(program: text) -> result<int, text>
-    return process.run(program, [], none)
+func run_program(program: text) -> result<int, core.Error>
+    return process.run(program)
+end
+
+func from_code(code: int) -> process.ExitStatus
+    return process.ExitStatus(code: code)
+end
+
+func exit_code(status: process.ExitStatus) -> int
+    return status.code
+end
+
+func is_success(status: process.ExitStatus) -> bool
+    return status.code == 0
+end
+
+func is_failure(status: process.ExitStatus) -> bool
+    return status.code != 0
 end

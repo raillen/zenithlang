@@ -73,11 +73,25 @@ typedef enum zt_diag_severity {
     ZT_DIAG_SEVERITY_HELP
 } zt_diag_severity;
 
+typedef enum zt_diag_effort {
+    ZT_DIAG_EFFORT_QUICK_FIX,
+    ZT_DIAG_EFFORT_MODERATE,
+    ZT_DIAG_EFFORT_REQUIRES_THINKING
+} zt_diag_effort;
+
+typedef enum zt_cog_profile {
+    ZT_COG_PROFILE_BALANCED,
+    ZT_COG_PROFILE_BEGINNER,
+    ZT_COG_PROFILE_FULL
+} zt_cog_profile;
+
 typedef struct zt_diag {
     zt_diag_code code;
     zt_diag_severity severity;
+    zt_diag_effort effort;
     zt_source_span span;
     char message[512];
+    char suggestion[256];
 } zt_diag;
 
 typedef struct zt_diag_list {
@@ -103,8 +117,24 @@ void zt_diag_list_add_severity(
     ...);
 void zt_diag_render_detailed(FILE *stream, const char *stage, const zt_diag *diag);
 void zt_diag_render_detailed_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics);
+void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag *diag);
+void zt_diag_render_action_first_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics, size_t max_errors);
 void zt_diag_render_ci(FILE *stream, const char *stage, const zt_diag *diag);
 void zt_diag_render_ci_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics);
+
+zt_diag_effort zt_diag_code_effort(zt_diag_code code);
+const char *zt_diag_effort_label(zt_diag_effort effort);
+const char *zt_diag_action_text(zt_diag_code code);
+size_t zt_cog_profile_error_limit(zt_cog_profile profile);
+
+void zt_diag_list_add_suggestion(
+    zt_diag_list *list,
+    zt_diag_code code,
+    zt_source_span span,
+    const char *suggestion,
+    const char *format, ...);
+
+int zt_name_suggest(const char *unknown, const char **candidates, size_t candidate_count, char *out, size_t out_capacity);
 
 #ifdef __cplusplus
 }

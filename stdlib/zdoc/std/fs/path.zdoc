@@ -1,0 +1,92 @@
+--- @target: std.fs.path
+Path manipulation utilities for constructing, parsing, and normalizing filesystem paths.
+---
+
+--- @target: join
+Joins two path segments with a forward slash separator.
+
+@param base The base path segment.
+@param child The child path segment to append.
+@return The joined path string.
+---
+
+--- @target: normalize
+Normalizes a path by resolving dot segments and standardizing separators.
+
+@param value The path to normalize.
+@return The normalized path string.
+---
+
+--- @target: is_absolute
+Checks whether a path is absolute (starts from root).
+
+@param value The path to check.
+@return True if the path is absolute.
+---
+
+--- @target: is_relative
+Checks whether a path is relative (does not start from root).
+
+@param value The path to check.
+@return True if the path is relative.
+---
+
+--- @target: absolute
+Converts a relative path to an absolute path relative to a given base directory.
+
+@param value The relative path.
+@param base The base directory to resolve against.
+@return The absolute path string.
+---
+
+--- @target: relative
+Computes the relative path from a base directory to a target path.
+
+@param value The target path.
+@param from The base directory.
+@return The relative path string.
+---
+
+--- @target: base
+Extracts the filename (last segment) from a path.
+
+@param value The full path.
+@return The filename part without directory.
+---
+
+--- @target: dir
+Extracts the directory part of a path (everything before the last slash).
+
+@param value The full path.
+@return The directory part.
+---
+
+--- @target: ext
+Extracts the file extension (the part after the last dot in the filename).
+
+@param value The path to extract extension from.
+@return The extension without the leading dot, or empty string if none.
+---
+
+--- @target: name_without_extension
+Extracts the filename without its extension.
+
+@param value The full path.
+@return The filename without the extension part.
+---
+
+--- @target: has_ext
+Checks whether a path has a specific file extension.
+
+@param value The path to check.
+@param expected_ext The extension to check for (with or without leading dot).
+@return True if the path has the expected extension.
+---
+
+--- @target: change_ext
+Replaces or removes the extension of a filename in a path.
+
+@param value The full path.
+@param new_ext The new extension to set (with or without leading dot). Empty string removes extension.
+@return The path with the extension changed.
+---

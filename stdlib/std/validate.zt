@@ -1,3 +1,7 @@
+-- Biblioteca Padrão Zenith — Módulo Validate
+-- Predicados de validação para inteiros e texto.
+-- 🔢 VALIDAÇÃO DE INTEIROS
+-- 📝 VALIDAÇÃO DE TEXTO
 namespace std.validate
 
 func between(value: int, min: int, max: int) -> bool
@@ -60,3 +64,19 @@ func no_whitespace(value: text) -> bool
 
     return true
 end
+
+func has_whitespace(value: text) -> bool
+    const space: text = " "
+    const tab: text = "\t"
+    const newline: text = "\n"
+    const carriage: text = "\r"
+
+    for ch in value
+        if ch == space or ch == tab or ch == newline or ch == carriage
+            return true
+        end
+    end
+
+    return false
+end
+

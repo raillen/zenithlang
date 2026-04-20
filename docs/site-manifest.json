@@ -1,7 +1,7 @@
 {
   "site": {
     "title": "Zenith",
-    "tagline": "Produto 100% self-hosted, trilha Lua ativa e evolucao documentada.",
+    "tagline": "Produto 100% self-hosted e evolucao documentada.",
     "version": "0.3.6 Self-Hosted"
   },
   "navigation": [
@@ -83,10 +83,10 @@
               "summary": "Linha self-hosted oficial; consulte current-core e selfhost-pos100."
             },
             {
-              "label": "Bootstrap Compiler (Lua)",
+              "label": "Bootstrap Compiler (Arquivo Arquivado)",
               "file": "compiler/bootstrap-lua.md",
               "state": "current",
-              "summary": "Implementacao de referencia da trilha Lua ativa, nao a face oficial do produto."
+              "summary": "Documento arquivado apenas para compatibilidade de links antigos."
             },
             {
               "label": "Alvos de Compilação",
@@ -232,7 +232,7 @@
               "label": "Transpilacao",
               "file": "specification/transpilation.md",
               "state": "current",
-              "summary": "Mapeamento para Lua e limites atuais."
+              "summary": "Mapeamento para o backend atual e limites da trilha oficial."
             }
           ]
         }

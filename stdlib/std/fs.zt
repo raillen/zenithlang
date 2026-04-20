@@ -1,16 +1,19 @@
+-- Biblioteca Padrão Zenith — Módulo FS
+-- Operações de sistema de arquivos: leitura, escrita, verificação.
+-- 🏗️ EXTERN C
 namespace std.fs
 
 extern c
-    func zt_host_read_file(path: text) -> result<text, text>
-    func zt_host_write_file(path: text, value: text) -> result<void, text>
+    func zt_host_read_file(path: text) -> result<text, core.Error>
+    func zt_host_write_file(path: text, value: text) -> result<void, core.Error>
     func zt_host_path_exists(path: text) -> bool
 end
 
-func read_text(path: text) -> result<text, text>
+func read_text(path: text) -> result<text, core.Error>
     return fs.zt_host_read_file(path)
 end
 
-func write_text(path: text, value: text) -> result<void, text>
+func write_text(path: text, value: text) -> result<void, core.Error>
     return fs.zt_host_write_file(path, value)
 end
 

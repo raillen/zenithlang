@@ -1,3 +1,6 @@
+-- Biblioteca Padrão Zenith — Módulo Random
+-- Geração de números pseudo-aleatórios com seed e intervalo.
+-- 🏗️ EXTERN C
 namespace std.random
 
 extern c

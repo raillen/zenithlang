@@ -133,6 +133,23 @@ static void test_public_func(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
+static void test_public_module_const(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src = "namespace app\npublic const PI: float = 3.14";
+    zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_ERRORS(r, "public_module_const");
+    ASSERT_EQ(r.root->as.file.declarations.count, 1, "1 decl");
+    zt_ast_node *decl = r.root->as.file.declarations.items[0];
+    ASSERT_EQ(decl->kind, ZT_AST_CONST_DECL, "const decl");
+    ASSERT_EQ(decl->as.const_decl.is_public, 1, "const is public");
+    ASSERT_EQ(decl->as.const_decl.is_module_level, 1, "const is module-level");
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 static void test_const_and_var(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -505,6 +522,31 @@ static void test_func_with_default_param(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
+
+static void test_param_and_named_arg_with_to_keyword(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src = "namespace app\nfunc emit(value: text, to: bool = false)\n    if to\n        return\n    end\n    return\nend\nfunc main()\n    emit(\"ok\", to: true)\nend";
+    zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_ERRORS(r, "param_named_arg_to_keyword");
+
+    zt_ast_node *emit_func = r.root->as.file.declarations.items[0];
+    ASSERT_EQ(emit_func->as.func_decl.params.count, 2, "emit has 2 params");
+    ASSERT_STR_EQ(emit_func->as.func_decl.params.items[1]->as.param.name, "to", "param name is to");
+
+    zt_ast_node *main_func = r.root->as.file.declarations.items[1];
+    zt_ast_node *stmt = main_func->as.func_decl.body->as.block.statements.items[0];
+    ASSERT_EQ(stmt->kind, ZT_AST_EXPR_STMT, "main statement is expr");
+    ASSERT_EQ(stmt->as.expr_stmt.expr->kind, ZT_AST_CALL_EXPR, "main expression is call");
+    ASSERT_EQ(stmt->as.expr_stmt.expr->as.call_expr.named_args.count, 1, "call has 1 named arg");
+    ASSERT_STR_EQ(stmt->as.expr_stmt.expr->as.call_expr.named_args.items[0].name, "to", "named arg label is to");
+
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 static void test_question_propagation(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -653,6 +695,23 @@ static void test_hex_bytes_literal_rejects_odd_digits(void) {    zt_arena test_a
     zt_arena_dispose(&test_arena);
 }
 
+static void test_attr_test_on_func(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src = "namespace app\nattr test\nfunc smoke()\n    return\nend";
+    zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_ERRORS(r, "attr_test_on_func");
+    ASSERT_EQ(r.root->as.file.declarations.count, 1, "1 decl");
+    zt_ast_node *func = r.root->as.file.declarations.items[0];
+    ASSERT_EQ(func->kind, ZT_AST_FUNC_DECL, "func decl");
+    ASSERT_EQ(func->as.func_decl.is_test, 1, "func marked as test");
+
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -663,6 +722,7 @@ int main(void) {
     test_simple_func();
     test_func_void();
     test_public_func();
+    test_public_module_const();
     test_const_and_var();
     test_if_else();
     test_while_loop();
@@ -685,6 +745,8 @@ int main(void) {
     test_else_if();
     test_void_type();
     test_func_with_default_param();
+    test_param_and_named_arg_with_to_keyword();
+    test_attr_test_on_func();
     test_question_propagation();
     test_qualified_type_name();
     test_inherent_apply();
@@ -699,4 +761,5 @@ int main(void) {
     printf("Parser tests: %d/%d passed\n", tests_passed, tests_run);
     return (tests_passed == tests_run) ? 0 : 1;
 }
+
 

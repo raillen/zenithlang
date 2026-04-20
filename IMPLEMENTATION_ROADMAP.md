@@ -1063,7 +1063,7 @@ Dependencias: M21-M31.
 
 ## M33. Implementacao das Stdlibs MVP
 
-Status: em andamento (baselines de std.io, std.fs, std.fs.path, std.math, std.validate, std.format, std.test, std.json, std.time, std.os e std.os.process fechados; modulos restantes pendentes).
+Status: concluido para o corte MVP atual (modulos MVP implementados, ZDoc fisico presente e hardening basico de ownership ARC em collections validado por behavior tests E2E).
 
 Objetivo: Fornecer os modulos da biblioteca padrao (alem da base de bytes/utf-8 iniciada em M19), fundamentados num backend e runtime estaveis. As decisoes de design destas APIs ja estao fechadas e documentadas em `language/decisions/`.
 
@@ -1092,10 +1092,12 @@ Escopo minimo:
 - progresso: `std.validate` recebeu baseline puro (predicados int/text) com behavior `std_validate_basic`.
 - progresso: `std.math` recebeu baseline inicial (operacoes escalares int + helpers angulares/`approx_equal`) com behavior `std_math_basic`; funcoes avancadas continuam pendentes.
 - progresso: `std.format` recebeu baseline inicial (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) com behavior `std_format_basic`; seletor tipado (`BytesStyle`) e familias `number/percent/date/datetime` seguem pendentes.
-- progresso: `std.test` recebeu baseline inicial (`fail`/`skip`), com `std_test_basic`; integracao real com harness e estados fail/skip do runner permanece pendente.
+- progresso: `std.test` agora possui harness real no fluxo atual de `zt test`, incluindo descoberta de `attr test`, runner temporario, estados de pass/skip/fail e cobertura em `std_test_basic`, `std_test_attr_pass_skip` e `std_test_attr_fail`.
 - progresso: `std.time` recebeu baseline inicial com wrappers de host runtime no target C (`now`, `sleep`, `since`, `until`, `diff`, `add`, `sub`, conversoes unix e helpers de duracao), com behavior `std_time_basic`; tipagem canonica `Instant`/`Duration` permanece pendente neste corte e esta representada temporariamente como `int` unix-ms.
 - progresso: `std.os` recebeu baseline inicial (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) via wrappers host runtime, com behavior `std_os_basic`; tipos canonicos (`os.Platform`, `os.Arch`, `os.Error`) seguem pendentes.
 - progresso: `std.os.process` recebeu baseline inicial com `run(program, args, cwd)` sem shell implicito e retorno de status em `int`, com behavior `std_os_process_basic`; tipos canonicos (`process.ExitStatus`, `process.Error`, `process.CapturedRun`) seguem pendentes.
+- progresso: `std.net` recebeu baseline inicial com TCP client blocking de timeout explicito em `int` ms (`connect`, `read_some`, `write_all`, `close`, `is_closed`) e classificacao `net.kind(core.Error)`, apoiado pelo runtime C ja existente; o fixture `std_net_basic` agora possui harness local de loopback (`run-loopback.ps1`) para validar o fluxo E2E no host atual.
+- progresso: `std.collections` agora possui behavior dedicado `std_collections_managed_arc`, cobrindo copy/mutate isolation em `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` via `zt verify`, `zt build` e `zt run`.
 
 Dependencias: M24 (ARC nao-atomico para buffers e resources) e M26 (Runtime where contracts para `std.validate`).
 

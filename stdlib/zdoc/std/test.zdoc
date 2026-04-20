@@ -1,0 +1,18 @@
+--- @target: std.test
+Helpers complementares para testes Zenith.
+`attr test` continua sendo a forma canonica de declarar testes, enquanto `std.test` fornece operacoes explicitas de falha e skip.
+---
+
+--- @target: fail
+Marca o teste atual como falho imediatamente.
+
+**Sintaxe**
+`func fail(message: text = "test failed") -> void`
+---
+
+--- @target: skip
+Marca o teste atual como ignorado imediatamente.
+
+**Sintaxe**
+`func skip(reason: text = "") -> void`
+---

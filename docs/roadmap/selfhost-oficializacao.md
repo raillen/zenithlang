@@ -16,7 +16,7 @@ A Trilha B e a consolidacao operacional do core canonico ja estavam fechadas. O 
 | Area | Estado final | Evidencia |
 |---|---|---|
 | Front door oficial | `ztc.lua` com engine self-hosted por padrao | `lua ztc.lua --selfhost --version` |
-| Fallback oficial | `--legacy` explicito para bootstrap e rede de seguranca | `lua ztc.lua --legacy --version` |
+| Fallback oficial | `--strict-selfhost` explicito para bootstrap e rede de seguranca | `lua ztc.lua --strict-selfhost --version` |
 | Core self-hosted canonico | `src/compiler/syntax.zt` | `lua ztc.lua --selfhost check src/compiler/syntax.zt` |
 | Bootstrap | deterministico com promocao controlada | `lua tools/bootstrap.lua` |
 | ABI de host | pequena, nomeada e congelada | `tools/selfhost_abi.lua`, `docs/specification/selfhost-abi.md` |
@@ -27,11 +27,11 @@ A Trilha B e a consolidacao operacional do core canonico ja estavam fechadas. O 
 
 Este ciclo foi encerrado porque todos os criterios de corte ficaram satisfeitos:
 
-- a documentacao principal parou de descrever a trilha Lua como face principal da linguagem;
+- a documentacao principal parou de descrever a trilha historica como face principal da linguagem;
 - existe caminho self-hosted oficial para `check`, `build` e `run`, com fallback legado explicito;
 - a fronteira host/runtime do compilador self-hosted ficou pequena, nomeada e versionavel;
 - a superficie self-hosted fora do core deixou de ficar em estado ambiguo;
-- a trilha Lua foi rebaixada para bootstrap/fallback controlado.
+- a trilha historica foi rebaixada para bootstrap/fallback controlado.
 
 ## 3. Quatro Frentes Encerradas
 
@@ -40,7 +40,7 @@ Este ciclo foi encerrado porque todos os criterios de corte ficaram satisfeitos:
 Resultado entregue:
 
 - `ztc.lua` passou a operar com engine self-hosted por padrao;
-- `--legacy` e `--strict-selfhost` viraram mecanismos explicitos de transicao;
+- `--strict-selfhost` e `--strict-selfhost` viraram mecanismos explicitos de transicao;
 - `check`, `build` e `run` funcionam pela frente self-hosted no corpus de promocao;
 - a documentacao principal foi reescrita para apresentar a trilha self-hosted como face oficial do produto.
 
@@ -90,7 +90,7 @@ Status: concluida em 2026-04-15.
 Entregue:
 
 - `ztc.lua` passou a priorizar o compilador self-hosted;
-- `--legacy` e `--strict-selfhost` ficaram disponiveis como trilhas explicitas;
+- `--strict-selfhost` e `--strict-selfhost` ficaram disponiveis como trilhas explicitas;
 - `tools/bootstrap.lua` foi ajustado para usar a trilha legada apenas onde isso faz parte do bootstrap, nao como face do produto;
 - docs principais passaram a chegar no self-hosted antes do legado.
 
@@ -115,7 +115,7 @@ Entregue:
 - verificacao de consistencia entre `extern`, runtime host e manifesto;
 - bootstrap deterministico incorporado ao gate de release.
 
-### Fase 5. Oficializar release e rebaixar a trilha Lua
+### Fase 5. Oficializar release e rebaixar a trilha historica
 
 Status: concluida em 2026-04-15.
 
@@ -131,7 +131,7 @@ Entregue:
 Recorte verde usado para encerrar este roadmap:
 
 - `lua ztc.lua --selfhost --version`
-- `lua ztc.lua --legacy --version`
+- `lua ztc.lua --strict-selfhost --version`
 - `lua ztc.lua --selfhost check src/compiler/syntax.zt`
 - `lua ztc.lua --selfhost build demo.zt .selfhost-release-demo.lua`
 - `lua ztc.lua --selfhost run tests/stdlib/test_optional.zt`
@@ -157,7 +157,7 @@ Este fechamento nao afirma:
 O que ele afirma e mais preciso:
 
 - a linha self-hosted virou a face oficial do produto;
-- a trilha Lua ficou preservada como bootstrap/fallback;
+- a trilha historica ficou preservada como bootstrap/fallback;
 - o core canonico, a ABI e o gate de release estao fechados no recorte seguro.
 
 ## 7. Fechamento

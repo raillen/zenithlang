@@ -1,0 +1,31 @@
+--- @target: connect
+Abre uma conexao TCP cliente com timeout explicito em milissegundos e devolve `result<net.Connection, core.Error>`.
+
+`func connect(host: text, port: int, timeout_ms: int) -> result<net.Connection, core.Error>`
+---
+--- @target: read_some
+Le ate `max` bytes da conexao. Se o peer fechar sem payload, devolve `none`.
+
+`func read_some(connection: net.Connection, max: int, timeout_ms: int = -1) -> result<optional<bytes>, core.Error>`
+---
+--- @target: write_all
+Escreve todos os bytes fornecidos na conexao usando o timeout informado ou o timeout padrao da conexao.
+
+`func write_all(connection: net.Connection, data: bytes, timeout_ms: int = -1) -> result<void, core.Error>`
+---
+--- @target: close
+Fecha a conexao de forma idempotente.
+
+`func close(connection: net.Connection) -> result<void, core.Error>`
+---
+--- @target: is_closed
+Informa se a conexao ja foi fechada localmente.
+
+`func is_closed(connection: net.Connection) -> bool`
+---
+--- @target: kind
+Classifica um `core.Error` vindo de `std.net` para a enum `net.Error`.
+Codigos sem mapeamento explicito voltam como `net.Error.Unknown`.
+
+`func kind(err: core.Error) -> net.Error`
+---

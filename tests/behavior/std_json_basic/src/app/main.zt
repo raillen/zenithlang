@@ -2,7 +2,7 @@ namespace app.main
 
 import std.json as json
 
-func main() -> result<void, text>
+func main() -> result<void, core.Error>
     const source: text = "{\"name\":\"Zenith\",\"mode\":\"debug\",\"version\":\"2\"}"
     const parsed: map<text, text> = json.parse(source)?
     const ok: text = "ok"

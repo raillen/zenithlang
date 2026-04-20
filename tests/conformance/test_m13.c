@@ -198,6 +198,12 @@ int main(void) {
         0,
         "value_semantics_optional_result_managed");
 
+    test_behavior_project(
+        "tests/behavior/std_collections_managed_arc",
+        "tests\\behavior\\std_collections_managed_arc\\build\\std-collections-managed-arc.exe",
+        12,
+        "std_collections_managed_arc");
+
     printf("M13 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }

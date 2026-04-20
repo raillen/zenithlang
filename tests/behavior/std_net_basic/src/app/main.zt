@@ -1,0 +1,28 @@
+namespace app.main
+
+import std.net as net
+
+func probe_loopback(port: int) -> result<void, core.Error>
+    var connection: net.Connection = net.connect("127.0.0.1", port, 1000)?
+
+    if net.is_closed(connection)
+        return error("std.net connection should start open")
+    end
+
+    net.write_all(connection, hex bytes "41 42 43")?
+
+    const _received: optional<bytes> = net.read_some(connection, 16)?
+
+    net.close(connection)?
+
+    if net.is_closed(connection) == false
+        return error("std.net close should mark the connection as closed")
+    end
+
+    return success()
+end
+
+func main() -> result<void, core.Error>
+    probe_loopback(41234)?
+    return success()
+end

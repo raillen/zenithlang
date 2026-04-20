@@ -12,9 +12,8 @@ Este e o ponto de entrada principal da documentacao tecnica do Zenith.
 ## 2. Compilador e Runtime
 
 - [Ascension Compiler](compiler/ascension-zenith.md): estado atual da linha self-hosted oficial
-- [Bootstrap Compiler (Lua)](compiler/bootstrap-lua.md): papel atual da trilha Lua ativa
 - [Self-Hosted Host ABI](specification/selfhost-abi.md): fronteira minima entre compilador e host
-- [Politica de Artefatos Self-Hosted](specification/selfhost-artifacts.md): destino correto de bootstrap, release, auditoria e temporarios
+- [Politica de Artefatos Self-Hosted](specification/selfhost-artifacts.md): destino correto de bootstrap, release e temporarios
 
 ## 3. Guia de Aprendizado
 
@@ -27,7 +26,7 @@ Este e o ponto de entrada principal da documentacao tecnica do Zenith.
 - [Gramatica e Sintaxe](specification/grammar.md): regras formais implementadas hoje
 - [Sistema de Tipos](specification/types.md): genericos, Optional, Outcome, nulabilidade e validate
 - [Semantica e Escopo](specification/semantics.md): resolucao de nomes, UFCS e indexacao segura
-- [Regras de Transpilacao](specification/transpilation.md): mapeamento de Zenith para Lua
+- [Regras de Transpilacao](specification/transpilation.md): mapeamento da linguagem para o backend atual
 - [Sistema de Projeto](specification/project-system.md): modulos, pacotes e organizacao
 - [RFC 001 - Self, Atributos e Validate](specification/decisions/001-self-attrs-validate.md): decisao implementada para @, #[...] e validate
 - [Catalogo de Erros](support/error-catalog.md): diagnosticos de compilacao, warnings e runtime

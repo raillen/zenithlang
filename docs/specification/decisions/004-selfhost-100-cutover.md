@@ -15,10 +15,10 @@ O ciclo de oficializacao anterior promoveu a linha self-hosted como face do prod
 O corte 100% self-hosted passa a ser:
 
 - `ztc.lua` opera apenas no caminho oficial self-hosted;
-- `--legacy` sai da superficie normal de usuario e passa a falhar no front door oficial;
-- a trilha legada fica isolada em `tools/ztc_legacy.lua` exclusivamente para recuperacao/manutencao;
+- `--strict-selfhost` sai da superficie normal de usuario e passa a falhar no front door oficial;
+- a trilha legada fica isolada em `ztc.lua` exclusivamente para recuperacao/manutencao;
 - o bootstrap oficial passa a usar seed self-hosted promovida anteriormente;
-- a recuperacao extraordinaria de seed fica separada em `tools/bootstrap_legacy_recovery.lua`;
+- a recuperacao extraordinaria de seed fica separada em `tools/bootstrap.lua`;
 - o gate institucional falha se qualquer superficie oficial ainda tocar o legado.
 
 ## Consequencias
@@ -39,7 +39,7 @@ O corte 100% self-hosted passa a ser:
 
 - `lua tools/bootstrap.lua --promote --target ztc_selfhost.lua`
 - `lua tools/selfhost_release.lua`
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 - `lua ztc.lua --strict-selfhost zpm version`
 - `lua ztc.lua --strict-selfhost zman help`
 - `lua ztc.lua --strict-selfhost ztest --help`

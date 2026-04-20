@@ -228,10 +228,10 @@ static void test_error_invalid_top_level(void) {    zt_arena test_arena;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
 
-    const char *src = "namespace app\nconst x: int = 10\nfunc foo()\nend";
+    const char *src = "namespace app\nvar x: int = 10\nfunc foo()\nend";
     zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    /* const at top level is invalid in Zenith */
-    ASSERT_GT((int)r.diagnostics.count, 0, "error on invalid top-level const");
+    /* var at top level is invalid in Zenith */
+    ASSERT_GT((int)r.diagnostics.count, 0, "error on invalid top-level var");
     zt_parser_result_dispose(&r);
     zt_arena_dispose(&test_arena);
 }

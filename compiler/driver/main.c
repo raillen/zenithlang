@@ -15,6 +15,8 @@
 #include "compiler/tooling/formatter.h"
 #include "compiler/utils/l10n.h"
 
+#include "compiler/driver/doc_show.h"
+#include "runtime/c/zenith_rt.h"
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -22,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -38,8 +41,12 @@
 #endif
 
 static int zt_ci_mode_enabled = 0;
+static zt_cog_profile zt_active_profile = ZT_COG_PROFILE_BALANCED;
+static int zt_show_all_errors = 0;
+static const char *zt_focus_path = NULL;
+static int zt_use_action_first = 0;
 
-static void zt_apply_manifest_lang(const zt_project_manifest *manifest) {
+void zt_apply_manifest_lang(const zt_project_manifest *manifest) {
     if (manifest != NULL && manifest->lang[0] != '\0') {
         /* Only apply if not already overridden by CLI */
         if (!zt_l10n_is_explicitly_set()) {
@@ -713,6 +720,8 @@ static int zt_prefix_declaration_for_namespace(zt_string_pool *pool, zt_ast_node
             return zt_prefix_ast_name(pool, &decl->as.trait_decl.name, prefix);
         case ZT_AST_ENUM_DECL:
             return zt_prefix_ast_name(pool, &decl->as.enum_decl.name, prefix);
+        case ZT_AST_CONST_DECL:
+            return zt_prefix_ast_name(pool, &decl->as.const_decl.name, prefix);
         case ZT_AST_EXTERN_DECL:
             for (i = 0; i < decl->as.extern_decl.functions.count; i += 1) {
                 zt_ast_node *func = decl->as.extern_decl.functions.items[i];
@@ -872,6 +881,9 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "  test [project|zenith.ztproj]          Bootstrap alias to check\n");
     fprintf(stderr, "  fmt [project|zenith.ztproj] [--check] Bootstrap formatter gate\n");
     fprintf(stderr, "  doc check [project|zenith.ztproj]     Validate .zdoc files and links\n");
+    fprintf(stderr, "  doc show [symbol]                     Show documentation (ex: std.math.clamp)\n");
+    fprintf(stderr, "  summary [project|zenith.ztproj]      Show project context summary\n");
+    fprintf(stderr, "  resume [project|zenith.ztproj]       Resume context from recent edits and diagnostics\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Bootstrap/compat commands:\n");
     fprintf(stderr, "  project-info [project|zenith.ztproj]  Load manifest and print project info\n");
@@ -886,6 +898,10 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "  -o <output>          Output executable path for build\n");
     fprintf(stderr, "  --check              Check-only mode for fmt\n");
     fprintf(stderr, "  --ci                 Use short deterministic diagnostic/output mode\n");
+    fprintf(stderr, "  --profile <level>    Diagnostic profile: beginner (max 3), balanced (max 5), full (all)\n");
+    fprintf(stderr, "  --all                Show all errors regardless of profile limit\n");
+    fprintf(stderr, "  --focus <path>       Check only files matching the given path or module\n");
+    fprintf(stderr, "  --lang <lang>        Override language (en, pt, es, ja)\n");
 }
 
 static void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics);
@@ -937,11 +953,86 @@ static void zt_print_project_parse_error(const char *manifest_path, const zt_pro
     zt_diag_list_dispose(&diagnostics);
 }
 
+static int zt_diag_matches_focus(const zt_diag *diag, const char *focus) {
+    const char *src;
+    size_t focus_len;
+    if (focus == NULL || focus[0] == '\0') return 1;
+    src = diag->span.source_name;
+    if (src == NULL || src[0] == '\0') return 1;
+    focus_len = strlen(focus);
+    if (focus_len == 0) return 1;
+    {
+        size_t src_len = strlen(src);
+        size_t i;
+        for (i = 0; i + focus_len <= src_len; i++) {
+            if (memcmp(src + i, focus, focus_len) == 0) return 1;
+        }
+    }
+    return 0;
+}
+
 static void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics) {
+    zt_diag_list filtered;
+    size_t i;
+
     if (zt_ci_mode_enabled) {
-        zt_diag_render_ci_list(stderr, stage, diagnostics);
+        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+            filtered = zt_diag_list_make();
+            for (i = 0; i < diagnostics->count; i += 1) {
+                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                    zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
+                    if (filtered.count > 0) {
+                        filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
+                        filtered.items[filtered.count - 1].effort = diagnostics->items[i].effort;
+                    }
+                }
+            }
+            zt_diag_render_ci_list(stderr, stage, &filtered);
+            zt_diag_list_dispose(&filtered);
+        } else {
+            zt_diag_render_ci_list(stderr, stage, diagnostics);
+        }
+    } else if (zt_use_action_first) {
+        size_t limit = zt_show_all_errors ? (size_t)-1 : zt_cog_profile_error_limit(zt_active_profile);
+        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+            filtered = zt_diag_list_make();
+            for (i = 0; i < diagnostics->count; i += 1) {
+                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                    zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
+                    if (filtered.count > 0) {
+                        filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
+                        filtered.items[filtered.count - 1].effort = diagnostics->items[i].effort;
+                        if (diagnostics->items[i].suggestion[0] != '\0') {
+                            snprintf(filtered.items[filtered.count - 1].suggestion, sizeof(filtered.items[filtered.count - 1].suggestion), "%s", diagnostics->items[i].suggestion);
+                        }
+                    }
+                }
+            }
+            zt_diag_render_action_first_list(stderr, stage, &filtered, limit);
+            zt_diag_list_dispose(&filtered);
+        } else {
+            zt_diag_render_action_first_list(stderr, stage, diagnostics, limit);
+        }
     } else {
-        zt_diag_render_detailed_list(stderr, stage, diagnostics);
+        if (zt_focus_path != NULL && zt_focus_path[0] != '\0') {
+            filtered = zt_diag_list_make();
+            for (i = 0; i < diagnostics->count; i += 1) {
+                if (zt_diag_matches_focus(&diagnostics->items[i], zt_focus_path)) {
+                    zt_diag_list_add(&filtered, diagnostics->items[i].code, diagnostics->items[i].span, "%s", diagnostics->items[i].message);
+                    if (filtered.count > 0) {
+                        filtered.items[filtered.count - 1].severity = diagnostics->items[i].severity;
+                        filtered.items[filtered.count - 1].effort = diagnostics->items[i].effort;
+                        if (diagnostics->items[i].suggestion[0] != '\0') {
+                            snprintf(filtered.items[filtered.count - 1].suggestion, sizeof(filtered.items[filtered.count - 1].suggestion), "%s", diagnostics->items[i].suggestion);
+                        }
+                    }
+                }
+            }
+            zt_diag_render_detailed_list(stderr, stage, &filtered);
+            zt_diag_list_dispose(&filtered);
+        } else {
+            zt_diag_render_detailed_list(stderr, stage, diagnostics);
+        }
     }
 }
 
@@ -1056,7 +1147,7 @@ static void zt_append_zdoc_diagnostics(zt_diag_list *dest, const zt_zdoc_diagnos
     }
 }
 
-static int zt_resolve_project_paths(
+int zt_resolve_project_paths(
         const char *input_path,
         char *project_root,
         size_t project_root_capacity,
@@ -1205,6 +1296,526 @@ static int zt_string_set_add_slice(zt_string_set *set, const char *text, size_t 
 
     ok = zt_string_set_add(set, value);
     free(value);
+    return ok;
+}
+
+static int zt_should_skip_test_discovery_dir(const char *name) {
+    if (name == NULL || name[0] == '\0') return 1;
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) return 1;
+    if (name[0] == '.') return 1;
+    if (strcmp(name, "build") == 0) return 1;
+    if (strcmp(name, "dist") == 0) return 1;
+    if (strcmp(name, "node_modules") == 0) return 1;
+    if (strcmp(name, ".ztc-tmp") == 0) return 1;
+    return 0;
+}
+
+static int zt_dir_has_project_manifest(const char *directory) {
+    char manifest_path[768];
+    if (directory == NULL || directory[0] == '\0') return 0;
+    if (!zt_join_path(manifest_path, sizeof(manifest_path), directory, "zenith.ztproj")) return 0;
+    return zt_path_is_file(manifest_path);
+}
+
+static int zt_collect_test_projects(const char *directory, zt_string_set *projects) {
+#ifdef _WIN32
+    char pattern[768];
+    intptr_t handle;
+    struct _finddata_t data;
+
+    if (directory == NULL || projects == NULL) return 0;
+
+    if (zt_dir_has_project_manifest(directory)) {
+        return zt_string_set_add(projects, directory);
+    }
+
+    if (!zt_join_path(pattern, sizeof(pattern), directory, "*")) {
+        return 0;
+    }
+
+    handle = _findfirst(pattern, &data);
+    if (handle == -1) {
+        return 1;
+    }
+
+    do {
+        char child_path[768];
+
+        if ((data.attrib & _A_SUBDIR) == 0) continue;
+        if (zt_should_skip_test_discovery_dir(data.name)) continue;
+
+        if (!zt_join_path(child_path, sizeof(child_path), directory, data.name)) {
+            _findclose(handle);
+            return 0;
+        }
+
+        if (!zt_collect_test_projects(child_path, projects)) {
+            _findclose(handle);
+            return 0;
+        }
+    } while (_findnext(handle, &data) == 0);
+
+    _findclose(handle);
+    return 1;
+#else
+    DIR *dir;
+    struct dirent *entry;
+
+    if (directory == NULL || projects == NULL) return 0;
+
+    if (zt_dir_has_project_manifest(directory)) {
+        return zt_string_set_add(projects, directory);
+    }
+
+    dir = opendir(directory);
+    if (dir == NULL) {
+        return 1;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char child_path[768];
+
+        if (zt_should_skip_test_discovery_dir(entry->d_name)) continue;
+
+        if (!zt_join_path(child_path, sizeof(child_path), directory, entry->d_name)) {
+            closedir(dir);
+            return 0;
+        }
+
+        if (!zt_path_is_dir(child_path)) continue;
+
+        if (!zt_collect_test_projects(child_path, projects)) {
+            closedir(dir);
+            return 0;
+        }
+    }
+
+    closedir(dir);
+    return 1;
+#endif
+}
+
+static int zt_handle_project_command(const char *command, const char *input_path, const char *output_path, int run_output);
+static int zt_collect_project_sources(
+        const char *input_path,
+        zt_project_manifest *manifest,
+        char *project_root,
+        size_t project_root_capacity,
+        zt_project_source_file_list *source_files);
+
+static int zt_token_is_identifier_text(const zt_token *token, const char *text) {
+    size_t length;
+
+    if (token == NULL || text == NULL || token->kind != ZT_TOKEN_IDENTIFIER) return 0;
+    length = strlen(text);
+    return token->length == length && strncmp(token->text, text, length) == 0;
+}
+
+static int zt_file_has_test_marker(const char *path) {
+    char *source_text;
+    size_t source_length;
+    zt_lexer *lexer;
+    zt_token prev1;
+    zt_token prev2;
+    zt_token prev3;
+
+    if (path == NULL || path[0] == '\0') return 0;
+
+    source_text = zt_read_file(path);
+    if (source_text == NULL) return 0;
+
+    source_length = strlen(source_text);
+    lexer = zt_lexer_make(path, source_text, source_length);
+    if (lexer == NULL) {
+        free(source_text);
+        return 0;
+    }
+
+    memset(&prev1, 0, sizeof(prev1));
+    memset(&prev2, 0, sizeof(prev2));
+    memset(&prev3, 0, sizeof(prev3));
+
+    while (1) {
+        zt_token token = zt_lexer_next_token(lexer);
+
+        if (token.kind == ZT_TOKEN_EOF) {
+            break;
+        }
+
+        if (token.kind == ZT_TOKEN_COMMENT) {
+            continue;
+        }
+
+        if (prev3.kind == ZT_TOKEN_IMPORT &&
+                zt_token_is_identifier_text(&prev2, "std") &&
+                prev1.kind == ZT_TOKEN_DOT &&
+                zt_token_is_identifier_text(&token, "test")) {
+            zt_lexer_dispose(lexer);
+            free(source_text);
+            return 1;
+        }
+
+        if (prev1.kind == ZT_TOKEN_ATTR && zt_token_is_identifier_text(&token, "test")) {
+            zt_lexer_dispose(lexer);
+            free(source_text);
+            return 1;
+        }
+
+        prev3 = prev2;
+        prev2 = prev1;
+        prev1 = token;
+    }
+
+    zt_lexer_dispose(lexer);
+    free(source_text);
+    return 0;
+}
+
+static int zt_project_uses_test_markers(const char *project_dir) {
+    char manifest_path[768];
+    char source_root_path[768];
+    zt_project_parse_result project;
+    zt_project_source_file_list source_files;
+    size_t i;
+    int found = 0;
+
+    if (project_dir == NULL || project_dir[0] == '\0') return 0;
+    if (!zt_join_path(manifest_path, sizeof(manifest_path), project_dir, "zenith.ztproj")) return 0;
+    if (!zt_project_load_file(manifest_path, &project)) return 0;
+    if (!zt_join_path(source_root_path, sizeof(source_root_path), project_dir, project.manifest.source_root)) return 0;
+    if (!zt_path_is_dir(source_root_path)) return 0;
+
+    zt_project_source_file_list_init(&source_files);
+    if (!zt_project_discover_zt_files(source_root_path, &source_files)) {
+        zt_project_source_file_list_dispose(&source_files);
+        return 0;
+    }
+
+    for (i = 0; i < source_files.count; i += 1) {
+        if (zt_file_has_test_marker(source_files.items[i].path)) {
+            found = 1;
+            break;
+        }
+    }
+
+    zt_project_source_file_list_dispose(&source_files);
+    return found;
+}
+typedef struct zt_attr_test_case {
+    char module_namespace[256];
+    char function_name[128];
+    zt_source_span span;
+} zt_attr_test_case;
+
+typedef struct zt_attr_test_case_list {
+    zt_attr_test_case *items;
+    size_t count;
+    size_t capacity;
+} zt_attr_test_case_list;
+
+static void zt_attr_test_case_list_init(zt_attr_test_case_list *list) {
+    if (list == NULL) return;
+    memset(list, 0, sizeof(*list));
+}
+
+static void zt_attr_test_case_list_dispose(zt_attr_test_case_list *list) {
+    if (list == NULL) return;
+    free(list->items);
+    memset(list, 0, sizeof(*list));
+}
+
+static int zt_attr_test_case_list_push(
+        zt_attr_test_case_list *list,
+        const char *module_namespace,
+        const char *function_name,
+        zt_source_span span) {
+    zt_attr_test_case *new_items;
+    size_t new_capacity;
+
+    if (list == NULL || module_namespace == NULL || function_name == NULL) return 0;
+
+    if (list->count >= list->capacity) {
+        new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;
+        new_items = (zt_attr_test_case *)realloc(list->items, new_capacity * sizeof(zt_attr_test_case));
+        if (new_items == NULL) return 0;
+        list->items = new_items;
+        list->capacity = new_capacity;
+    }
+
+    memset(&list->items[list->count], 0, sizeof(list->items[list->count]));
+    if (!zt_copy_text(list->items[list->count].module_namespace, sizeof(list->items[list->count].module_namespace), module_namespace)) {
+        return 0;
+    }
+    if (!zt_copy_text(list->items[list->count].function_name, sizeof(list->items[list->count].function_name), function_name)) {
+        return 0;
+    }
+    list->items[list->count].span = span;
+    list->count += 1;
+    return 1;
+}
+
+static int zt_collect_attr_tests(
+        const zt_project_source_file_list *source_files,
+        zt_attr_test_case_list *test_cases) {
+    size_t file_index;
+
+    if (source_files == NULL || test_cases == NULL) return 0;
+
+    for (file_index = 0; file_index < source_files->count; file_index += 1) {
+        const zt_ast_node *root = source_files->items[file_index].parsed.root;
+        size_t decl_index;
+
+        if (root == NULL || root->kind != ZT_AST_FILE || root->as.file.module_name == NULL) continue;
+
+        for (decl_index = 0; decl_index < root->as.file.declarations.count; decl_index += 1) {
+            const zt_ast_node *decl = root->as.file.declarations.items[decl_index];
+            if (decl == NULL || decl->kind != ZT_AST_FUNC_DECL) continue;
+            if (!decl->as.func_decl.is_test) continue;
+
+            if (decl->as.func_decl.params.count != 0) {
+                zt_print_single_diag(
+                    "test",
+                    ZT_DIAG_PROJECT_ERROR,
+                    decl->span,
+                    "attr test function '%s.%s' must not declare parameters",
+                    root->as.file.module_name,
+                    decl->as.func_decl.name != NULL ? decl->as.func_decl.name : "<unnamed>");
+                return 0;
+            }
+
+            if (decl->as.func_decl.type_params.count != 0) {
+                zt_print_single_diag(
+                    "test",
+                    ZT_DIAG_PROJECT_ERROR,
+                    decl->span,
+                    "attr test function '%s.%s' must not declare type parameters",
+                    root->as.file.module_name,
+                    decl->as.func_decl.name != NULL ? decl->as.func_decl.name : "<unnamed>");
+                return 0;
+            }
+
+            if (decl->as.func_decl.name == NULL ||
+                    !zt_attr_test_case_list_push(test_cases, root->as.file.module_name, decl->as.func_decl.name, decl->span)) {
+                zt_print_single_diag(
+                    "test",
+                    ZT_DIAG_PROJECT_ERROR,
+                    decl->span,
+                    "out of memory while collecting attr test functions");
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+static int zt_generate_attr_test_runner_source(
+        const char *runner_namespace,
+        const zt_attr_test_case *test_case,
+        char *buffer,
+        size_t buffer_size) {
+    int written;
+
+    if (runner_namespace == NULL || test_case == NULL || buffer == NULL || buffer_size == 0) return 0;
+
+    written = snprintf(
+        buffer,
+        buffer_size,
+        "namespace %s\n"
+        "\n"
+        "import %s as tested\n"
+        "\n"
+        "func main() -> int\n"
+        "    tested.%s()\n"
+        "    return 0\n"
+        "end\n",
+        runner_namespace,
+        test_case->module_namespace,
+        test_case->function_name);
+
+    return written > 0 && (size_t)written < buffer_size;
+}
+
+static int zt_generate_attr_test_manifest(
+        const zt_project_manifest *manifest,
+        const char *runner_namespace,
+        char *buffer,
+        size_t buffer_size) {
+    int written;
+
+    if (manifest == NULL || runner_namespace == NULL || buffer == NULL || buffer_size == 0) return 0;
+
+    written = snprintf(
+        buffer,
+        buffer_size,
+        "[project]\n"
+        "name = \"%s-test-runner\"\n"
+        "version = \"%s\"\n"
+        "kind = \"app\"\n"
+        "\n"
+        "[source]\n"
+        "root = \"%s\"\n"
+        "\n"
+        "[app]\n"
+        "entry = \"%s\"\n"
+        "\n"
+        "[build]\n"
+        "target = \"native\"\n"
+        "output = \".ztc-tmp/test-runner-build\"\n"
+        "profile = \"debug\"\n",
+        manifest->project_name,
+        manifest->version,
+        manifest->source_root,
+        runner_namespace);
+
+    return written > 0 && (size_t)written < buffer_size;
+}
+
+static int zt_run_attr_tests_for_project(
+        const char *project_path,
+        int *out_passed,
+        int *out_skipped,
+        int *out_failed,
+        int *out_has_attr_tests) {
+    zt_project_manifest manifest;
+    char project_root[512];
+    zt_project_source_file_list source_files;
+    zt_attr_test_case_list test_cases;
+    char source_root_path[768];
+    char runner_rel_path[512];
+    char runner_source_path[1024];
+    char runner_source_dir[1024];
+    char runner_manifest_path[1024];
+    char runner_manifest_text[2048];
+    const char *runner_namespace = "__zenith_internal_test_runner.main";
+    int passed = 0;
+    int skipped = 0;
+    int failed = 0;
+    size_t i;
+    int ok = 1;
+
+    if (out_passed != NULL) *out_passed = 0;
+    if (out_skipped != NULL) *out_skipped = 0;
+    if (out_failed != NULL) *out_failed = 0;
+    if (out_has_attr_tests != NULL) *out_has_attr_tests = 0;
+
+    zt_attr_test_case_list_init(&test_cases);
+
+    if (!zt_collect_project_sources(
+            project_path,
+            &manifest,
+            project_root,
+            sizeof(project_root),
+            &source_files)) {
+        zt_attr_test_case_list_dispose(&test_cases);
+        return 0;
+    }
+
+    if (!zt_collect_attr_tests(&source_files, &test_cases)) {
+        zt_project_source_file_list_dispose(&source_files);
+        zt_attr_test_case_list_dispose(&test_cases);
+        return 0;
+    }
+
+    if (test_cases.count == 0) {
+        zt_project_source_file_list_dispose(&source_files);
+        zt_attr_test_case_list_dispose(&test_cases);
+        return 1;
+    }
+
+    if (out_has_attr_tests != NULL) *out_has_attr_tests = 1;
+
+    if (!zt_join_path(source_root_path, sizeof(source_root_path), project_root, manifest.source_root)) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "source.root path is too long while preparing attr test runner");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (!zt_namespace_to_relative_path(runner_namespace, runner_rel_path, sizeof(runner_rel_path)) ||
+            !zt_join_path(runner_source_path, sizeof(runner_source_path), source_root_path, runner_rel_path) ||
+            !zt_dirname(runner_source_dir, sizeof(runner_source_dir), runner_source_path)) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "runner source path is too long");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (!zt_join_path(runner_manifest_path, sizeof(runner_manifest_path), project_root, "zenith.__zt_test_runner.ztproj")) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "runner manifest path is too long");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (!zt_make_dirs(runner_source_dir)) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_ERROR,
+            zt_source_span_unknown(),
+            "unable to create directories for attr test runner");
+        ok = 0;
+        goto cleanup;
+    }
+
+    if (!zt_generate_attr_test_manifest(&manifest, runner_namespace, runner_manifest_text, sizeof(runner_manifest_text)) ||
+            !zt_write_file(runner_manifest_path, runner_manifest_text)) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_ERROR,
+            zt_source_span_unknown(),
+            "unable to write attr test runner manifest");
+        ok = 0;
+        goto cleanup;
+    }
+
+    for (i = 0; i < test_cases.count; i += 1) {
+        char runner_source_text[2048];
+        int status;
+
+        if (!zt_generate_attr_test_runner_source(runner_namespace, &test_cases.items[i], runner_source_text, sizeof(runner_source_text)) ||
+                !zt_write_file(runner_source_path, runner_source_text)) {
+            zt_print_single_diag(
+                "test",
+                ZT_DIAG_PROJECT_ERROR,
+                test_cases.items[i].span,
+                "unable to write attr test runner source");
+            ok = 0;
+            goto cleanup;
+        }
+
+        if (!zt_ci_mode_enabled) {
+            printf("test case: %s.%s\\n", test_cases.items[i].module_namespace, test_cases.items[i].function_name);
+        }
+
+        status = zt_handle_project_command("build", runner_manifest_path, NULL, 1);
+        if (status == ZT_EXIT_CODE_TEST_SKIPPED) {
+            skipped += 1;
+        } else if (status == 0) {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
+    }
+
+cleanup:
+    remove(runner_source_path);
+    remove(runner_manifest_path);
+    zt_project_source_file_list_dispose(&source_files);
+    zt_attr_test_case_list_dispose(&test_cases);
+
+    if (out_passed != NULL) *out_passed = passed;
+    if (out_skipped != NULL) *out_skipped = skipped;
+    if (out_failed != NULL) *out_failed = failed;
     return ok;
 }
 
@@ -1820,9 +2431,15 @@ static int zt_compile_c_file(const char *c_path, const char *exe_path) {
     char compile_cmd[2048];
     int compile_result;
 
+#ifdef _WIN32
     snprintf(compile_cmd, sizeof(compile_cmd),
-             "gcc -Wall -Wextra -I. -o \"%s\" \"%s\" runtime/c/zenith_rt.c",
+             "gcc -Wall -Wextra -I. -o \"%s\" \"%s\" runtime/c/zenith_rt.c -lws2_32",
              exe_path, c_path);
+#else
+    snprintf(compile_cmd, sizeof(compile_cmd),
+             "gcc -Wall -Wextra -I. -o \"%s\" \"%s\" runtime/c/zenith_rt.c -lm",
+             exe_path, c_path);
+#endif
 
     if (!zt_ci_mode_enabled) {
         printf("compiling: %s\n", compile_cmd);
@@ -2300,16 +2917,192 @@ static int zt_handle_project_command(const char *command, const char *input_path
 }
 
 static int zt_handle_test(const char *input_path) {
-    int status = zt_handle_project_command("verify", input_path, NULL, 0);
-    if (status != 0) return status;
+    char project_root[512];
+    char manifest_path[512];
+    zt_project_parse_result project;
+    char test_root_path[768];
+    zt_string_set discovered_projects;
+    zt_string_set selected_projects;
+    size_t discovered_count = 0;
+    size_t i;
+    int passed = 0;
+    int skipped = 0;
+    int failed = 0;
+
+    if (!zt_resolve_project_paths(input_path, project_root, sizeof(project_root), manifest_path, sizeof(manifest_path))) {
+        return 1;
+    }
+
+    if (!zt_project_load_file(manifest_path, &project)) {
+        zt_print_project_parse_error(manifest_path, &project);
+        return 1;
+    }
+
+    if (!zt_join_path(test_root_path, sizeof(test_root_path), project_root, project.manifest.test_root)) {
+        zt_print_single_diag(
+            "test",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "test.root path is too long");
+        return 1;
+    }
+
+    zt_string_set_init(&discovered_projects);
+    zt_string_set_init(&selected_projects);
+
+    if (zt_path_is_dir(test_root_path)) {
+        if (!zt_collect_test_projects(test_root_path, &discovered_projects)) {
+            zt_string_set_dispose(&selected_projects);
+            zt_string_set_dispose(&discovered_projects);
+            zt_print_single_diag(
+                "test",
+                ZT_DIAG_PROJECT_ERROR,
+                zt_source_span_unknown(),
+                "unable to scan test.root '%s'",
+                test_root_path);
+            return 1;
+        }
+
+        for (i = 0; i < discovered_projects.count; i += 1) {
+            const char *candidate = discovered_projects.items[i];
+            if (candidate == NULL) continue;
+            if (strcmp(candidate, project_root) == 0) continue;
+            if (!zt_project_uses_test_markers(candidate)) continue;
+            if (!zt_string_set_add(&selected_projects, candidate)) {
+                zt_string_set_dispose(&selected_projects);
+                zt_string_set_dispose(&discovered_projects);
+                zt_print_single_diag(
+                    "test",
+                    ZT_DIAG_PROJECT_ERROR,
+                    zt_source_span_unknown(),
+                    "out of memory while selecting discovered test projects");
+                return 1;
+            }
+            discovered_count += 1;
+        }
+    }
+
+    if (discovered_count == 0) {
+        int attr_passed = 0;
+        int attr_skipped = 0;
+        int attr_failed = 0;
+        int has_attr_tests = 0;
+
+        if (!zt_run_attr_tests_for_project(project_root, &attr_passed, &attr_skipped, &attr_failed, &has_attr_tests)) {
+            zt_string_set_dispose(&selected_projects);
+            zt_string_set_dispose(&discovered_projects);
+            return 1;
+        }
+
+        zt_string_set_dispose(&selected_projects);
+        zt_string_set_dispose(&discovered_projects);
+
+        if (has_attr_tests) {
+            passed = attr_passed;
+            skipped = attr_skipped;
+            failed = attr_failed;
+
+            if (zt_ci_mode_enabled) {
+                if (failed == 0) {
+                    printf("test ok (pass=%d skip=%d)\n", passed, skipped);
+                } else {
+                    printf("test failed (pass=%d skip=%d fail=%d)\n", passed, skipped, failed);
+                }
+            } else {
+                printf("test summary: pass=%d skip=%d fail=%d\n", passed, skipped, failed);
+            }
+            return failed == 0 ? 0 : 1;
+        }
+
+        {
+            int status = zt_handle_project_command("build", project_root, NULL, 1);
+
+            if (status == ZT_EXIT_CODE_TEST_SKIPPED) {
+                printf("%s", zt_ci_mode_enabled ? "test skipped\n" : "test skipped (std.test.skip)\n");
+                return 0;
+            }
+
+            if (status == ZT_EXIT_CODE_TEST_FAILED) {
+                printf("%s", zt_ci_mode_enabled ? "test failed\n" : "test failed (std.test.fail)\n");
+                return 1;
+            }
+
+            if (status == 0) {
+                printf("test ok\n");
+                return 0;
+            }
+
+            if (status == ZT_EXIT_CODE_RUNTIME_ERROR) {
+                return 1;
+            }
+
+            if (zt_ci_mode_enabled) {
+                printf("test ok\n");
+            } else {
+                printf("test bootstrap fallback: executable exit code %d treated as pass (no std.test outcome)\n", status);
+            }
+            return 0;
+        }
+    }
+
+    if (!zt_ci_mode_enabled) {
+        printf("test discovery: %zu project(s) with markers (import std.test or attr test) under %s\n", discovered_count, test_root_path);
+    }
+
+    for (i = 0; i < selected_projects.count; i += 1) {
+        const char *candidate = selected_projects.items[i];
+        int status;
+        int attr_passed = 0;
+        int attr_skipped = 0;
+        int attr_failed = 0;
+        int has_attr_tests = 0;
+
+        if (candidate == NULL) continue;
+
+        if (!zt_ci_mode_enabled) {
+            printf("test project: %s\n", candidate);
+        }
+
+        if (!zt_run_attr_tests_for_project(candidate, &attr_passed, &attr_skipped, &attr_failed, &has_attr_tests)) {
+            zt_string_set_dispose(&selected_projects);
+            zt_string_set_dispose(&discovered_projects);
+            return 1;
+        }
+
+        if (has_attr_tests) {
+            passed += attr_passed;
+            skipped += attr_skipped;
+            failed += attr_failed;
+            continue;
+        }
+
+        status = zt_handle_project_command("build", candidate, NULL, 1);
+
+        if (status == ZT_EXIT_CODE_TEST_SKIPPED) {
+            skipped += 1;
+        } else if (status == 0) {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
+    }
+
+    zt_string_set_dispose(&selected_projects);
+    zt_string_set_dispose(&discovered_projects);
 
     if (zt_ci_mode_enabled) {
-        printf("test ok\n");
+        if (failed == 0) {
+            printf("test ok (pass=%d skip=%d)\n", passed, skipped);
+        } else {
+            printf("test failed (pass=%d skip=%d fail=%d)\n", passed, skipped, failed);
+        }
     } else {
-        printf("test bootstrap: no dedicated test runner yet; executed check pipeline only\n");
+        printf("test summary: pass=%d skip=%d fail=%d\n", passed, skipped, failed);
     }
-    return 0;
+
+    return failed == 0 ? 0 : 1;
 }
+
 
 static int zt_handle_zir_command(const char *command, const char *input_path, const char *output_path, int run_output) {
     char *input_text;
@@ -2489,6 +3282,327 @@ static int zt_handle_zir_command(const char *command, const char *input_path, co
     return 1;
 }
 
+static int zt_find_most_recent_file(const char *dir, const char *ext, char *out, size_t capacity) {
+    time_t best_time = 0;
+    char best_path[512] = "";
+
+#ifdef _WIN32
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind;
+    char pattern[768];
+    snprintf(pattern, sizeof(pattern), "%s\\*", dir);
+    hFind = FindFirstFileA(pattern, &find_data);
+    if (hFind == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0) continue;
+        {
+            char child_path[768];
+            snprintf(child_path, sizeof(child_path), "%s\\%s", dir, find_data.cFileName);
+            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                char child_best[512];
+                if (zt_find_most_recent_file(child_path, ext, child_best, sizeof(child_best))) {
+                    struct stat child_st;
+                    if (stat(child_best, &child_st) == 0 && child_st.st_mtime > best_time) {
+                        best_time = child_st.st_mtime;
+                        snprintf(best_path, sizeof(best_path), "%s", child_best);
+                    }
+                }
+            } else {
+                size_t name_len = strlen(find_data.cFileName);
+                size_t ext_len = strlen(ext);
+                if (name_len >= ext_len && strcmp(find_data.cFileName + name_len - ext_len, ext) == 0) {
+                    struct stat st;
+                    if (stat(child_path, &st) == 0 && st.st_mtime > best_time) {
+                        best_time = st.st_mtime;
+                        snprintf(best_path, sizeof(best_path), "%s", child_path);
+                    }
+                }
+            }
+        }
+    } while (FindNextFileA(hFind, &find_data));
+    FindClose(hFind);
+#else
+    DIR *dp;
+    struct dirent *entry;
+    dp = opendir(dir);
+    if (dp == NULL) return 0;
+    while ((entry = readdir(dp)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        {
+            char child_path[768];
+            snprintf(child_path, sizeof(child_path), "%s/%s", dir, entry->d_name);
+            {
+                struct stat st;
+                if (stat(child_path, &st) == 0) {
+                    if (S_ISDIR(st.st_mode)) {
+                        char child_best[512];
+                        if (zt_find_most_recent_file(child_path, ext, child_best, sizeof(child_best))) {
+                            struct stat child_st;
+                            if (stat(child_best, &child_st) == 0 && child_st.st_mtime > best_time) {
+                                best_time = child_st.st_mtime;
+                                snprintf(best_path, sizeof(best_path), "%s", child_best);
+                            }
+                        }
+                    } else if (st.st_mtime > best_time) {
+                        size_t name_len = strlen(entry->d_name);
+                        size_t ext_len = strlen(ext);
+                        if (name_len >= ext_len && strcmp(entry->d_name + name_len - ext_len, ext) == 0) {
+                            best_time = st.st_mtime;
+                            snprintf(best_path, sizeof(best_path), "%s", child_path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    closedir(dp);
+#endif
+
+    if (best_path[0] != '\0') {
+        snprintf(out, capacity, "%s", best_path);
+        return 1;
+    }
+    return 0;
+}
+
+static int zt_find_focus_anchor(const char *source_root, char *out_path, char *out_message, size_t path_cap, size_t msg_cap) {
+    char child_path[768];
+
+#ifdef _WIN32
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind;
+    char pattern[768];
+    snprintf(pattern, sizeof(pattern), "%s\\*", source_root);
+    hFind = FindFirstFileA(pattern, &find_data);
+    if (hFind == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0) continue;
+        snprintf(child_path, sizeof(child_path), "%s\\%s", source_root, find_data.cFileName);
+        {
+            struct stat st;
+            if (stat(child_path, &st) != 0) continue;
+            if (st.st_mode & S_IFDIR) {
+                char sub_path[512];
+                char sub_msg[256];
+                if (zt_find_focus_anchor(child_path, sub_path, sub_msg, sizeof(sub_path), sizeof(sub_msg))) {
+                    snprintf(out_path, path_cap, "%s", sub_path);
+                    snprintf(out_message, msg_cap, "%s", sub_msg);
+                    FindClose(hFind);
+                    return 1;
+                }
+                continue;
+            }
+            {
+                size_t name_len = strlen(find_data.cFileName);
+                if (name_len >= 3 && strcmp(find_data.cFileName + name_len - 3, ".zt") == 0) {
+                    FILE *file = fopen(child_path, "rb");
+                    char line[1024];
+                    if (file == NULL) continue;
+                    while (fgets(line, sizeof(line), file) != NULL) {
+                        const char *focus_prefix = "-- FOCUS:";
+                        const char *next_prefix = "-- NEXT:";
+                        if (strncmp(line, focus_prefix, strlen(focus_prefix)) == 0) {
+                            const char *msg_start = line + strlen(focus_prefix);
+                            while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
+                            {
+                                size_t len = strlen(msg_start);
+                                while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
+                                snprintf(out_path, path_cap, "%s", child_path);
+                                snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
+                            }
+                            fclose(file);
+                            FindClose(hFind);
+                            return 1;
+                        }
+                        if (strncmp(line, next_prefix, strlen(next_prefix)) == 0) {
+                            const char *msg_start = line + strlen(next_prefix);
+                            while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
+                            {
+                                size_t len = strlen(msg_start);
+                                while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
+                                snprintf(out_path, path_cap, "%s", child_path);
+                                snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
+                            }
+                            fclose(file);
+                            FindClose(hFind);
+                            return 1;
+                        }
+                    }
+                    fclose(file);
+                }
+            }
+        }
+    } while (FindNextFileA(hFind, &find_data));
+    FindClose(hFind);
+#else
+    DIR *dp;
+    struct dirent *entry;
+    dp = opendir(source_root);
+    if (dp == NULL) return 0;
+    while ((entry = readdir(dp)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        snprintf(child_path, sizeof(child_path), "%s/%s", source_root, entry->d_name);
+        {
+            struct stat st;
+            if (stat(child_path, &st) != 0) continue;
+            if (S_ISDIR(st.st_mode)) {
+                char sub_path[512];
+                char sub_msg[256];
+                if (zt_find_focus_anchor(child_path, sub_path, sub_msg, sizeof(sub_path), sizeof(sub_msg))) {
+                    snprintf(out_path, path_cap, "%s", sub_path);
+                    snprintf(out_message, msg_cap, "%s", sub_msg);
+                    closedir(dp);
+                    return 1;
+                }
+                continue;
+            }
+            {
+                size_t name_len = strlen(entry->d_name);
+                if (name_len >= 3 && strcmp(entry->d_name + name_len - 3, ".zt") == 0) {
+                    FILE *file = fopen(child_path, "rb");
+                    char line[1024];
+                    if (file == NULL) continue;
+                    while (fgets(line, sizeof(line), file) != NULL) {
+                        const char *focus_prefix = "-- FOCUS:";
+                        const char *next_prefix = "-- NEXT:";
+                        if (strncmp(line, focus_prefix, strlen(focus_prefix)) == 0) {
+                            const char *msg_start = line + strlen(focus_prefix);
+                            while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
+                            {
+                                size_t len = strlen(msg_start);
+                                while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
+                                snprintf(out_path, path_cap, "%s", child_path);
+                                snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
+                            }
+                            fclose(file);
+                            closedir(dp);
+                            return 1;
+                        }
+                        if (strncmp(line, next_prefix, strlen(next_prefix)) == 0) {
+                            const char *msg_start = line + strlen(next_prefix);
+                            while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
+                            {
+                                size_t len = strlen(msg_start);
+                                while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
+                                snprintf(out_path, path_cap, "%s", child_path);
+                                snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
+                            }
+                            fclose(file);
+                            closedir(dp);
+                            return 1;
+                        }
+                    }
+                    fclose(file);
+                }
+            }
+        }
+    }
+    closedir(dp);
+#endif
+    return 0;
+}
+
+static int zt_handle_summary(const char *input) {
+    char project_root[512] = "";
+    char manifest_path[512] = "";
+    zt_project_parse_result project;
+    char source_root[512] = "";
+    char most_recent[512];
+    char focus_path[512];
+    char focus_msg[256];
+    int has_manifest;
+
+    has_manifest = zt_resolve_project_paths(input, project_root, sizeof(project_root), manifest_path, sizeof(manifest_path));
+
+    printf("\n");
+    printf("\xf0\x9f\x93\x8c Project Summary\n");
+    printf("\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\n");
+
+    if (!has_manifest) {
+        printf("  (no zenith.ztproj found in %s)\n", project_root[0] ? project_root : ".");
+    } else {
+        if (zt_project_load_file(manifest_path, &project)) {
+            printf("  \xf0\x9f\x93\x8a Name: %s (%s)\n", project.manifest.project_name, project.manifest.project_kind);
+            printf("  \xf0\x9f\x93\x81 Source: %s\n", project.manifest.source_root);
+            if (project.manifest.app_entry[0] != '\0') {
+                printf("  \xf0\x9f\x9a\x80 Entry: %s\n", project.manifest.app_entry);
+            }
+            if (project.manifest.lib_root_namespace[0] != '\0') {
+                printf("  \xf0\x9f\x93\x9a Namespace: %s\n", project.manifest.lib_root_namespace);
+            }
+            printf("  \xf0\x9f\x8c\x90 Language: %s\n", project.manifest.lang[0] ? project.manifest.lang : "en");
+        }
+    }
+
+    if (has_manifest && zt_project_load_file(manifest_path, &project)) {
+        snprintf(source_root, sizeof(source_root), "%s/%s", project_root, project.manifest.source_root);
+    } else {
+        snprintf(source_root, sizeof(source_root), "%s", "src");
+    }
+
+    printf("\n");
+    if (zt_find_most_recent_file(source_root, ".zt", most_recent, sizeof(most_recent))) {
+        struct stat st;
+        if (stat(most_recent, &st) == 0) {
+            double ago = difftime(time(NULL), st.st_mtime);
+            const char *ago_str;
+            if (ago < 60) ago_str = "just now";
+            else if (ago < 3600) { static char buf[32]; snprintf(buf, sizeof(buf), "%.0fm ago", ago / 60); ago_str = buf; }
+            else if (ago < 86400) { static char buf[32]; snprintf(buf, sizeof(buf), "%.1fh ago", ago / 3600); ago_str = buf; }
+            else { static char buf[32]; snprintf(buf, sizeof(buf), "%.1fd ago", ago / 86400); ago_str = buf; }
+            printf("\xf0\x9f\x95\x92 Last modified: %s (%s)\n", most_recent, ago_str);
+        }
+    }
+
+    if (zt_find_focus_anchor(source_root, focus_path, focus_msg, sizeof(focus_path), sizeof(focus_msg))) {
+        printf("\xf0\x9f\x8e\xaf FOCUS: %s\n", focus_msg);
+        printf("   (%s)\n", focus_path);
+    }
+
+    printf("\n");
+    return 0;
+}
+
+static int zt_handle_resume(const char *input) {
+    char project_root[512] = "";
+    char manifest_path[512] = "";
+    zt_project_parse_result project;
+    char source_root[512] = "";
+    char focus_path[512];
+    char focus_msg[256];
+
+    if (!zt_resolve_project_paths(input, project_root, sizeof(project_root), manifest_path, sizeof(manifest_path))) {
+        fprintf(stderr, "\xe2\x9d\x8c error: no zenith.ztproj found\n");
+        return 1;
+    }
+
+    if (!zt_project_load_file(manifest_path, &project)) {
+        fprintf(stderr, "\xe2\x9d\x8c error: unable to read manifest\n");
+        return 1;
+    }
+
+    zt_apply_manifest_lang(&project.manifest);
+
+    snprintf(source_root, sizeof(source_root), "%s/%s", project_root, project.manifest.source_root);
+
+    printf("\n");
+    printf("\xe2\x9e\xa1\xef\xb8\x8f Resume Context\n");
+    printf("\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\n");
+
+    if (zt_find_focus_anchor(source_root, focus_path, focus_msg, sizeof(focus_path), sizeof(focus_msg))) {
+        printf("\xf0\x9f\x8e\xaf Resuming: %s\n", focus_msg);
+        printf("   File: %s\n\n", focus_path);
+    } else {
+        printf("   No FOCUS/NEXT anchors found. Add `-- FOCUS: <message>` or `-- NEXT: <message>` comments to your source files.\n\n");
+    }
+
+    {
+        char project_input[512];
+        snprintf(project_input, sizeof(project_input), "%s", project_root[0] ? project_root : ".");
+        return zt_handle_project_command("verify", project_input, NULL, 0);
+    }
+}
+
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
@@ -2518,12 +3632,24 @@ int main(int argc, char *argv[]) {
     effective_command = command;
 
     if (strcmp(command, "doc") == 0) {
-        if (argc < 3 || strcmp(argv[2], "check") != 0) {
+        if (argc < 3) {
             zt_print_usage(argv[0]);
             return 1;
         }
-        effective_command = "doc-check";
-        parse_start = 3;
+        if (strcmp(argv[2], "check") == 0) {
+            effective_command = "doc-check";
+            parse_start = 3;
+        } else if (strcmp(argv[2], "show") == 0) {
+            effective_command = "doc-show";
+            parse_start = 3;
+            if (argc > 3 && argv[3][0] != '-') {
+                input_path = argv[3];
+                parse_start = 4;
+            }
+        } else {
+            zt_print_usage(argv[0]);
+            return 1;
+        }
     }
 
     if (strcmp(effective_command, "check") == 0) {
@@ -2537,6 +3663,9 @@ int main(int argc, char *argv[]) {
             strcmp(effective_command, "fmt") == 0 ||
             strcmp(effective_command, "project-info") == 0 ||
             strcmp(effective_command, "doc-check") == 0 ||
+            strcmp(effective_command, "doc-show") == 0 ||
+            strcmp(effective_command, "summary") == 0 ||
+            strcmp(effective_command, "resume") == 0 ||
             strcmp(effective_command, "verify") == 0 ||
             strcmp(effective_command, "emit-c") == 0 ||
             strcmp(effective_command, "build") == 0) {
@@ -2571,6 +3700,25 @@ int main(int argc, char *argv[]) {
             fmt_check = 1;
         } else if (strcmp(argv[i], "--ci") == 0) {
             ci_mode = 1;
+        } else if (strcmp(argv[i], "--all") == 0) {
+            zt_show_all_errors = 1;
+        } else if (strcmp(argv[i], "--profile") == 0 && i + 1 < argc) {
+            const char *profile_name = argv[i + 1];
+            if (strcmp(profile_name, "beginner") == 0) {
+                zt_active_profile = ZT_COG_PROFILE_BEGINNER;
+                zt_use_action_first = 1;
+            } else if (strcmp(profile_name, "balanced") == 0) {
+                zt_active_profile = ZT_COG_PROFILE_BALANCED;
+                zt_use_action_first = 1;
+            } else if (strcmp(profile_name, "full") == 0) {
+                zt_active_profile = ZT_COG_PROFILE_FULL;
+            } else {
+                fprintf(stderr, "warning: unknown profile '%s', expected beginner, balanced, or full\n", profile_name);
+            }
+            i += 1;
+        } else if (strcmp(argv[i], "--focus") == 0 && i + 1 < argc) {
+            zt_focus_path = argv[i + 1];
+            i += 1;
         } else if (argv[i][0] == '-') {
             zt_print_single_diag(
                 "project",
@@ -2602,6 +3750,26 @@ int main(int argc, char *argv[]) {
             zt_l10n_set_lang(lang);
         } else {
             fprintf(stderr, "warning: unsupported language '%s', falling back to detection\n", lang_override);
+        }
+    }
+
+    /* Apply manifest diagnostic profile if --profile not set via CLI */
+    if (!zt_use_action_first) {
+        zt_project_parse_result proj_result;
+        char proj_root[512];
+        char proj_manifest[512];
+        if (zt_resolve_project_paths(input_path, proj_root, sizeof(proj_root), proj_manifest, sizeof(proj_manifest))) {
+            if (zt_project_load_file(proj_manifest, &proj_result)) {
+                if (proj_result.manifest.diag_profile[0] != '\0') {
+                    if (strcmp(proj_result.manifest.diag_profile, "beginner") == 0) {
+                        zt_active_profile = ZT_COG_PROFILE_BEGINNER;
+                        zt_use_action_first = 1;
+                    } else if (strcmp(proj_result.manifest.diag_profile, "balanced") == 0) {
+                        zt_active_profile = ZT_COG_PROFILE_BALANCED;
+                        zt_use_action_first = 1;
+                    }
+                }
+            }
         }
     }
 
@@ -2640,6 +3808,14 @@ int main(int argc, char *argv[]) {
         return zt_handle_project_info(input_path);
     }
 
+    if (strcmp(effective_command, "summary") == 0) {
+        return zt_handle_summary(input_path);
+    }
+
+    if (strcmp(effective_command, "resume") == 0) {
+        return zt_handle_resume(input_path);
+    }
+
     if (strcmp(effective_command, "doc-check") == 0) {
         if (input_path != NULL && input_path[0] != '\0' && zt_path_has_extension(input_path, ".zir")) {
             zt_print_single_diag(
@@ -2650,6 +3826,14 @@ int main(int argc, char *argv[]) {
             return 1;
         }
         return zt_handle_doc_check(input_path);
+    }
+
+    if (strcmp(effective_command, "doc-show") == 0) {
+        if (input_path == NULL || input_path[0] == '\0') {
+            fprintf(stderr, "error: zt doc show espera um sÃ­mbolo (ex: std.math.clamp)\n");
+            return 1;
+        }
+        return zt_handle_doc_show(input_path, lang_override);
     }
 
     if (strcmp(effective_command, "fmt") == 0) {

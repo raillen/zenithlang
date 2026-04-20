@@ -17,15 +17,23 @@ func main() -> int
     const m3: map<text, text> = { k3: ok }
     const v3: text = m3["1010"]
 
-    const k4: text = format.bytes(1536)
+    const k4: text = format.bytes(1536, style: format.style_binary())
     const m4: map<text, text> = { k4: ok }
     const v4: text = m4["1.5 KiB"]
 
-    const k5: text = format.bytes_decimal(1500, decimals: 2)
+    const k5: text = format.bytes(1500, style: format.style_decimal(), decimals: 2)
     const m5: map<text, text> = { k5: ok }
     const v5: text = m5["1.50 KB"]
 
-    if len(v1) == 0 or len(v2) == 0 or len(v3) == 0 or len(v4) == 0 or len(v5) == 0
+    const k6: text = format.bytes_binary(1024)
+    const m6: map<text, text> = { k6: ok }
+    const v6: text = m6["1.0 KiB"]
+
+    const k7: text = format.bytes_decimal(1000)
+    const m7: map<text, text> = { k7: ok }
+    const v7: text = m7["1.0 KB"]
+
+    if len(v1) == 0 or len(v2) == 0 or len(v3) == 0 or len(v4) == 0 or len(v5) == 0 or len(v6) == 0 or len(v7) == 0
         return 9
     end
 

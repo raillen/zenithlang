@@ -9,7 +9,7 @@ Ascension foi a trilha que tirou o compilador self-hosted do campo experimental 
 
 - consolidacao de `src/compiler/syntax.zt` como compilador self-hosted canonico;
 - fechamento do bootstrap deterministico e da paridade minima do core;
-- reducao estrutural de `native lua` no core e na stdlib canonica;
+- reducao estrutural de `native` no core e na stdlib canonica;
 - base para o corte posterior do front door oficial.
 
 ## O que veio depois
@@ -36,6 +36,6 @@ Ascension deixou de ser promessa. Ela virou a fase que permitiu:
 - oficializacao do compilador em Zenith;
 - gate de release self-hosted;
 - auditoria de legado no caminho oficial;
-- reposicionamento da trilha Lua como runtime e implementacao de referencia.
+- reposicionamento da trilha historica como runtime e implementacao de referencia.
 
 *Atualizado em: 2026-04-15*

@@ -25,7 +25,7 @@ const PlaygroundPage = ({ onOpenDocs }) => {
             </h1>
 
             <p className="mt-4 max-w-[60ch] text-base leading-8 text-neutral/70">
-              Esta tela concentra o editor, o Lua gerado e a saída de execução em um fluxo único.
+              Esta tela concentra o editor, a compilacao e a saida de execucao em um fluxo unico.
               Quando precisar de contexto extra, a documentação detalhada continua disponivel logo ao lado.
             </p>
           </div>

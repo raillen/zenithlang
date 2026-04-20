@@ -2,12 +2,12 @@ namespace app.main
 
 import std.io as io
 
-func main() -> result<void, text>
+func main() -> result<void, core.Error>
     io.write("Hello from std.io!")?
     io.write("\n")?
 
-    io.print("Stderr outputs correctly.", target_stderr: true)?
-    io.print("\n", target_stderr: true)?
+    io.print("Stderr outputs correctly.", to: true)?
+    io.print("\n", to: true)?
 
     return success()
 end

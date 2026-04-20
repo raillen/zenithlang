@@ -1,0 +1,18 @@
+{
+  "scenario": "m37_result_generic",
+  "build_samples": 5,
+  "run_samples": 5,
+  "expected_stdout": "m37-result-generic-ok\n",
+  "warn": {
+    "build_median_ms": 1600,
+    "binary_size_bytes": 260000,
+    "peak_working_set_bytes": 5000000,
+    "peak_working_set_spread_bytes": 131072
+  },
+  "fail": {
+    "build_median_ms": 2200,
+    "binary_size_bytes": 320000,
+    "peak_working_set_bytes": 6500000,
+    "peak_working_set_spread_bytes": 262144
+  }
+}

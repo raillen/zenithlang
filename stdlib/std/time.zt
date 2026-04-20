@@ -1,66 +1,81 @@
+-- Biblioteca Padrão Zenith — Módulo Time
+-- Medição de tempo: Instant, Duration, conversões unix, sleep.
+-- 🏗️ TIPOS
+-- 🏗️ EXTERN C
+-- ⏱️ OPERAÇÕES DE INSTANT
+-- ⏳ CONSTRUTORES DE DURATION
 namespace std.time
+
+public struct Instant
+    millis: int
+end
+
+public struct Duration
+    millis: int
+end
 
 extern c
     func zt_host_time_now_unix_ms() -> int
-    func zt_host_time_sleep_ms(duration_ms: int) -> result<void, text>
+    func zt_host_time_sleep_ms(duration_ms: int) -> result<void, core.Error>
 end
 
-func now() -> int
-    return time.zt_host_time_now_unix_ms()
+func now() -> time.Instant
+    return time.Instant(millis: time.zt_host_time_now_unix_ms())
 end
 
-func sleep(duration_ms: int) -> result<void, text>
-    return time.zt_host_time_sleep_ms(duration_ms)
+func sleep(duration: time.Duration) -> result<void, core.Error>
+    return time.zt_host_time_sleep_ms(duration.millis)
 end
 
-func since(start_unix_ms: int) -> int
-    return time.diff(start_unix_ms, time.now())
+func since(start: time.Instant) -> time.Duration
+    return time.diff(start, time.now())
 end
 
-func until(end_unix_ms: int) -> int
-    return time.diff(time.now(), end_unix_ms)
+func until(target: time.Instant) -> time.Duration
+    return time.diff(time.now(), target)
 end
 
-func diff(a_unix_ms: int, b_unix_ms: int) -> int
-    return b_unix_ms - a_unix_ms
+func diff(a: time.Instant, b: time.Instant) -> time.Duration
+    return time.Duration(millis: b.millis - a.millis)
 end
 
-func add(at_unix_ms: int, duration_ms: int) -> int
-    return at_unix_ms + duration_ms
+func add(at: time.Instant, duration: time.Duration) -> time.Instant
+    return time.Instant(millis: at.millis + duration.millis)
 end
 
-func sub(at_unix_ms: int, duration_ms: int) -> int
-    return at_unix_ms - duration_ms
+func sub(at: time.Instant, duration: time.Duration) -> time.Instant
+    return time.Instant(millis: at.millis - duration.millis)
 end
 
-func from_unix(ts: int) -> int
-    return ts * 1000
+func from_unix(ts: int) -> time.Instant
+    return time.Instant(millis: ts * 1000)
 end
 
-func from_unix_ms(ts: int) -> int
-    return ts
+func from_unix_ms(ts: int) -> time.Instant
+    return time.Instant(millis: ts)
 end
 
-func to_unix(unix_ms: int) -> int
-    return unix_ms / 1000
+func to_unix(at: time.Instant) -> int
+    return at.millis / 1000
 end
 
-func to_unix_ms(unix_ms: int) -> int
-    return unix_ms
+func to_unix_ms(at: time.Instant) -> int
+    return at.millis
 end
 
-func milliseconds(n: int) -> int
-    return n
+func milliseconds(n: int) -> time.Duration
+    return time.Duration(millis: n)
 end
 
-func seconds(n: int) -> int
-    return n * 1000
+func seconds(n: int) -> time.Duration
+    return time.Duration(millis: n * 1000)
 end
 
-func minutes(n: int) -> int
-    return n * 60000
+func minutes(n: int) -> time.Duration
+    return time.Duration(millis: n * 60000)
 end
 
-func hours(n: int) -> int
-    return n * 3600000
+func hours(n: int) -> time.Duration
+    return time.Duration(millis: n * 3600000)
 end
+

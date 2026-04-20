@@ -36,6 +36,7 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_FLOAT32: return "float32";
         case ZT_TYPE_FLOAT64: return "float64";
         case ZT_TYPE_TEXT: return "text";
+        case ZT_TYPE_CORE_ERROR: return "core_error";
         case ZT_TYPE_BYTES: return "bytes";
         case ZT_TYPE_VOID: return "void";
         case ZT_TYPE_USER: return "user";
@@ -44,6 +45,12 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_RESULT: return "result";
         case ZT_TYPE_LIST: return "list";
         case ZT_TYPE_MAP: return "map";
+        case ZT_TYPE_GRID2D: return "grid2d";
+        case ZT_TYPE_PQUEUE: return "pqueue";
+        case ZT_TYPE_CIRCBUF: return "circbuf";
+        case ZT_TYPE_BTREEMAP: return "btreemap";
+        case ZT_TYPE_BTREESET: return "btreeset";
+        case ZT_TYPE_GRID3D: return "grid3d";
         default: return "unknown";
     }
 }
@@ -173,6 +180,9 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_ERROR_WRAPPER:
             zt_type_append(buffer, buffer_size, cursor, zt_type_kind_name(type->kind));
             break;
+        case ZT_TYPE_CORE_ERROR:
+            zt_type_append(buffer, buffer_size, cursor, "core.Error");
+            break;
         case ZT_TYPE_USER:
         case ZT_TYPE_TYPE_PARAM:
             zt_type_append(buffer, buffer_size, cursor, type->name != NULL ? type->name : "<anon>");
@@ -181,6 +191,12 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_RESULT:
         case ZT_TYPE_LIST:
         case ZT_TYPE_MAP:
+        case ZT_TYPE_GRID2D:
+        case ZT_TYPE_PQUEUE:
+        case ZT_TYPE_CIRCBUF:
+        case ZT_TYPE_BTREEMAP:
+        case ZT_TYPE_BTREESET:
+        case ZT_TYPE_GRID3D:
             zt_type_append(buffer, buffer_size, cursor, zt_type_kind_name(type->kind));
             zt_type_append(buffer, buffer_size, cursor, "<");
             for (i = 0; i < type->args.count; i++) {

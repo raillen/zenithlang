@@ -23,3 +23,6 @@ src/compiler/syntax.lua.map
 *.exe
 build_errors.txt
 output.txt
+reports/perf/*.json
+reports/perf/*.md
+!reports/perf/.gitkeep

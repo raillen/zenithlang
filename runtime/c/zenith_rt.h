@@ -11,6 +11,9 @@ extern "C" {
 
 #define ZT_RUNTIME_ABI_VERSION_MAJOR 0
 #define ZT_RUNTIME_ABI_VERSION_MINOR 4
+#define ZT_EXIT_CODE_RUNTIME_ERROR 1
+#define ZT_EXIT_CODE_TEST_FAILED 120
+#define ZT_EXIT_CODE_TEST_SKIPPED 121
 
 typedef int64_t zt_int;
 typedef double zt_float;
@@ -33,6 +36,17 @@ typedef enum zt_heap_kind {
     ZT_HEAP_OUTCOME_LIST_TEXT_TEXT = 13,
     ZT_HEAP_OUTCOME_MAP_TEXT_TEXT = 14,
     ZT_HEAP_BYTES = 15,
+    ZT_HEAP_GRID2D_I64 = 16,
+    ZT_HEAP_GRID2D_TEXT = 17,
+    ZT_HEAP_PQUEUE_I64 = 18,
+    ZT_HEAP_PQUEUE_TEXT = 19,
+    ZT_HEAP_CIRCBUF_I64 = 20,
+    ZT_HEAP_CIRCBUF_TEXT = 21,
+    ZT_HEAP_BTREEMAP_TEXT_TEXT = 22,
+    ZT_HEAP_BTREESET_TEXT = 23,
+    ZT_HEAP_GRID3D_I64 = 24,
+    ZT_HEAP_GRID3D_TEXT = 25,
+    ZT_HEAP_NET_CONNECTION = 26,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -52,6 +66,9 @@ typedef struct zt_bytes {
     size_t len;
     uint8_t *data;
 } zt_bytes;
+
+typedef struct zt_net_connection zt_net_connection;
+typedef struct zt_shared_text zt_shared_text;
 
 typedef struct zt_list_i64 {
     zt_header header;
@@ -87,6 +104,11 @@ typedef struct zt_optional_text {
     zt_text *value;
 } zt_optional_text;
 
+typedef struct zt_optional_bytes {
+    zt_bool is_present;
+    zt_bytes *value;
+} zt_optional_bytes;
+
 typedef struct zt_optional_list_i64 {
     zt_bool is_present;
     zt_list_i64 *value;
@@ -101,6 +123,19 @@ typedef struct zt_optional_map_text_text {
     zt_bool is_present;
     zt_map_text_text *value;
 } zt_optional_map_text_text;
+
+typedef struct zt_core_error {
+    zt_text *code;
+    zt_text *message;
+    zt_optional_text context;
+} zt_core_error;
+
+zt_core_error zt_core_error_make(zt_text *code, zt_text *message, zt_optional_text context);
+zt_core_error zt_core_error_from_message(const char *code, const char *message);
+zt_core_error zt_core_error_from_text(const char *code, zt_text *message);
+zt_core_error zt_core_error_clone(zt_core_error error);
+void zt_core_error_dispose(zt_core_error *error);
+zt_text *zt_core_error_message_or_default(zt_core_error error);
 
 typedef struct zt_outcome_i64_text {
     zt_bool is_success;
@@ -119,11 +154,29 @@ typedef struct zt_outcome_text_text {
     zt_text *error;
 } zt_outcome_text_text;
 
+typedef struct zt_outcome_bytes_text {
+    zt_bool is_success;
+    zt_bytes *value;
+    zt_text *error;
+} zt_outcome_bytes_text;
+
 typedef struct zt_outcome_optional_text_text {
     zt_bool is_success;
     zt_optional_text value;
     zt_text *error;
 } zt_outcome_optional_text_text;
+typedef struct zt_outcome_optional_bytes_text {
+    zt_bool is_success;
+    zt_optional_bytes value;
+    zt_text *error;
+} zt_outcome_optional_bytes_text;
+
+typedef struct zt_outcome_net_connection_text {
+    zt_bool is_success;
+    zt_net_connection *value;
+    zt_text *error;
+} zt_outcome_net_connection_text;
+
 typedef struct zt_outcome_list_i64_text {
     zt_bool is_success;
     zt_list_i64 *value;
@@ -142,6 +195,143 @@ typedef struct zt_outcome_map_text_text {
     zt_text *error;
 } zt_outcome_map_text_text;
 
+typedef struct zt_outcome_i64_core_error {
+    zt_bool is_success;
+    zt_int value;
+    zt_core_error error;
+} zt_outcome_i64_core_error;
+
+typedef struct zt_outcome_void_core_error {
+    zt_bool is_success;
+    zt_core_error error;
+} zt_outcome_void_core_error;
+
+typedef struct zt_outcome_text_core_error {
+    zt_bool is_success;
+    zt_text *value;
+    zt_core_error error;
+} zt_outcome_text_core_error;
+
+typedef struct zt_outcome_optional_text_core_error {
+    zt_bool is_success;
+    zt_optional_text value;
+    zt_core_error error;
+} zt_outcome_optional_text_core_error;
+
+typedef struct zt_outcome_optional_bytes_core_error {
+    zt_bool is_success;
+    zt_optional_bytes value;
+    zt_core_error error;
+} zt_outcome_optional_bytes_core_error;
+
+typedef struct zt_outcome_net_connection_core_error {
+    zt_bool is_success;
+    zt_net_connection *value;
+    zt_core_error error;
+} zt_outcome_net_connection_core_error;
+
+typedef struct zt_outcome_list_i64_core_error {
+    zt_bool is_success;
+    zt_list_i64 *value;
+    zt_core_error error;
+} zt_outcome_list_i64_core_error;
+
+typedef struct zt_outcome_map_text_text_core_error {
+    zt_bool is_success;
+    zt_map_text_text *value;
+    zt_core_error error;
+} zt_outcome_map_text_text_core_error;
+
+typedef struct zt_grid2d_i64 {
+    zt_header header;
+    size_t rows;
+    size_t cols;
+    size_t len;
+    size_t capacity;
+    zt_int *data;
+} zt_grid2d_i64;
+
+typedef struct zt_grid2d_text {
+    zt_header header;
+    size_t rows;
+    size_t cols;
+    size_t len;
+    size_t capacity;
+    zt_text **data;
+} zt_grid2d_text;
+
+typedef struct zt_pqueue_i64 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_int *data;
+} zt_pqueue_i64;
+
+typedef struct zt_pqueue_text {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_text **data;
+} zt_pqueue_text;
+
+typedef struct zt_circbuf_i64 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    size_t head;
+    zt_int *data;
+} zt_circbuf_i64;
+
+typedef struct zt_circbuf_text {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    size_t head;
+    zt_text **data;
+} zt_circbuf_text;
+
+typedef struct zt_btreemap_text_text {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_text **keys;
+    zt_text **values;
+} zt_btreemap_text_text;
+
+typedef struct zt_btreeset_text {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_text **data;
+} zt_btreeset_text;
+
+typedef struct zt_grid3d_i64 {
+    zt_header header;
+    size_t depth;
+    size_t rows;
+    size_t cols;
+    size_t len;
+    size_t capacity;
+    zt_int *data;
+} zt_grid3d_i64;
+
+typedef struct zt_grid3d_text {
+    zt_header header;
+    size_t depth;
+    size_t rows;
+    size_t cols;
+    size_t len;
+    size_t capacity;
+    zt_text **data;
+} zt_grid3d_text;
+
+struct zt_net_connection {
+    zt_header header;
+    intptr_t socket_handle;
+    zt_int default_timeout_ms;
+    zt_bool closed;
+};
+
 typedef enum zt_error_kind {
     ZT_ERR_ASSERT,
     ZT_ERR_CHECK,
@@ -151,7 +341,9 @@ typedef enum zt_error_kind {
     ZT_ERR_IO,
     ZT_ERR_MATH,
     ZT_ERR_PLATFORM,
-    ZT_ERR_CONTRACT
+    ZT_ERR_CONTRACT,
+    ZT_ERR_TEST_FAILED,
+    ZT_ERR_TEST_SKIPPED
 } zt_error_kind;
 
 typedef struct zt_runtime_span {
@@ -179,12 +371,21 @@ void zt_runtime_report_error(zt_error_kind kind, const char *message, const char
 void zt_retain(void *ref);
 void zt_release(void *ref);
 
+zt_shared_text *zt_shared_text_new(zt_text *value);
+zt_shared_text *zt_shared_text_retain(zt_shared_text *shared);
+void zt_shared_text_release(zt_shared_text *shared);
+const zt_text *zt_shared_text_borrow(const zt_shared_text *shared);
+zt_text *zt_shared_text_snapshot(const zt_shared_text *shared);
+uint32_t zt_shared_text_ref_count(const zt_shared_text *shared);
+
 void zt_runtime_error(zt_error_kind kind, const char *message);
 void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span);
 void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span);
 void zt_assert(zt_bool condition, const char *message);
 void zt_check(zt_bool condition, const char *message);
 void zt_panic(const char *message);
+void zt_test_fail(zt_text *message);
+void zt_test_skip(zt_text *reason);
 void zt_contract_failed(const char *message, zt_runtime_span span);
 void zt_contract_failed_i64(const char *message, zt_int value, zt_runtime_span span);
 void zt_contract_failed_float(const char *message, zt_float value, zt_runtime_span span);
@@ -236,6 +437,30 @@ zt_int zt_list_text_len(const zt_list_text *list);
 zt_list_text *zt_list_text_slice(const zt_list_text *list, zt_int start_0, zt_int end_0);
 zt_list_text *zt_list_text_deep_copy(const zt_list_text *list);
 
+zt_list_i64 *zt_queue_i64_new(void);
+zt_list_i64 *zt_queue_i64_enqueue(zt_list_i64 *queue, zt_int value);
+zt_list_i64 *zt_queue_i64_enqueue_owned(zt_list_i64 *queue, zt_int value);
+zt_optional_i64 zt_queue_i64_dequeue(zt_list_i64 *queue);
+zt_optional_i64 zt_queue_i64_peek(const zt_list_i64 *queue);
+
+zt_list_text *zt_queue_text_new(void);
+zt_list_text *zt_queue_text_enqueue(zt_list_text *queue, zt_text *value);
+zt_list_text *zt_queue_text_enqueue_owned(zt_list_text *queue, zt_text *value);
+zt_optional_text zt_queue_text_dequeue(zt_list_text *queue);
+zt_optional_text zt_queue_text_peek(const zt_list_text *queue);
+
+zt_list_i64 *zt_stack_i64_new(void);
+zt_list_i64 *zt_stack_i64_push(zt_list_i64 *stack, zt_int value);
+zt_list_i64 *zt_stack_i64_push_owned(zt_list_i64 *stack, zt_int value);
+zt_optional_i64 zt_stack_i64_pop(zt_list_i64 *stack);
+zt_optional_i64 zt_stack_i64_peek(const zt_list_i64 *stack);
+
+zt_list_text *zt_stack_text_new(void);
+zt_list_text *zt_stack_text_push(zt_list_text *stack, zt_text *value);
+zt_list_text *zt_stack_text_push_owned(zt_list_text *stack, zt_text *value);
+zt_optional_text zt_stack_text_pop(zt_list_text *stack);
+zt_optional_text zt_stack_text_peek(const zt_list_text *stack);
+
 zt_map_text_text *zt_map_text_text_new(void);
 zt_map_text_text *zt_map_text_text_from_arrays(zt_text *const *keys, zt_text *const *values, size_t count);
 void zt_map_text_text_set(zt_map_text_text *map, zt_text *key, zt_text *value);
@@ -246,6 +471,94 @@ zt_text *zt_map_text_text_key_at(const zt_map_text_text *map, zt_int index_0);
 zt_text *zt_map_text_text_value_at(const zt_map_text_text *map, zt_int index_0);
 zt_int zt_map_text_text_len(const zt_map_text_text *map);
 
+zt_grid2d_i64 *zt_grid2d_i64_new(zt_int rows, zt_int cols);
+zt_int zt_grid2d_i64_get(const zt_grid2d_i64 *grid, zt_int row, zt_int col);
+zt_grid2d_i64 *zt_grid2d_i64_set(zt_grid2d_i64 *grid, zt_int row, zt_int col, zt_int value);
+zt_grid2d_i64 *zt_grid2d_i64_set_owned(zt_grid2d_i64 *grid, zt_int row, zt_int col, zt_int value);
+zt_grid2d_i64 *zt_grid2d_i64_fill(zt_grid2d_i64 *grid, zt_int value);
+zt_grid2d_i64 *zt_grid2d_i64_fill_owned(zt_grid2d_i64 *grid, zt_int value);
+zt_int zt_grid2d_i64_rows(const zt_grid2d_i64 *grid);
+zt_int zt_grid2d_i64_cols(const zt_grid2d_i64 *grid);
+
+zt_grid2d_text *zt_grid2d_text_new(zt_int rows, zt_int cols);
+zt_text *zt_grid2d_text_get(const zt_grid2d_text *grid, zt_int row, zt_int col);
+zt_grid2d_text *zt_grid2d_text_set(zt_grid2d_text *grid, zt_int row, zt_int col, zt_text *value);
+zt_grid2d_text *zt_grid2d_text_set_owned(zt_grid2d_text *grid, zt_int row, zt_int col, zt_text *value);
+zt_grid2d_text *zt_grid2d_text_fill(zt_grid2d_text *grid, zt_text *value);
+zt_grid2d_text *zt_grid2d_text_fill_owned(zt_grid2d_text *grid, zt_text *value);
+zt_int zt_grid2d_text_rows(const zt_grid2d_text *grid);
+zt_int zt_grid2d_text_cols(const zt_grid2d_text *grid);
+
+zt_pqueue_i64 *zt_pqueue_i64_new(void);
+zt_pqueue_i64 *zt_pqueue_i64_push(zt_pqueue_i64 *heap, zt_int value);
+zt_pqueue_i64 *zt_pqueue_i64_push_owned(zt_pqueue_i64 *heap, zt_int value);
+zt_optional_i64 zt_pqueue_i64_pop(zt_pqueue_i64 *heap);
+zt_optional_i64 zt_pqueue_i64_peek(const zt_pqueue_i64 *heap);
+zt_int zt_pqueue_i64_len(const zt_pqueue_i64 *heap);
+
+zt_pqueue_text *zt_pqueue_text_new(void);
+zt_pqueue_text *zt_pqueue_text_push(zt_pqueue_text *heap, zt_text *value);
+zt_pqueue_text *zt_pqueue_text_push_owned(zt_pqueue_text *heap, zt_text *value);
+zt_optional_text zt_pqueue_text_pop(zt_pqueue_text *heap);
+zt_optional_text zt_pqueue_text_peek(const zt_pqueue_text *heap);
+zt_int zt_pqueue_text_len(const zt_pqueue_text *heap);
+
+zt_circbuf_i64 *zt_circbuf_i64_new(zt_int capacity);
+zt_circbuf_i64 *zt_circbuf_i64_push(zt_circbuf_i64 *buf, zt_int value);
+zt_circbuf_i64 *zt_circbuf_i64_push_owned(zt_circbuf_i64 *buf, zt_int value);
+zt_optional_i64 zt_circbuf_i64_pop(zt_circbuf_i64 *buf);
+zt_optional_i64 zt_circbuf_i64_peek(const zt_circbuf_i64 *buf);
+zt_int zt_circbuf_i64_len(const zt_circbuf_i64 *buf);
+zt_int zt_circbuf_i64_capacity(const zt_circbuf_i64 *buf);
+zt_bool zt_circbuf_i64_is_full(const zt_circbuf_i64 *buf);
+
+zt_circbuf_text *zt_circbuf_text_new(zt_int capacity);
+zt_circbuf_text *zt_circbuf_text_push(zt_circbuf_text *buf, zt_text *value);
+zt_circbuf_text *zt_circbuf_text_push_owned(zt_circbuf_text *buf, zt_text *value);
+zt_optional_text zt_circbuf_text_pop(zt_circbuf_text *buf);
+zt_optional_text zt_circbuf_text_peek(const zt_circbuf_text *buf);
+zt_int zt_circbuf_text_len(const zt_circbuf_text *buf);
+zt_int zt_circbuf_text_capacity(const zt_circbuf_text *buf);
+zt_bool zt_circbuf_text_is_full(const zt_circbuf_text *buf);
+
+zt_btreemap_text_text *zt_btreemap_text_text_new(void);
+zt_btreemap_text_text *zt_btreemap_text_text_set(zt_btreemap_text_text *map, zt_text *key, zt_text *value);
+zt_btreemap_text_text *zt_btreemap_text_text_set_owned(zt_btreemap_text_text *map, zt_text *key, zt_text *value);
+zt_text *zt_btreemap_text_text_get(const zt_btreemap_text_text *map, const zt_text *key);
+zt_optional_text zt_btreemap_text_text_get_optional(const zt_btreemap_text_text *map, const zt_text *key);
+zt_bool zt_btreemap_text_text_contains(const zt_btreemap_text_text *map, const zt_text *key);
+zt_btreemap_text_text *zt_btreemap_text_text_remove(zt_btreemap_text_text *map, const zt_text *key);
+zt_btreemap_text_text *zt_btreemap_text_text_remove_owned(zt_btreemap_text_text *map, const zt_text *key);
+zt_int zt_btreemap_text_text_len(const zt_btreemap_text_text *map);
+
+zt_btreeset_text *zt_btreeset_text_new(void);
+zt_btreeset_text *zt_btreeset_text_insert(zt_btreeset_text *set, zt_text *value);
+zt_btreeset_text *zt_btreeset_text_insert_owned(zt_btreeset_text *set, zt_text *value);
+zt_bool zt_btreeset_text_contains(const zt_btreeset_text *set, const zt_text *value);
+zt_btreeset_text *zt_btreeset_text_remove(zt_btreeset_text *set, const zt_text *value);
+zt_btreeset_text *zt_btreeset_text_remove_owned(zt_btreeset_text *set, const zt_text *value);
+zt_int zt_btreeset_text_len(const zt_btreeset_text *set);
+
+zt_grid3d_i64 *zt_grid3d_i64_new(zt_int depth, zt_int rows, zt_int cols);
+zt_int zt_grid3d_i64_get(const zt_grid3d_i64 *grid, zt_int layer, zt_int row, zt_int col);
+zt_grid3d_i64 *zt_grid3d_i64_set(zt_grid3d_i64 *grid, zt_int layer, zt_int row, zt_int col, zt_int value);
+zt_grid3d_i64 *zt_grid3d_i64_set_owned(zt_grid3d_i64 *grid, zt_int layer, zt_int row, zt_int col, zt_int value);
+zt_grid3d_i64 *zt_grid3d_i64_fill(zt_grid3d_i64 *grid, zt_int value);
+zt_grid3d_i64 *zt_grid3d_i64_fill_owned(zt_grid3d_i64 *grid, zt_int value);
+zt_int zt_grid3d_i64_depth(const zt_grid3d_i64 *grid);
+zt_int zt_grid3d_i64_rows(const zt_grid3d_i64 *grid);
+zt_int zt_grid3d_i64_cols(const zt_grid3d_i64 *grid);
+
+zt_grid3d_text *zt_grid3d_text_new(zt_int depth, zt_int rows, zt_int cols);
+zt_text *zt_grid3d_text_get(const zt_grid3d_text *grid, zt_int layer, zt_int row, zt_int col);
+zt_grid3d_text *zt_grid3d_text_set(zt_grid3d_text *grid, zt_int layer, zt_int row, zt_int col, zt_text *value);
+zt_grid3d_text *zt_grid3d_text_set_owned(zt_grid3d_text *grid, zt_int layer, zt_int row, zt_int col, zt_text *value);
+zt_grid3d_text *zt_grid3d_text_fill(zt_grid3d_text *grid, zt_text *value);
+zt_grid3d_text *zt_grid3d_text_fill_owned(zt_grid3d_text *grid, zt_text *value);
+zt_int zt_grid3d_text_depth(const zt_grid3d_text *grid);
+zt_int zt_grid3d_text_rows(const zt_grid3d_text *grid);
+zt_int zt_grid3d_text_cols(const zt_grid3d_text *grid);
+
 zt_optional_i64 zt_optional_i64_present(zt_int value);
 zt_optional_i64 zt_optional_i64_empty(void);
 zt_bool zt_optional_i64_is_present(zt_optional_i64 value);
@@ -255,6 +568,11 @@ zt_optional_text zt_optional_text_present(zt_text *value);
 zt_optional_text zt_optional_text_empty(void);
 zt_bool zt_optional_text_is_present(zt_optional_text value);
 zt_text *zt_optional_text_coalesce(zt_optional_text value, zt_text *fallback);
+
+zt_optional_bytes zt_optional_bytes_present(zt_bytes *value);
+zt_optional_bytes zt_optional_bytes_empty(void);
+zt_bool zt_optional_bytes_is_present(zt_optional_bytes value);
+zt_bytes *zt_optional_bytes_coalesce(zt_optional_bytes value, zt_bytes *fallback);
 
 zt_optional_list_i64 zt_optional_list_i64_present(zt_list_i64 *value);
 zt_optional_list_i64 zt_optional_list_i64_empty(void);
@@ -285,46 +603,46 @@ zt_bool zt_outcome_void_text_is_success(zt_outcome_void_text outcome);
 zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome);
 
 typedef struct zt_host_api {
-    zt_outcome_text_text (*read_file)(const zt_text *path);
-    zt_outcome_void_text (*write_file)(const zt_text *path, const zt_text *value);
+    zt_outcome_text_core_error (*read_file)(const zt_text *path);
+    zt_outcome_void_core_error (*write_file)(const zt_text *path, const zt_text *value);
     zt_bool (*path_exists)(const zt_text *path);
-    zt_outcome_optional_text_text (*read_line_stdin)(void);
-    zt_outcome_text_text (*read_all_stdin)(void);
-    zt_outcome_void_text (*write_stdout)(const zt_text *value);
-    zt_outcome_void_text (*write_stderr)(const zt_text *value);
+    zt_outcome_optional_text_core_error (*read_line_stdin)(void);
+    zt_outcome_text_core_error (*read_all_stdin)(void);
+    zt_outcome_void_core_error (*write_stdout)(const zt_text *value);
+    zt_outcome_void_core_error (*write_stderr)(const zt_text *value);
     zt_int (*time_now_unix_ms)(void);
-    zt_outcome_void_text (*time_sleep_ms)(zt_int duration_ms);
+    zt_outcome_void_core_error (*time_sleep_ms)(zt_int duration_ms);
     void (*random_seed)(zt_int seed);
     zt_int (*random_next_i64)(void);
-    zt_outcome_text_text (*os_current_dir)(void);
-    zt_outcome_void_text (*os_change_dir)(const zt_text *path);
+    zt_outcome_text_core_error (*os_current_dir)(void);
+    zt_outcome_void_core_error (*os_change_dir)(const zt_text *path);
     zt_optional_text (*os_env)(const zt_text *name);
     zt_int (*os_pid)(void);
     zt_text *(*os_platform)(void);
     zt_text *(*os_arch)(void);
-    zt_outcome_i64_text (*process_run)(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+    zt_outcome_i64_core_error (*process_run)(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 } zt_host_api;
 
 void zt_host_set_api(const zt_host_api *api);
 const zt_host_api *zt_host_get_api(void);
-zt_outcome_text_text zt_host_read_file(const zt_text *path);
-zt_outcome_void_text zt_host_write_file(const zt_text *path, const zt_text *value);
+zt_outcome_text_core_error zt_host_read_file(const zt_text *path);
+zt_outcome_void_core_error zt_host_write_file(const zt_text *path, const zt_text *value);
 zt_bool zt_host_path_exists(const zt_text *path);
-zt_outcome_optional_text_text zt_host_read_line_stdin(void);
-zt_outcome_text_text zt_host_read_all_stdin(void);
-zt_outcome_void_text zt_host_write_stdout(const zt_text *value);
-zt_outcome_void_text zt_host_write_stderr(const zt_text *value);
+zt_outcome_optional_text_core_error zt_host_read_line_stdin(void);
+zt_outcome_text_core_error zt_host_read_all_stdin(void);
+zt_outcome_void_core_error zt_host_write_stdout(const zt_text *value);
+zt_outcome_void_core_error zt_host_write_stderr(const zt_text *value);
 zt_int zt_host_time_now_unix_ms(void);
-zt_outcome_void_text zt_host_time_sleep_ms(zt_int duration_ms);
+zt_outcome_void_core_error zt_host_time_sleep_ms(zt_int duration_ms);
 void zt_host_random_seed(zt_int seed);
 zt_int zt_host_random_next_i64(void);
-zt_outcome_text_text zt_host_os_current_dir(void);
-zt_outcome_void_text zt_host_os_change_dir(const zt_text *path);
+zt_outcome_text_core_error zt_host_os_current_dir(void);
+zt_outcome_void_core_error zt_host_os_change_dir(const zt_text *path);
 zt_optional_text zt_host_os_env(const zt_text *name);
 zt_int zt_host_os_pid(void);
 zt_text *zt_host_os_platform(void);
 zt_text *zt_host_os_arch(void);
-zt_outcome_i64_text zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+zt_outcome_i64_core_error zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 
 zt_outcome_text_text zt_outcome_text_text_success(zt_text *value);
 zt_outcome_text_text zt_outcome_text_text_failure(zt_text *error);
@@ -332,6 +650,13 @@ zt_outcome_text_text zt_outcome_text_text_failure_message(const char *message);
 zt_bool zt_outcome_text_text_is_success(zt_outcome_text_text outcome);
 zt_text *zt_outcome_text_text_value(zt_outcome_text_text outcome);
 zt_outcome_text_text zt_outcome_text_text_propagate(zt_outcome_text_text outcome);
+zt_outcome_bytes_text zt_outcome_bytes_text_success(zt_bytes *value);
+zt_outcome_bytes_text zt_outcome_bytes_text_failure(zt_text *error);
+zt_outcome_bytes_text zt_outcome_bytes_text_failure_message(const char *message);
+zt_bool zt_outcome_bytes_text_is_success(zt_outcome_bytes_text outcome);
+zt_bytes *zt_outcome_bytes_text_value(zt_outcome_bytes_text outcome);
+zt_outcome_bytes_text zt_outcome_bytes_text_propagate(zt_outcome_bytes_text outcome);
+
 zt_bool zt_outcome_text_text_eq(zt_outcome_text_text left, zt_outcome_text_text right);
 zt_outcome_optional_text_text zt_outcome_optional_text_text_success(zt_optional_text value);
 zt_outcome_optional_text_text zt_outcome_optional_text_text_failure(zt_text *error);
@@ -339,6 +664,20 @@ zt_outcome_optional_text_text zt_outcome_optional_text_text_failure_message(cons
 zt_bool zt_outcome_optional_text_text_is_success(zt_outcome_optional_text_text outcome);
 zt_optional_text zt_outcome_optional_text_text_value(zt_outcome_optional_text_text outcome);
 zt_outcome_optional_text_text zt_outcome_optional_text_text_propagate(zt_outcome_optional_text_text outcome);
+zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_success(zt_optional_bytes value);
+zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_failure(zt_text *error);
+zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_failure_message(const char *message);
+zt_bool zt_outcome_optional_bytes_text_is_success(zt_outcome_optional_bytes_text outcome);
+zt_optional_bytes zt_outcome_optional_bytes_text_value(zt_outcome_optional_bytes_text outcome);
+zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_propagate(zt_outcome_optional_bytes_text outcome);
+
+zt_outcome_net_connection_text zt_outcome_net_connection_text_success(zt_net_connection *value);
+zt_outcome_net_connection_text zt_outcome_net_connection_text_failure(zt_text *error);
+zt_outcome_net_connection_text zt_outcome_net_connection_text_failure_message(const char *message);
+zt_bool zt_outcome_net_connection_text_is_success(zt_outcome_net_connection_text outcome);
+zt_net_connection *zt_outcome_net_connection_text_value(zt_outcome_net_connection_text outcome);
+zt_outcome_net_connection_text zt_outcome_net_connection_text_propagate(zt_outcome_net_connection_text outcome);
+
 zt_outcome_list_i64_text zt_outcome_list_i64_text_success(zt_list_i64 *value);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_failure(zt_text *error);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_failure_message(const char *message);
@@ -359,7 +698,78 @@ zt_bool zt_outcome_map_text_text_is_success(zt_outcome_map_text_text outcome);
 zt_map_text_text *zt_outcome_map_text_text_value(zt_outcome_map_text_text outcome);
 zt_outcome_map_text_text zt_outcome_map_text_text_propagate(zt_outcome_map_text_text outcome);
 
-zt_outcome_map_text_text zt_json_parse_map_text_text(const zt_text *input);
+zt_outcome_i64_core_error zt_outcome_i64_core_error_success(zt_int value);
+zt_outcome_i64_core_error zt_outcome_i64_core_error_failure(zt_core_error error);
+zt_outcome_i64_core_error zt_outcome_i64_core_error_failure_message(const char *message);
+zt_outcome_i64_core_error zt_outcome_i64_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_i64_core_error_is_success(zt_outcome_i64_core_error outcome);
+zt_int zt_outcome_i64_core_error_value(zt_outcome_i64_core_error outcome);
+zt_outcome_i64_core_error zt_outcome_i64_core_error_propagate(zt_outcome_i64_core_error outcome);
+void zt_outcome_i64_core_error_dispose(zt_outcome_i64_core_error *outcome);
+
+zt_outcome_void_core_error zt_outcome_void_core_error_success(void);
+zt_outcome_void_core_error zt_outcome_void_core_error_failure(zt_core_error error);
+zt_outcome_void_core_error zt_outcome_void_core_error_failure_message(const char *message);
+zt_outcome_void_core_error zt_outcome_void_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_void_core_error_is_success(zt_outcome_void_core_error outcome);
+zt_outcome_void_core_error zt_outcome_void_core_error_propagate(zt_outcome_void_core_error outcome);
+void zt_outcome_void_core_error_dispose(zt_outcome_void_core_error *outcome);
+
+zt_outcome_text_core_error zt_outcome_text_core_error_success(zt_text *value);
+zt_outcome_text_core_error zt_outcome_text_core_error_failure(zt_core_error error);
+zt_outcome_text_core_error zt_outcome_text_core_error_failure_message(const char *message);
+zt_outcome_text_core_error zt_outcome_text_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_text_core_error_is_success(zt_outcome_text_core_error outcome);
+zt_text *zt_outcome_text_core_error_value(zt_outcome_text_core_error outcome);
+zt_outcome_text_core_error zt_outcome_text_core_error_propagate(zt_outcome_text_core_error outcome);
+void zt_outcome_text_core_error_dispose(zt_outcome_text_core_error *outcome);
+
+zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_success(zt_optional_text value);
+zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_failure(zt_core_error error);
+zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_failure_message(const char *message);
+zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_optional_text_core_error_is_success(zt_outcome_optional_text_core_error outcome);
+zt_optional_text zt_outcome_optional_text_core_error_value(zt_outcome_optional_text_core_error outcome);
+zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_propagate(zt_outcome_optional_text_core_error outcome);
+void zt_outcome_optional_text_core_error_dispose(zt_outcome_optional_text_core_error *outcome);
+
+zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_success(zt_optional_bytes value);
+zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_failure(zt_core_error error);
+zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_failure_message(const char *message);
+zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_optional_bytes_core_error_is_success(zt_outcome_optional_bytes_core_error outcome);
+zt_optional_bytes zt_outcome_optional_bytes_core_error_value(zt_outcome_optional_bytes_core_error outcome);
+zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_propagate(zt_outcome_optional_bytes_core_error outcome);
+void zt_outcome_optional_bytes_core_error_dispose(zt_outcome_optional_bytes_core_error *outcome);
+
+zt_outcome_net_connection_core_error zt_outcome_net_connection_core_error_success(zt_net_connection *value);
+zt_outcome_net_connection_core_error zt_outcome_net_connection_core_error_failure(zt_core_error error);
+zt_outcome_net_connection_core_error zt_outcome_net_connection_core_error_failure_message(const char *message);
+zt_outcome_net_connection_core_error zt_outcome_net_connection_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_net_connection_core_error_is_success(zt_outcome_net_connection_core_error outcome);
+zt_net_connection *zt_outcome_net_connection_core_error_value(zt_outcome_net_connection_core_error outcome);
+zt_outcome_net_connection_core_error zt_outcome_net_connection_core_error_propagate(zt_outcome_net_connection_core_error outcome);
+void zt_outcome_net_connection_core_error_dispose(zt_outcome_net_connection_core_error *outcome);
+
+zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_success(zt_list_i64 *value);
+zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_failure(zt_core_error error);
+zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_failure_message(const char *message);
+zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_list_i64_core_error_is_success(zt_outcome_list_i64_core_error outcome);
+zt_list_i64 *zt_outcome_list_i64_core_error_value(zt_outcome_list_i64_core_error outcome);
+zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_propagate(zt_outcome_list_i64_core_error outcome);
+void zt_outcome_list_i64_core_error_dispose(zt_outcome_list_i64_core_error *outcome);
+
+zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_success(zt_map_text_text *value);
+zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_failure(zt_core_error error);
+zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_failure_message(const char *message);
+zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_map_text_text_core_error_is_success(zt_outcome_map_text_text_core_error outcome);
+zt_map_text_text *zt_outcome_map_text_text_core_error_value(zt_outcome_map_text_text_core_error outcome);
+zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_propagate(zt_outcome_map_text_text_core_error outcome);
+void zt_outcome_map_text_text_core_error_dispose(zt_outcome_map_text_text_core_error *outcome);
+
+zt_outcome_map_text_text_core_error zt_json_parse_map_text_text(const zt_text *input);
 zt_text *zt_json_stringify_map_text_text(const zt_map_text_text *value);
 zt_text *zt_json_pretty_map_text_text(const zt_map_text_text *value, zt_int indent);
 
@@ -367,6 +777,35 @@ zt_text *zt_format_hex_i64(zt_int value);
 zt_text *zt_format_bin_i64(zt_int value);
 zt_text *zt_format_bytes_binary(zt_int value, zt_int decimals);
 zt_text *zt_format_bytes_decimal(zt_int value, zt_int decimals);
+
+zt_float zt_math_pow(zt_float base, zt_float exponent);
+zt_float zt_math_sqrt(zt_float value);
+zt_float zt_math_floor(zt_float value);
+zt_float zt_math_ceil(zt_float value);
+zt_float zt_math_round_half_away_from_zero(zt_float value);
+zt_float zt_math_trunc(zt_float value);
+zt_float zt_math_sin(zt_float value);
+zt_float zt_math_cos(zt_float value);
+zt_float zt_math_tan(zt_float value);
+zt_float zt_math_asin(zt_float value);
+zt_float zt_math_acos(zt_float value);
+zt_float zt_math_atan(zt_float value);
+zt_float zt_math_atan2(zt_float y, zt_float x);
+zt_float zt_math_ln(zt_float value);
+zt_float zt_math_log10(zt_float value);
+zt_float zt_math_log2(zt_float value);
+zt_float zt_math_log(zt_float value, zt_float base);
+zt_float zt_math_exp(zt_float value);
+zt_bool zt_math_is_nan(zt_float value);
+zt_bool zt_math_is_infinite(zt_float value);
+zt_bool zt_math_is_finite(zt_float value);
+
+zt_outcome_net_connection_core_error zt_net_connect(const zt_text *host, zt_int port, zt_int timeout_ms);
+zt_outcome_optional_bytes_core_error zt_net_read_some(zt_net_connection *connection, zt_int max, zt_int timeout_ms);
+zt_outcome_void_core_error zt_net_write_all(zt_net_connection *connection, const zt_bytes *data, zt_int timeout_ms);
+zt_outcome_void_core_error zt_net_close(zt_net_connection *connection);
+zt_bool zt_net_is_closed(const zt_net_connection *connection);
+zt_int zt_net_error_kind_index(zt_core_error error);
 
 zt_text *zt_path_normalize(const zt_text *value);
 zt_bool zt_path_is_absolute(const zt_text *value);
@@ -385,4 +824,9 @@ zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max);
 #endif
 
 #endif
+
+
+
+
+
 

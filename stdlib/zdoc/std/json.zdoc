@@ -1,0 +1,25 @@
+--- @target: std.json
+JSON parsing and serialization for map text-to-text structures.
+---
+
+--- @target: parse
+Parses a JSON string into a map of text keys to text values.
+
+@param input A JSON-formatted text string.
+@return A result containing the parsed @link map, or an error if parsing fails.
+---
+
+--- @target: stringify
+Serializes a map of text keys to text values into a compact JSON string.
+
+@param value The map to serialize.
+@return A JSON text string representation.
+---
+
+--- @target: pretty
+Serializes a map of text keys to text values into a pretty-printed JSON string with indentation.
+
+@param value The map to serialize.
+@param indent Number of spaces per indentation level. Defaults to 2.
+@return A formatted JSON text string with indentation and line breaks.
+---

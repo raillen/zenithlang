@@ -269,6 +269,8 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 - [x] Adaptar ZIR/emitter para nomes sem colisao via alias qualificado
 - [x] Manter entrypoint de projeto no manifesto legado
 - [x] Criar behavior `multifile_import_alias`
+- [x] Criar behavior `public_const_module` (public const de modulo via alias qualificado)
+- [ ] Enforce de visibilidade cross-module: bloquear acesso a membros sem `public` via import alias
 - [x] Criar behavior `multifile_missing_import`
 - [x] Criar behavior `multifile_namespace_mismatch`
 - [x] Criar behavior `multifile_duplicate_symbol`
@@ -313,18 +315,6 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 - [x] Executar suite completa de lexer/parser/semantic/HIR/ZIR/C/runtime/driver/conformance
 - [x] Isolar artifacts de build dos harnesses de conformance em sandbox temporario (`.ztc-tmp/.../sandbox`) para evitar lock de `.exe` no Windows
 
-## Checklist do primeiro ciclo recomendado
-
-- [x] Fechar `M0`
-- [x] Fechar `M1`
-- [x] Em `M2`, chegar ate parse de:
-  - [x] arquivo
-  - [x] `namespace`
-  - [x] `import`
-  - [x] declaracoes de topo
-  - [x] expressoes basicas
-
-
 ## M17. Consolidacao dos specs canonicos
 
 - [x] Criar `language/spec/README.md`
@@ -350,7 +340,7 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 - [x] Atualizar `language/surface-implementation-status.md` apos o alinhamento
 - [x] Rodar suite de driver/conformance apos migracao do manifesto
 - [x] Isolar implementacao Lua/self-host em `_legacy/`
-- [x] Atualizar README raiz para apontar para `` como caminho oficial
+- [x] Atualizar README raiz para apontar para o caminho oficial dos specs canonicos
 
 ## M19. Stdlib MVP
 
@@ -465,6 +455,7 @@ Checklist operacional derivado de `IMPLEMENTATION_ROADMAP.md`.
 - [x] Criar behavior para optional/result com payload managed.
 - [x] Criar diagnostics para mutacao observavel proibida em const collection.
 - [x] Integrar nova value semantics (ARC puro) na matrix de testes oficial.
+
 ## M26. Runtime where contracts completos
 
 - [x] Gerar checks de field `where` em construcao
@@ -547,6 +538,9 @@ Observacao M30:
 - [x] Suportar docs privadas
 - [x] Excluir docs privadas do output publico por default
 - [x] Integrar `zt doc check`
+- [x] Implementar `zt doc show <symbol>` rapido via bypass lexico do compilador (scanner rapido de `.zt` que valida existencia do simbolo sem passar pelo pipeline completo de AST/semantic/emissao)
+- [x] Implementar suporte multi-idioma (fallback/override) de caminhos via `--lang <locale>` com fallback hierarquico: locale completo (ex: `pt_BR`) -> base locale (`pt`) -> locale auto-detetado via `zt_l10n_current_lang()` -> default (sem locale)
+- [x] Integrar design UTF-8 interativo para CLI alinhado com especificacao neurodivergente (header, separadores, warnings e erros com simbolos consistentes; layout com indentacao de 3 espacos e alinhamento visual)
 
 ## M32. Matriz de conformidade final
 
@@ -566,38 +560,69 @@ Observacao M30:
 - [ ] Cobrir ZDoc
 - [ ] Cobrir where runtime e match exaustivo na matriz
 - [ ] Rodar suite completa antes de declarar MVP estavel
+- [ ] Integrar resultados da suite de performance (`M36`) na matriz final com status por benchmark critico
 
 ## M33. Implementacao das Stdlibs MVP
 
 - [x] Implementar std.io (terminal, print explicito)
 - [x] std.io: implementar `read_line` e `read_all` no backend C atual (`result<optional<text>, text>` + host stdin)
-- [ ] std.io: migrar erros/handles para forma canonica (`result<optional<text>, io.Error>`, `io.Input`, `io.Output`)
+- [x] std.io: padronizar parametros `to:`/`from:` no API atual (MVP)
+- [x] std.io: migrar erro para `core.Error` na Fase 1 do M37 (alias de erro textual no backend C atual)
+- [x] parser: liberar `to` como label de named arg (incluindo parametros e named args)
+- [x] std.io fechado no MVP atual (`to:`/`from:` + `core.Error`); evolucao para `io.Input`/`io.Output`/`io.Error` estruturado fica no M37 Fase 2
 - [x] Implementar std.fs e std.fs.path
 - [x] std.fs: baseline inicial implementado (`read_text`, `write_text`, `exists`) via host runtime wrappers
 - [x] std.fs.path: baseline inicial implementado (`join`)
-- [ ] std.fs.path: baseline expandido (`base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`); pendentes (`normalize`, `absolute`, `relative`)
+- [x] std.fs.path: baseline expandido (`base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`, `normalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) com helpers lexicais no runtime C + behavior `std_fs_path_basic` (compile-probe)
 - [x] Implementar std.json (parser/emitter basico)
 - [x] std.json: baseline inicial implementado (`parse`, `stringify`, `pretty`) para `map<text,text>` + behavior `std_json_basic`
-- [ ] Implementar std.math (vetores e algebra linear basica)
-- [x] std.math: baseline inicial implementado (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `rad_to_deg`, `approx_equal`, `pi()`/`e()`/`tau()`)
-- [ ] Implementar std.collections (Queue, Grid2D, etc.)
+- [x] Implementar std.math (core escalar do MVP)
+- [x] std.math: core escalar finalizado (`PI`/`E`/`TAU`, `abs`, `min`, `max`, `clamp`, `pow`, `sqrt`, `floor`, `ceil`, `round`, `trunc`, trigonometria, logaritmos, `exp`, `is_nan`, `is_infinite`, `is_finite`)
+- [x] Implementar std.collections: Queue, Stack, CircularBuffer, Grid2D, PriorityQueue (variantes int/text com structs dedicadas no runtime C, tipos no compiler, wrapper API em collections.zt, behavior test)
+- [x] Implementar std.collections: BTreeMap<text,text> e BTreeSet<text> (sorted array com busca binaria, structs dedicadas no runtime C, tipos no compiler, wrapper API em collections.zt, behavior test)
+- [x] Implementar std.collections: Grid3D<int/text> (structs dedicadas zt_grid3d_i64/zt_grid3d_text no runtime C com COW, tipos no compiler, wrapper API em collections.zt, behavior test)
+- [x] std.collections: baseline inicial de Queue<int>/Queue<text> via extern c (enqueue, dequeue, peek)
+- [x] std.collections: baseline inicial de Stack<int>/Stack<text> via extern c (push, pop, peek)
+- [x] std.collections: Grid2D<int> com struct dedicada zt_grid2d_i64 (new, get, set, fill, rows, cols) via extern c + COW com *_set_owned/*_fill_owned
+- [x] std.collections: Grid2D<text> com struct dedicada zt_grid2d_text (new, get, set, fill, rows, cols) via extern c + COW com *_set_owned/*_fill_owned + retain/release correto
+- [x] std.collections: PriorityQueue<int> com struct dedicada zt_pqueue_i64 (new, push, pop, peek, len) -> min-heap com sift_up/sift_down -> via extern c
+- [x] std.collections: PriorityQueue<text> com struct dedicada zt_pqueue_text (new, push, pop, peek, len) -> min-heap com comparacao lexicografica via strcmp -> via extern c
+- [x] std.collections: CircularBuffer<int> com struct dedicada zt_circbuf_i64 (new, push, pop, peek, len, capacity, is_full) -> ring buffer com overwriting -> via extern c
+- [x] std.collections: CircularBuffer<text> com struct dedicada zt_circbuf_text (new, push, pop, peek, len, capacity, is_full) -> ring buffer com retain/release -> via extern c
+- [x] std.collections: tipos grid2d, pqueue, circbuf integrados no compiler (lexer tokens ZT_TOKEN_GRID2D/PQUEUE/CIRCBUF, type kinds ZT_TYPE_GRID2D/PQUEUE/CIRCBUF, binder, checker arity, HIR lowering, ZIR verifier, emitter C_TYPE_TABLE)
+- [x] std.collections: tipos btreemap, btreeset, grid3d integrados no compiler (lexer tokens ZT_TOKEN_BTREEMAP/BTREESET/GRID3D, type kinds ZT_TYPE_BTREEMAP/BTREESET/GRID3D, binder, checker arity [btreemap=2, btreeset=1, grid3d=1], HIR lowering, ZIR verifier, emitter C_TYPE_TABLE [btreemap<text,text>, btreeset<text>, grid3d<int>, grid3d<text>])
+- [x] std.collections: heap kinds ZT_HEAP_GRID2D_I64/TEXT, ZT_HEAP_PQUEUE_I64/TEXT, ZT_HEAP_CIRCBUF_I64/TEXT adicionados ao runtime C com cleanup em zt_release
+- [x] std.collections: heap kinds ZT_HEAP_BTREEMAP_TEXT_TEXT, ZT_HEAP_BTREESET_TEXT, ZT_HEAP_GRID3D_I64, ZT_HEAP_GRID3D_TEXT adicionados ao runtime C com cleanup em zt_release (forward declarations + switch cases)
+- [x] std.collections: parser is_type_name atualizado para reconhecer grid2d, pqueue, circbuf, btreemap, btreeset, grid3d como nomes de tipo validos
+- [x] std.collections: ZIR lowering dispatch entries para todas as funcoes de collections (queue, stack, grid2d, pqueue, circbuf, btreemap, btreeset, grid3d) mapeando collections.zt_* para c.zt_*
+- [x] std.collections: Queue<int/text> e Stack<int/text> refactored para wrapper sobre list<T> com semantica FIFO/LIFO correta (dequeue com shift, stack com pop-from-end)
+- [x] std.collections: behavior test `std_collections_basic` criado (Grid2D<int>, Grid3D<int>, BTreeMap<text,text>, BTreeSet<text>, PriorityQueue<int>, CircularBuffer<int>, rows/cols/depth/len/contains)
+- [x] std.collections: BTreeMap<text,text> com struct dedicada zt_btreemap_text_text (new, set, set_owned, get, get_optional, contains, remove, remove_owned, len) -> sorted array com busca binaria -> via extern c + COW
+- [x] std.collections: BTreeSet<text> com struct dedicada zt_btreeset_text (new, insert, insert_owned, contains, remove, remove_owned, len) -> sorted array com busca binaria -> via extern c
+- [x] std.collections: Grid3D<int> com struct dedicada zt_grid3d_i64 (new, get, set, set_owned, fill, fill_owned, depth, rows, cols) via extern c + COW
+- [x] std.collections: Grid3D<text> com struct dedicada zt_grid3d_text (new, get, set, set_owned, fill, fill_owned, depth, rows, cols) via extern c + COW + retain/release
+- [x] std.collections: validar ownership ARC em todas as novas collections (behavior `std_collections_managed_arc` cobre copy/mutate isolation em `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>`)
+- [x] std.collections: testes de integracao end-to-end compilando e executando via `zt run` (`std_collections_basic` + `std_collections_managed_arc`)
+- [x] std.collections: utilitarios de conveniencia (`is_empty` para pqueue/circbuf/btreemap/btreeset; `size` para grid2d/grid3d)
 - [x] Implementar std.random (Xoshiro/PCG)
 - [x] std.random: baseline inicial implementado (`seed`, `next`, `between`) via host runtime wrappers + behavior `std_random_basic`
-- [ ] Implementar std.validate
-- [x] std.validate: baseline inicial implementado (`between`, `positive`, `non_negative`, `negative`, `non_zero`, `one_of`, `not_empty`, `min_length`, `max_length`, `length_between`, `no_whitespace`)
-- [ ] Implementar std.time (Instant, Duration tipados na surface canonica)
+- [x] Implementar std.validate
+- [x] std.validate: baseline finalizado (`between`, `positive`, `non_negative`, `negative`, `non_zero`, `one_of`, `not_empty`, `min_length`, `max_length`, `length_between`, `no_whitespace`, `has_whitespace`)
+- [x] Implementar std.time (Instant, Duration tipados na surface canonica)
 - [x] std.time: baseline inicial implementado (API em `int` unix-ms no corte atual: `now`, `sleep`, `since`, `until`, `diff`, `add`, `sub`, conversoes unix e helpers de duracao) + behavior `std_time_basic`
-- [ ] Implementar std.format
-- [x] std.format: baseline inicial implementado (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`)
-- [ ] std.format: adicionar seletor tipado (`BytesStyle`) quando enum match qualificado estiver 100% no caminho executable
-- [ ] Implementar std.os e std.os.process (tipos canonicos completos: `os.Platform`, `os.Arch`, `os.Error`, `process.ExitStatus`, `process.Error`)
-- [x] std.os: baseline inicial implementado (`pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) via host runtime wrappers
-- [x] std.os.process: baseline inicial implementado (`run(program, args, cwd)`) com status de saida em `int` no corte atual
-- [ ] Implementar std.test (harness para tests)
-- [x] std.test: baseline inicial implementado (`fail`/`skip` no-op temporario, sem integracao com runner ainda)
-- [ ] Implementar std.net (TCP client, multi-IP DNS)
-- [ ] Criar behavior tests para cada modulo
-- [ ] Validar ownership ARC em cada implementacao
+- [x] std.time: Instant e Duration como structs tipados (`Instant(millis)`, `Duration(millis)`) com 15 funcoes (`now`, `sleep`, `since`, `until`, `diff`, `add`, `sub`, `from_unix`, `from_unix_ms`, `to_unix`, `to_unix_ms`, `milliseconds`, `seconds`, `minutes`, `hours`)
+- [x] Implementar std.format
+- [x] std.format: baseline executavel consolidado (`hex`, `bin`, `bytes` [binary default], `bytes_binary`, `bytes_decimal`) + behavior `std_format_basic` (check/run)
+- [x] std.format: seletor tipado `BytesStyle` implementado (`Binary`/`Decimal` enum + `match style` em `bytes()`) — limitacao restante: enum qualificado em expressoes ZIR->C em modulos std pode falhar em casos avancados
+- [x] Implementar std.os e std.os.process (tipos canonicos completos: `os.Error`, `process.Error`)
+- [x] std.os: baseline implementado (`Platform`/`Arch`/`Error` enums, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`, `platform_text`, `arch_text`, `is_platform`, `is_arch`, `is_windows`, `is_linux`, `is_macos`) via host runtime wrappers
+- [x] std.os.process: baseline implementado (`ExitStatus` struct, `Error` enum, `run`, `run_program`, `from_code`, `exit_code`, `is_success`, `is_failure`) com status de saida em `int` no corte atual
+- [x] Implementar std.test (harness para tests)
+- [x] std.test: harness real implementado (`attr test` + `zt test` + estados de pass/skip/fail), com `std_test_basic`, `std_test_attr_pass_skip` e `std_test_attr_fail`
+- [x] Implementar std.net (TCP client baseline em `std.net` com `connect`, `read_some`, `write_all`, `close`, `is_closed`, `kind`; timeout ainda exposto em `int` ms neste corte e harness local `run-loopback.ps1` cobrindo o fluxo E2E no host atual)
+- [x] Criar behavior tests para cada modulo (18 dirs: std_io_basic, std_json_basic, std_math_basic, std_format_basic, std_collections_basic, std_fs_basic, std_fs_path_basic, std_os_basic, std_os_process_basic, std_net_basic, std_random_basic, std_time_basic, std_validate_basic, std_test_basic, std_test_attr_fail, std_test_attr_pass_skip, std_bytes_ops, std_bytes_utf8)
+- [x] Validar ownership ARC em cada implementacao (collections: ARC/COW basico validado no C runtime e reforcado por `std_collections_managed_arc` em `zt verify/build/run`)
+- [x] Criar arquivos fisicos de documentacao ZDoc em `zdoc/std/` (14 de 14 modulos: io, fs, fs/path, json, math, collections, format, validate, random, time, os, os/process, net, test)
 
 ## M34. Cognitive Accessibility by Design
 
@@ -619,6 +644,52 @@ Observacao M30:
 - [ ] Implementar e baixar `dyn Trait` (fat pointers) para colecoes heterogeneas
 - [ ] Automatizar blindagem de referencias C contra ARC durante blocos FFI `extern("C")`
 - [ ] Criar behavior test para colecao heterogenea baseada em iterador `dyn Trait`
+
+## M36. Suite de Performance E2E
+
+- [ ] Criar harness `tests/perf/` com runner unico (`zt perf` ou equivalente bootstrap)
+- [ ] Definir contrato de output da suite (`reports/perf/*.json` + `reports/perf/*.md`)
+- [ ] Cobrir microbenchmarks de frontend (lexer, parser, binder, typechecker)
+- [ ] Cobrir microbenchmarks de lowering/backend (HIR, ZIR, emitter C)
+- [ ] Cobrir microbenchmarks de runtime (`text`, `bytes`, `list`, `map`, `grid2d`, `pqueue`, `circbuf`, `btreemap`, `btreeset`, `grid3d`)
+- [ ] Cobrir microbenchmarks de stdlib (`json`, `format`, `math`, `random`, `validate`)
+- [ ] Cobrir macrobenchmarks de `zt check`, `zt build`, `zt run` e `zt test`
+- [ ] Cobrir cenarios `small`, `medium` e `large` para build cold e build warm
+- [ ] Medir latencia, throughput, memoria de pico, alocacoes, tamanho de binario e startup
+- [ ] Padronizar metodologia (warmup, iteracoes minimas, mediana, p95, desvio padrao)
+- [ ] Detectar outliers e repetir automaticamente benchmark instavel
+- [ ] Versionar baseline por plataforma (`windows`/`linux`) com metadados de maquina
+- [ ] Definir budgets por benchmark com thresholds `warn` e `fail`
+- [ ] Integrar gate rapido de performance no PR
+- [ ] Integrar suite longa (nightly) para leaks, fragmentacao e degradacao por repeticao
+- [ ] Bloquear release com regressao acima do budget sem override documentado
+- [ ] Gerar diff historico contra baseline e contra branch base no CI
+- [x] Documentar reproducao local para devs e contribuidores
+- [ ] Integrar resultados do M36 no fechamento do M32 e nos gates de release
+
+## M37. Erro Tipado no Backend C (`result<T, core.Error>` -> `result<T, E>`)
+
+- [x] Fase 1: suportar `result<T, core.Error>` no backend C (alem de `text`)
+- [x] Definir tipo canonico `core.Error` (campos minimos: `code`, `message`, `context` opcional)
+- [x] Migrar `std.io` para `core.Error` (fase atual com alias para erro textual no backend C; `io.Error` fica para fase seguinte)
+- [x] Migrar `std.fs`, `std.json`, `std.os` e `std.os.process` para `core.Error` (fase atual com alias para erro textual no backend C)
+- [x] Cobrir Fase 1 com behavior/conformance: `?`, cleanup em `return`, e paths de erro em runtime
+- [x] Fase 2: generalizar para `result<T, E>` generico via monomorfizacao no emitter C
+- [x] Fase 2: gerar retain/release/copy corretos para `E` managed em todos os caminhos de cleanup
+- [x] Adicionar gates de regressao (tempo de compilacao, tamanho de binario e estabilidade de memoria) para a Fase 2
+
+## Checklist do primeiro ciclo recomendado
+
+- [x] Fechar `M0`
+- [x] Fechar `M1`
+- [x] Em `M2`, chegar ate parse de:
+  - [x] arquivo
+  - [x] `namespace`
+  - [x] `import`
+  - [x] declaracoes de topo
+  - [x] expressoes basicas
+
+
 ## Ordem de execucao pos-M20 (recomendada)
 
 1. `M21`
@@ -634,8 +705,10 @@ Observacao M30:
 11. `M31`
 12. `M34`
 13. `M33`
-14. `M32`
-15. `M35` (post-MVP)
+14. `M37`
+15. `M36`
+16. `M32`
+17. `M35` (post-MVP)
 
 Observacao: mantemos a numeracao original dos marcos para preservar referencias historicas, mas a execucao pratica segue a ordem acima.
 
@@ -650,5 +723,9 @@ Release v1 nao deve ser declarado pronto ate que todos os itens abaixo estejam v
 - [ ] `zenith.ztproj` e o modelo de CLI estao coerentes e user-facing
 - [ ] runtime de `where`, collections, `optional`, `result`, bytes e UTF-8 nao possui ambiguidade canonica
 - [ ] conformance cobre comportamento observavel, nao apenas parsing
+- [ ] suite de performance (`M36`) esta verde no gate rapido (PR) e no gate longo (nightly)
+- [ ] nenhum benchmark critico ultrapassa budget acordado (latencia, memoria, binario, startup)
+- [ ] relatorio de performance da release esta versionado e anexado ao candidato
 - [ ] ZDoc esta funcional o suficiente para manter codigo publico limpo
 - [ ] nenhuma feature critica de release possui duas formas canonicas conflitantes ou dois docs conflitantes
+

@@ -1,10 +1,26 @@
+-- Biblioteca Padrão Zenith — Módulo Format
+-- Formatação numérica: hex, binário, bytes (binary/decimal).
+-- 🏗️ EXTERN C
 namespace std.format
+
+public enum BytesStyle
+    Binary
+    Decimal
+end
 
 extern c
     func zt_format_hex_i64(value: int) -> text
     func zt_format_bin_i64(value: int) -> text
     func zt_format_bytes_binary(value: int, decimals: int) -> text
     func zt_format_bytes_decimal(value: int, decimals: int) -> text
+end
+
+func style_binary() -> format.BytesStyle
+    return format.BytesStyle.Binary
+end
+
+func style_decimal() -> format.BytesStyle
+    return format.BytesStyle.Decimal
 end
 
 func hex(value: int) -> text
@@ -15,10 +31,22 @@ func bin(value: int) -> text
     return format.zt_format_bin_i64(value)
 end
 
-func bytes(value: int, decimals: int = 1) -> text
-    return format.zt_format_bytes_binary(value, decimals)
+func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binary, decimals: int = 1) -> text
+    match style
+        case format.BytesStyle.Binary
+            return format.zt_format_bytes_binary(value, decimals)
+        case format.BytesStyle.Decimal
+            return format.zt_format_bytes_decimal(value, decimals)
+        case default
+            return format.zt_format_bytes_binary(value, decimals)
+    end
+end
+
+func bytes_binary(value: int, decimals: int = 1) -> text
+    return format.bytes(value, style: format.style_binary(), decimals: decimals)
 end
 
 func bytes_decimal(value: int, decimals: int = 1) -> text
-    return format.zt_format_bytes_decimal(value, decimals)
+    return format.bytes(value, style: format.style_decimal(), decimals: decimals)
 end
+

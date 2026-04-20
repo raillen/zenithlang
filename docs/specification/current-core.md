@@ -1,16 +1,14 @@
 # Especificacao: Core Atual Estabilizado
 
-Atualizado em: 2026-04-15
+Atualizado em: 2026-04-20
 
 Este documento resume o contrato curto do core do Zenith que hoje esta protegido por testes, bootstrap, gate self-hosted de release e politica explicita de artefatos.
 
 ## 1. Caminhos canonicos
 
 - front door oficial do produto: `ztc.lua` em modo self-hosted estrito;
-- superficie de recuperacao legada: `lua tools/ztc_legacy.lua ...`;
 - compilador self-hosted canonico: `src/compiler/syntax.zt`;
 - artefato promovido de bootstrap/release: `ztc_selfhost.lua`;
-- recuperacao extraordinaria de seed: `lua tools/bootstrap_legacy_recovery.lua`;
 - `src/compiler/syntax_bridge.zt` e apenas stub legado parseavel;
 - `src/semantic/binding/binder.zt`, `src/syntax/parser/parser.zt` e `src/syntax/lexer/lexer.zt` nao sao caminho oficial; permanecem como superficie experimental ate promocao explicita.
 
@@ -29,7 +27,6 @@ Este documento resume o contrato curto do core do Zenith que hoje esta protegido
 - `src/compiler/syntax.zt` passa em `check` pela frente self-hosted oficial;
 - bootstrap self-hosted `stage2/stage3` e deterministico;
 - `lua tools/selfhost_release.lua` valida a promocao recorrente de release no recorte oficial;
-- `lua tools/selfhost_legacy_audit.lua` falha se qualquer superficie oficial ainda tocar o legado;
 - artefatos temporarios do fluxo oficial vivem em `.selfhost-artifacts/` e `.ztc-tmp/`.
 
 ## 4. O que nao e contrato de linguagem

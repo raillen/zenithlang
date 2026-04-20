@@ -48,7 +48,7 @@ Objetivo: Validar a resolução de nomes, escopos e tipos.
 ---
 
 ## 4. Fase 5 e 10: Emitter e Transcendência (Codegen)
-Objetivo: Garantir que o código Lua gerado seja correto e otimizado.
+Objetivo: Garantir que o código resultado gerado seja correto e otimizado.
 
 - [X] Snapshot Testing (Crítico): Verificado (phase5_emitter_test.zt).
     - [X] Usar assert_snapshot para comparar a saída Lua byte-a-byte com padrões de referência.

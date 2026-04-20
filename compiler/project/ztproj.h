@@ -61,10 +61,11 @@ typedef struct zt_project_manifest {
     size_t dev_dependency_count;
     zt_project_dependency_entry dev_dependencies[ZT_PROJECT_MAX_DEPENDENCIES];
 
-    /* Internal compatibility fields used by the current bootstrap driver. */
+/* Internal compatibility fields used by the current bootstrap driver. */
     char entry[128];
     char output_name[128];
     char output_dir[256];
+    char diag_profile[32];
 } zt_project_manifest;
 
 typedef struct zt_project_parse_result {

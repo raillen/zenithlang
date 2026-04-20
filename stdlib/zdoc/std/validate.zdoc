@@ -1,0 +1,72 @@
+--- @target: between
+Valida se `value` esta no intervalo fechado `[min, max]`.
+
+**Sintaxe**
+`func between(value: int, min: int, max: int) -> bool`
+---
+--- @target: positive
+Valida inteiro positivo.
+
+**Sintaxe**
+`func positive(value: int) -> bool`
+---
+--- @target: non_negative
+Valida inteiro maior ou igual a zero.
+
+**Sintaxe**
+`func non_negative(value: int) -> bool`
+---
+--- @target: negative
+Valida inteiro negativo.
+
+**Sintaxe**
+`func negative(value: int) -> bool`
+---
+--- @target: non_zero
+Valida inteiro diferente de zero.
+
+**Sintaxe**
+`func non_zero(value: int) -> bool`
+---
+--- @target: one_of
+Valida se `value` pertence a `candidates`.
+
+**Sintaxe**
+`func one_of(value: int, candidates: list<int>) -> bool`
+---
+--- @target: not_empty
+Valida texto nao vazio.
+
+**Sintaxe**
+`func not_empty(value: text) -> bool`
+---
+--- @target: min_length
+Valida tamanho minimo de texto.
+
+**Sintaxe**
+`func min_length(value: text, min: int) -> bool`
+---
+--- @target: max_length
+Valida tamanho maximo de texto.
+
+**Sintaxe**
+`func max_length(value: text, max: int) -> bool`
+---
+--- @target: length_between
+Valida faixa de tamanho de texto.
+
+**Sintaxe**
+`func length_between(value: text, min: int, max: int) -> bool`
+---
+--- @target: no_whitespace
+Valida ausencia de whitespace ASCII (`space`, `tab`, `\n`, `\r`).
+
+**Sintaxe**
+`func no_whitespace(value: text) -> bool`
+---
+--- @target: has_whitespace
+Valida presenca de ao menos um whitespace ASCII.
+
+**Sintaxe**
+`func has_whitespace(value: text) -> bool`
+---

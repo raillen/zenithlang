@@ -130,6 +130,7 @@ struct zt_ast_node {
             zt_ast_node *body;
             int is_public;
             int is_mutating;
+            int is_test;
         } func_decl;
 
         struct {
@@ -252,6 +253,8 @@ struct zt_ast_node {
             const char *name;
             zt_ast_node *type_node;
             zt_ast_node *init_value;
+            int is_public;
+            int is_module_level;
         } const_decl;
 
         struct {

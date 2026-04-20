@@ -8,7 +8,7 @@ Este e o changelog canonico do Zenith dentro da estrutura atual de documentacao.
 
 - documentacao principal, portal e website alinhados ao estado oficial 100% self-hosted;
 - front door, bootstrap, release e auditoria passaram a ser descritos pela linha vigente, sem reapresentar a transicao como estado atual;
-- trilha Lua mantida como runtime, implementacao de referencia e recuperacao extraordinaria, sem disputar a face oficial do produto.
+- trilha historica mantida como runtime, implementacao de referencia e recuperacao extraordinaria, sem disputar a face oficial do produto.
 
 ### Added
 
@@ -45,7 +45,7 @@ Este e o changelog canonico do Zenith dentro da estrutura atual de documentacao.
 ### Changed
 
 - a documentacao da epoca passou a tratar Ascension como linha principal;
-- o bootstrap em Lua deixou de ser apresentado como unica narrativa do projeto.
+- o bootstrap anterior deixou de ser apresentado como unica narrativa do projeto.
 
 ### Note
 
@@ -82,7 +82,7 @@ Este e o changelog canonico do Zenith dentro da estrutura atual de documentacao.
 - shadowing no codegen
 - parsing de blocos aninhados
 - escapes em strings
-- suporte ampliado a operadores e estruturas no backend Lua
+- suporte ampliado a operadores e estruturas no backend atual
 
 ## [0.2.0] - 2026-04-08
 

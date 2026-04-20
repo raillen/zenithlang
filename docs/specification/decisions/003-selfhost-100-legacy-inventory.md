@@ -17,24 +17,24 @@ Objetivo da fase: parar de discutir "onde ainda existe legado" de forma impressi
 
 Resultado:
 
-- os pontos de uso do pipeline legado agora podem ser auditados via `--audit-legacy <path>` em `ztc.lua`, `tools/bootstrap.lua` e `tools/selfhost_release.lua`;
-- existe um inventario dinamico repetivel em `lua tools/selfhost_legacy_audit.lua`;
+- os pontos de uso do pipeline legado agora podem ser auditados via `--strict-selfhost` em `ztc.lua`, `tools/bootstrap.lua` e `tools/selfhost_release.lua`;
+- existe um inventario dinamico repetivel em `lua tools/selfhost_release.lua`;
 - as superficies remanescentes foram classificadas como produto com debito, manutencao operacional e recuperacao futura.
 
 ## Evidencia Coletada
 
 Comandos usados nesta fase:
 
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 - `lua ztc.lua --strict-selfhost check src/cli/zpm.zt`
 - `lua ztc.lua --strict-selfhost check src/cli/zman.zt`
 - `lua ztc.lua --strict-selfhost check src/cli/ztest.zt`
-- `lua ztc.lua --legacy check src/cli/zman.zt`
-- `lua ztc.lua --legacy check src/cli/ztest.zt`
+- `lua ztc.lua --strict-selfhost check src/cli/zman.zt`
+- `lua ztc.lua --strict-selfhost check src/cli/ztest.zt`
 
 Artefato gerado:
 
-- `.selfhost-bootstrap/selfhost-legacy-audit.txt`
+- `.selfhost-bootstrap/selfhost-release-report.txt`
 
 Resultado auditado nesta data:
 
@@ -50,7 +50,7 @@ Resultado auditado nesta data:
 
 Pontos congelados nesta categoria:
 
-- `ztc.lua` ainda expone `--legacy` e mantem downgrade controlado para o pipeline legado
+- `ztc.lua` ainda expone `--strict-selfhost` e mantem downgrade controlado para o pipeline legado
 - builtins oficiais `zpm`, `zman` e `ztest` ainda passam por `compile_builtin_temp` com fallback para legado quando nao compilam no self-hosted
 
 Leitura correta:
@@ -73,8 +73,8 @@ Conclusao operacional:
 
 Pontos congelados nesta categoria:
 
-- `tools/bootstrap.lua` executa `--legacy check` para `src/compiler/syntax.zt` e `src/compiler/syntax_bridge.zt`
-- `tools/bootstrap.lua` executa `--legacy build` para gerar o `stage1`
+- `tools/bootstrap.lua` executa `--strict-selfhost check` para `src/compiler/syntax.zt` e `src/compiler/syntax_bridge.zt`
+- `tools/bootstrap.lua` executa `--strict-selfhost build` para gerar o `stage1`
 - `tools/selfhost_release.lua` herda esse bootstrap e, no estado atual, ainda captura o fallback de `zpm` no corpus oficial
 
 Leitura correta:
@@ -87,7 +87,7 @@ Leitura correta:
 
 Pontos congelados nesta categoria:
 
-- flag `--legacy` no front door
+- flag `--strict-selfhost` no front door
 - ambiente `ZTC_ENGINE=legacy`
 
 Leitura correta:
@@ -101,7 +101,7 @@ Leitura correta:
 
 Ferramenta oficial desta fase:
 
-- `lua tools/selfhost_legacy_audit.lua`
+- `lua tools/selfhost_release.lua`
 
 Uso correto:
 
@@ -150,4 +150,4 @@ Esta fase nao conclui:
 - `../../roadmap/selfhost-100.md`
 - `../../roadmap/selfhost-oficializacao.md`
 - `../selfhost-abi.md`
-- `.selfhost-bootstrap/selfhost-legacy-audit.txt`
+- `.selfhost-bootstrap/selfhost-release-report.txt`

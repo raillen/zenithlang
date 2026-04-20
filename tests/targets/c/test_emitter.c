@@ -7,7 +7,8 @@
 #include "compiler/zir/model.h"
 #include "compiler/zir/verifier.h"
 
-#include <stdio.h>#include <stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
 #include <direct.h>
@@ -18,7 +19,8 @@
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
-#define ARRAY_COUNT(items) (sizeof(items) / sizeof((items)[0]))
+
+#define ARRAY_COUNT(items) (sizeof(items) / sizeof((items)[0]))
 
 static void ensure_generated_output_dir(void) {
 #ifdef _WIN32
@@ -662,6 +664,55 @@ static void test_outcome_text_text_failure_expr(void) {
     assert_rendered_contains_all("emit_outcome_text_text_failure", &module_decl, fragments, ARRAY_COUNT(fragments));
 }
 
+
+static void test_generic_outcome_bool_core_error_exprs(void) {
+    const zir_param params[] = {
+        zir_make_param("value", "Outcome<bool,core.Error>", NULL),
+    };
+    const zir_instruction entry_instructions[] = {
+        zir_make_assign_instruction("t0", "bool", "outcome_is_success value"),
+    };
+    const zir_instruction ok_instructions[] = {
+        zir_make_assign_instruction("t1", "bool", "outcome_value value"),
+        zir_make_assign_instruction("t2", "Outcome<bool,core.Error>", "outcome_success t1"),
+    };
+    const zir_instruction fail_instructions[] = {
+        zir_make_assign_instruction("t3", "Outcome<bool,core.Error>", "try_propagate value"),
+    };
+    const zir_instruction fail_literal_instructions[] = {
+        zir_make_assign_instruction("t0", "Outcome<bool,core.Error>", "outcome_failure const \"boom\""),
+    };
+    const zir_block read_blocks[] = {
+        zir_make_block("entry", entry_instructions, ARRAY_COUNT(entry_instructions), zir_make_branch_if_terminator("t0", "ok_bb", "fail_bb")),
+        zir_make_block("ok_bb", ok_instructions, ARRAY_COUNT(ok_instructions), zir_make_return_terminator("t2")),
+        zir_make_block("fail_bb", fail_instructions, ARRAY_COUNT(fail_instructions), zir_make_return_terminator("t3")),
+    };
+    const zir_block fail_blocks[] = {
+        zir_make_block("entry", fail_literal_instructions, ARRAY_COUNT(fail_literal_instructions), zir_make_return_terminator("t0")),
+    };
+    const zir_function functions[] = {
+        zir_make_function("read_flag", params, ARRAY_COUNT(params), "Outcome<bool,core.Error>", read_blocks, ARRAY_COUNT(read_blocks)),
+        zir_make_function("fail_flag", NULL, 0, "Outcome<bool,core.Error>", fail_blocks, ARRAY_COUNT(fail_blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "#include <string.h>",
+        "typedef struct zt_generated_outcome_bool_core_error_ {",
+        "static zt_generated_outcome_bool_core_error_ zt_generated_outcome_bool_core_error__success(zt_bool value) {",
+        "outcome.error = zt_core_error_clone(outcome.error);",
+        "zt_core_error_dispose(&outcome->error);",
+        "static zt_generated_outcome_bool_core_error_ zt_generated_outcome_bool_core_error__failure_message(const char *message) {",
+        "static zt_generated_outcome_bool_core_error_ zt_main__read_flag(zt_generated_outcome_bool_core_error_ value);",
+        "t0 = zt_generated_outcome_bool_core_error__is_success(value);",
+        "t1 = zt_generated_outcome_bool_core_error__value(value);",
+        "t2 = zt_generated_outcome_bool_core_error__success(t1);",
+        "t3 = zt_generated_outcome_bool_core_error__propagate(value);",
+        "t0 = zt_generated_outcome_bool_core_error__failure_message(\"boom\");",
+    };
+
+    assert_rendered_contains_all("emit_generic_outcome_bool_core_error", &module_decl, fragments, ARRAY_COUNT(fragments));
+}
+
 static void test_list_set_effects(void) {
     const zir_param int_params[] = {
         zir_make_param("xs", "list<int>", NULL),
@@ -847,6 +898,21 @@ static zir_module make_list_slice_len_main_module(void) {
 }
 
 
+
+static zir_module make_result_bool_main_module(void) {
+    static const zir_instruction instructions[] = {
+        { ZIR_INSTR_ASSIGN, "t0", "Outcome<void,bool>", "outcome_failure false" },
+    };
+    static const zir_block blocks[] = {
+        { "entry", instructions, ARRAY_COUNT(instructions), { ZIR_TERM_RETURN, "t0", NULL, NULL, NULL, NULL, NULL } },
+    };
+    static const zir_function functions[] = {
+        { "main", NULL, 0, "Outcome<void,bool>", blocks, ARRAY_COUNT(blocks) },
+    };
+
+    return zir_make_module("main", functions, ARRAY_COUNT(functions));
+}
+
 static void test_structured_zir_emission(void) {
     zir_expr *list_expr = zir_expr_make_make_list("int");
     const zir_instruction instructions[] = {
@@ -954,6 +1020,7 @@ static void test_main_wrapper_and_outputs(void) {
     const zir_module text_slice_main = make_text_slice_main_module();
     const zir_module list_index_main = make_list_index_main_module();
     const zir_module list_slice_len_main = make_list_slice_len_main_module();
+    const zir_module result_bool_main = make_result_bool_main_module();
 
     assert_rendered(
         "emit_branch_main",
@@ -991,6 +1058,18 @@ static void test_main_wrapper_and_outputs(void) {
         "#include \"runtime/c/zenith_rt.h\"\n#include <stdio.h>\n\nstatic zt_int zt_main__main(void);\n\nstatic zt_int zt_main__main(void) {\n    zt_list_i64 *t0 = NULL;\n    zt_list_i64 *t1 = NULL;\n    zt_int t2;\n    zt_int zt_return_value;\n    goto zt_block_entry;\n\nzt_block_entry:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    t0 = zt_list_i64_from_array(((zt_int[]){4, 7, 9, 11}), 4);\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    t1 = zt_list_i64_slice(t0, 2, 3);\n    t2 = zt_list_i64_len(t1);\n    zt_return_value = t2;\n    goto zt_cleanup;\n\nzt_cleanup:\n    if (t0 != NULL) { zt_release(t0); t0 = NULL; }\n    if (t1 != NULL) { zt_release(t1); t1 = NULL; }\n    return zt_return_value;\n}\n\nint main(void) {\n    return (int)zt_main__main();\n}"
     );
 
+
+    {
+        static const char *const fragments[] = {
+            "static zt_generated_outcome_void_bool_ zt_main__main(void);",
+            "t0 = zt_generated_outcome_void_bool__failure(false);",
+            "zt_generated_outcome_void_bool_ __zt_main_result = zt_main__main();",
+            "zt_generated_outcome_void_bool__dispose(&__zt_main_result);",
+        };
+
+        assert_rendered_contains_all("emit_result_bool_main", &result_bool_main, fragments, ARRAY_COUNT(fragments));
+    }
+
     write_rendered_file("branch_main_out", &branch_main, ".ztc-tmp/tests/targets/c/generated_branch_main.c");
     write_rendered_file("puts_main_out", &puts_main, ".ztc-tmp/tests/targets/c/generated_puts_main.c");
     write_rendered_file("text_index_main_out", &text_index_main, ".ztc-tmp/tests/targets/c/generated_text_index_main.c");
@@ -1021,6 +1100,7 @@ int main(void) {
     test_outcome_void_failure_expr();
     test_outcome_text_text_exprs();
     test_outcome_text_text_failure_expr();
+    test_generic_outcome_bool_core_error_exprs();
     test_list_set_effects();
     test_map_set_and_len_effects();
     test_managed_param_return_retain();

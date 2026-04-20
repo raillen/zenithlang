@@ -1,0 +1,25 @@
+--- @target: std.fs
+Filesystem operations for reading, writing, and checking file paths.
+---
+
+--- @target: read_text
+Reads the entire contents of a file as text.
+
+@param path The file path to read from.
+@return A result containing the file contents as text, or an error if the file cannot be read.
+---
+
+--- @target: write_text
+Writes text content to a file, replacing its existing contents.
+
+@param path The file path to write to.
+@param value The text content to write.
+@return A result indicating success or an error if writing fails.
+---
+
+--- @target: exists
+Checks whether a file or directory exists at the given path.
+
+@param path The file path to check.
+@return True if the path exists, false otherwise.
+---

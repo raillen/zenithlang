@@ -1,0 +1,94 @@
+--- @target: std.os.process
+Execução de processos externos e códigos de saída.
+---
+
+--- @target: run
+Executa um programa externo com argumentos opcionais e diretório de trabalho.
+
+⚡ **Sintaxe**
+`func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<int, core.Error>`
+
+📌 **Parâmetros**
+- `program`: Caminho ou nome do executável.
+- `args`: Argumentos de linha de comando. Defaults to empty list.
+- `cwd`: Diretório de trabalho opcional. Defaults to none (current directory).
+
+🎯 **Retorno**
+`result` com o código de saída do processo como `int`, ou erro.
+---
+--- @target: run_program
+Atalho para executar um programa sem argumentos e no diretório atual.
+
+⚡ **Sintaxe**
+`func run_program(program: text) -> result<int, core.Error>`
+
+📌 **Parâmetros**
+- `program`: Caminho ou nome do executável.
+
+🎯 **Retorno**
+`result` com o código de saída do processo como `int`, ou erro.
+---
+--- @target: from_code
+Constrói um `ExitStatus` a partir de um código inteiro.
+
+⚡ **Sintaxe**
+`func from_code(code: int) -> process.ExitStatus`
+
+📌 **Parâmetros**
+- `code`: O código de saída.
+
+🎯 **Retorno**
+Uma instância de `ExitStatus`.
+---
+--- @target: exit_code
+Extrai o código de saída de um `ExitStatus`.
+
+⚡ **Sintaxe**
+`func exit_code(status: process.ExitStatus) -> int`
+
+📌 **Parâmetros**
+- `status`: O status de saída.
+
+🎯 **Retorno**
+O código de saída como `int`.
+---
+--- @target: is_success
+Verifica se o status indica sucesso (código zero).
+
+⚡ **Sintaxe**
+`func is_success(status: process.ExitStatus) -> bool`
+
+📌 **Parâmetros**
+- `status`: O status de saída.
+
+🎯 **Retorno**
+`true` se o código de saída for 0.
+---
+--- @target: is_failure
+Verifica se o status indica falha (código não-zero).
+
+⚡ **Sintaxe**
+`func is_failure(status: process.ExitStatus) -> bool`
+
+📌 **Parâmetros**
+- `status`: O status de saída.
+
+🎯 **Retorno**
+`true` se o código de saída for diferente de 0.
+---
+--- @target: process.ExitStatus
+Struct que encapsula o código de saída de um processo.
+
+⚡ **Campos**
+- `code: int` — O código de saída retornado pelo processo.
+---
+--- @target: process.Error
+Enum de erros específicos do módulo Process.
+
+⚡ **Variantes**
+- `NotFound` — Programa não encontrado.
+- `PermissionDenied` — Permissão insuficiente para executar.
+- `IOFailure` — Falha de I/O durante a execução.
+- `StillRunning` — Processo ainda em execução.
+- `Unknown` — Erro não categorizado.
+---

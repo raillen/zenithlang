@@ -1,0 +1,61 @@
+--- @target: std.format
+Text formatting utilities for numbers, bytes, and hexadecimal/binary representations.
+---
+
+--- @target: BytesStyle
+Enumeration for byte display style in human-readable formats.
+
+- `Binary` — displays bytes in powers of 2 (KiB, MiB, GiB).
+- `Decimal` — displays bytes in powers of 10 (KB, MB, GB).
+---
+
+--- @target: style_binary
+Returns the `Binary` bytes style for use with @link bytes.
+
+@return The Binary style enum value.
+---
+
+--- @target: style_decimal
+Returns the `Decimal` bytes style for use with @link bytes.
+
+@return The Decimal style enum value.
+---
+
+--- @target: hex
+Formats an integer as a hexadecimal string (base 16).
+
+@param value The integer to format.
+@return A text string with the hexadecimal representation.
+---
+
+--- @target: bin
+Formats an integer as a binary string (base 2).
+
+@param value The integer to format.
+@return A text string with the binary representation.
+---
+
+--- @target: bytes
+Formats a byte count as a human-readable string with specified style and decimal places.
+
+@param value The number of bytes.
+@param style The display style (Binary or Decimal). Defaults to Binary.
+@param decimals Number of decimal places. Defaults to 1.
+@return A formatted string like "1.5 KiB" or "1.5 KB".
+---
+
+--- @target: bytes_binary
+Formats a byte count as a human-readable string using binary style (powers of 2).
+
+@param value The number of bytes.
+@param decimals Number of decimal places. Defaults to 1.
+@return A formatted string like "1.5 KiB".
+---
+
+--- @target: bytes_decimal
+Formats a byte count as a human-readable string using decimal style (powers of 10).
+
+@param value The number of bytes.
+@param decimals Number of decimal places. Defaults to 1.
+@return A formatted string like "1.5 KB".
+---

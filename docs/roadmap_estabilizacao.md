@@ -226,7 +226,7 @@ Status: concluida.
 
 Entregue:
 
-- Type erasure preservado no Lua gerado.
+- Type erasure preservado no resultado gerado.
 - Structs e funcoes genericas com constraints.
 - Chamadas explicitas como `func<T>(x)` instanciam parametros antes da validacao.
 - Violacoes de constraint falham de forma previsivel.

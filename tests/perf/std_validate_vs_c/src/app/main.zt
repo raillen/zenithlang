@@ -1,0 +1,108 @@
+namespace app.main
+
+import c
+import std.format as format
+import std.io as io
+import std.time as time
+import std.validate as validate
+
+func mixed_value(seed: int) -> int
+    return ((seed * 73) % 301) - 100
+end
+
+func bench_std_validate_between() -> int
+    const iterations: int = 5000000
+    const min_value: int = -20
+    const max_value: int = 120
+
+    var i: int = 0
+    var hits: int = 0
+
+    while i < iterations
+        const value: int = mixed_value(i)
+        if validate.between(value, min: min_value, max: max_value)
+            hits = hits + 1
+        end
+        i = i + 1
+    end
+
+    return hits
+end
+
+func bench_c_validate_between() -> int
+    const iterations: int = 5000000
+    const min_value: int = -20
+    const max_value: int = 120
+
+    var i: int = 0
+    var hits: int = 0
+
+    while i < iterations
+        const value: int = mixed_value(i)
+        if c.zt_validate_between_i64(value, min_value, max_value)
+            hits = hits + 1
+        end
+        i = i + 1
+    end
+
+    return hits
+end
+
+func bench_inline_between() -> int
+    const iterations: int = 5000000
+    const min_value: int = -20
+    const max_value: int = 120
+
+    var i: int = 0
+    var hits: int = 0
+
+    while i < iterations
+        const value: int = mixed_value(i)
+        if value >= min_value and value <= max_value
+            hits = hits + 1
+        end
+        i = i + 1
+    end
+
+    return hits
+end
+
+func report_case(label: text, elapsed_ms: int, hits: int) -> result<void, text>
+    io.print(label)?
+    io.print(" ms=0x")?
+    io.print(format.hex(elapsed_ms))?
+    io.print(" hits=0x")?
+    return io.print_line(format.hex(hits))
+end
+
+func main() -> result<void, text>
+    const iterations: int = 5000000
+
+    var start_ms: int = 0
+    var elapsed_ms: int = 0
+
+    io.print_line("benchmark std.validate.between vs c helper")?
+    io.print("iterations=0x")?
+    io.print_line(format.hex(iterations))?
+
+    start_ms = time.now()
+    const hits_std: int = bench_std_validate_between()
+    elapsed_ms = time.since(start_ms)
+    report_case("std.validate.between", elapsed_ms, hits_std)?
+
+    start_ms = time.now()
+    const hits_c: int = bench_c_validate_between()
+    elapsed_ms = time.since(start_ms)
+    report_case("c.zt_validate_between_i64", elapsed_ms, hits_c)?
+
+    start_ms = time.now()
+    const hits_inline: int = bench_inline_between()
+    elapsed_ms = time.since(start_ms)
+    report_case("inline >= <=", elapsed_ms, hits_inline)?
+
+    if hits_std != hits_c or hits_std != hits_inline
+        return error("benchmark mismatch: different hit counts across implementations")
+    end
+
+    return success()
+end

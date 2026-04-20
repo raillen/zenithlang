@@ -89,7 +89,7 @@ export const PLAYGROUND_EMBEDS = {
   'zenith-lab': {
     id: 'zenith-lab',
     title: 'Zenith Playground',
-    subtitle: 'Edite o código, rode no browser e veja o Lua gerado.',
+    subtitle: 'Edite o código, rode no browser e veja o resultado gerado.',
     hint: 'Dica: o playground executa automaticamente a função main() quando ela existe.',
     shareHint: 'O código fica sincronizado na URL enquanto você edita.',
     presetIds: ['starter', 'functions', 'structs'],

@@ -1,8 +1,0 @@
-// A test comment
-namespace test_namespace
-
-// Function comment
-func test_func(a: int) -> int {
-    // inside function
-    return a + 1
-}

@@ -126,7 +126,9 @@ static int zir_call_is_module_func(const char *name, const char *module_name, co
     size_t module_len;
     if (name == NULL || module_name == NULL || func_name == NULL) return 0;
     last_dot = strrchr(name, '.');
-    if (last_dot == NULL) return 0;
+    if (last_dot == NULL) {
+        return zir_text_eq(name, func_name);
+    }
     if (!zir_text_eq(last_dot + 1, func_name)) return 0;
 
     module_start = last_dot;
@@ -481,6 +483,16 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "test", "zt_test_fail")) {
+        call = zir_expr_make_call_extern("c.zt_test_fail");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "test", "zt_test_skip")) {
+        call = zir_expr_make_call_extern("c.zt_test_skip");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "fs", "zt_host_read_file")) {
         call = zir_expr_make_call_extern("c.zt_host_read_file");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -551,6 +563,41 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "net", "zt_text_eq")) {
+        call = zir_expr_make_call_extern("c.zt_text_eq");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_connect")) {
+        call = zir_expr_make_call_extern("c.zt_net_connect");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_read_some")) {
+        call = zir_expr_make_call_extern("c.zt_net_read_some");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_write_all")) {
+        call = zir_expr_make_call_extern("c.zt_net_write_all");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_close")) {
+        call = zir_expr_make_call_extern("c.zt_net_close");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_is_closed")) {
+        call = zir_expr_make_call_extern("c.zt_net_is_closed");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "net", "zt_net_error_kind_index")) {
+        call = zir_expr_make_call_extern("c.zt_net_error_kind_index");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "path", "zt_text_concat")) {
         call = zir_expr_make_call_extern("c.zt_text_concat");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -611,11 +658,126 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
-    if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
+if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
         call = zir_expr_make_call_extern("c.zt_format_bytes_decimal");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_pow")) { call = zir_expr_make_call_extern("c.zt_math_pow"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_sqrt")) { call = zir_expr_make_call_extern("c.zt_math_sqrt"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_floor")) { call = zir_expr_make_call_extern("c.zt_math_floor"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_ceil")) { call = zir_expr_make_call_extern("c.zt_math_ceil"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_round_half_away_from_zero")) { call = zir_expr_make_call_extern("c.zt_math_round_half_away_from_zero"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_trunc")) { call = zir_expr_make_call_extern("c.zt_math_trunc"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_sin")) { call = zir_expr_make_call_extern("c.zt_math_sin"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_cos")) { call = zir_expr_make_call_extern("c.zt_math_cos"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_tan")) { call = zir_expr_make_call_extern("c.zt_math_tan"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_asin")) { call = zir_expr_make_call_extern("c.zt_math_asin"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_acos")) { call = zir_expr_make_call_extern("c.zt_math_acos"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_atan")) { call = zir_expr_make_call_extern("c.zt_math_atan"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_atan2")) { call = zir_expr_make_call_extern("c.zt_math_atan2"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_ln")) { call = zir_expr_make_call_extern("c.zt_math_ln"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_log10")) { call = zir_expr_make_call_extern("c.zt_math_log10"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_log2")) { call = zir_expr_make_call_extern("c.zt_math_log2"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_log")) { call = zir_expr_make_call_extern("c.zt_math_log"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_exp")) { call = zir_expr_make_call_extern("c.zt_math_exp"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_is_nan")) { call = zir_expr_make_call_extern("c.zt_math_is_nan"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_is_infinite")) { call = zir_expr_make_call_extern("c.zt_math_is_infinite"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "math", "zt_math_is_finite")) { call = zir_expr_make_call_extern("c.zt_math_is_finite"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_i64_new")) { call = zir_expr_make_call_extern("c.zt_queue_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_i64_enqueue")) { call = zir_expr_make_call_extern("c.zt_queue_i64_enqueue"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_i64_dequeue")) { call = zir_expr_make_call_extern("c.zt_queue_i64_dequeue"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_i64_peek")) { call = zir_expr_make_call_extern("c.zt_queue_i64_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_text_new")) { call = zir_expr_make_call_extern("c.zt_queue_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_text_enqueue")) { call = zir_expr_make_call_extern("c.zt_queue_text_enqueue"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_text_dequeue")) { call = zir_expr_make_call_extern("c.zt_queue_text_dequeue"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_queue_text_peek")) { call = zir_expr_make_call_extern("c.zt_queue_text_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_i64_new")) { call = zir_expr_make_call_extern("c.zt_stack_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_i64_push")) { call = zir_expr_make_call_extern("c.zt_stack_i64_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_i64_pop")) { call = zir_expr_make_call_extern("c.zt_stack_i64_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_i64_peek")) { call = zir_expr_make_call_extern("c.zt_stack_i64_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_text_new")) { call = zir_expr_make_call_extern("c.zt_stack_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_text_push")) { call = zir_expr_make_call_extern("c.zt_stack_text_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_text_pop")) { call = zir_expr_make_call_extern("c.zt_stack_text_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_stack_text_peek")) { call = zir_expr_make_call_extern("c.zt_stack_text_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_new")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_get")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_get"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_set")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_set"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_set_owned")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_set_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_fill")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_fill"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_fill_owned")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_fill_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_rows")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_rows"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_i64_cols")) { call = zir_expr_make_call_extern("c.zt_grid2d_i64_cols"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_new")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_get")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_get"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_set")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_set"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_set_owned")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_set_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_fill")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_fill"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_fill_owned")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_fill_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_rows")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_rows"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid2d_text_cols")) { call = zir_expr_make_call_extern("c.zt_grid2d_text_cols"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_new")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_push")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_push_owned")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_push_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_pop")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_peek")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_i64_len")) { call = zir_expr_make_call_extern("c.zt_pqueue_i64_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_new")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_push")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_push_owned")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_push_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_pop")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_peek")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_pqueue_text_len")) { call = zir_expr_make_call_extern("c.zt_pqueue_text_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_new")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_push")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_push_owned")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_push_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_pop")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_peek")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_len")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_capacity")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_capacity"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_i64_is_full")) { call = zir_expr_make_call_extern("c.zt_circbuf_i64_is_full"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_new")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_push")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_push"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_push_owned")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_push_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_pop")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_pop"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_peek")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_peek"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_len")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_capacity")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_capacity"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_circbuf_text_is_full")) { call = zir_expr_make_call_extern("c.zt_circbuf_text_is_full"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_new")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_set")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_set"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_set_owned")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_set_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_get")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_get"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_get_optional")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_get_optional"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_contains")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_contains"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_remove")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_remove"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_remove_owned")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_remove_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreemap_text_text_len")) { call = zir_expr_make_call_extern("c.zt_btreemap_text_text_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_new")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_insert")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_insert"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_insert_owned")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_insert_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_contains")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_contains"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_remove")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_remove"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_remove_owned")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_remove_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_btreeset_text_len")) { call = zir_expr_make_call_extern("c.zt_btreeset_text_len"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_new")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_get")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_get"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_set")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_set"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_set_owned")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_set_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_fill")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_fill"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_fill_owned")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_fill_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_depth")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_depth"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_rows")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_rows"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_i64_cols")) { call = zir_expr_make_call_extern("c.zt_grid3d_i64_cols"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_new")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_new"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_get")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_get"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_set")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_set"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_set_owned")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_set_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_fill")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_fill"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_fill_owned")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_fill_owned"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_depth")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_depth"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_rows")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_rows"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
+    if (zir_call_is_module_func(callee_name, "collections", "zt_grid3d_text_cols")) { call = zir_expr_make_call_extern("c.zt_grid3d_text_cols"); zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to); return call; }
     if (zir_starts_with(callee_name, "c.")) {
         call = zir_expr_make_call_extern(callee_name);
     } else {

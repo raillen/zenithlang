@@ -29,6 +29,7 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_CASE: return "case";
         case ZT_TOKEN_DEFAULT: return "default";
         case ZT_TOKEN_PUBLIC: return "public";
+        case ZT_TOKEN_ATTR: return "attr";
         case ZT_TOKEN_WHERE: return "where";
         case ZT_TOKEN_IS: return "is";
         case ZT_TOKEN_AND: return "and";
@@ -43,6 +44,12 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_RESULT: return "result";
         case ZT_TOKEN_LIST: return "list";
         case ZT_TOKEN_MAP: return "map";
+        case ZT_TOKEN_GRID2D: return "grid2d";
+        case ZT_TOKEN_PQUEUE: return "pqueue";
+        case ZT_TOKEN_CIRCBUF: return "circbuf";
+        case ZT_TOKEN_BTREEMAP: return "btreemap";
+        case ZT_TOKEN_BTREESET: return "btreeset";
+        case ZT_TOKEN_GRID3D: return "grid3d";
         case ZT_TOKEN_EXTERN: return "extern";
         case ZT_TOKEN_VOID: return "void";
         case ZT_TOKEN_MUT: return "mut";

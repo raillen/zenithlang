@@ -73,6 +73,7 @@ static void c_canonicalize_type(char *dest, size_t capacity, const char *type_na
             dest[capacity - 1] = '\0';
         }
     }
+
 }
 
 static const char *c_safe_text(const char *text) {
@@ -464,8 +465,18 @@ typedef struct c_type_mapping {
 /* Sorted alphabetically by canonical_name for binary search */
 static const c_type_mapping C_TYPE_TABLE[] = {
     {"bool", "zt_bool", C_TYPE_PRIMITIVE, 0},
+    {"btreemap<text,text>", "zt_btreemap_text_text *", C_TYPE_MANAGED, 1},
+    {"btreeset<text>", "zt_btreeset_text *", C_TYPE_MANAGED, 1},
     {"bytes", "zt_bytes *", C_TYPE_MANAGED, 1},
+    {"circbuf<int>", "zt_circbuf_i64 *", C_TYPE_MANAGED, 1},
+    {"circbuf<text>", "zt_circbuf_text *", C_TYPE_MANAGED, 1},
+    {"connection", "zt_net_connection *", C_TYPE_MANAGED, 1},
+    {"core.error", "zt_core_error", C_TYPE_MANAGED, 0},
     {"float", "zt_float", C_TYPE_PRIMITIVE, 0},
+    {"grid2d<int>", "zt_grid2d_i64 *", C_TYPE_MANAGED, 1},
+    {"grid2d<text>", "zt_grid2d_text *", C_TYPE_MANAGED, 1},
+    {"grid3d<int>", "zt_grid3d_i64 *", C_TYPE_MANAGED, 1},
+    {"grid3d<text>", "zt_grid3d_text *", C_TYPE_MANAGED, 1},
     {"int", "zt_int", C_TYPE_PRIMITIVE, 0},
     {"int16", "int16_t", C_TYPE_INTEGER, 0},
     {"int32", "int32_t", C_TYPE_INTEGER, 0},
@@ -474,18 +485,35 @@ static const c_type_mapping C_TYPE_TABLE[] = {
     {"list<int>", "zt_list_i64 *", C_TYPE_MANAGED, 1},
     {"list<text>", "zt_list_text *", C_TYPE_MANAGED, 1},
     {"map<text,text>", "zt_map_text_text *", C_TYPE_MANAGED, 1},
+    {"net.connection", "zt_net_connection *", C_TYPE_MANAGED, 1},
+    {"optional<bytes>", "zt_optional_bytes", C_TYPE_MANAGED, 0},
     {"optional<int>", "zt_optional_i64", C_TYPE_MANAGED, 0},
     {"optional<list<int>>", "zt_optional_list_i64", C_TYPE_MANAGED, 0},
     {"optional<list<text>>", "zt_optional_list_text", C_TYPE_MANAGED, 0},
     {"optional<map<text,text>>", "zt_optional_map_text_text", C_TYPE_MANAGED, 0},
     {"optional<text>", "zt_optional_text", C_TYPE_MANAGED, 0},
+    {"outcome<bytes,text>", "zt_outcome_bytes_text", C_TYPE_MANAGED, 0},
+    {"outcome<connection,core.error>", "zt_outcome_net_connection_core_error", C_TYPE_MANAGED, 0},
+    {"outcome<connection,text>", "zt_outcome_net_connection_text", C_TYPE_MANAGED, 0},
+    {"outcome<int,core.error>", "zt_outcome_i64_core_error", C_TYPE_MANAGED, 0},
     {"outcome<int,text>", "zt_outcome_i64_text", C_TYPE_MANAGED, 0},
+    {"outcome<list<int>,core.error>", "zt_outcome_list_i64_core_error", C_TYPE_MANAGED, 0},
     {"outcome<list<int>,text>", "zt_outcome_list_i64_text", C_TYPE_MANAGED, 0},
     {"outcome<list<text>,text>", "zt_outcome_list_text_text", C_TYPE_MANAGED, 0},
+    {"outcome<map<text,text>,core.error>", "zt_outcome_map_text_text_core_error", C_TYPE_MANAGED, 0},
     {"outcome<map<text,text>,text>", "zt_outcome_map_text_text", C_TYPE_MANAGED, 0},
+    {"outcome<net.connection,core.error>", "zt_outcome_net_connection_core_error", C_TYPE_MANAGED, 0},
+    {"outcome<net.connection,text>", "zt_outcome_net_connection_text", C_TYPE_MANAGED, 0},
+    {"outcome<optional<bytes>,core.error>", "zt_outcome_optional_bytes_core_error", C_TYPE_MANAGED, 0},
+    {"outcome<optional<bytes>,text>", "zt_outcome_optional_bytes_text", C_TYPE_MANAGED, 0},
+    {"outcome<optional<text>,core.error>", "zt_outcome_optional_text_core_error", C_TYPE_MANAGED, 0},
     {"outcome<optional<text>,text>", "zt_outcome_optional_text_text", C_TYPE_MANAGED, 0},
+    {"outcome<text,core.error>", "zt_outcome_text_core_error", C_TYPE_MANAGED, 0},
     {"outcome<text,text>", "zt_outcome_text_text", C_TYPE_MANAGED, 0},
+    {"outcome<void,core.error>", "zt_outcome_void_core_error", C_TYPE_MANAGED, 0},
     {"outcome<void,text>", "zt_outcome_void_text", C_TYPE_MANAGED, 0},
+    {"pqueue<int>", "zt_pqueue_i64 *", C_TYPE_MANAGED, 1},
+    {"pqueue<text>", "zt_pqueue_text *", C_TYPE_MANAGED, 1},
     {"text", "zt_text *", C_TYPE_MANAGED, 1},
     {"uint16", "uint16_t", C_TYPE_INTEGER, 0},
     {"uint32", "uint32_t", C_TYPE_INTEGER, 0},
@@ -582,19 +610,100 @@ static int c_type_is_managed(const char *type_name) {
     return mapping != NULL && mapping->is_managed;
 }
 
-/* Generic type checker - replaces all deprecated c_type_is_* functions */
+/* Generic type checker - replaces deprecated specialized checks. */
 static inline int c_type_is(const char *type_name, const char *canonical_name) {
     const c_type_mapping *mapping = c_type_lookup(type_name);
     return mapping != NULL && strcmp(mapping->canonical_name, canonical_name) == 0;
 }
 
-static int c_struct_has_managed_fields(const zir_struct_decl *struct_decl) {
+static int c_parse_outcome_type_name(
+        const char *type_name,
+        char *canonical_name,
+        size_t canonical_capacity,
+        char *value_type_name,
+        size_t value_capacity,
+        char *error_type_name,
+        size_t error_capacity) {
+    const char *inner;
+    const char *end;
+    const char *cursor;
+    const char *comma = NULL;
+    int depth = 0;
+
+    if (canonical_name == NULL || value_type_name == NULL || error_type_name == NULL) {
+        return 0;
+    }
+
+    c_canonicalize_type(canonical_name, canonical_capacity, type_name);
+    if (strncmp(canonical_name, "outcome<", 8) != 0) {
+        return 0;
+    }
+
+    inner = canonical_name + 8;
+    end = canonical_name + strlen(canonical_name);
+    if (end <= inner || end[-1] != '>') {
+        return 0;
+    }
+    end -= 1;
+
+    for (cursor = inner; cursor < end; cursor += 1) {
+        if (*cursor == '<') {
+            depth += 1;
+        } else if (*cursor == '>') {
+            if (depth > 0) depth -= 1;
+        } else if (*cursor == ',' && depth == 0) {
+            comma = cursor;
+            break;
+        }
+    }
+
+    if (comma == NULL) {
+        return 0;
+    }
+
+    return c_copy_trimmed_segment(value_type_name, value_capacity, inner, comma) &&
+           c_copy_trimmed_segment(error_type_name, error_capacity, comma + 1, end);
+}
+
+static void c_build_generated_outcome_symbol(const char *canonical_name, char *dest, size_t capacity) {
+    char sanitized[192];
+
+    c_copy_sanitized(sanitized, sizeof(sanitized), canonical_name);
+    snprintf(dest, capacity, "zt_generated_%s", sanitized);
+}
+
+static int c_type_is_builtin_managed_value(const char *type_name) {
+    char canonical_name[128];
+    char value_type_name[128];
+    char error_type_name[128];
+
+    c_canonicalize_type(canonical_name, sizeof(canonical_name), type_name);
+    if (strcmp(canonical_name, "core.error") == 0) {
+        return 1;
+    }
+
+    return c_parse_outcome_type_name(
+        type_name,
+        canonical_name,
+        sizeof(canonical_name),
+        value_type_name,
+        sizeof(value_type_name),
+        error_type_name,
+        sizeof(error_type_name));
+}
+
+static int c_type_is_struct_with_managed_fields(const zir_module *module_decl, const char *type_name);
+
+static int c_struct_has_managed_fields(const zir_module *module_decl, const zir_struct_decl *struct_decl) {
     size_t field_index;
 
     if (struct_decl == NULL) return 0;
 
     for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
-        if (c_type_is_managed(struct_decl->fields[field_index].type_name)) {
+        const char *field_type_name = struct_decl->fields[field_index].type_name;
+        if (c_type_is_managed(field_type_name) ||
+                c_type_is_builtin_managed_value(field_type_name) ||
+                c_type_is_struct_with_managed_fields(module_decl, field_type_name)) {
             return 1;
         }
     }
@@ -603,11 +712,13 @@ static int c_struct_has_managed_fields(const zir_struct_decl *struct_decl) {
 }
 
 static int c_type_is_struct_with_managed_fields(const zir_module *module_decl, const char *type_name) {
-    return c_struct_has_managed_fields(c_find_user_struct(module_decl, type_name));
+    return c_struct_has_managed_fields(module_decl, c_find_user_struct(module_decl, type_name));
 }
 
 static int c_type_needs_managed_cleanup(const zir_module *module_decl, const char *type_name) {
-    return c_type_is_managed(type_name) || c_type_is_struct_with_managed_fields(module_decl, type_name);
+    return c_type_is_managed(type_name) ||
+           c_type_is_builtin_managed_value(type_name) ||
+           c_type_is_struct_with_managed_fields(module_decl, type_name);
 }
 
 static int c_type_to_c(const zir_module *module_decl, const char *type_name, char *dest, size_t capacity, c_emit_result *result) {
@@ -618,6 +729,23 @@ static int c_type_to_c(const zir_module *module_decl, const char *type_name, cha
         return 1;
     }
     
+    {
+        char canonical_name[128];
+        char value_type_name[128];
+        char error_type_name[128];
+        if (c_parse_outcome_type_name(
+                type_name,
+                canonical_name,
+                sizeof(canonical_name),
+                value_type_name,
+                sizeof(value_type_name),
+                error_type_name,
+                sizeof(error_type_name))) {
+            c_build_generated_outcome_symbol(canonical_name, dest, capacity);
+            return 1;
+        }
+    }
+
     /* Fallback: check for user-defined structs */
     {
         const zir_struct_decl *struct_decl = c_find_user_struct(module_decl, type_name);
@@ -816,6 +944,47 @@ static int c_expression_is_materialized_text_ref(const zir_function *function_de
     return result;
 }
 
+static int c_expression_is_materialized_bytes_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "bytes");
+    free(trimmed);
+    return result;
+}
+
+static int c_expression_is_materialized_net_connection_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "net.connection") || c_type_is(type_name, "connection");
+    free(trimmed);
+    return result;
+}
+static int c_expression_is_materialized_core_error_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "core.error");
+    free(trimmed);
+    return result;
+}
+
 static int c_expression_is_materialized_list_i64_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     const char *type_name;
@@ -854,6 +1023,20 @@ static int c_expression_is_materialized_optional_text_ref(const zir_function *fu
 
     type_name = c_find_symbol_type(function_decl, trimmed);
     int result = c_type_is(type_name, "optional<text>");
+    free(trimmed);
+    return result;
+}
+
+static int c_expression_is_materialized_optional_bytes_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "optional<bytes>");
     free(trimmed);
     return result;
 }
@@ -928,6 +1111,48 @@ static int c_expression_is_materialized_outcome_optional_text_text_ref(const zir
     return result;
 }
 
+static int c_expression_is_materialized_outcome_bytes_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "outcome<bytes,text>");
+    free(trimmed);
+    return result;
+}
+
+static int c_expression_is_materialized_outcome_optional_bytes_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "outcome<optional<bytes>,text>");
+    free(trimmed);
+    return result;
+}
+
+static int c_expression_is_materialized_outcome_net_connection_text_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    int result = c_type_is(type_name, "outcome<connection,text>") || c_type_is(type_name, "outcome<net.connection,text>");
+    free(trimmed);
+    return result;
+}
+
 static int c_expression_is_materialized_outcome_list_i64_text_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     const char *type_name;
@@ -954,6 +1179,274 @@ static int c_expression_is_materialized_outcome_map_text_text_ref(const zir_func
     int result = c_type_is(type_name, "outcome<map<text,text>,text>");
     free(trimmed);
     return result;
+}
+
+typedef struct c_outcome_spec {
+    char canonical_name[128];
+    char display_name[128];
+    char value_type_name[128];
+    char error_type_name[128];
+    char c_type_name[128];
+    char success_fn[160];
+    char failure_fn[160];
+    char failure_message_fn[160];
+    char failure_text_fn[160];
+    char is_success_fn[160];
+    char value_fn[160];
+    char propagate_fn[160];
+    char dispose_fn[160];
+    int has_value;
+    int error_is_core;
+    int error_is_text;
+    int is_generated;
+} c_outcome_spec;
+
+static int c_outcome_spec_for_type(const char *type_name, c_outcome_spec *spec) {
+    const c_type_mapping *mapping;
+    char canonical_name[128];
+    char value_type_name[128];
+    char error_type_name[128];
+
+    if (spec == NULL) {
+        return 0;
+    }
+
+    memset(spec, 0, sizeof(*spec));
+    if (!c_parse_outcome_type_name(
+            type_name,
+            canonical_name,
+            sizeof(canonical_name),
+            value_type_name,
+            sizeof(value_type_name),
+            error_type_name,
+            sizeof(error_type_name))) {
+        return 0;
+    }
+
+    snprintf(spec->canonical_name, sizeof(spec->canonical_name), "%s", canonical_name);
+    snprintf(spec->display_name, sizeof(spec->display_name), "%s", canonical_name);
+    snprintf(spec->value_type_name, sizeof(spec->value_type_name), "%s", value_type_name);
+    snprintf(spec->error_type_name, sizeof(spec->error_type_name), "%s", error_type_name);
+    spec->has_value = strcmp(value_type_name, "void") != 0;
+    spec->error_is_core = strcmp(error_type_name, "core.error") == 0;
+    spec->error_is_text = strcmp(error_type_name, "text") == 0;
+
+    mapping = c_type_lookup(type_name);
+    if (mapping != NULL) {
+        snprintf(spec->c_type_name, sizeof(spec->c_type_name), "%s", mapping->c_name);
+    } else {
+        c_build_generated_outcome_symbol(canonical_name, spec->c_type_name, sizeof(spec->c_type_name));
+        spec->is_generated = 1;
+    }
+
+    snprintf(spec->success_fn, sizeof(spec->success_fn), "%s_success", spec->c_type_name);
+    snprintf(spec->failure_fn, sizeof(spec->failure_fn), "%s_failure", spec->c_type_name);
+    snprintf(spec->is_success_fn, sizeof(spec->is_success_fn), "%s_is_success", spec->c_type_name);
+    snprintf(spec->propagate_fn, sizeof(spec->propagate_fn), "%s_propagate", spec->c_type_name);
+    snprintf(spec->dispose_fn, sizeof(spec->dispose_fn), "%s_dispose", spec->c_type_name);
+    if (spec->has_value) {
+        snprintf(spec->value_fn, sizeof(spec->value_fn), "%s_value", spec->c_type_name);
+    }
+    if (spec->error_is_text || spec->error_is_core) {
+        snprintf(spec->failure_message_fn, sizeof(spec->failure_message_fn), "%s_failure_message", spec->c_type_name);
+    }
+    if (spec->error_is_core) {
+        snprintf(spec->failure_text_fn, sizeof(spec->failure_text_fn), "%s_failure_text", spec->c_type_name);
+    }
+
+    return 1;
+}
+
+static int c_outcome_spec_for_expr(const zir_function *function_decl, const char *expr_text, c_outcome_spec *spec) {
+    char *trimmed;
+    const char *type_name;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text)) {
+        return 0;
+    }
+
+    if (!c_is_identifier_only(trimmed)) {
+        free(trimmed);
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    free(trimmed);
+    return c_outcome_spec_for_type(type_name, spec);
+}
+
+static int c_outcome_spec_for_expected(const char *expected_type_name, int has_value, c_outcome_spec *spec) {
+    if (c_is_blank(expected_type_name)) {
+        return c_outcome_spec_for_type(has_value ? "outcome<int,text>" : "outcome<void,text>", spec);
+    }
+
+    return c_outcome_spec_for_type(expected_type_name, spec);
+}
+
+static int c_type_requires_generated_outcome_helper(const char *type_name) {
+    c_outcome_spec spec;
+    return c_outcome_spec_for_type(type_name, &spec) && spec.is_generated;
+}
+
+static int c_module_requires_string_header(const zir_module *module_decl) {
+    size_t struct_index;
+    size_t function_index;
+
+    if (module_decl == NULL) {
+        return 0;
+    }
+
+    for (struct_index = 0; struct_index < module_decl->struct_count; struct_index += 1) {
+        const zir_struct_decl *struct_decl = &module_decl->structs[struct_index];
+        size_t field_index;
+        for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
+            if (c_type_requires_generated_outcome_helper(struct_decl->fields[field_index].type_name)) {
+                return 1;
+            }
+        }
+    }
+
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        const zir_function *function_decl = &module_decl->functions[function_index];
+        size_t param_index;
+        size_t block_index;
+
+        if (c_type_requires_generated_outcome_helper(function_decl->return_type)) {
+            return 1;
+        }
+
+        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
+            if (c_type_requires_generated_outcome_helper(function_decl->params[param_index].type_name)) {
+                return 1;
+            }
+        }
+
+        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
+            const zir_block *block = &function_decl->blocks[block_index];
+            size_t instruction_index;
+            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
+                const zir_instruction *instruction = &block->instructions[instruction_index];
+                if (instruction->type_name != NULL &&
+                        c_type_requires_generated_outcome_helper(instruction->type_name)) {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+static int c_expression_is_copyable_managed_value_ref(const zir_function *function_decl, const char *expr_text) {
+    char *trimmed;
+    int result;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text)) {
+        return 0;
+    }
+
+    result = c_is_identifier_only(trimmed) || strncmp(trimmed, "get_field ", 10) == 0;
+    free(trimmed);
+    (void)function_decl;
+    return result;
+}
+
+static int c_outcome_success_value_is_supported(
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const c_outcome_spec *spec,
+        const char *value_expr) {
+    if (spec == NULL || !spec->has_value) return 0;
+
+    if (c_type_is_managed(spec->value_type_name) ||
+            c_type_is_builtin_managed_value(spec->value_type_name) ||
+            c_type_is_struct_with_managed_fields(module_decl, spec->value_type_name)) {
+        return c_expression_is_copyable_managed_value_ref(function_decl, value_expr);
+    }
+
+    return 1;
+}
+
+static int c_emit_expr(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const char *expr_text,
+        const char *expected_type_name,
+        c_emit_result *result);
+
+static int c_outcome_emit_failure_from_error_expr(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const c_outcome_spec *spec,
+        const char *error_expr,
+        c_emit_result *result) {
+    int error_needs_copyable_ref;
+
+    if (spec == NULL) {
+        return 0;
+    }
+
+    error_needs_copyable_ref =
+        c_type_is_managed(spec->error_type_name) ||
+        c_type_is_builtin_managed_value(spec->error_type_name) ||
+        c_type_is_struct_with_managed_fields(module_decl, spec->error_type_name);
+
+    if (spec->error_is_core && c_expression_is_materialized_core_error_ref(function_decl, error_expr)) {
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec->failure_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, error_expr, "core.Error", result) &&
+               c_buffer_append(&emitter->buffer, ")");
+    }
+
+    if (spec->error_is_core) {
+        if (!c_expression_is_copyable_managed_value_ref(function_decl, error_expr)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "outcome_failure for %s currently requires a materialized text or core.Error value, got '%s'",
+                spec->display_name,
+                error_expr
+            );
+            return 0;
+        }
+
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec->failure_text_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
+               c_buffer_append(&emitter->buffer, ")");
+    }
+
+    if (spec->error_is_text) {
+        if (!c_expression_is_copyable_managed_value_ref(function_decl, error_expr)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "outcome_failure for %s currently requires a materialized text value, got '%s'",
+                spec->display_name,
+                error_expr
+            );
+            return 0;
+        }
+
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec->failure_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
+               c_buffer_append(&emitter->buffer, ")");
+    }
+
+    if (error_needs_copyable_ref && !c_expression_is_copyable_managed_value_ref(function_decl, error_expr)) {
+        c_emit_set_result(
+            result,
+            C_EMIT_UNSUPPORTED_EXPR,
+            "outcome_failure for %s currently requires a materialized error value, got '%s'",
+            spec->display_name,
+            error_expr
+        );
+        return 0;
+    }
+
+    return c_buffer_append_format(&emitter->buffer, "%s(", spec->failure_fn) &&
+           c_emit_expr(emitter, module_decl, function_decl, error_expr, spec->error_type_name, result) &&
+           c_buffer_append(&emitter->buffer, ")");
 }
 
 static int c_emit_value(c_emitter *emitter, const char *text) {
@@ -1274,16 +1767,36 @@ static int c_emit_owned_managed_expr(
         return 0;
     }
 
-    if (!c_is_identifier_only(trimmed)) {
+    if (c_is_identifier_only(trimmed)) {
+        type_name = c_find_symbol_type(function_decl, trimmed);
+        if (c_type_is_managed(type_name)) {
+            return c_buffer_append_format(&emitter->buffer, "(zt_retain(%s), %s)", trimmed, trimmed);
+        }
         return c_emit_expr(emitter, module_decl, function_decl, expr_text, expected_type_name, result);
     }
 
-    type_name = c_find_symbol_type(function_decl, trimmed);
-    if (!c_type_is_managed(type_name)) {
-        return c_emit_expr(emitter, module_decl, function_decl, expr_text, expected_type_name, result);
+    if (strncmp(trimmed, "get_field ", 10) == 0) {
+        char target[128];
+        char field[128];
+
+        if (!c_split_two_operands(trimmed + 10, target, sizeof(target), field, sizeof(field))) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid get_field expression '%s'", trimmed);
+            return 0;
+        }
+
+        if (c_is_identifier_only(target) || strcmp(target, "self") == 0) {
+            if (!(c_buffer_append(&emitter->buffer, "(zt_retain(") &&
+                  c_emit_expr(emitter, module_decl, function_decl, expr_text, expected_type_name, result) &&
+                  c_buffer_append(&emitter->buffer, "), ") &&
+                  c_emit_expr(emitter, module_decl, function_decl, expr_text, expected_type_name, result) &&
+                  c_buffer_append(&emitter->buffer, ")"))) {
+                return 0;
+            }
+            return 1;
+        }
     }
 
-    return c_buffer_append_format(&emitter->buffer, "(zt_retain(%s), %s)", trimmed, trimmed);
+    return c_emit_expr(emitter, module_decl, function_decl, expr_text, expected_type_name, result);
 }
 
 static int c_emit_make_list_i64_expr(
@@ -1765,6 +2278,22 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "optional<bytes>")) {
+            if (!c_expression_is_materialized_bytes_ref(function_decl, present_expr)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "optional_present for Optional<bytes> currently requires a materialized bytes value, got '%s'",
+                    present_expr
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_optional_bytes_present(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, present_expr, "bytes", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_type_is(expected_type_name, "optional<text>")) {
             if (!c_expression_is_materialized_text_ref(function_decl, present_expr)) {
                 c_emit_set_result(
@@ -1788,7 +2317,7 @@ static int c_emit_expr(
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "optional_present produces Optional<int>, Optional<text> or Optional<list<int>>, but the expected type is '%s'",
+                "optional_present produces Optional<int>, Optional<bytes>, Optional<text> or Optional<list<int>>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
@@ -1805,6 +2334,12 @@ static int c_emit_expr(
         if (c_expression_is_materialized_optional_list_i64_ref(function_decl, optional_expr)) {
             return c_buffer_append(&emitter->buffer, "zt_optional_list_i64_is_present(") &&
                    c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<list<int>>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_expression_is_materialized_optional_bytes_ref(function_decl, optional_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_optional_bytes_is_present(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<bytes>", result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
 
@@ -1856,6 +2391,34 @@ static int c_emit_expr(
                    c_buffer_append(&emitter->buffer, ")");
         }
 
+        if (c_type_is(expected_type_name, "bytes") || c_expression_is_materialized_optional_bytes_ref(function_decl, optional_value)) {
+            if (!c_expression_is_materialized_optional_bytes_ref(function_decl, optional_value)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "coalesce for Optional<bytes> currently requires a materialized optional value, got '%s'",
+                    optional_value
+                );
+                return 0;
+            }
+
+            if (!c_expression_is_materialized_bytes_ref(function_decl, fallback_value)) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "coalesce for Optional<bytes> currently requires a materialized fallback bytes, got '%s'",
+                    fallback_value
+                );
+                return 0;
+            }
+
+            return c_buffer_append(&emitter->buffer, "zt_optional_bytes_coalesce(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, optional_value, "Optional<bytes>", result) &&
+                   c_buffer_append(&emitter->buffer, ", ") &&
+                   c_emit_expr(emitter, module_decl, function_decl, fallback_value, "bytes", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
         if (c_type_is(expected_type_name, "text") || c_expression_is_materialized_optional_text_ref(function_decl, optional_value)) {
             if (!c_expression_is_materialized_optional_text_ref(function_decl, optional_value)) {
                 c_emit_set_result(
@@ -1892,109 +2455,66 @@ static int c_emit_expr(
     }
 
     if (strcmp(trimmed, "outcome_success") == 0) {
-        if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, "outcome<void,text>")) {
+        c_outcome_spec spec;
+
+        if (!c_outcome_spec_for_expected(expected_type_name, 0, &spec) || spec.has_value) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "outcome_success without a value produces Outcome<void,text>, but the expected type is '%s'",
+                "outcome_success without a value produces Outcome<void,E>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_success()");
+        return c_buffer_append_format(&emitter->buffer, "%s()", spec.success_fn);
     }
 
     if (strncmp(trimmed, "outcome_success ", 16) == 0) {
         const char *value_expr = trimmed + 16;
+        c_outcome_spec spec;
 
-        if (c_type_is(expected_type_name, "outcome<list<int>,text>")) {
-            if (!c_expression_is_materialized_list_i64_ref(function_decl, value_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "outcome_success for Outcome<list<int>,text> currently requires a materialized list<int> value, got '%s'",
-                    value_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "list<int>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
-            if (!c_expression_is_materialized_map_text_text_ref(function_decl, value_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "outcome_success for Outcome<map<text,text>,text> currently requires a materialized map<text,text> value, got '%s'",
-                    value_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "map<text,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<text,text>")) {
-            if (!c_expression_is_materialized_text_ref(function_decl, value_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "outcome_success for Outcome<text,text> currently requires a materialized text value, got '%s'",
-                    value_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_text_text_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
-            if (!c_expression_is_materialized_optional_text_ref(function_decl, value_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "outcome_success for Outcome<optional<text>,text> currently requires a materialized optional<text> value, got '%s'",
-                    value_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, value_expr, "optional<text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (!c_is_blank(expected_type_name) &&
-                !c_type_is(expected_type_name, "outcome<int,text>") &&
-                !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
-                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
+        if (!c_outcome_spec_for_expected(expected_type_name, 1, &spec) || !spec.has_value) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "outcome_success with a value produces Outcome<int,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
+                "outcome_success with a value requires Outcome<T,E>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_outcome_i64_text_success(") &&
-               c_emit_expr(emitter, module_decl, function_decl, value_expr, "int", result) &&
+        if (!c_outcome_success_value_is_supported(module_decl, function_decl, &spec, value_expr)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "outcome_success for %s currently requires a materialized %s value, got '%s'",
+                spec.display_name,
+                spec.value_type_name,
+                value_expr
+            );
+            return 0;
+        }
+
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec.success_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, value_expr, spec.value_type_name, result) &&
                c_buffer_append(&emitter->buffer, ")");
     }
 
     if (strncmp(trimmed, "outcome_failure ", 16) == 0) {
         const char *error_expr = trimmed + 16;
+        c_outcome_spec spec;
         char error_trimmed[256];
+
+        if (!c_outcome_spec_for_expected(expected_type_name, 1, &spec)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_TYPE,
+                "outcome_failure requires Outcome<T,E>, but the expected type is '%s'",
+                c_safe_text(expected_type_name)
+            );
+            return 0;
+        }
 
         if (!c_copy_trimmed(error_trimmed, sizeof(error_trimmed), error_expr)) {
             c_emit_set_result(result, C_EMIT_INVALID_INPUT, "outcome_failure expression is too large");
@@ -2002,334 +2522,109 @@ static int c_emit_expr(
         }
 
         if (strncmp(error_trimmed, "const ", 6) == 0) {
-            if (c_type_is(expected_type_name, "outcome<void,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_void_text_failure_message(%s)", error_trimmed + 6);
+            if (spec.failure_message_fn[0] == 0) {
+                c_emit_set_result(
+                    result,
+                    C_EMIT_UNSUPPORTED_EXPR,
+                    "outcome_failure with string literal is supported only when E is text or core.Error, got '%s'",
+                    spec.display_name
+                );
+                return 0;
             }
-            if (c_type_is(expected_type_name, "outcome<text,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_text_text_failure_message(%s)", error_trimmed + 6);
-            }
-            if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_optional_text_text_failure_message(%s)", error_trimmed + 6);
-            }
-            if (c_type_is(expected_type_name, "outcome<list<int>,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_list_i64_text_failure_message(%s)", error_trimmed + 6);
-            }
-            if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_map_text_text_failure_message(%s)", error_trimmed + 6);
-            }
-            if (c_is_blank(expected_type_name) || c_type_is(expected_type_name, "outcome<int,text>")) {
-                return c_buffer_append_format(&emitter->buffer, "zt_outcome_i64_text_failure_message(%s)", error_trimmed + 6);
-            }
+            return c_buffer_append_format(&emitter->buffer, "%s(%s)", spec.failure_message_fn, error_trimmed + 6);
         }
 
-        if (!c_expression_is_materialized_text_ref(function_decl, error_expr)) {
-            c_emit_set_result(
-                result,
-                C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_failure currently requires a materialized text value, got '%s'",
-                error_expr
-            );
-            return 0;
-        }
-
-        if (c_type_is(expected_type_name, "outcome<void,text>")) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<text,text>")) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_text_text_failure(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<optional<text>,text>")) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_failure(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<list<int>,text>")) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_failure(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_failure(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (!c_is_blank(expected_type_name) &&
-                !c_type_is(expected_type_name, "outcome<int,text>") &&
-                !c_type_is(expected_type_name, "outcome<void,text>") &&
-                !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
-                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
-            c_emit_set_result(
-                result,
-                C_EMIT_UNSUPPORTED_TYPE,
-                "outcome_failure produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
-                c_safe_text(expected_type_name)
-            );
-            return 0;
-        }
-
-        return c_buffer_append(&emitter->buffer, "zt_outcome_i64_text_failure(") &&
-               c_emit_expr(emitter, module_decl, function_decl, error_expr, "text", result) &&
-               c_buffer_append(&emitter->buffer, ")");
+        return c_outcome_emit_failure_from_error_expr(emitter, module_decl, function_decl, &spec, error_expr, result);
     }
 
     if (strncmp(trimmed, "outcome_is_success ", 19) == 0) {
         const char *outcome_expr = trimmed + 19;
+        c_outcome_spec spec;
 
-        if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_is_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<void,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_text_text_is_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<text,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_is_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_is_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_is_success(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (!c_expression_is_materialized_outcome_i64_text_ref(function_decl, outcome_expr)) {
+        if (!c_outcome_spec_for_expr(function_decl, outcome_expr, &spec)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_is_success currently requires a materialized Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text> value, got '%s'",
+                "outcome_is_success currently requires a materialized supported outcome value, got '%s'",
                 outcome_expr
             );
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_outcome_i64_text_is_success(") &&
-               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec.is_success_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, spec.display_name, result) &&
                c_buffer_append(&emitter->buffer, ")");
     }
 
     if (strncmp(trimmed, "outcome_value ", 14) == 0) {
         const char *outcome_expr = trimmed + 14;
+        c_outcome_spec spec;
 
-        if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
+        if (!c_outcome_spec_for_expr(function_decl, outcome_expr, &spec)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_value is not valid for Outcome<void,text>"
-            );
-            return 0;
-        }
-
-        if (c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_text_text_value(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<text,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_value(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_value(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_value(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (!c_expression_is_materialized_outcome_i64_text_ref(function_decl, outcome_expr)) {
-            c_emit_set_result(
-                result,
-                C_EMIT_UNSUPPORTED_EXPR,
-                "outcome_value currently requires a materialized Outcome<int,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text> value, got '%s'",
+                "outcome_value currently requires a materialized supported outcome value, got '%s'",
                 outcome_expr
             );
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_outcome_i64_text_value(") &&
-               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
+        if (!spec.has_value || spec.value_fn[0] == 0) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "outcome_value is not valid for %s", spec.display_name);
+            return 0;
+        }
+
+        return c_buffer_append_format(&emitter->buffer, "%s(", spec.value_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, spec.display_name, result) &&
                c_buffer_append(&emitter->buffer, ")");
     }
 
     if (strncmp(trimmed, "try_propagate ", 14) == 0) {
         const char *outcome_expr = trimmed + 14;
+        c_outcome_spec expected_spec;
+        c_outcome_spec source_spec;
 
-        if (c_type_is(expected_type_name, "outcome<void,text>")) {
-            if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_propagate(") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<void,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ")");
-            }
-
-            if (c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<text,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ").error)");
-            }
-
-            if (c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ").error)");
-            }
-
-            if (c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ").error)");
-            }
-
-            if (c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ").error)");
-            }
-
-            if (c_expression_is_materialized_outcome_i64_text_ref(function_decl, outcome_expr)) {
-                return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_failure((") &&
-                       c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
-                       c_buffer_append(&emitter->buffer, ").error)");
-            }
-
-            c_emit_set_result(
-                result,
-                C_EMIT_UNSUPPORTED_EXPR,
-                "try_propagate for Outcome<void,text> currently requires a materialized outcome value, got '%s'",
-                outcome_expr
-            );
-            return 0;
-        }
-
-        if (c_expression_is_materialized_outcome_void_text_ref(function_decl, outcome_expr)) {
-            return c_buffer_append(&emitter->buffer, "zt_outcome_void_text_propagate(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<void,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<text,text>") || c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
-            if (!c_expression_is_materialized_outcome_text_text_ref(function_decl, outcome_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "try_propagate for Outcome<text,text> currently requires a materialized value, got '%s'",
-                    outcome_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_text_text_propagate(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<text,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<optional<text>,text>") || c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
-            if (!c_expression_is_materialized_outcome_optional_text_text_ref(function_decl, outcome_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "try_propagate for Outcome<optional<text>,text> currently requires a materialized value, got '%s'",
-                    outcome_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_optional_text_text_propagate(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<optional<text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<list<int>,text>") || c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
-            if (!c_expression_is_materialized_outcome_list_i64_text_ref(function_decl, outcome_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "try_propagate for Outcome<list<int>,text> currently requires a materialized value, got '%s'",
-                    outcome_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_list_i64_text_propagate(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<list<int>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (c_type_is(expected_type_name, "outcome<map<text,text>,text>") || c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
-            if (!c_expression_is_materialized_outcome_map_text_text_ref(function_decl, outcome_expr)) {
-                c_emit_set_result(
-                    result,
-                    C_EMIT_UNSUPPORTED_EXPR,
-                    "try_propagate for Outcome<map<text,text>,text> currently requires a materialized value, got '%s'",
-                    outcome_expr
-                );
-                return 0;
-            }
-
-            return c_buffer_append(&emitter->buffer, "zt_outcome_map_text_text_propagate(") &&
-                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<map<text,text>,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
-        }
-
-        if (!c_is_blank(expected_type_name) &&
-                !c_type_is(expected_type_name, "outcome<int,text>") &&
-                !c_type_is(expected_type_name, "outcome<void,text>") &&
-                !c_type_is(expected_type_name, "outcome<text,text>") &&
-                !c_type_is(expected_type_name, "outcome<optional<text>,text>") &&
-                !c_type_is(expected_type_name, "outcome<list<int>,text>") &&
-                !c_type_is(expected_type_name, "outcome<map<text,text>,text>")) {
+        if (!c_outcome_spec_for_expected(expected_type_name, 1, &expected_spec)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "try_propagate produces Outcome<int,text>, Outcome<void,text>, Outcome<text,text>, Outcome<optional<text>,text>, Outcome<list<int>,text> or Outcome<map<text,text>,text>, but the expected type is '%s'",
+                "try_propagate requires Outcome<T,E>, but the expected type is '%s'",
                 c_safe_text(expected_type_name)
             );
             return 0;
         }
 
-        if (!c_expression_is_materialized_outcome_i64_text_ref(function_decl, outcome_expr)) {
+        if (!c_outcome_spec_for_expr(function_decl, outcome_expr, &source_spec)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "try_propagate currently requires a materialized Outcome<int,text> value, got '%s'",
+                "try_propagate currently requires a materialized supported outcome value, got '%s'",
                 outcome_expr
             );
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_outcome_i64_text_propagate(") &&
-               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, "Outcome<int,text>", result) &&
-               c_buffer_append(&emitter->buffer, ")");
+        if (strcmp(expected_spec.error_type_name, source_spec.error_type_name) != 0) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "try_propagate cannot convert %s into %s because the error types differ",
+                source_spec.display_name,
+                expected_spec.display_name
+            );
+            return 0;
+        }
+
+        if (strcmp(expected_spec.canonical_name, source_spec.canonical_name) == 0) {
+            return c_buffer_append_format(&emitter->buffer, "%s(", source_spec.propagate_fn) &&
+                   c_emit_expr(emitter, module_decl, function_decl, outcome_expr, source_spec.display_name, result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        return c_buffer_append_format(&emitter->buffer, "%s((", expected_spec.failure_fn) &&
+               c_emit_expr(emitter, module_decl, function_decl, outcome_expr, source_spec.display_name, result) &&
+               c_buffer_append(&emitter->buffer, ").error)");
     }
     if (strncmp(trimmed, "list_len ", 9) == 0) {
         c_legalized_seq_expr legalized;
@@ -2633,6 +2928,19 @@ static int c_zir_expr_resolve_type(
                 return 0;
             }
 
+            if (c_type_is(object_type, "core.Error")) {
+                const char *field_name = c_safe_text(expr->as.field.field_name);
+                if (strcmp(field_name, "code") == 0 || strcmp(field_name, "message") == 0) {
+                    snprintf(dest, capacity, "text");
+                    return 1;
+                }
+                if (strcmp(field_name, "context") == 0) {
+                    snprintf(dest, capacity, "optional<text>");
+                    return 1;
+                }
+                return 0;
+            }
+
             struct_decl = c_find_user_struct(module_decl, object_type);
             field_decl = c_find_struct_field(struct_decl, expr->as.field.field_name);
             if (field_decl != NULL) {
@@ -2692,6 +3000,15 @@ static int c_zir_expr_is_materialized_text_ref(const zir_function *function_decl
     return c_type_is(type_name, "text");
 }
 
+static int c_zir_expr_is_materialized_bytes_ref(const zir_function *function_decl, const zir_expr *expr) {
+    char name[128];
+    const char *type_name;
+
+    if (!c_zir_expr_name_text(expr, name, sizeof(name))) return 0;
+    type_name = c_find_symbol_type(function_decl, name);
+    return c_type_is(type_name, "bytes");
+}
+
 static int c_zir_expr_is_materialized_list_i64_ref(const zir_function *function_decl, const zir_expr *expr) {
     char name[128];
     const char *type_name;
@@ -2710,6 +3027,14 @@ static int c_zir_expr_is_materialized_optional_text_ref(const zir_function *func
     return c_type_is(type_name, "optional<text>");
 }
 
+static int c_zir_expr_is_materialized_optional_bytes_ref(const zir_function *function_decl, const zir_expr *expr) {
+    char name[128];
+    const char *type_name;
+
+    if (!c_zir_expr_name_text(expr, name, sizeof(name))) return 0;
+    type_name = c_find_symbol_type(function_decl, name);
+    return c_type_is(type_name, "optional<bytes>");
+}
 static int c_zir_expr_is_materialized_optional_list_i64_ref(const zir_function *function_decl, const zir_expr *expr) {
     char name[128];
     const char *type_name;
@@ -3267,6 +3592,23 @@ static int c_emit_zir_expr(
                 int right_ok = c_zir_expr_resolve_type(module_decl, function_decl, expr->as.binary.right, right_type_name, sizeof(right_type_name));
 
                 if (left_ok && right_ok &&
+                        c_type_is(left_type_name, "text") &&
+                        c_type_is(right_type_name, "text")) {
+                    if (strcmp(expr->as.binary.op_name, "eq") == 0) {
+                        return c_buffer_append(&emitter->buffer, "zt_text_eq(") &&
+                               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.binary.left, "text", result) &&
+                               c_buffer_append(&emitter->buffer, ", ") &&
+                               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.binary.right, "text", result) &&
+                               c_buffer_append(&emitter->buffer, ")");
+                    }
+
+                    return c_buffer_append(&emitter->buffer, "(!zt_text_eq(") &&
+                           c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.binary.left, "text", result) &&
+                           c_buffer_append(&emitter->buffer, ", ") &&
+                           c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.binary.right, "text", result) &&
+                           c_buffer_append(&emitter->buffer, "))");
+                }
+                if (left_ok && right_ok &&
                         c_type_is(left_type_name, "outcome<text,text>") &&
                         c_type_is(right_type_name, "outcome<text,text>")) {
                     if (strcmp(expr->as.binary.op_name, "eq") == 0) {
@@ -3410,6 +3752,7 @@ static int c_emit_zir_expr(
         case ZIR_EXPR_OPTIONAL_EMPTY:
             if (strcmp(c_safe_text(expr->as.type_only.type_name), "int") == 0) return c_buffer_append(&emitter->buffer, "zt_optional_i64_empty()");
             if (strcmp(c_safe_text(expr->as.type_only.type_name), "text") == 0) return c_buffer_append(&emitter->buffer, "zt_optional_text_empty()");
+            if (strcmp(c_safe_text(expr->as.type_only.type_name), "bytes") == 0) return c_buffer_append(&emitter->buffer, "zt_optional_bytes_empty()");
             if (strcmp(c_safe_text(expr->as.type_only.type_name), "list<int>") == 0) return c_buffer_append(&emitter->buffer, "zt_optional_list_i64_empty()");
             break;
 
@@ -3421,6 +3764,24 @@ static int c_emit_zir_expr(
                 }
                 return c_buffer_append(&emitter->buffer, "zt_optional_list_i64_present(") &&
                        c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "list<int>", result) &&
+                       c_buffer_append(&emitter->buffer, ")");
+            }
+            if (c_type_is(expected_type_name, "optional<bytes>")) {
+                if (!c_zir_expr_is_materialized_bytes_ref(function_decl, expr->as.single.value)) {
+                    c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "optional_present for optional<bytes> requires a materialized bytes");
+                    return 0;
+                }
+                return c_buffer_append(&emitter->buffer, "zt_optional_bytes_present(") &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "bytes", result) &&
+                       c_buffer_append(&emitter->buffer, ")");
+            }
+            if (c_type_is(expected_type_name, "optional<bytes>")) {
+                if (!c_zir_expr_is_materialized_bytes_ref(function_decl, expr->as.single.value)) {
+                    c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "optional_present for optional<bytes> requires materialized bytes");
+                    return 0;
+                }
+                return c_buffer_append(&emitter->buffer, "zt_optional_bytes_present(") &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "bytes", result) &&
                        c_buffer_append(&emitter->buffer, ")");
             }
             if (c_type_is(expected_type_name, "optional<text>")) {
@@ -3440,6 +3801,11 @@ static int c_emit_zir_expr(
             if (c_zir_expr_is_materialized_optional_list_i64_ref(function_decl, expr->as.single.value)) {
                 return c_buffer_append(&emitter->buffer, "zt_optional_list_i64_is_present(") &&
                        c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "optional<list<int>>", result) &&
+                       c_buffer_append(&emitter->buffer, ")");
+            }
+            if (c_zir_expr_is_materialized_optional_bytes_ref(function_decl, expr->as.single.value)) {
+                return c_buffer_append(&emitter->buffer, "zt_optional_bytes_is_present(") &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "optional<bytes>", result) &&
                        c_buffer_append(&emitter->buffer, ")");
             }
             if (c_zir_expr_is_materialized_optional_text_ref(function_decl, expr->as.single.value)) {
@@ -3489,6 +3855,20 @@ static int c_emit_owned_managed_zir_expr(
         type_name = c_find_symbol_type(function_decl, name);
         if (c_type_is_managed(type_name)) {
             return c_buffer_append_format(&emitter->buffer, "(zt_retain(%s), %s)", name, name);
+        }
+    }
+
+    if (c_type_is_managed(expected_type_name) && expr->kind == ZIR_EXPR_GET_FIELD) {
+        if (c_is_mutating_self_expr(function_decl, expr->as.field.object) ||
+                c_zir_expr_name_text(expr->as.field.object, name, sizeof(name))) {
+            if (!(c_buffer_append(&emitter->buffer, "(zt_retain(") &&
+                  c_emit_zir_expr(emitter, module_decl, function_decl, expr, expected_type_name, result) &&
+                  c_buffer_append(&emitter->buffer, "), ") &&
+                  c_emit_zir_expr(emitter, module_decl, function_decl, expr, expected_type_name, result) &&
+                  c_buffer_append(&emitter->buffer, ")"))) {
+                return 0;
+            }
+            return 1;
         }
     }
 
@@ -3822,22 +4202,27 @@ static int c_emit_locals(
 
     for (index = 0; index < local_count; index += 1) {
         char c_type[64];
+        int is_pointer_managed;
+        int needs_value_cleanup;
 
         if (!c_type_to_c(module_decl, locals[index].type_name, c_type, sizeof(c_type), result)) {
             return 0;
         }
+
+        is_pointer_managed = c_type_is_managed(locals[index].type_name);
+        needs_value_cleanup = c_type_needs_managed_cleanup(module_decl, locals[index].type_name) && !is_pointer_managed;
 
         if (!c_begin_line(emitter) ||
                 !c_buffer_append(&emitter->buffer, "    ")) {
             return 0;
         }
 
-        if (c_type_is_managed(locals[index].type_name)) {
+        if (is_pointer_managed) {
             if (!(c_emit_typed_name(&emitter->buffer, c_type, c_safe_text(locals[index].name)) &&
                     c_buffer_append(&emitter->buffer, " = NULL;"))) {
                 return 0;
             }
-        } else if (c_type_is_struct_with_managed_fields(module_decl, locals[index].type_name)) {
+        } else if (needs_value_cleanup) {
             if (!(c_emit_typed_name(&emitter->buffer, c_type, c_safe_text(locals[index].name)) &&
                     c_buffer_append(&emitter->buffer, " = {0};"))) {
                 return 0;
@@ -3852,22 +4237,27 @@ static int c_emit_locals(
 
     if (has_cleanup && strcmp(function_decl->return_type, "void") != 0) {
         char return_type[64];
+        int is_pointer_managed;
+        int needs_value_cleanup;
 
         if (!c_type_to_c(module_decl, function_decl->return_type, return_type, sizeof(return_type), result)) {
             return 0;
         }
+
+        is_pointer_managed = c_type_is_managed(function_decl->return_type);
+        needs_value_cleanup = c_type_needs_managed_cleanup(module_decl, function_decl->return_type) && !is_pointer_managed;
 
         if (!c_begin_line(emitter) ||
                 !c_buffer_append(&emitter->buffer, "    ")) {
             return 0;
         }
 
-        if (c_type_is_managed(function_decl->return_type)) {
+        if (is_pointer_managed) {
             if (!(c_emit_typed_name(&emitter->buffer, return_type, "zt_return_value") &&
                     c_buffer_append(&emitter->buffer, " = NULL;"))) {
                 return 0;
             }
-        } else if (c_type_is_struct_with_managed_fields(module_decl, function_decl->return_type)) {
+        } else if (needs_value_cleanup) {
             if (!(c_emit_typed_name(&emitter->buffer, return_type, "zt_return_value") &&
                     c_buffer_append(&emitter->buffer, " = {0};"))) {
                 return 0;
@@ -3883,8 +4273,105 @@ static int c_emit_locals(
     return 1;
 }
 
+static int c_begin_indented_line(c_emitter *emitter, const char *indent) {
+    return c_begin_line(emitter) && c_buffer_append(&emitter->buffer, indent != NULL ? indent : "");
+}
+
 static int c_emit_release_for_struct_fields(
         c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *value_name,
+        const zir_struct_decl *struct_decl);
+
+static int c_emit_retain_for_struct_fields(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *value_name,
+        const zir_struct_decl *struct_decl);
+
+static int c_emit_value_clone_in_place(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *type_name,
+        const char *value_name,
+        const char *indent,
+        c_emit_result *result) {
+    c_outcome_spec spec;
+
+    if (c_type_is_managed(type_name)) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(&emitter->buffer, "if (%s != NULL) { zt_retain(%s); }", value_name, value_name);
+    }
+
+    if (c_type_is(type_name, "core.error")) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(&emitter->buffer, "%s = zt_core_error_clone(%s);", value_name, value_name);
+    }
+
+    if (c_outcome_spec_for_type(type_name, &spec)) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(&emitter->buffer, "%s = %s(%s);", value_name, spec.propagate_fn, value_name);
+    }
+
+    if (c_type_is_struct_with_managed_fields(module_decl, type_name)) {
+        return c_emit_retain_for_struct_fields(
+            emitter,
+            module_decl,
+            value_name,
+            c_find_user_struct(module_decl, type_name)
+        );
+    }
+
+    (void)result;
+    return 1;
+}
+
+static int c_emit_value_dispose_in_place(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *type_name,
+        const char *value_name,
+        const char *indent,
+        c_emit_result *result) {
+    c_outcome_spec spec;
+
+    if (c_type_is_managed(type_name)) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(
+                   &emitter->buffer,
+                   "if (%s != NULL) { zt_release(%s); %s = NULL; }",
+                   value_name,
+                   value_name,
+                   value_name
+               );
+    }
+
+    if (c_type_is(type_name, "core.error")) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(&emitter->buffer, "zt_core_error_dispose(&%s);", value_name);
+    }
+
+    if (c_outcome_spec_for_type(type_name, &spec)) {
+        return c_begin_indented_line(emitter, indent) &&
+               c_buffer_append_format(&emitter->buffer, "%s(&%s);", spec.dispose_fn, value_name);
+    }
+
+    if (c_type_is_struct_with_managed_fields(module_decl, type_name)) {
+        return c_emit_release_for_struct_fields(
+            emitter,
+            module_decl,
+            value_name,
+            c_find_user_struct(module_decl, type_name)
+        );
+    }
+
+    (void)result;
+    return 1;
+}
+
+static int c_emit_release_for_struct_fields(
+        c_emitter *emitter,
+        const zir_module *module_decl,
         const char *value_name,
         const zir_struct_decl *struct_decl) {
     size_t field_index;
@@ -3893,21 +4380,10 @@ static int c_emit_release_for_struct_fields(
 
     for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
         const zir_field_decl *field_decl = &struct_decl->fields[field_index];
+        char field_name[256];
 
-        if (!c_type_is_managed(field_decl->type_name)) {
-            continue;
-        }
-
-        if (!(c_begin_line(emitter) &&
-                c_buffer_append_format(
-                    &emitter->buffer,
-                    "    if (%s.%s != NULL) { zt_release(%s.%s); %s.%s = NULL; }",
-                    c_safe_text(value_name),
-                    c_safe_text(field_decl->name),
-                    c_safe_text(value_name),
-                    c_safe_text(field_decl->name),
-                    c_safe_text(value_name),
-                    c_safe_text(field_decl->name)))) {
+        snprintf(field_name, sizeof(field_name), "%s.%s", c_safe_text(value_name), c_safe_text(field_decl->name));
+        if (!c_emit_value_dispose_in_place(emitter, module_decl, field_decl->type_name, field_name, "    ", NULL)) {
             return 0;
         }
     }
@@ -3917,6 +4393,7 @@ static int c_emit_release_for_struct_fields(
 
 static int c_emit_retain_for_struct_fields(
         c_emitter *emitter,
+        const zir_module *module_decl,
         const char *value_name,
         const zir_struct_decl *struct_decl) {
     size_t field_index;
@@ -3925,19 +4402,10 @@ static int c_emit_retain_for_struct_fields(
 
     for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
         const zir_field_decl *field_decl = &struct_decl->fields[field_index];
+        char field_name[256];
 
-        if (!c_type_is_managed(field_decl->type_name)) {
-            continue;
-        }
-
-        if (!(c_begin_line(emitter) &&
-                c_buffer_append_format(
-                    &emitter->buffer,
-                    "    if (%s.%s != NULL) { zt_retain(%s.%s); }",
-                    c_safe_text(value_name),
-                    c_safe_text(field_decl->name),
-                    c_safe_text(value_name),
-                    c_safe_text(field_decl->name)))) {
+        snprintf(field_name, sizeof(field_name), "%s.%s", c_safe_text(value_name), c_safe_text(field_decl->name));
+        if (!c_emit_value_clone_in_place(emitter, module_decl, field_decl->type_name, field_name, "    ", NULL)) {
             return 0;
         }
     }
@@ -3949,26 +4417,14 @@ static int c_emit_release_for_local(
         c_emitter *emitter,
         const zir_module *module_decl,
         const c_local_decl *local_decl) {
-    if (c_type_is_managed(local_decl->type_name)) {
-        return c_begin_line(emitter) &&
-               c_buffer_append_format(
-                   &emitter->buffer,
-                   "    if (%s != NULL) { zt_release(%s); %s = NULL; }",
-                   c_safe_text(local_decl->name),
-                   c_safe_text(local_decl->name),
-                   c_safe_text(local_decl->name)
-               );
-    }
-
-    if (c_type_is_struct_with_managed_fields(module_decl, local_decl->type_name)) {
-        return c_emit_release_for_struct_fields(
-            emitter,
-            c_safe_text(local_decl->name),
-            c_find_user_struct(module_decl, local_decl->type_name)
-        );
-    }
-
-    return 1;
+    return c_emit_value_dispose_in_place(
+        emitter,
+        module_decl,
+        local_decl->type_name,
+        c_safe_text(local_decl->name),
+        "    ",
+        NULL
+    );
 }
 
 static int c_emit_effect_instruction(
@@ -4312,8 +4768,6 @@ static int c_emit_instruction(
         c_emit_result *result) {
     int needs_managed_cleanup;
     int is_managed_pointer;
-    int is_managed_struct;
-    const zir_struct_decl *managed_struct_decl;
 
     if (instruction->kind == ZIR_INSTR_CHECK_CONTRACT) {
         return c_begin_line(emitter) &&
@@ -4327,23 +4781,16 @@ static int c_emit_instruction(
 
     needs_managed_cleanup = c_type_needs_managed_cleanup(module_decl, instruction->type_name);
     is_managed_pointer = c_type_is_managed(instruction->type_name);
-    is_managed_struct = c_type_is_struct_with_managed_fields(module_decl, instruction->type_name);
-    managed_struct_decl = is_managed_struct ? c_find_user_struct(module_decl, instruction->type_name) : NULL;
 
-    if (needs_managed_cleanup) {
-        if (is_managed_pointer) {
-            if (!c_begin_line(emitter) ||
-                    !c_buffer_append_format(
-                        &emitter->buffer,
-                        "    if (%s != NULL) { zt_release(%s); %s = NULL; }",
-                        c_safe_text(instruction->dest_name),
-                        c_safe_text(instruction->dest_name),
-                        c_safe_text(instruction->dest_name))) {
-                return 0;
-            }
-        } else if (!c_emit_release_for_struct_fields(emitter, c_safe_text(instruction->dest_name), managed_struct_decl)) {
-            return 0;
-        }
+    if (needs_managed_cleanup &&
+            !c_emit_value_dispose_in_place(
+                emitter,
+                module_decl,
+                instruction->type_name,
+                c_safe_text(instruction->dest_name),
+                "    ",
+                result)) {
+        return 0;
     }
 
     if (!(c_begin_line(emitter) &&
@@ -4385,7 +4832,7 @@ static int c_emit_instruction(
         return 0;
     }
 
-    if (is_managed_struct) {
+    if (needs_managed_cleanup && !is_managed_pointer) {
         int rhs_needs_retain = 0;
 
         if (instruction->expr != NULL) {
@@ -4400,7 +4847,13 @@ static int c_emit_instruction(
         }
 
         if (rhs_needs_retain &&
-                !c_emit_retain_for_struct_fields(emitter, c_safe_text(instruction->dest_name), managed_struct_decl)) {
+                !c_emit_value_clone_in_place(
+                    emitter,
+                    module_decl,
+                    instruction->type_name,
+                    c_safe_text(instruction->dest_name),
+                    "    ",
+                    result)) {
             return 0;
         }
     }
@@ -4435,6 +4888,20 @@ static int c_emit_return_cleanup_transfer(
                c_buffer_append(&emitter->buffer, ";") &&
                c_begin_line(emitter) &&
                c_buffer_append_format(&emitter->buffer, "    %s = NULL;", trimmed) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
+    }
+
+    if (c_type_needs_managed_cleanup(module_decl, function_decl->return_type) &&
+            !c_type_is_managed(function_decl->return_type) &&
+            c_is_identifier_only(trimmed) &&
+            c_is_managed_local_name(module_decl, locals, local_count, trimmed)) {
+        return c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    zt_return_value = ") &&
+               c_emit_value(emitter, trimmed) &&
+               c_buffer_append(&emitter->buffer, ";") &&
+               c_begin_line(emitter) &&
+               c_buffer_append_format(&emitter->buffer, "    memset(&%s, 0, sizeof(%s));", trimmed, trimmed) &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
     }
@@ -4774,6 +5241,402 @@ static int c_emit_enum_definitions(
     return 1;
 }
 
+static int c_generated_outcome_is_emitted(
+        char emitted[][128],
+        size_t emitted_count,
+        const char *canonical_name) {
+    size_t index;
+
+    for (index = 0; index < emitted_count; index += 1) {
+        if (strcmp(emitted[index], canonical_name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int c_generated_outcome_mark_emitted(
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
+        const char *canonical_name,
+        c_emit_result *result) {
+    if (*emitted_count >= emitted_capacity) {
+        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "too many generated outcome specializations in one module");
+        return 0;
+    }
+
+    snprintf(emitted[*emitted_count], 128, "%s", canonical_name);
+    *emitted_count += 1;
+    return 1;
+}
+
+static int c_emit_generated_outcome_helpers_for_type(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *type_name,
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
+        c_emit_result *result) {
+    c_outcome_spec spec;
+    char value_c_type[128];
+    char error_c_type[128];
+
+    if (!c_outcome_spec_for_type(type_name, &spec) || !spec.is_generated) {
+        return 1;
+    }
+
+    if (c_generated_outcome_is_emitted(emitted, *emitted_count, spec.canonical_name)) {
+        return 1;
+    }
+
+    if (!c_emit_generated_outcome_helpers_for_type(
+            emitter,
+            module_decl,
+            spec.value_type_name,
+            emitted,
+            emitted_capacity,
+            emitted_count,
+            result)) {
+        return 0;
+    }
+
+    if (!c_emit_generated_outcome_helpers_for_type(
+            emitter,
+            module_decl,
+            spec.error_type_name,
+            emitted,
+            emitted_capacity,
+            emitted_count,
+            result)) {
+        return 0;
+    }
+
+    if (!c_type_to_c(module_decl, spec.error_type_name, error_c_type, sizeof(error_c_type), result)) {
+        return 0;
+    }
+    if (spec.has_value && !c_type_to_c(module_decl, spec.value_type_name, value_c_type, sizeof(value_c_type), result)) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "typedef struct %s {", spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    zt_bool is_success;") )) {
+        return 0;
+    }
+
+    if (spec.has_value) {
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    ") &&
+                c_emit_typed_name(&emitter->buffer, value_c_type, "value") &&
+                c_buffer_append(&emitter->buffer, ";"))) {
+            return 0;
+        }
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    ") &&
+            c_emit_typed_name(&emitter->buffer, error_c_type, "error") &&
+            c_buffer_append(&emitter->buffer, ";") &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "} %s;", spec.c_type_name))) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter))) {
+        return 0;
+    }
+
+    if (spec.has_value) {
+        if (!(c_buffer_append_format(&emitter->buffer, "static %s %s(%s value) {", spec.c_type_name, spec.success_fn, value_c_type) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s outcome;", spec.c_type_name) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    memset(&outcome, 0, sizeof(outcome));") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    outcome.is_success = true;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    outcome.value = value;"))) {
+            return 0;
+        }
+        if (!c_emit_value_clone_in_place(emitter, module_decl, spec.value_type_name, "outcome.value", "    ", result)) {
+            return 0;
+        }
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    return outcome;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+    } else {
+        if (!(c_buffer_append_format(&emitter->buffer, "static %s %s(void) {", spec.c_type_name, spec.success_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s outcome;", spec.c_type_name) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    memset(&outcome, 0, sizeof(outcome));") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    outcome.is_success = true;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    return outcome;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static %s %s(%s error) {", spec.c_type_name, spec.failure_fn, error_c_type) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "    %s outcome;", spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    memset(&outcome, 0, sizeof(outcome));") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    outcome.is_success = false;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    outcome.error = error;"))) {
+        return 0;
+    }
+    if (!c_emit_value_clone_in_place(emitter, module_decl, spec.error_type_name, "outcome.error", "    ", result)) {
+        return 0;
+    }
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    return outcome;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    if (spec.error_is_text) {
+        if (!(c_begin_line(emitter) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "static %s %s(const char *message) {", spec.c_type_name, spec.failure_message_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_text *error = zt_text_from_utf8_literal(message != NULL ? message : \"error\");") &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s outcome = %s(error);", spec.c_type_name, spec.failure_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_release(error);") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    return outcome;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+    }
+
+    if (spec.error_is_core) {
+        if (!(c_begin_line(emitter) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "static %s %s(const char *message) {", spec.c_type_name, spec.failure_message_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_core_error error = zt_core_error_from_message(\"error\", message != NULL ? message : \"error\");") &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s outcome = %s(error);", spec.c_type_name, spec.failure_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_core_error_dispose(&error);") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    return outcome;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+
+        if (!(c_begin_line(emitter) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "static %s %s(zt_text *message) {", spec.c_type_name, spec.failure_text_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_core_error error = zt_core_error_from_text(\"error\", message);") &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s outcome = %s(error);", spec.c_type_name, spec.failure_fn) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    zt_core_error_dispose(&error);") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    return outcome;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static zt_bool %s(%s outcome) {", spec.is_success_fn, spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    return outcome.is_success;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    if (spec.has_value) {
+        if (!(c_begin_line(emitter) &&
+                c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "static %s %s(%s outcome) {", value_c_type, spec.value_fn, spec.c_type_name) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    if (!outcome.is_success) zt_runtime_error(ZT_ERR_UNWRAP, \"outcome_value on failure\");") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    {") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "        ") &&
+                c_emit_typed_name(&emitter->buffer, value_c_type, "value") &&
+                c_buffer_append(&emitter->buffer, " = outcome.value;") )) {
+            return 0;
+        }
+        if (!c_emit_value_clone_in_place(emitter, module_decl, spec.value_type_name, "value", "        ", result)) {
+            return 0;
+        }
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "        return value;") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    }") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "}"))) {
+            return 0;
+        }
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static %s %s(%s outcome) {", spec.c_type_name, spec.propagate_fn, spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    if (outcome.is_success) "))) {
+        return 0;
+    }
+
+    if (spec.has_value) {
+        if (!(c_buffer_append_format(&emitter->buffer, "return %s(outcome.value);", spec.success_fn))) {
+            return 0;
+        }
+    } else if (!(c_buffer_append_format(&emitter->buffer, "return %s();", spec.success_fn))) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "    return %s(outcome.error);", spec.failure_fn) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static void %s(%s *outcome) {", spec.dispose_fn, spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    if (outcome == NULL) return;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    if (outcome->is_success) {") )) {
+        return 0;
+    }
+
+    if (spec.has_value && !c_emit_value_dispose_in_place(emitter, module_decl, spec.value_type_name, "outcome->value", "        ", result)) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    } else {") )) {
+        return 0;
+    }
+
+    if (!c_emit_value_dispose_in_place(emitter, module_decl, spec.error_type_name, "outcome->error", "        ", result)) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    }") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    memset(outcome, 0, sizeof(*outcome));") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    return c_generated_outcome_mark_emitted(emitted, emitted_capacity, emitted_count, spec.canonical_name, result);
+}
+
+static int c_emit_generated_outcome_helpers(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        c_emit_result *result) {
+    char emitted[128][128];
+    size_t emitted_count = 0;
+    size_t struct_index;
+    size_t function_index;
+
+    for (struct_index = 0; struct_index < module_decl->struct_count; struct_index += 1) {
+        const zir_struct_decl *struct_decl = &module_decl->structs[struct_index];
+        size_t field_index;
+        for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
+            if (!c_emit_generated_outcome_helpers_for_type(
+                    emitter,
+                    module_decl,
+                    struct_decl->fields[field_index].type_name,
+                    emitted,
+                    sizeof(emitted) / sizeof(emitted[0]),
+                    &emitted_count,
+                    result)) {
+                return 0;
+            }
+        }
+    }
+
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        const zir_function *function_decl = &module_decl->functions[function_index];
+        size_t param_index;
+        size_t block_index;
+
+        if (!c_emit_generated_outcome_helpers_for_type(
+                emitter,
+                module_decl,
+                function_decl->return_type,
+                emitted,
+                sizeof(emitted) / sizeof(emitted[0]),
+                &emitted_count,
+                result)) {
+            return 0;
+        }
+
+        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
+            if (!c_emit_generated_outcome_helpers_for_type(
+                    emitter,
+                    module_decl,
+                    function_decl->params[param_index].type_name,
+                    emitted,
+                    sizeof(emitted) / sizeof(emitted[0]),
+                    &emitted_count,
+                    result)) {
+                return 0;
+            }
+        }
+
+        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
+            const zir_block *block = &function_decl->blocks[block_index];
+            size_t instruction_index;
+            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
+                const zir_instruction *instruction = &block->instructions[instruction_index];
+                if (instruction->type_name != NULL &&
+                        !c_emit_generated_outcome_helpers_for_type(
+                            emitter,
+                            module_decl,
+                            instruction->type_name,
+                            emitted,
+                            sizeof(emitted) / sizeof(emitted[0]),
+                            &emitted_count,
+                            result)) {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
 static int c_emit_function_signature(
         c_emitter *emitter,
         const zir_module *module_decl,
@@ -4914,9 +5777,9 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
     char symbol[128];
     int returns_int;
     int returns_void;
-    int returns_outcome_void_text;
+    c_outcome_spec main_outcome_spec;
+    int returns_outcome_void;
 
-    /* Validate main signature: no params and one of supported return types. */
     if (function_decl->param_count != 0) {
         c_emit_set_result(
             result,
@@ -4928,13 +5791,13 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
 
     returns_int = c_type_is(function_decl->return_type, "int");
     returns_void = c_type_is(function_decl->return_type, "void");
-    returns_outcome_void_text = c_type_is(function_decl->return_type, "outcome<void,text>");
+    returns_outcome_void = c_outcome_spec_for_type(function_decl->return_type, &main_outcome_spec) && !main_outcome_spec.has_value;
 
-    if (!returns_int && !returns_void && !returns_outcome_void_text) {
+    if (!returns_int && !returns_void && !returns_outcome_void) {
         c_emit_set_result(
             result,
             C_EMIT_INVALID_MAIN_SIGNATURE,
-            "main must return int, void or result<void,text>, got '%s'",
+            "main must return int, void or result<void,E>, got '%s'",
             function_decl->return_type
         );
         return 0;
@@ -4942,9 +5805,7 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
 
     c_build_function_symbol(module_decl, function_decl, symbol, sizeof(symbol));
 
-    /* Emit main wrapper based on return type */
     if (returns_void) {
-        /* void main() -> int main(void) { func(); return 0; } */
         return c_begin_line(emitter) &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "int main(void) {") &&
@@ -4957,7 +5818,6 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
     }
 
     if (returns_int) {
-        /* int main() -> int main(void) { return func(); } */
         return c_begin_line(emitter) &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "int main(void) {") &&
@@ -4967,34 +5827,39 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
                c_buffer_append(&emitter->buffer, "}");
     }
 
-    /* result<void,text> main() -> int main(void) mapping */
-    {
-        char c_return_type[128];
-        if (!c_type_to_c(module_decl, function_decl->return_type, c_return_type, sizeof(c_return_type), result)) {
-            return 0;
-        }
-        return c_begin_line(emitter) &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "int main(void) {") &&
-               c_begin_line(emitter) &&
-               c_buffer_append_format(&emitter->buffer, "    %s __zt_main_result = %s();", c_return_type, symbol) &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "    if (!__zt_main_result.is_success) {") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "        if (__zt_main_result.error != NULL) {") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "            (void)zt_host_write_stderr(__zt_main_result.error);") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "        }") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "        return 1;") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "    }") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "    return 0;") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "}");
-    }
+    return c_begin_line(emitter) &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "int main(void) {") &&
+           c_begin_line(emitter) &&
+           c_buffer_append_format(&emitter->buffer, "    %s __zt_main_result = %s();", main_outcome_spec.c_type_name, symbol) &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "    if (!__zt_main_result.is_success) {") &&
+           (!main_outcome_spec.error_is_core ||
+                (c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "        if (__zt_main_result.error.message != NULL) {") &&
+                 c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "            (void)zt_host_write_stderr(__zt_main_result.error.message);") &&
+                 c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "        }"))) &&
+           (!main_outcome_spec.error_is_text ||
+                (c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "        if (__zt_main_result.error != NULL) {") &&
+                 c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "            (void)zt_host_write_stderr(__zt_main_result.error);") &&
+                 c_begin_line(emitter) &&
+                 c_buffer_append(&emitter->buffer, "        }"))) &&
+           c_begin_line(emitter) &&
+           c_buffer_append_format(&emitter->buffer, "        %s(&__zt_main_result);", main_outcome_spec.dispose_fn) &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "        return 1;") &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "    }") &&
+           c_begin_line(emitter) &&
+           c_buffer_append_format(&emitter->buffer, "    %s(&__zt_main_result);", main_outcome_spec.dispose_fn) &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "    return 0;") &&
+           c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "}");
 }
 
 int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result) {
@@ -5010,7 +5875,9 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
     }
 
     if (!(c_emit_line(emitter, "#include \"runtime/c/zenith_rt.h\"") &&
-            c_emit_line(emitter, "#include <stdio.h>"))) {
+            c_emit_line(emitter, "#include <stdio.h>") &&
+            (!c_module_requires_string_header(module_decl) ||
+                c_emit_line(emitter, "#include <string.h>")))) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "unable to write emitter prologue");
         return 0;
     }
@@ -5024,6 +5891,10 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
     }
 
     if (!c_emit_enum_definitions(emitter, module_decl, result)) {
+        return 0;
+    }
+
+    if (!c_emit_generated_outcome_helpers(emitter, module_decl, result)) {
         return 0;
     }
 
@@ -5059,3 +5930,4 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
     c_emit_result_init(result);
     return 1;
 }
+

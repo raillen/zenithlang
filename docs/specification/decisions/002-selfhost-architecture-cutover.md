@@ -27,7 +27,7 @@ O repositorio saiu da Trilha B com o core canonico validado:
 
 - `src/compiler/syntax.zt` passa em `check`
 - o bootstrap `stage2/stage3` e deterministico
-- `src/compiler` e `src/stdlib` ficaram sem `native lua` em `.zt`
+- `src/compiler` e `src/stdlib` ficaram sem `native` em `.zt`
 
 O proximo risco nao era tecnico de bootstrap; era editorial e arquitetural:
 
@@ -93,7 +93,7 @@ Leitura correta:
 2. o corpus minimo de promocao estiver verde pela trilha escolhida
 3. a ABI de host self-hosted estiver inventariada e congelada como contrato curto
 4. docs principais e CLI de transicao estiverem alinhados ao novo entrypoint
-5. a trilha Lua estiver reposicionada como bootstrap/fallback, nao como identidade principal
+5. a trilha historica estiver reposicionada como bootstrap/fallback, nao como identidade principal
 
 Enquanto isso nao acontecer:
 
@@ -152,7 +152,7 @@ Esta fase nao conclui:
 
 - a troca do front door oficial
 - a promocao dos modulos experimentais
-- a eliminacao do bootstrap em Lua
+- a eliminacao do bootstrap anterior
 - a oficializacao final de release
 
 ## Impacto pratico

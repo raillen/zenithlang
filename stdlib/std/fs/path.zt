@@ -1,3 +1,8 @@
+-- Biblioteca Padrão Zenith — Módulo FS.Path
+-- Manipulação de caminhos: join, normalize, base, dir, ext, absolute, relative.
+-- 🏗️ EXTERN C
+-- 🔧 HELPERS INTERNOS
+-- 🛤️ OPERAÇÕES DE CAMINHO
 namespace std.fs.path
 
 extern c

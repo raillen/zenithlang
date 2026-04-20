@@ -50,6 +50,13 @@ typedef struct zt_method_meta {
     char *trait_name;
 } zt_method_meta;
 
+typedef struct zt_const_meta {
+    char *name;
+    zt_type *type;
+    const zt_ast_node *init_value;
+    int is_lowering;
+} zt_const_meta;
+
 typedef struct zt_lower_ctx {
     zt_hir_lower_result result;
     zt_struct_meta *structs;
@@ -61,6 +68,9 @@ typedef struct zt_lower_ctx {
     zt_method_meta *methods;
     size_t method_count;
     size_t method_capacity;
+    zt_const_meta *consts;
+    size_t const_count;
+    size_t const_capacity;
     const zt_type *current_return_type;
     const zt_ast_node *root_ast;
 } zt_lower_ctx;
@@ -184,6 +194,7 @@ static zt_type_kind zt_builtin_kind(const char *name, int *is_builtin) {
     if (zt_text_eq(name, "float32")) return ZT_TYPE_FLOAT32;
     if (zt_text_eq(name, "float64")) return ZT_TYPE_FLOAT64;
     if (zt_text_eq(name, "text")) return ZT_TYPE_TEXT;
+    if (zt_text_eq(name, "core.Error")) return ZT_TYPE_CORE_ERROR;
     if (zt_text_eq(name, "bytes")) return ZT_TYPE_BYTES;
     if (zt_text_eq(name, "void")) return ZT_TYPE_VOID;
     if (is_builtin != NULL) *is_builtin = 0;
@@ -217,6 +228,24 @@ static zt_type *zt_lower_type_from_generic(zt_lower_ctx *ctx, const char *name, 
     } else if (zt_text_eq(name, "map")) {
         kind = ZT_TYPE_MAP;
         display_name = "map";
+    } else if (zt_text_eq(name, "grid2d")) {
+        kind = ZT_TYPE_GRID2D;
+        display_name = "grid2d";
+    } else if (zt_text_eq(name, "pqueue")) {
+        kind = ZT_TYPE_PQUEUE;
+        display_name = "pqueue";
+    } else if (zt_text_eq(name, "circbuf")) {
+        kind = ZT_TYPE_CIRCBUF;
+        display_name = "circbuf";
+    } else if (zt_text_eq(name, "btreemap")) {
+        kind = ZT_TYPE_BTREEMAP;
+        display_name = "btreemap";
+    } else if (zt_text_eq(name, "btreeset")) {
+        kind = ZT_TYPE_BTREESET;
+        display_name = "btreeset";
+    } else if (zt_text_eq(name, "grid3d")) {
+        kind = ZT_TYPE_GRID3D;
+        display_name = "grid3d";
     } else {
         kind = ZT_TYPE_USER;
         display_name = name;
@@ -271,6 +300,17 @@ static zt_method_meta *zt_push_method_meta(zt_lower_ctx *ctx) {
     }
     memset(&ctx->methods[ctx->method_count], 0, sizeof(zt_method_meta));
     return &ctx->methods[ctx->method_count++];
+}
+
+static zt_const_meta *zt_push_const_meta(zt_lower_ctx *ctx) {
+    zt_const_meta *grown;
+    if (ctx->const_count >= ctx->const_capacity) {
+        grown = (zt_const_meta *)zt_lower_grow_array(ctx->consts, &ctx->const_capacity, sizeof(zt_const_meta));
+        if (grown == NULL) return NULL;
+        ctx->consts = grown;
+    }
+    memset(&ctx->consts[ctx->const_count], 0, sizeof(zt_const_meta));
+    return &ctx->consts[ctx->const_count++];
 }
 
 static zt_struct_field_meta *zt_push_struct_field_meta(zt_struct_meta *meta) {
@@ -381,6 +421,15 @@ static const zt_method_meta *zt_find_method_meta(const zt_lower_ctx *ctx, const 
     return fallback;
 }
 
+static zt_const_meta *zt_find_const_meta(zt_lower_ctx *ctx, const char *name) {
+    size_t i;
+    if (ctx == NULL || name == NULL) return NULL;
+    for (i = 0; i < ctx->const_count; i += 1) {
+        if (zt_name_eq(ctx->consts[i].name, name)) return &ctx->consts[i];
+    }
+    return NULL;
+}
+
 static char *zt_build_apply_name(const char *target, const char *trait, const char *method) {
     char buffer[1024];
     if (target == NULL || method == NULL) return zt_lower_strdup("<invalid>");
@@ -457,6 +506,17 @@ static void zt_collect_apply_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl)
     }
 }
 
+static void zt_collect_const_symbol(zt_lower_ctx *ctx, const zt_ast_node *decl) {
+    zt_const_meta *meta;
+    if (decl == NULL || decl->kind != ZT_AST_CONST_DECL) return;
+    meta = zt_push_const_meta(ctx);
+    if (meta == NULL) return;
+    meta->name = zt_lower_strdup(decl->as.const_decl.name);
+    meta->type = zt_lower_type_from_ast(ctx, decl->as.const_decl.type_node);
+    meta->init_value = decl->as.const_decl.init_value;
+    meta->is_lowering = 0;
+}
+
 static void zt_collect_symbols(zt_lower_ctx *ctx, const zt_ast_node *root) {
     size_t i;
     if (root == NULL || root->kind != ZT_AST_FILE) return;
@@ -471,6 +531,8 @@ static void zt_collect_symbols(zt_lower_ctx *ctx, const zt_ast_node *root) {
             zt_collect_func_symbol(ctx, decl->as.func_decl.name, &decl->as.func_decl.params, decl->as.func_decl.return_type);
         } else if (decl->kind == ZT_AST_APPLY_DECL) {
             zt_collect_apply_symbols(ctx, decl);
+        } else if (decl->kind == ZT_AST_CONST_DECL) {
+            zt_collect_const_symbol(ctx, decl);
         }
     }
 }
@@ -675,6 +737,33 @@ static zt_hir_expr *zt_lower_struct_constructor(
     return construct;
 }
 
+static zt_hir_expr *zt_lower_enum_unit_variant(
+        const zt_ast_node *expr,
+        const char *enum_name,
+        size_t variant_index) {
+    zt_hir_expr *construct;
+    zt_hir_field_init tag_init;
+    zt_hir_expr *tag_expr;
+    char tag_buffer[32];
+
+    if (expr == NULL || enum_name == NULL) return NULL;
+
+    construct = zt_make_expr(ZT_HIR_CONSTRUCT_EXPR, expr->span, zt_type_make_named(ZT_TYPE_USER, enum_name));
+    if (construct == NULL) return NULL;
+    construct->as.construct_expr.type_name = zt_lower_strdup(enum_name);
+    construct->as.construct_expr.fields = zt_hir_field_init_list_make();
+
+    memset(&tag_init, 0, sizeof(tag_init));
+    snprintf(tag_buffer, sizeof(tag_buffer), "%zu", variant_index);
+    tag_expr = zt_make_expr(ZT_HIR_INT_EXPR, expr->span, zt_type_make(ZT_TYPE_INT));
+    if (tag_expr != NULL) tag_expr->as.int_expr.value = zt_lower_strdup(tag_buffer);
+    tag_init.span = expr->span;
+    tag_init.name = zt_lower_strdup("__zt_enum_tag");
+    tag_init.value = tag_expr;
+    zt_hir_field_init_list_push(&construct->as.construct_expr.fields, tag_init);
+
+    return construct;
+}
 static zt_hir_expr *zt_lower_enum_constructor(
         zt_lower_ctx *ctx,
         zt_scope *scope,
@@ -808,21 +897,35 @@ static zt_hir_expr *zt_lower_call_expr(
     callee_path[0] = '\0';
 
     if (callee != NULL && callee->kind == ZT_AST_FIELD_EXPR) {
+        if (zt_expr_to_path(callee, callee_path, sizeof(callee_path))) {
+            struct_meta = zt_find_struct_meta(ctx, callee_path);
+            if (struct_meta != NULL) {
+                return zt_lower_struct_constructor(
+                    ctx,
+                    scope,
+                    expr,
+                    struct_meta->name != NULL ? struct_meta->name : callee_path,
+                    struct_meta);
+            }
+        }
+
         if (callee->as.field_expr.object != NULL &&
-            callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
             callee->as.field_expr.field_name != NULL) {
-            const zt_ast_node *enum_decl = zt_find_enum_decl_ast(ctx, callee->as.field_expr.object->as.ident_expr.name);
-            if (enum_decl != NULL) {
-                size_t variant_index = 0;
-                const zt_ast_node *variant_decl = zt_find_enum_variant_ast(enum_decl, callee->as.field_expr.field_name, &variant_index);
-                if (variant_decl != NULL) {
-                    return zt_lower_enum_constructor(
-                        ctx,
-                        scope,
-                        expr,
-                        enum_decl->as.enum_decl.name,
-                        variant_decl,
-                        variant_index);
+            char enum_name_path[512];
+            if (zt_expr_to_path(callee->as.field_expr.object, enum_name_path, sizeof(enum_name_path))) {
+                const zt_ast_node *enum_decl = zt_find_enum_decl_ast(ctx, enum_name_path);
+                if (enum_decl != NULL) {
+                    size_t variant_index = 0;
+                    const zt_ast_node *variant_decl = zt_find_enum_variant_ast(enum_decl, callee->as.field_expr.field_name, &variant_index);
+                    if (variant_decl != NULL) {
+                        return zt_lower_enum_constructor(
+                            ctx,
+                            scope,
+                            expr,
+                            enum_decl->as.enum_decl.name,
+                            variant_decl,
+                            variant_index);
+                    }
                 }
             }
         }
@@ -978,11 +1081,29 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
 
     switch (expr->kind) {
         case ZT_AST_IDENT_EXPR: {
-            zt_type *type = zt_type_clone(zt_scope_get(scope, expr->as.ident_expr.name));
-            if (type == NULL) type = expected != NULL ? zt_type_clone(expected) : zt_unknown_type();
-            out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, type);
-            if (out != NULL) out->as.ident_expr.name = zt_lower_strdup(expr->as.ident_expr.name);
-            return out;
+            const zt_type *bound_type = zt_scope_get(scope, expr->as.ident_expr.name);
+            zt_const_meta *const_meta = NULL;
+            if (bound_type == NULL) {
+                const_meta = zt_find_const_meta(ctx, expr->as.ident_expr.name);
+            }
+            if (const_meta != NULL && const_meta->init_value != NULL) {
+                if (const_meta->is_lowering) {
+                    zt_add_diag(ctx, expr->span, "recursive const reference during lowering");
+                } else {
+                    zt_hir_expr *inlined;
+                    const_meta->is_lowering = 1;
+                    inlined = zt_lower_expr(ctx, scope, const_meta->init_value, const_meta->type);
+                    const_meta->is_lowering = 0;
+                    if (inlined != NULL) return inlined;
+                }
+            }
+            {
+                zt_type *type = zt_type_clone(bound_type);
+                if (type == NULL) type = expected != NULL ? zt_type_clone(expected) : zt_unknown_type();
+                out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, type);
+                if (out != NULL) out->as.ident_expr.name = zt_lower_strdup(expr->as.ident_expr.name);
+                return out;
+            }
         }
 
         case ZT_AST_INT_EXPR:
@@ -1167,9 +1288,55 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
         }
 
         case ZT_AST_FIELD_EXPR: {
+            if (expr->as.field_expr.object != NULL &&
+                expr->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
+                expr->as.field_expr.field_name != NULL) {
+                char qualified_name[512];
+                zt_const_meta *const_meta;
+                snprintf(qualified_name, sizeof(qualified_name), "%s.%s", expr->as.field_expr.object->as.ident_expr.name, expr->as.field_expr.field_name);
+                const_meta = zt_find_const_meta(ctx, qualified_name);
+                if (const_meta != NULL && const_meta->init_value != NULL) {
+                    if (const_meta->is_lowering) {
+                        zt_add_diag(ctx, expr->span, "recursive const reference during lowering");
+                    } else {
+                        zt_hir_expr *inlined;
+                        const_meta->is_lowering = 1;
+                        inlined = zt_lower_expr(ctx, scope, const_meta->init_value, const_meta->type);
+                        const_meta->is_lowering = 0;
+                        if (inlined != NULL) return inlined;
+                    }
+                }
+            }
+            if (expr->as.field_expr.object != NULL && expr->as.field_expr.field_name != NULL) {
+                char enum_name_path[512];
+                if (zt_expr_to_path(expr->as.field_expr.object, enum_name_path, sizeof(enum_name_path))) {
+                    size_t variant_index = 0;
+                    const zt_ast_node *enum_decl = zt_find_enum_decl_ast(ctx, enum_name_path);
+                    if (enum_decl != NULL) {
+                        const zt_ast_node *variant_decl = zt_find_enum_variant_ast(enum_decl, expr->as.field_expr.field_name, &variant_index);
+                        if (variant_decl != NULL) {
+                            if (variant_decl->as.enum_variant.fields.count == 0) {
+                                return zt_lower_enum_unit_variant(expr, enum_decl->as.enum_decl.name, variant_index);
+                            }
+                            zt_add_diag(ctx, expr->span, "enum variant with payload requires constructor call");
+                        }
+                    }
+                }
+            }
             zt_hir_expr *object = zt_lower_expr(ctx, scope, expr->as.field_expr.object, NULL);
             zt_type *field_type = zt_unknown_type();
-            if (object != NULL && object->type != NULL && object->type->kind == ZT_TYPE_USER) {
+            if (object != NULL && object->type != NULL && object->type->kind == ZT_TYPE_CORE_ERROR) {
+                if (zt_text_eq(expr->as.field_expr.field_name, "context")) {
+                    zt_type_list args = zt_type_list_make();
+                    zt_type_dispose(field_type);
+                    zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+                    field_type = zt_type_make_with_args(ZT_TYPE_OPTIONAL, NULL, args);
+                } else if (zt_text_eq(expr->as.field_expr.field_name, "code") ||
+                           zt_text_eq(expr->as.field_expr.field_name, "message")) {
+                    zt_type_dispose(field_type);
+                    field_type = zt_type_make(ZT_TYPE_TEXT);
+                }
+            } else if (object != NULL && object->type != NULL && object->type->kind == ZT_TYPE_USER) {
                 const zt_struct_meta *meta = zt_find_struct_meta(ctx, object->type->name);
                 const zt_struct_field_meta *field = zt_find_struct_field_meta(meta, expr->as.field_expr.field_name);
                 if (field != NULL && field->type != NULL) {
@@ -1751,6 +1918,12 @@ zt_hir_lower_result zt_lower_ast_to_hir(const zt_ast_node *root) {
     }
     free(ctx.methods);
 
+    for (i = 0; i < ctx.const_count; i += 1) {
+        free(ctx.consts[i].name);
+        zt_type_dispose(ctx.consts[i].type);
+    }
+    free(ctx.consts);
+
     return ctx.result;
 }
 
@@ -1760,6 +1933,9 @@ void zt_hir_lower_result_dispose(zt_hir_lower_result *result) {
     result->module = NULL;
     zt_diag_list_dispose(&result->diagnostics);
 }
+
+
+
 
 
 

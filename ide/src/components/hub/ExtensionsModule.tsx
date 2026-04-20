@@ -31,10 +31,10 @@ export function ExtensionsModule() {
       if (!matchesSearch) return false;
 
       if (activeCategory === "all") return true;
-      // Simple heuristic for demo: zenith/lua are runtimes, others tools/lsp
-      if (activeCategory === "runtime") return ["zenith", "lua"].includes(key);
+      // Simple heuristic for demo: zenith is runtime, others tools/lsp
+      if (activeCategory === "runtime") return ["zenith"].includes(key);
       if (activeCategory === "lsp") return key.includes("lsp") || key === "zenith"; // Zenith is both
-      if (activeCategory === "tool") return !["zenith", "lua"].includes(key);
+      if (activeCategory === "tool") return !["zenith"].includes(key);
       
       return true;
     });

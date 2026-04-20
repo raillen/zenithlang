@@ -500,10 +500,36 @@ static void test_enum_match_non_exhaustive_rejected(void) {
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_core_error_canonical_ok(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "func ok() -> result<int, core.Error>\n"
+        "    return success(1)\n"
+        "end\n"
+        "func fail() -> result<void, core.Error>\n"
+        "    return error(\"bad\")\n"
+        "end\n"
+        "func forward() -> result<int, core.Error>\n"
+        "    const value: int = ok()?\n"
+        "    return success(value)\n"
+        "end";
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "core_error_canonical_ok parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_NO_TYPE_ERRORS(checked, "core_error_canonical_ok type");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
 int main(void) {
     test_const_reassignment_rejected();
     test_optional_none_return_ok();
     test_result_success_error_ok();
+    test_core_error_canonical_ok();
     test_named_args_and_defaults_ok();
     test_named_args_out_of_order_rejected();
     test_invalid_map_key_type_rejected();
