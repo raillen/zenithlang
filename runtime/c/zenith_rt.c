@@ -2503,6 +2503,31 @@ static zt_outcome_void_text zt_host_default_time_sleep_ms(zt_int duration_ms) {
 #endif
 }
 
+static uint64_t zt_host_random_state = UINT64_C(0x9e3779b97f4a7c15);
+
+static uint64_t zt_host_random_next_u64(void) {
+    uint64_t x = zt_host_random_state;
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    zt_host_random_state = x;
+    return x * UINT64_C(2685821657736338717);
+}
+
+static void zt_host_default_random_seed(zt_int seed) {
+    uint64_t state = (uint64_t)seed;
+    if (state == 0) {
+        state = UINT64_C(0x9e3779b97f4a7c15);
+    }
+    zt_host_random_state = state;
+    (void)zt_host_random_next_u64();
+}
+
+static zt_int zt_host_default_random_next_i64(void) {
+    uint64_t value = zt_host_random_next_u64();
+    return (zt_int)(value & UINT64_C(0x7fffffffffffffff));
+}
+
 static char *zt_host_strdup_text(const zt_text *value, const char *label) {
     char *copy;
     if (value == NULL) {

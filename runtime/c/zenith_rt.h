@@ -294,6 +294,8 @@ typedef struct zt_host_api {
     zt_outcome_void_text (*write_stderr)(const zt_text *value);
     zt_int (*time_now_unix_ms)(void);
     zt_outcome_void_text (*time_sleep_ms)(zt_int duration_ms);
+    void (*random_seed)(zt_int seed);
+    zt_int (*random_next_i64)(void);
     zt_outcome_text_text (*os_current_dir)(void);
     zt_outcome_void_text (*os_change_dir)(const zt_text *path);
     zt_optional_text (*os_env)(const zt_text *name);
@@ -314,6 +316,8 @@ zt_outcome_void_text zt_host_write_stdout(const zt_text *value);
 zt_outcome_void_text zt_host_write_stderr(const zt_text *value);
 zt_int zt_host_time_now_unix_ms(void);
 zt_outcome_void_text zt_host_time_sleep_ms(zt_int duration_ms);
+void zt_host_random_seed(zt_int seed);
+zt_int zt_host_random_next_i64(void);
 zt_outcome_text_text zt_host_os_current_dir(void);
 zt_outcome_void_text zt_host_os_change_dir(const zt_text *path);
 zt_optional_text zt_host_os_env(const zt_text *name);
