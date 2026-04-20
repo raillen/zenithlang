@@ -852,6 +852,7 @@ static void test_host_read_file_default(void) {
 
 static void test_host_override_dispatch(void) {
     zt_host_api api;
+    memset(&api, 0, sizeof(api));
     zt_text *path = zt_text_from_utf8_literal("ignored.txt");
     zt_text *message = zt_text_from_utf8_literal("hello host");
     zt_outcome_text_text *read_result;
@@ -942,6 +943,3 @@ int main(void) {
     puts("Runtime C tests OK");
     return 0;
 }
-
-
-

@@ -180,6 +180,8 @@ static zt_outcome_void_text zt_host_default_write_stdout(const zt_text *value);
 static zt_outcome_void_text zt_host_default_write_stderr(const zt_text *value);
 static zt_int zt_host_default_time_now_unix_ms(void);
 static zt_outcome_void_text zt_host_default_time_sleep_ms(zt_int duration_ms);
+static void zt_host_default_random_seed(zt_int seed);
+static zt_int zt_host_default_random_next_i64(void);
 static zt_outcome_text_text zt_host_default_os_current_dir(void);
 static zt_outcome_void_text zt_host_default_os_change_dir(const zt_text *path);
 static zt_optional_text zt_host_default_os_env(const zt_text *name);
@@ -198,6 +200,8 @@ static zt_host_api zt_host_api_state = {
     zt_host_default_write_stderr,
     zt_host_default_time_now_unix_ms,
     zt_host_default_time_sleep_ms,
+    zt_host_default_random_seed,
+    zt_host_default_random_next_i64,
     zt_host_default_os_current_dir,
     zt_host_default_os_change_dir,
     zt_host_default_os_env,
@@ -2837,6 +2841,8 @@ void zt_host_set_api(const zt_host_api *api) {
         zt_host_api_state.write_stderr = zt_host_default_write_stderr;
         zt_host_api_state.time_now_unix_ms = zt_host_default_time_now_unix_ms;
         zt_host_api_state.time_sleep_ms = zt_host_default_time_sleep_ms;
+        zt_host_api_state.random_seed = zt_host_default_random_seed;
+        zt_host_api_state.random_next_i64 = zt_host_default_random_next_i64;
         zt_host_api_state.os_current_dir = zt_host_default_os_current_dir;
         zt_host_api_state.os_change_dir = zt_host_default_os_change_dir;
         zt_host_api_state.os_env = zt_host_default_os_env;
@@ -2856,6 +2862,8 @@ void zt_host_set_api(const zt_host_api *api) {
     zt_host_api_state.write_stderr = api->write_stderr != NULL ? api->write_stderr : zt_host_default_write_stderr;
     zt_host_api_state.time_now_unix_ms = api->time_now_unix_ms != NULL ? api->time_now_unix_ms : zt_host_default_time_now_unix_ms;
     zt_host_api_state.time_sleep_ms = api->time_sleep_ms != NULL ? api->time_sleep_ms : zt_host_default_time_sleep_ms;
+    zt_host_api_state.random_seed = api->random_seed != NULL ? api->random_seed : zt_host_default_random_seed;
+    zt_host_api_state.random_next_i64 = api->random_next_i64 != NULL ? api->random_next_i64 : zt_host_default_random_next_i64;
     zt_host_api_state.os_current_dir = api->os_current_dir != NULL ? api->os_current_dir : zt_host_default_os_current_dir;
     zt_host_api_state.os_change_dir = api->os_change_dir != NULL ? api->os_change_dir : zt_host_default_os_change_dir;
     zt_host_api_state.os_env = api->os_env != NULL ? api->os_env : zt_host_default_os_env;
@@ -2903,6 +2911,14 @@ zt_int zt_host_time_now_unix_ms(void) {
 
 zt_outcome_void_text zt_host_time_sleep_ms(zt_int duration_ms) {
     return zt_host_api_state.time_sleep_ms(duration_ms);
+}
+
+void zt_host_random_seed(zt_int seed) {
+    zt_host_api_state.random_seed(seed);
+}
+
+zt_int zt_host_random_next_i64(void) {
+    return zt_host_api_state.random_next_i64();
 }
 
 zt_outcome_text_text zt_host_os_current_dir(void) {
@@ -3509,4 +3525,3 @@ zt_int zt_rem_i64(zt_int a, zt_int b) {
 zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max) {
     return value >= min && value <= max;
 }
-

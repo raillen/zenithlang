@@ -1,0 +1,26 @@
+namespace app.main
+
+import std.random as random
+
+func main() -> result<void, text>
+    random.seed(12345)
+
+    const first_a: int = random.next()
+    const first_b: int = random.next()
+
+    random.seed(12345)
+
+    const second_a: int = random.next()
+    const second_b: int = random.next()
+
+    if first_a != second_a or first_b != second_b
+        return error("std.random.seed should make sequence deterministic")
+    end
+
+    const ranged: int = random.between(10, 20)?
+    if ranged < 10 or ranged > 20
+        return error("std.random.between should stay inside inclusive range")
+    end
+
+    return success()
+end

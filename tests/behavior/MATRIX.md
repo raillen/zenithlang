@@ -50,6 +50,7 @@ Legend:
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, text length and whitespace checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
+| `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) via host runtime wrappers | `0` |
 | `std_format_basic` | `std.format` baseline (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
 | `std_fs_path_basic` | `std.fs.path` baseline (`join`) | `0` |

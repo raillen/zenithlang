@@ -506,6 +506,16 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "random", "zt_host_random_seed")) {
+        call = zir_expr_make_call_extern("c.zt_host_random_seed");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "random", "zt_host_random_next_i64")) {
+        call = zir_expr_make_call_extern("c.zt_host_random_next_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "os", "zt_host_os_current_dir")) {
         call = zir_expr_make_call_extern("c.zt_host_os_current_dir");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -2263,4 +2273,3 @@ void zir_lower_result_dispose(zir_lower_result *result) {
     zt_diag_list_dispose(&result->diagnostics);
     memset(result, 0, sizeof(*result));
 }
-

@@ -581,7 +581,8 @@ Observacao M30:
 - [ ] Implementar std.math (vetores e algebra linear basica)
 - [x] std.math: baseline inicial implementado (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `rad_to_deg`, `approx_equal`, `pi()`/`e()`/`tau()`)
 - [ ] Implementar std.collections (Queue, Grid2D, etc.)
-- [ ] Implementar std.random (Xoshiro/PCG)
+- [x] Implementar std.random (Xoshiro/PCG)
+- [x] std.random: baseline inicial implementado (`seed`, `next`, `between`) via host runtime wrappers + behavior `std_random_basic`
 - [ ] Implementar std.validate
 - [x] std.validate: baseline inicial implementado (`between`, `positive`, `non_negative`, `negative`, `non_zero`, `one_of`, `not_empty`, `min_length`, `max_length`, `length_between`, `no_whitespace`)
 - [ ] Implementar std.time (Instant, Duration tipados na surface canonica)
