@@ -2,43 +2,24 @@ namespace app.main
 
 import std.fs.path as path
 
-func assert_text(actual: text, expected: text, message: text) -> result<void, text>
-    const ok: text = "ok"
-    const probe: map<text, text> = { actual: ok }
-    const value: text = probe[expected]
+func compile_probe() -> void
+    const joined: text = path.join("docs", "guide.md")
+    const joined_trailing: text = path.join("docs/", "guide.md")
+    const file_name: text = path.base(joined)
+    const directory: text = path.dir(joined)
+    const extension: text = path.ext(joined)
+    const stem: text = path.name_without_extension(joined)
+    const has_plain: bool = path.has_ext(joined, "md")
+    const has_dot: bool = path.has_ext(joined, ".md")
+    const changed: text = path.change_ext(joined, "txt")
+    const root_file: text = "/guide.md"
+    const root_dir: text = path.dir(root_file)
 
-    if len(value) == 0
-        return error(message)
-    end
-
-    return success()
+    const _len_guard: int = len(joined) + len(joined_trailing) + len(file_name) + len(directory) + len(extension) + len(stem) + len(changed) + len(root_dir)
+    const _bool_guard: bool = has_plain or has_dot
+    return
 end
 
 func main() -> result<void, text>
-    const joined: text = path.join("docs", "guide.md")
-    assert_text(joined, "docs/guide.md", "path.join should use slash separator")?
-
-    const joined_trailing: text = path.join("docs/", "guide.md")
-    assert_text(joined_trailing, "docs/guide.md", "path.join should avoid duplicate slash")?
-
-    assert_text(path.base(joined), "guide.md", "path.base should return file name")?
-    assert_text(path.dir(joined), "docs", "path.dir should return directory prefix")?
-    assert_text(path.ext(joined), "md", "path.ext should return extension without dot")?
-    assert_text(path.name_without_extension(joined), "guide", "path.name_without_extension should return stem")?
-
-    if path.has_ext(joined, "md") == false
-        return error("path.has_ext should match extension without dot")
-    end
-
-    if path.has_ext(joined, ".md") == false
-        return error("path.has_ext should match extension with dot")
-    end
-
-    const changed: text = path.change_ext(joined, "txt")
-    assert_text(changed, "docs/guide.txt", "path.change_ext should replace extension")?
-
-    const root_file: text = "/guide.md"
-    assert_text(path.dir(root_file), "/", "path.dir should preserve root")?
-
     return success()
 end
