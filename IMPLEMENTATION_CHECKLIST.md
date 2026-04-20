@@ -575,7 +575,7 @@ Observacao M30:
 - [x] Implementar std.fs e std.fs.path
 - [x] std.fs: baseline inicial implementado (`read_text`, `write_text`, `exists`) via host runtime wrappers
 - [x] std.fs.path: baseline inicial implementado (`join`)
-- [ ] std.fs.path: pendente operacoes adicionais (`base`, `dir`, `ext`, `normalize`, `absolute`, `relative`)
+- [ ] std.fs.path: baseline expandido (`base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`); pendentes (`normalize`, `absolute`, `relative`)
 - [x] Implementar std.json (parser/emitter basico)
 - [x] std.json: baseline inicial implementado (`parse`, `stringify`, `pretty`) para `map<text,text>` + behavior `std_json_basic`
 - [ ] Implementar std.math (vetores e algebra linear basica)

@@ -53,7 +53,7 @@ Legend:
 | `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) via host runtime wrappers | `0` |
 | `std_format_basic` | `std.format` baseline (`hex`, `bin`, `bytes` [binary default], `bytes_decimal`) | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
-| `std_fs_path_basic` | `std.fs.path` baseline (`join`) | `0` |
+| `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, `name_without_extension`, `has_ext`, `change_ext`) | `0` |
 | `std_json_basic` | `std.json` baseline (`parse`, `stringify`, `pretty`) para objeto plano `map<text,text>` | `0` |
 | `std_test_basic` | `std.test` baseline helpers (`skip`, `fail` placeholder no-op) | `9` |
 | `std_time_basic` | `std.time` baseline (`now`, `sleep`, `since`, `until`, unix-ms helpers) | `0` |

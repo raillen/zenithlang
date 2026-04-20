@@ -556,6 +556,11 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "path", "zt_text_eq")) {
+        call = zir_expr_make_call_extern("c.zt_text_eq");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "json", "zt_json_parse_map_text_text")) {
         call = zir_expr_make_call_extern("c.zt_json_parse_map_text_text");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
