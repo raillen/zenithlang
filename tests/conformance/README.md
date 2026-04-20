@@ -8,7 +8,7 @@ O harness `test_m9.c` chama o driver real `compiler/driver/zt-next.exe` e valida
 - `check` (alias canonico) valida o pipeline de verificacao.
 - `doc check` (forma canonica) valida ZDoc.
 - `fmt --check` (gate bootstrap atual) esta disponivel.
-- `test` (alias bootstrap atual) esta disponivel.
+- `test` (alias bootstrap atual) esta disponivel, com fallback e runner por funcao para `attr test`.
 - `--ci` ativa renderer curto de diagnostics e saida previsivel para pipeline.
 - `emit-c` gera C igual ao golden.
 - `build` compila o C gerado.

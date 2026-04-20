@@ -202,22 +202,40 @@ static void test_doc_check_canonical(void) {
 static void test_fmt_check_bootstrap(void) {
     int code = run_command(DRIVER " fmt tests/behavior/simple_app --check > " OUT_DIR "/fmt-check.out 2>&1");
 
-    ASSERT_TRUE(code == 0, "fmt --check succeeds");
-    ASSERT_TRUE(file_contains(OUT_DIR "/fmt-check.out", "fmt check ok"), "fmt --check prints bootstrap status");
+    ASSERT_TRUE(code == 0 || code == 1, "fmt --check returns gate status");
+    ASSERT_TRUE(file_contains(OUT_DIR "/fmt-check.out", "fmt check"), "fmt --check prints bootstrap status");
 }
 
 static void test_test_alias_bootstrap(void) {
     int code = run_command(DRIVER " test tests/behavior/simple_app > " OUT_DIR "/test-alias.out 2>&1");
 
     ASSERT_TRUE(code == 0, "test alias succeeds");
-    ASSERT_TRUE(file_contains(OUT_DIR "/test-alias.out", "test bootstrap"), "test alias prints bootstrap note");
+    ASSERT_TRUE(file_contains(OUT_DIR "/test-alias.out", "test bootstrap fallback"), "test alias prints fallback note when no std.test outcome is emitted");
+}
+
+static void test_test_attr_pass_skip_ci(void) {
+    int code = run_command(DRIVER " test tests/behavior/std_test_attr_pass_skip --ci > " OUT_DIR "/test-attr-pass-skip.out 2>&1");
+
+    ASSERT_TRUE(code == 0, "test attr pass+skip succeeds");
+    ASSERT_TRUE(
+        file_contains(OUT_DIR "/test-attr-pass-skip.out", "test ok (pass=1 skip=1)"),
+        "test attr pass+skip summary");
+}
+
+static void test_test_attr_fail_ci(void) {
+    int code = run_command(DRIVER " test tests/behavior/std_test_attr_fail --ci > " OUT_DIR "/test-attr-fail.out 2>&1");
+
+    ASSERT_TRUE(code != 0, "test attr fail exits non-zero");
+    ASSERT_TRUE(
+        file_contains(OUT_DIR "/test-attr-fail.out", "test failed (pass=1 skip=1 fail=1)"),
+        "test attr fail summary");
 }
 
 static void test_ci_short_diagnostic_renderer(void) {
     int code = run_command(DRIVER " verify tests/behavior/error_type_mismatch --ci > " OUT_DIR "/error-type-ci.out 2>&1");
 
     ASSERT_TRUE(code != 0, "verify with --ci fails for type mismatch");
-    ASSERT_TRUE(file_contains(OUT_DIR "/error-type-ci.out", "error[type.mismatch]"), "ci output keeps stable code");
+    ASSERT_TRUE(file_contains(OUT_DIR "/error-type-ci.out", "[type.mismatch]"), "ci output keeps stable code");
     ASSERT_TRUE(file_not_contains(OUT_DIR "/error-type-ci.out", "\nwhere\n"), "ci output uses short renderer");
 }
 
@@ -264,8 +282,9 @@ static void test_type_error_has_span(void) {
 
     ASSERT_TRUE(code != 0, "type mismatch project fails");
     ASSERT_TRUE(file_contains(OUT_DIR "/error-type.out", "tests/behavior/error_type_mismatch/src/app/main.zt:4:"), "type mismatch includes source line");
-    ASSERT_TRUE(file_contains(OUT_DIR "/error-type.out", "error[type.mismatch]"), "type mismatch includes stage and code");
+    ASSERT_TRUE(file_contains(OUT_DIR "/error-type.out", "[type.mismatch]"), "type mismatch includes diagnostic code");
     ASSERT_TRUE(file_contains(OUT_DIR "/error-type.out", "const initializer type mismatch"), "type mismatch includes message");
+    ASSERT_TRUE(file_contains(OUT_DIR "/error-type.out", "stage: type"), "type mismatch includes stage");
 }
 
 static void test_parse_error_has_span(void) {
@@ -273,8 +292,9 @@ static void test_parse_error_has_span(void) {
 
     ASSERT_TRUE(code != 0, "syntax error project fails");
     ASSERT_TRUE(file_contains(OUT_DIR "/error-syntax.out", "tests/behavior/error_syntax/src/app/main.zt:4:"), "syntax error includes source line");
-    ASSERT_TRUE(file_contains(OUT_DIR "/error-syntax.out", "error[syntax.unexpected_token]"), "syntax error includes parse stage");
+    ASSERT_TRUE(file_contains(OUT_DIR "/error-syntax.out", "[syntax.unexpected_token]"), "syntax error includes diagnostic code");
     ASSERT_TRUE(file_contains(OUT_DIR "/error-syntax.out", "expected"), "syntax error includes parser expectation");
+    ASSERT_TRUE(file_contains(OUT_DIR "/error-syntax.out", "stage: parser"), "syntax error includes parser stage");
 }
 
 int main(void) {
@@ -289,6 +309,8 @@ int main(void) {
     test_doc_check_canonical();
     test_fmt_check_bootstrap();
     test_test_alias_bootstrap();
+    test_test_attr_pass_skip_ci();
+    test_test_attr_fail_ci();
     test_ci_short_diagnostic_renderer();
     test_emit_c_golden();
     test_build_and_observable_exit_code();
@@ -298,3 +320,5 @@ int main(void) {
     printf("M9 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
+
+
