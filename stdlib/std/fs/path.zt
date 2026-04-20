@@ -3,6 +3,10 @@ namespace std.fs.path
 extern c
     func zt_text_concat(a: text, b: text) -> text
     func zt_text_eq(a: text, b: text) -> bool
+    func zt_path_normalize(value: text) -> text
+    func zt_path_is_absolute(value: text) -> bool
+    func zt_path_absolute(value: text, base: text) -> text
+    func zt_path_relative(value: text, from: text) -> text
 end
 
 func _text_eq(a: text, b: text) -> bool
@@ -39,6 +43,29 @@ func join(base: text, child: text) -> text
 
     const with_sep: text = path.zt_text_concat(base, slash)
     return path.zt_text_concat(with_sep, child)
+end
+
+func normalize(value: text) -> text
+    return path.zt_path_normalize(value)
+end
+
+func is_absolute(value: text) -> bool
+    return path.zt_path_is_absolute(value)
+end
+
+func is_relative(value: text) -> bool
+    if path.is_absolute(value)
+        return false
+    end
+    return true
+end
+
+func absolute(value: text, base: text) -> text
+    return path.zt_path_absolute(value, base)
+end
+
+func relative(value: text, from: text) -> text
+    return path.zt_path_relative(value, from)
 end
 
 func base(value: text) -> text
@@ -158,3 +185,4 @@ func change_ext(value: text, new_ext: text) -> text
 
     return path.join(directory, next_name)
 end
+

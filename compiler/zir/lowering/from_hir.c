@@ -561,6 +561,26 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "path", "zt_path_normalize")) {
+        call = zir_expr_make_call_extern("c.zt_path_normalize");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "path", "zt_path_is_absolute")) {
+        call = zir_expr_make_call_extern("c.zt_path_is_absolute");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "path", "zt_path_absolute")) {
+        call = zir_expr_make_call_extern("c.zt_path_absolute");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "path", "zt_path_relative")) {
+        call = zir_expr_make_call_extern("c.zt_path_relative");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "json", "zt_json_parse_map_text_text")) {
         call = zir_expr_make_call_extern("c.zt_json_parse_map_text_text");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -2278,3 +2298,4 @@ void zir_lower_result_dispose(zir_lower_result *result) {
     zt_diag_list_dispose(&result->diagnostics);
     memset(result, 0, sizeof(*result));
 }
+

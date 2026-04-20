@@ -368,6 +368,11 @@ zt_text *zt_format_bin_i64(zt_int value);
 zt_text *zt_format_bytes_binary(zt_int value, zt_int decimals);
 zt_text *zt_format_bytes_decimal(zt_int value, zt_int decimals);
 
+zt_text *zt_path_normalize(const zt_text *value);
+zt_bool zt_path_is_absolute(const zt_text *value);
+zt_text *zt_path_absolute(const zt_text *value, const zt_text *base);
+zt_text *zt_path_relative(const zt_text *value, const zt_text *from);
+
 zt_int zt_add_i64(zt_int a, zt_int b);
 zt_int zt_sub_i64(zt_int a, zt_int b);
 zt_int zt_mul_i64(zt_int a, zt_int b);
@@ -380,5 +385,4 @@ zt_bool zt_validate_between_i64(zt_int value, zt_int min, zt_int max);
 #endif
 
 #endif
-
 
