@@ -1,65 +1,77 @@
 # Standard Library - Code Map
 
-## 📋 Descrição
+## Descricao
 
-Standard Library do Zenith. Responsável por:
-- Funções utilitárias essenciais
-- Collections (list, map, set, etc.)
-- I/O operations (file, console, network)
-- String manipulation
-- Math operations
-- Platform-specific functionality
+Mapa da stdlib do Zenith.
 
-## 📁 Módulos da Stdlib
+Objetivos:
+- Deixar ownership claro entre `core`, `std.*` e `platform`.
+- Evitar sobreposicao de API.
+- Facilitar manutencao e onboarding.
 
-| Módulo | Arquivos | Responsabilidade | Prioridade |
-|--------|----------|------------------|------------|
-| `core/` | 2 files | Core types, primitives | 🔴 CRÍTICA |
-| `platform/` | 2 files | Platform abstraction | 🟡 MÉDIA |
-| `std/` | 17 files | Standard functions | 🟡 MÉDIA |
-| `zdoc/std/` | - | Documentação gerada | 🟢 BAIXA |
+## Modulos da Stdlib
 
-## 🔍 Mapeamento por Módulo
+| Modulo | Arquivos | Papel | Status |
+|--------|----------|-------|--------|
+| `core/` | 2 files | Documentacao e contratos internos do core implicito | Placeholder interno |
+| `platform/` | 2 files | Adaptacao interna host/target para suportar `std.*` | Placeholder interno |
+| `std/` | 17 files | API publica da stdlib | Ativo |
+| `zdoc/std/` | - | Documentacao gerada dos modulos publicos | Ativo |
+
+## Contrato de Ownership
+
+- `core.*` e implicito e pertence ao nucleo da linguagem.
+- API publica fica em `std.*`.
+- `platform/` e interno e nao e API publica para app.
+
+Dono de API publica:
+- `std.os`: estado do processo atual, env, pid, plataforma e arquitetura.
+- `std.os.process`: execucao e controle de processos filhos.
+
+Nao permitido:
+- duplicar em `platform/` APIs ja definidas em `std.os` ou `std.os.process`.
+
+## Mapeamento por Modulo
 
 ### core/
-| Arquivo | Linha | Função | Responsabilidade | Pode Quebrar Se |
+| Arquivo | Linha | Funcao | Responsabilidade | Pode quebrar se |
 |---------|-------|--------|------------------|-----------------|
-| - | - | - | - | - |
+| `stdlib/core/README.md` | - | contrato de camada | delimitar uso interno | virar API publica por engano |
 
 ### platform/
-| Arquivo | Linha | Função | Responsabilidade | Pode Quebrar Se |
+| Arquivo | Linha | Funcao | Responsabilidade | Pode quebrar se |
 |---------|-------|--------|------------------|-----------------|
-| - | - | - | - | - |
+| `stdlib/platform/README.md` | - | contrato de camada | evitar conflito com `std.os*` | surgir duplicacao de ownership |
 
 ### std/
-| Arquivo | Linha | Função | Responsabilidade | Pode Quebrar Se |
+| Arquivo | Linha | Funcao | Responsabilidade | Pode quebrar se |
 |---------|-------|--------|------------------|-----------------|
-| - | - | - | - | - |
+| `stdlib/std/os.zt` | - | `std.os` | estado do processo atual | mover API para `platform/` |
+| `stdlib/std/os/process.zt` | - | `std.os.process` | processos filhos | duplicar run/spawn em outra camada |
 
-## ⚠️ Estado Crítico
+## Estado Atual
 
-- **Module initialization**: setup da stdlib
-- **Type definitions**: types fundamentais
-- **Platform detection**: runtime platform checks
+- `core/` e `platform/` estao reservados por design.
+- A superficie publica consolidada esta em `std.*`.
+- O contrato formal foi fechado em `Decision 085`.
 
-## 🔗 Dependencies Externas
+## Dependencias Externas
 
-- `runtime/c/` → Runtime functions
-- `compiler/semantic/` → Type checking
-- System libraries (libc, etc.)
+- `runtime/c/` -> wrappers de host e runtime
+- `compiler/semantic/` -> regras de ownership e imports
+- system libraries (libc e equivalentes)
 
-## 🐛 Erros Comuns
+## Erros Comuns
 
-1. [A preencher]
-2. [A preencher]
-3. [A preencher]
+1. Tratar `platform/` como API publica.
+2. Duplicar funcoes de `std.os` em camadas internas.
+3. Mudar ownership sem atualizar as decisions.
 
-## 📝 Notas de Manutenção
+## Notas de Manutencao
 
-- Stdlib deve ser ESTÁVEL → mudanças quebram user code
-- Boa test coverage é essencial
-- Documentação (zdoc) deve ser mantida atualizada
-
+- Antes de abrir `platform/` de verdade, aplicar os gates da Decision 085.
+- Mudancas de ownership devem atualizar docs, tests e code map.
+- Manter linguagem objetiva e exemplos curtos.
 <!-- CODEMAP:GENERATED:BEGIN -->
 ## Generated Index
 
@@ -988,3 +1000,4 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 - Related docs or decisions:
 - Extra test cases worth adding:
 <!-- CODEMAP:GENERATED:END -->
+
