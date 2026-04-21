@@ -484,6 +484,7 @@ static const c_type_mapping C_TYPE_TABLE[] = {
     {"int64", "int64_t", C_TYPE_INTEGER, 0},
     {"int8", "int8_t", C_TYPE_INTEGER, 0},
     {"list<dyn<textrepresentable>>", "zt_list_dyn_text_repr *", C_TYPE_MANAGED, 1},
+    {"list<float>", "zt_list_f64 *", C_TYPE_MANAGED, 1},
     {"list<int>", "zt_list_i64 *", C_TYPE_MANAGED, 1},
     {"list<text>", "zt_list_text *", C_TYPE_MANAGED, 1},
     {"map<text,text>", "zt_map_text_text *", C_TYPE_MANAGED, 1},
@@ -557,6 +558,143 @@ static const c_type_mapping* c_type_lookup(const char *type_name) {
     return NULL;  /* Not found */
 }
 
+typedef struct c_resolved_type_mapping {
+    const char *canonical_name;
+    const char *c_name;
+    c_type_category category;
+    int is_managed;
+    char canonical_storage[128];
+    char c_name_storage[128];
+} c_resolved_type_mapping;
+
+static int c_parse_unary_type_name(
+        const char *type_name,
+        const char *prefix,
+        char *canonical_name,
+        size_t canonical_capacity,
+        char *inner_type_name,
+        size_t inner_capacity) {
+    const char *inner;
+    const char *end;
+
+    if (canonical_name == NULL || inner_type_name == NULL || prefix == NULL) {
+        return 0;
+    }
+
+    c_canonicalize_type(canonical_name, canonical_capacity, type_name);
+    if (strncmp(canonical_name, prefix, strlen(prefix)) != 0) {
+        return 0;
+    }
+
+    inner = canonical_name + strlen(prefix);
+    end = canonical_name + strlen(canonical_name);
+    if (end <= inner || end[-1] != '>') {
+        return 0;
+    }
+
+    return c_copy_trimmed_segment(inner_type_name, inner_capacity, inner, end - 1);
+}
+
+static int c_parse_binary_type_name(
+        const char *type_name,
+        const char *prefix,
+        char *canonical_name,
+        size_t canonical_capacity,
+        char *left_type_name,
+        size_t left_capacity,
+        char *right_type_name,
+        size_t right_capacity) {
+    const char *inner;
+    const char *end;
+    const char *cursor;
+    const char *comma = NULL;
+    int depth = 0;
+
+    if (canonical_name == NULL || left_type_name == NULL || right_type_name == NULL || prefix == NULL) {
+        return 0;
+    }
+
+    c_canonicalize_type(canonical_name, canonical_capacity, type_name);
+    if (strncmp(canonical_name, prefix, strlen(prefix)) != 0) {
+        return 0;
+    }
+
+    inner = canonical_name + strlen(prefix);
+    end = canonical_name + strlen(canonical_name);
+    if (end <= inner || end[-1] != '>') {
+        return 0;
+    }
+    end -= 1;
+
+    for (cursor = inner; cursor < end; cursor += 1) {
+        if (*cursor == '<') {
+            depth += 1;
+        } else if (*cursor == '>') {
+            if (depth > 0) depth -= 1;
+        } else if (*cursor == ',' && depth == 0) {
+            comma = cursor;
+            break;
+        }
+    }
+
+    if (comma == NULL) {
+        return 0;
+    }
+
+    return c_copy_trimmed_segment(left_type_name, left_capacity, inner, comma) &&
+           c_copy_trimmed_segment(right_type_name, right_capacity, comma + 1, end);
+}
+
+static void c_build_generated_map_symbol(const char *canonical_name, char *dest, size_t capacity) {
+    char sanitized[192];
+
+    c_copy_sanitized(sanitized, sizeof(sanitized), canonical_name);
+    snprintf(dest, capacity, "zt_map_generated_%s", sanitized);
+}
+
+static int c_resolve_type_mapping(const char *type_name, c_resolved_type_mapping *resolved) {
+    const c_type_mapping *mapping;
+    char canonical_name[128];
+    char key_type_name[128];
+    char value_type_name[128];
+
+    if (resolved == NULL) {
+        return 0;
+    }
+
+    memset(resolved, 0, sizeof(*resolved));
+
+    mapping = c_type_lookup(type_name);
+    if (mapping != NULL) {
+        resolved->canonical_name = mapping->canonical_name;
+        resolved->c_name = mapping->c_name;
+        resolved->category = mapping->category;
+        resolved->is_managed = mapping->is_managed;
+        return 1;
+    }
+
+    if (c_parse_binary_type_name(
+            type_name,
+            "map<",
+            canonical_name,
+            sizeof(canonical_name),
+            key_type_name,
+            sizeof(key_type_name),
+            value_type_name,
+            sizeof(value_type_name))) {
+        snprintf(resolved->canonical_storage, sizeof(resolved->canonical_storage), "%s", canonical_name);
+        c_build_generated_map_symbol(canonical_name, resolved->c_name_storage, sizeof(resolved->c_name_storage));
+        strncat(resolved->c_name_storage, " *", sizeof(resolved->c_name_storage) - strlen(resolved->c_name_storage) - 1);
+        resolved->canonical_name = resolved->canonical_storage;
+        resolved->c_name = resolved->c_name_storage;
+        resolved->category = C_TYPE_MANAGED;
+        resolved->is_managed = 1;
+        return 1;
+    }
+
+    return 0;
+}
+
 /* Levenshtein distance for type suggestion */
 static int c_levenshtein_distance(const char *s1, const char *s2) {
     int len1 = strlen(s1);
@@ -608,14 +746,14 @@ static const char *c_type_suggest_closest(const char *invalid_type) {
 
 /* Optimized: single lookup instead of 11 separate calls */
 static int c_type_is_managed(const char *type_name) {
-    const c_type_mapping *mapping = c_type_lookup(type_name);
-    return mapping != NULL && mapping->is_managed;
+    c_resolved_type_mapping mapping;
+    return c_resolve_type_mapping(type_name, &mapping) && mapping.is_managed;
 }
 
 /* Generic type checker - replaces deprecated specialized checks. */
 static inline int c_type_is(const char *type_name, const char *canonical_name) {
-    const c_type_mapping *mapping = c_type_lookup(type_name);
-    return mapping != NULL && strcmp(mapping->canonical_name, canonical_name) == 0;
+    c_resolved_type_mapping mapping;
+    return c_resolve_type_mapping(type_name, &mapping) && strcmp(mapping.canonical_name, canonical_name) == 0;
 }
 
 static int c_parse_outcome_type_name(
@@ -725,9 +863,9 @@ static int c_type_needs_managed_cleanup(const zir_module *module_decl, const cha
 
 static int c_type_to_c(const zir_module *module_decl, const char *type_name, char *dest, size_t capacity, c_emit_result *result) {
     /* Try lookup table first (O(log n)) */
-    const c_type_mapping *mapping = c_type_lookup(type_name);
-    if (mapping != NULL) {
-        snprintf(dest, capacity, "%s", mapping->c_name);
+    c_resolved_type_mapping mapping;
+    if (c_resolve_type_mapping(type_name, &mapping)) {
+        snprintf(dest, capacity, "%s", mapping.c_name);
         return 1;
     }
     
@@ -1015,6 +1153,207 @@ static int c_expression_is_materialized_map_text_text_ref(const zir_function *fu
     return result;
 }
 
+static int c_expression_is_materialized_type_ref(
+        const zir_function *function_decl,
+        const char *expr_text,
+        const char *expected_type_name) {
+    char *trimmed;
+    const char *type_name;
+    int result = 0;
+
+    if (!c_copy_trimmed_alloc(&trimmed, expr_text) || !c_is_identifier_only(trimmed)) {
+        return 0;
+    }
+
+    type_name = c_find_symbol_type(function_decl, trimmed);
+    if (type_name != NULL && expected_type_name != NULL && c_type_is(type_name, expected_type_name)) {
+        result = 1;
+    }
+
+    free(trimmed);
+    return result;
+}
+
+typedef struct c_map_spec {
+    char canonical_name[128];
+    char key_type_name[128];
+    char value_type_name[128];
+    char c_type_name[128];
+    char new_fn[160];
+    char from_arrays_fn[160];
+    char set_fn[160];
+    char set_owned_fn[160];
+    char get_fn[160];
+    char get_optional_fn[160];
+    char key_at_fn[160];
+    char value_at_fn[160];
+    char len_fn[160];
+    char optional_value_type_name[128];
+    char optional_present_fn[160];
+    char optional_empty_fn[160];
+    char key_eq_fn[64];
+    int is_generated;
+} c_map_spec;
+
+static int c_type_is_plain_value(const zir_module *module_decl, const char *type_name) {
+    return !c_type_is_managed(type_name) &&
+           !c_type_is_builtin_managed_value(type_name) &&
+           !c_type_is_struct_with_managed_fields(module_decl, type_name);
+}
+
+static int c_map_value_optional_support(
+        const zir_module *module_decl,
+        const char *value_type_name,
+        char *optional_type_name,
+        size_t optional_type_capacity,
+        char *present_fn,
+        size_t present_fn_capacity,
+        char *empty_fn,
+        size_t empty_fn_capacity) {
+    (void)module_decl;
+
+    if (c_type_is(value_type_name, "int")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_i64");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_i64_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_i64_empty");
+        return 1;
+    }
+
+    if (c_type_is(value_type_name, "text")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_text");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_text_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_text_empty");
+        return 1;
+    }
+
+    if (c_type_is(value_type_name, "bytes")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_bytes");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_bytes_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_bytes_empty");
+        return 1;
+    }
+
+    if (c_type_is(value_type_name, "list<int>")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_list_i64");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_list_i64_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_list_i64_empty");
+        return 1;
+    }
+
+    if (c_type_is(value_type_name, "list<text>")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_list_text");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_list_text_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_list_text_empty");
+        return 1;
+    }
+
+    if (c_type_is(value_type_name, "map<text,text>")) {
+        snprintf(optional_type_name, optional_type_capacity, "zt_optional_map_text_text");
+        snprintf(present_fn, present_fn_capacity, "zt_optional_map_text_text_present");
+        snprintf(empty_fn, empty_fn_capacity, "zt_optional_map_text_text_empty");
+        return 1;
+    }
+
+    return 0;
+}
+
+static int c_map_key_eq_support(const char *key_type_name, char *key_eq_fn, size_t key_eq_fn_capacity) {
+    if (c_type_is(key_type_name, "int")) {
+        snprintf(key_eq_fn, key_eq_fn_capacity, "zt_i64_eq");
+        return 1;
+    }
+
+    if (c_type_is(key_type_name, "text")) {
+        snprintf(key_eq_fn, key_eq_fn_capacity, "zt_text_eq");
+        return 1;
+    }
+
+    return 0;
+}
+
+static int c_map_spec_for_type(const zir_module *module_decl, const char *type_name, c_map_spec *spec) {
+    c_resolved_type_mapping mapping;
+    char canonical_name[128];
+    char key_type_name[128];
+    char value_type_name[128];
+
+    if (spec == NULL) {
+        return 0;
+    }
+
+    memset(spec, 0, sizeof(*spec));
+    if (!c_parse_binary_type_name(
+            type_name,
+            "map<",
+            canonical_name,
+            sizeof(canonical_name),
+            key_type_name,
+            sizeof(key_type_name),
+            value_type_name,
+            sizeof(value_type_name))) {
+        return 0;
+    }
+
+    if (!c_map_key_eq_support(key_type_name, spec->key_eq_fn, sizeof(spec->key_eq_fn))) {
+        return 0;
+    }
+
+    if (!(c_type_is_managed(key_type_name) || c_type_is_plain_value(module_decl, key_type_name))) {
+        return 0;
+    }
+
+    if (!(c_type_is_managed(value_type_name) || c_type_is_plain_value(module_decl, value_type_name))) {
+        return 0;
+    }
+
+    if (!c_map_value_optional_support(
+            module_decl,
+            value_type_name,
+            spec->optional_value_type_name,
+            sizeof(spec->optional_value_type_name),
+            spec->optional_present_fn,
+            sizeof(spec->optional_present_fn),
+            spec->optional_empty_fn,
+            sizeof(spec->optional_empty_fn))) {
+        return 0;
+    }
+
+    snprintf(spec->canonical_name, sizeof(spec->canonical_name), "%s", canonical_name);
+    snprintf(spec->key_type_name, sizeof(spec->key_type_name), "%s", key_type_name);
+    snprintf(spec->value_type_name, sizeof(spec->value_type_name), "%s", value_type_name);
+
+    if (c_resolve_type_mapping(type_name, &mapping)) {
+        snprintf(spec->c_type_name, sizeof(spec->c_type_name), "%s", mapping.c_name);
+        spec->is_generated = strcmp(mapping.canonical_name, "map<text,text>") != 0;
+    } else {
+        return 0;
+    }
+
+    if (spec->is_generated) {
+        size_t length = strlen(spec->c_type_name);
+        if (length < 3 || strcmp(spec->c_type_name + length - 2, " *") != 0) {
+            return 0;
+        }
+        spec->c_type_name[length - 2] = '\0';
+    } else if (strstr(spec->c_type_name, " *") != NULL) {
+        size_t length = strlen(spec->c_type_name);
+        spec->c_type_name[length - 2] = '\0';
+    }
+
+    snprintf(spec->new_fn, sizeof(spec->new_fn), "%s_new", spec->c_type_name);
+    snprintf(spec->from_arrays_fn, sizeof(spec->from_arrays_fn), "%s_from_arrays", spec->c_type_name);
+    snprintf(spec->set_fn, sizeof(spec->set_fn), "%s_set", spec->c_type_name);
+    snprintf(spec->set_owned_fn, sizeof(spec->set_owned_fn), "%s_set_owned", spec->c_type_name);
+    snprintf(spec->get_fn, sizeof(spec->get_fn), "%s_get", spec->c_type_name);
+    snprintf(spec->get_optional_fn, sizeof(spec->get_optional_fn), "%s_get_optional", spec->c_type_name);
+    snprintf(spec->key_at_fn, sizeof(spec->key_at_fn), "%s_key_at", spec->c_type_name);
+    snprintf(spec->value_at_fn, sizeof(spec->value_at_fn), "%s_value_at", spec->c_type_name);
+    snprintf(spec->len_fn, sizeof(spec->len_fn), "%s_len", spec->c_type_name);
+
+    strncat(spec->c_type_name, " *", sizeof(spec->c_type_name) - strlen(spec->c_type_name) - 1);
+    return 1;
+}
+
 static int c_expression_is_materialized_optional_text_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     const char *type_name;
@@ -1204,7 +1543,7 @@ typedef struct c_outcome_spec {
 } c_outcome_spec;
 
 static int c_outcome_spec_for_type(const char *type_name, c_outcome_spec *spec) {
-    const c_type_mapping *mapping;
+    c_resolved_type_mapping mapping;
     char canonical_name[128];
     char value_type_name[128];
     char error_type_name[128];
@@ -1233,9 +1572,8 @@ static int c_outcome_spec_for_type(const char *type_name, c_outcome_spec *spec) 
     spec->error_is_core = strcmp(error_type_name, "core.error") == 0;
     spec->error_is_text = strcmp(error_type_name, "text") == 0;
 
-    mapping = c_type_lookup(type_name);
-    if (mapping != NULL) {
-        snprintf(spec->c_type_name, sizeof(spec->c_type_name), "%s", mapping->c_name);
+    if (c_resolve_type_mapping(type_name, &mapping)) {
+        snprintf(spec->c_type_name, sizeof(spec->c_type_name), "%s", mapping.c_name);
     } else {
         c_build_generated_outcome_symbol(canonical_name, spec->c_type_name, sizeof(spec->c_type_name));
         spec->is_generated = 1;
@@ -1283,6 +1621,60 @@ static int c_outcome_spec_for_expected(const char *expected_type_name, int has_v
     }
 
     return c_outcome_spec_for_type(expected_type_name, spec);
+}
+
+static int c_type_requires_generated_map_helper(const zir_module *module_decl, const char *type_name) {
+    c_map_spec spec;
+    return c_map_spec_for_type(module_decl, type_name, &spec) && spec.is_generated;
+}
+
+static int c_module_requires_template_header(const zir_module *module_decl) {
+    size_t struct_index;
+    size_t function_index;
+
+    if (module_decl == NULL) {
+        return 0;
+    }
+
+    for (struct_index = 0; struct_index < module_decl->struct_count; struct_index += 1) {
+        const zir_struct_decl *struct_decl = &module_decl->structs[struct_index];
+        size_t field_index;
+        for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
+            if (c_type_requires_generated_map_helper(module_decl, struct_decl->fields[field_index].type_name)) {
+                return 1;
+            }
+        }
+    }
+
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        const zir_function *function_decl = &module_decl->functions[function_index];
+        size_t param_index;
+        size_t block_index;
+
+        if (c_type_requires_generated_map_helper(module_decl, function_decl->return_type)) {
+            return 1;
+        }
+
+        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
+            if (c_type_requires_generated_map_helper(module_decl, function_decl->params[param_index].type_name)) {
+                return 1;
+            }
+        }
+
+        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
+            const zir_block *block = &function_decl->blocks[block_index];
+            size_t instruction_index;
+            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
+                const zir_instruction *instruction = &block->instructions[instruction_index];
+                if (instruction->type_name != NULL &&
+                        c_type_requires_generated_map_helper(module_decl, instruction->type_name)) {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
 }
 
 static int c_type_requires_generated_outcome_helper(const char *type_name) {
@@ -1338,7 +1730,6 @@ static int c_module_requires_string_header(const zir_module *module_decl) {
 
     return 0;
 }
-
 static int c_expression_is_copyable_managed_value_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
     int result;
@@ -1722,6 +2113,11 @@ static int c_emit_legalized_seq_expr(
         const zir_function *function_decl,
         const c_legalized_seq_expr *legalized,
         c_emit_result *result) {
+    const char *arg1_type_name = "int";
+    char map_type_name[128];
+    char key_type_name[128];
+    char value_type_name[128];
+
     if (legalized == NULL) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "legalized sequence expression cannot be null");
         return 0;
@@ -1733,12 +2129,25 @@ static int c_emit_legalized_seq_expr(
     }
 
     if (legalized->kind == C_LEGALIZED_SEQ_LIST_I64_LEN ||
-            legalized->kind == C_LEGALIZED_SEQ_LIST_TEXT_LEN) {
+            legalized->kind == C_LEGALIZED_SEQ_LIST_TEXT_LEN ||
+            legalized->kind == C_LEGALIZED_SEQ_MAP_LEN) {
         return c_buffer_append(&emitter->buffer, ")");
     }
 
+    if (c_parse_binary_type_name(
+            legalized->sequence_type_name,
+            "map<",
+            map_type_name,
+            sizeof(map_type_name),
+            key_type_name,
+            sizeof(key_type_name),
+            value_type_name,
+            sizeof(value_type_name))) {
+        arg1_type_name = key_type_name;
+    }
+
     if (!(c_buffer_append(&emitter->buffer, ", ") &&
-            c_emit_expr(emitter, module_decl, function_decl, legalized->arg1_expr, "int", result))) {
+            c_emit_expr(emitter, module_decl, function_decl, legalized->arg1_expr, arg1_type_name, result))) {
         return 0;
     }
 
@@ -1753,7 +2162,6 @@ static int c_emit_legalized_seq_expr(
 
     return c_buffer_append(&emitter->buffer, ")");
 }
-
 static int c_emit_owned_managed_expr(
         c_emitter *emitter,
         const zir_module *module_decl,
@@ -1931,29 +2339,64 @@ static int c_emit_make_list_text_expr(
     return c_buffer_append_format(&emitter->buffer, "}), %zu)", item_count);
 }
 
-static int c_emit_make_map_text_text_expr(
+static int c_emit_make_map_expr(
         c_emitter *emitter,
         const zir_module *module_decl,
         const zir_function *function_decl,
         const char *expr_text,
         c_emit_result *result) {
+    char make_map_text[128];
+    char map_type_name[128];
+    char key_type_name[128];
+    char value_type_name[128];
+    char key_c_type[128];
+    char value_c_type[128];
+    c_map_spec spec;
     const char *open = strchr(expr_text, '[');
     const char *close = strrchr(expr_text, ']');
     const char *cursor;
     int first = 1;
     size_t item_count = 0;
 
-    if (strncmp(expr_text, "make_map<text,text>", 19) != 0 || open == NULL || close == NULL || close < open) {
+    if (open == NULL ||
+            close == NULL ||
+            close < open ||
+            !c_copy_trimmed_segment(make_map_text, sizeof(make_map_text), expr_text, open) ||
+            !c_parse_binary_type_name(
+                make_map_text,
+                "make_map<",
+                map_type_name,
+                sizeof(map_type_name),
+                key_type_name,
+                sizeof(key_type_name),
+                value_type_name,
+                sizeof(value_type_name))) {
         c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid make_map expression '%s'", c_safe_text(expr_text));
+        return 0;
+    }
+
+    snprintf(map_type_name, sizeof(map_type_name), "map<%s,%s>", key_type_name, value_type_name);
+    if (!c_map_spec_for_type(module_decl, map_type_name, &spec) ||
+            !c_type_to_c(module_decl, key_type_name, key_c_type, sizeof(key_c_type), result) ||
+            !c_type_to_c(module_decl, value_type_name, value_c_type, sizeof(value_c_type), result)) {
+        c_emit_set_result(
+            result,
+            C_EMIT_UNSUPPORTED_TYPE,
+            "make_map<%s,%s> is not supported by the current C emitter subset",
+            key_type_name,
+            value_type_name
+        );
         return 0;
     }
 
     cursor = open + 1;
     if (c_segment_is_blank(cursor, close)) {
-        return c_buffer_append(&emitter->buffer, "zt_map_text_text_new()");
+        return c_buffer_append_format(&emitter->buffer, "%s()", spec.new_fn);
     }
 
-    if (!c_buffer_append(&emitter->buffer, "zt_map_text_text_from_arrays(((zt_text *[]){")) {
+    if (!c_buffer_append_format(&emitter->buffer, "%s(((", spec.from_arrays_fn) ||
+            !c_buffer_append(&emitter->buffer, key_c_type) ||
+            !c_buffer_append(&emitter->buffer, "[]){")) {
         return 0;
     }
 
@@ -1973,12 +2416,16 @@ static int c_emit_make_map_text_text_expr(
             return 0;
         }
 
-        if (!c_expression_is_materialized_text_ref(function_decl, key_expr) ||
-                !c_expression_is_materialized_text_ref(function_decl, value_expr)) {
+        if ((c_type_is_managed(key_type_name) &&
+                    !c_expression_is_materialized_type_ref(function_decl, key_expr, key_type_name)) ||
+                (c_type_is_managed(value_type_name) &&
+                    !c_expression_is_materialized_type_ref(function_decl, value_expr, value_type_name))) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "make_map<text,text> currently requires materialized text key/value pairs, got '%s: %s'",
+                "make_map<%s,%s> currently requires materialized managed entries, got '%s: %s'",
+                key_type_name,
+                value_type_name,
                 key_expr,
                 value_expr
             );
@@ -1989,7 +2436,7 @@ static int c_emit_make_map_text_text_expr(
             return 0;
         }
 
-        if (!c_emit_expr(emitter, module_decl, function_decl, key_expr, "text", result)) {
+        if (!c_emit_expr(emitter, module_decl, function_decl, key_expr, key_type_name, result)) {
             return 0;
         }
 
@@ -2002,7 +2449,9 @@ static int c_emit_make_map_text_text_expr(
         cursor = comma + 1;
     }
 
-    if (!c_buffer_append(&emitter->buffer, "}), ((zt_text *[]){")) {
+    if (!c_buffer_append(&emitter->buffer, "}), ((") ||
+            !c_buffer_append(&emitter->buffer, value_c_type) ||
+            !c_buffer_append(&emitter->buffer, "[]){")) {
         return 0;
     }
 
@@ -2025,7 +2474,7 @@ static int c_emit_make_map_text_text_expr(
             return 0;
         }
 
-        if (!c_emit_expr(emitter, module_decl, function_decl, value_expr, "text", result)) {
+        if (!c_emit_expr(emitter, module_decl, function_decl, value_expr, value_type_name, result)) {
             return 0;
         }
 
@@ -2205,18 +2654,41 @@ static int c_emit_expr(
         return c_emit_make_list_text_expr(emitter, module_decl, function_decl, trimmed, result);
     }
 
-    if (strncmp(trimmed, "make_map<text,text>", 19) == 0) {
-        if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, "map<text,text>")) {
+    if (strncmp(trimmed, "make_map<", 9) == 0) {
+        char declared_map_type[128];
+        char key_type_name[128];
+        char value_type_name[128];
+        const char *open = strchr(trimmed, '[');
+
+        if (open == NULL ||
+                !c_copy_trimmed_segment(declared_map_type, sizeof(declared_map_type), trimmed, open) ||
+                !c_parse_binary_type_name(
+                    declared_map_type,
+                    "make_map<",
+                    declared_map_type,
+                    sizeof(declared_map_type),
+                    key_type_name,
+                    sizeof(key_type_name),
+                    value_type_name,
+                    sizeof(value_type_name))) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid make_map expression '%s'", c_safe_text(trimmed));
+            return 0;
+        }
+
+        snprintf(declared_map_type, sizeof(declared_map_type), "map<%s,%s>", key_type_name, value_type_name);
+        if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, declared_map_type)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "make_map<text,text> produces map<text,text>, but the expected type is '%s'",
+                "%s produces %s, but the expected type is '%s'",
+                c_safe_text(trimmed),
+                declared_map_type,
                 c_safe_text(expected_type_name)
             );
             return 0;
         }
 
-        return c_emit_make_map_text_text_expr(emitter, module_decl, function_decl, trimmed, result);
+        return c_emit_make_map_expr(emitter, module_decl, function_decl, trimmed, result);
     }
 
     if (strcmp(trimmed, "optional_empty<int>") == 0) {
@@ -2628,7 +3100,7 @@ static int c_emit_expr(
                c_emit_expr(emitter, module_decl, function_decl, outcome_expr, source_spec.display_name, result) &&
                c_buffer_append(&emitter->buffer, ").error)");
     }
-    if (strncmp(trimmed, "list_len ", 9) == 0) {
+    if (strncmp(trimmed, "list_len ", 9) == 0 || strncmp(trimmed, "map_len ", 8) == 0) {
         c_legalized_seq_expr legalized;
         c_legalize_result legalize_result;
 
@@ -2640,23 +3112,6 @@ static int c_emit_expr(
 
         return c_emit_legalized_seq_expr(emitter, module_decl, function_decl, &legalized, result);
     }
-
-    if (strncmp(trimmed, "map_len ", 8) == 0) {
-        if (!c_is_blank(expected_type_name) && strcmp(expected_type_name, "int") != 0) {
-            c_emit_set_result(
-                result,
-                C_EMIT_UNSUPPORTED_TYPE,
-                "map_len produces int, but the expected type is '%s'",
-                c_safe_text(expected_type_name)
-            );
-            return 0;
-        }
-
-        return c_buffer_append(&emitter->buffer, "zt_map_text_text_len(") &&
-               c_emit_expr(emitter, module_decl, function_decl, trimmed + 8, "map<text,text>", result) &&
-               c_buffer_append(&emitter->buffer, ")");
-    }
-
     if (strncmp(trimmed, "binary.", 7) == 0) {
         char op_name[64];
         char left[128];
@@ -2992,6 +3447,9 @@ static int c_zir_expr_resolve_type(
 
         case ZIR_EXPR_INDEX_SEQ: {
             char sequence_type[96];
+            char map_type_name[96];
+            char key_type_name[96];
+            char value_type_name[96];
 
             if (!c_zir_expr_resolve_type(module_decl, function_decl, expr->as.sequence.first, sequence_type, sizeof(sequence_type))) {
                 return 0;
@@ -3017,8 +3475,16 @@ static int c_zir_expr_resolve_type(
                 snprintf(dest, capacity, "dyn<textrepresentable>");
                 return 1;
             }
-            if (c_type_is(sequence_type, "map<text,text>")) {
-                snprintf(dest, capacity, "text");
+            if (c_parse_binary_type_name(
+                    sequence_type,
+                    "map<",
+                    map_type_name,
+                    sizeof(map_type_name),
+                    key_type_name,
+                    sizeof(key_type_name),
+                    value_type_name,
+                    sizeof(value_type_name))) {
+                snprintf(dest, capacity, "%s", value_type_name);
                 return 1;
             }
             return 0;
@@ -3098,6 +3564,18 @@ static int c_zir_expr_is_materialized_list_i64_ref(const zir_function *function_
     if (!c_zir_expr_name_text(expr, name, sizeof(name))) return 0;
     type_name = c_find_symbol_type(function_decl, name);
     return c_type_is(type_name, "list<int>");
+}
+
+static int c_zir_expr_is_materialized_type_ref(
+        const zir_function *function_decl,
+        const zir_expr *expr,
+        const char *expected_type_name) {
+    char name[128];
+    const char *type_name;
+
+    if (!c_zir_expr_name_text(expr, name, sizeof(name))) return 0;
+    type_name = c_find_symbol_type(function_decl, name);
+    return c_type_is(type_name, expected_type_name);
 }
 
 static int c_zir_expr_is_materialized_optional_text_ref(const zir_function *function_decl, const zir_expr *expr) {
@@ -4096,6 +4574,7 @@ static int c_emit_zir_index_expr(
         const char *expected_type_name,
         c_emit_result *result) {
     char sequence_type[96];
+    c_map_spec map_spec;
 
     if (!c_zir_expr_resolve_type(module_decl, function_decl, expr->as.sequence.first, sequence_type, sizeof(sequence_type))) {
         c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "unable to resolve structured sequence type");
@@ -4167,16 +4646,22 @@ static int c_emit_zir_index_expr(
                c_buffer_append(&emitter->buffer, ")");
     }
 
-    if (c_type_is(sequence_type, "map<text,text>")) {
-        if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, "text")) {
-            c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "index_seq on map<text,text> produces text, but expected '%s'", c_safe_text(expected_type_name));
+    if (c_map_spec_for_type(module_decl, sequence_type, &map_spec)) {
+        if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, map_spec.value_type_name)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_TYPE,
+                "index_seq on %s produces %s, but expected '%s'",
+                map_spec.canonical_name,
+                map_spec.value_type_name,
+                c_safe_text(expected_type_name));
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "zt_map_text_text_get(") &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, "map<text,text>", result) &&
+        return c_buffer_append_format(&emitter->buffer, "%s(", map_spec.get_fn) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, map_spec.canonical_name, result) &&
                c_buffer_append(&emitter->buffer, ", ") &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, "text", result) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, map_spec.key_type_name, result) &&
                c_buffer_append(&emitter->buffer, ")");
     }
 
@@ -4571,10 +5056,18 @@ static int c_emit_zir_expr(
             c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "list_len is not supported for '%s'", sequence_type);
             return 0;
         }
-        case ZIR_EXPR_MAP_LEN:
-            return c_buffer_append(&emitter->buffer, "zt_map_text_text_len(") &&
-                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, "map<text,text>", result) &&
-                   c_buffer_append(&emitter->buffer, ")");
+        case ZIR_EXPR_MAP_LEN: {
+            c_legalized_seq_expr legalized;
+            c_legalize_result legalize_result;
+
+            c_legalize_result_init(&legalize_result);
+            if (!c_legalize_zir_list_len_expr(function_decl, expr, expected_type_name, &legalized, &legalize_result)) {
+                c_copy_legalize_result(result, &legalize_result);
+                return 0;
+            }
+
+            return c_emit_legalized_seq_expr(emitter, module_decl, function_decl, &legalized, result);
+        }
 
         case ZIR_EXPR_OPTIONAL_EMPTY:
             if (strcmp(c_safe_text(expr->as.type_only.type_name), "int") == 0) return c_buffer_append(&emitter->buffer, "zt_optional_i64_empty()");
@@ -4874,6 +5367,7 @@ static int c_emit_effect_zir_expr(
 
     if (expr->kind == ZIR_EXPR_MAP_SET) {
         const zir_expr *target_expr = expr->as.sequence.first;
+        c_map_spec map_spec;
         char target_type[96];
         char target_name[128];
         char target_object_name[128];
@@ -4888,24 +5382,40 @@ static int c_emit_effect_zir_expr(
         }
 
         if (!c_zir_expr_resolve_type(module_decl, function_decl, expr->as.sequence.first, target_type, sizeof(target_type)) ||
-                !c_type_is(target_type, "map<text,text>")) {
-            c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "map_set is supported only for map<text,text>");
+                !c_map_spec_for_type(module_decl, target_type, &map_spec)) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "map_set is not supported for '%s'", c_safe_text(target_type));
             return 0;
         }
 
-        if (!c_zir_expr_is_materialized_text_ref(function_decl, expr->as.sequence.second) ||
-                !c_zir_expr_is_materialized_text_ref(function_decl, expr->as.sequence.third)) {
-            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "map_set requires materialized text key/value");
+        if (c_type_is_managed(map_spec.key_type_name) &&
+                !c_zir_expr_is_materialized_type_ref(function_decl, expr->as.sequence.second, map_spec.key_type_name)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "map_set on %s requires a materialized managed key of type %s",
+                map_spec.canonical_name,
+                map_spec.key_type_name);
+            return 0;
+        }
+
+        if (c_type_is_managed(map_spec.value_type_name) &&
+                !c_zir_expr_is_materialized_type_ref(function_decl, expr->as.sequence.third, map_spec.value_type_name)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "map_set on %s requires a materialized managed value of type %s",
+                map_spec.canonical_name,
+                map_spec.value_type_name);
             return 0;
         }
 
         if (target_is_name) {
-            return c_buffer_append_format(&emitter->buffer, "    %s = zt_map_text_text_set_owned(", target_name) &&
-                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, "map<text,text>", result) &&
+            return c_buffer_append_format(&emitter->buffer, "    %s = %s(", target_name, map_spec.set_owned_fn) &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, map_spec.canonical_name, result) &&
                    c_buffer_append(&emitter->buffer, ", ") &&
-                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, "text", result) &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, map_spec.key_type_name, result) &&
                    c_buffer_append(&emitter->buffer, ", ") &&
-                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, "text", result) &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, map_spec.value_type_name, result) &&
                    c_buffer_append(&emitter->buffer, ");");
         }
 
@@ -4913,26 +5423,28 @@ static int c_emit_effect_zir_expr(
             if (target_field_object_is_self) {
                 return c_buffer_append_format(
                            &emitter->buffer,
-                           "    self->%s = zt_map_text_text_set_owned(self->%s, ",
+                           "    self->%s = %s(self->%s, ",
                            c_safe_text(target_expr->as.field.field_name),
+                           map_spec.set_owned_fn,
                            c_safe_text(target_expr->as.field.field_name)) &&
-                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, "text", result) &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, map_spec.key_type_name, result) &&
                        c_buffer_append(&emitter->buffer, ", ") &&
-                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, "text", result) &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, map_spec.value_type_name, result) &&
                        c_buffer_append(&emitter->buffer, ");");
             }
 
             if (target_field_object_is_name) {
                 return c_buffer_append_format(
                            &emitter->buffer,
-                           "    %s.%s = zt_map_text_text_set_owned(%s.%s, ",
+                           "    %s.%s = %s(%s.%s, ",
                            target_object_name,
                            c_safe_text(target_expr->as.field.field_name),
+                           map_spec.set_owned_fn,
                            target_object_name,
                            c_safe_text(target_expr->as.field.field_name)) &&
-                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, "text", result) &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, map_spec.key_type_name, result) &&
                        c_buffer_append(&emitter->buffer, ", ") &&
-                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, "text", result) &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, map_spec.value_type_name, result) &&
                        c_buffer_append(&emitter->buffer, ");");
             }
 
@@ -4940,15 +5452,14 @@ static int c_emit_effect_zir_expr(
             return 0;
         }
 
-        return c_buffer_append(&emitter->buffer, "    zt_map_text_text_set(") &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, "map<text,text>", result) &&
+        return c_buffer_append_format(&emitter->buffer, "    %s(", map_spec.set_fn) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, map_spec.canonical_name, result) &&
                c_buffer_append(&emitter->buffer, ", ") &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, "text", result) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, map_spec.key_type_name, result) &&
                c_buffer_append(&emitter->buffer, ", ") &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, "text", result) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, map_spec.value_type_name, result) &&
                c_buffer_append(&emitter->buffer, ");");
     }
-
     return c_buffer_append(&emitter->buffer, "    ") &&
            c_emit_zir_expr(emitter, module_decl, function_decl, expr, NULL, result) &&
            c_buffer_append(&emitter->buffer, ";");
@@ -5428,6 +5939,7 @@ static int c_emit_effect_instruction(
     }
 
     if (strncmp(trimmed, "map_set ", 8) == 0) {
+        c_map_spec map_spec;
         char target[128];
         char key_value[128];
         char assigned_value[128];
@@ -5444,37 +5956,50 @@ static int c_emit_effect_instruction(
         }
 
         target_type = c_find_symbol_type(function_decl, target);
-        if (!c_type_is(target_type, "map<text,text>")) {
+        if (!c_map_spec_for_type(module_decl, target_type, &map_spec)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_TYPE,
-                "map_set is supported only for map<text,text>, got '%s'",
+                "map_set is not supported for '%s'",
                 c_safe_text(target_type)
             );
             return 0;
         }
 
-        if (!c_expression_is_materialized_text_ref(function_decl, key_value) ||
-                !c_expression_is_materialized_text_ref(function_decl, assigned_value)) {
+        if (c_type_is_managed(map_spec.key_type_name) &&
+                !c_expression_is_materialized_type_ref(function_decl, key_value, map_spec.key_type_name)) {
             c_emit_set_result(
                 result,
                 C_EMIT_UNSUPPORTED_EXPR,
-                "map_set on map<text,text> currently requires materialized text key/value, got '%s, %s'",
-                key_value,
+                "map_set on %s currently requires a materialized managed key of type %s, got '%s'",
+                map_spec.canonical_name,
+                map_spec.key_type_name,
+                key_value
+            );
+            return 0;
+        }
+
+        if (c_type_is_managed(map_spec.value_type_name) &&
+                !c_expression_is_materialized_type_ref(function_decl, assigned_value, map_spec.value_type_name)) {
+            c_emit_set_result(
+                result,
+                C_EMIT_UNSUPPORTED_EXPR,
+                "map_set on %s currently requires a materialized managed value of type %s, got '%s'",
+                map_spec.canonical_name,
+                map_spec.value_type_name,
                 assigned_value
             );
             return 0;
         }
 
-        return c_buffer_append_format(&emitter->buffer, "    %s = zt_map_text_text_set_owned(", target) &&
+        return c_buffer_append_format(&emitter->buffer, "    %s = %s(", target, map_spec.set_owned_fn) &&
                c_emit_value(emitter, target) &&
                c_buffer_append(&emitter->buffer, ", ") &&
-               c_emit_expr(emitter, module_decl, function_decl, key_value, "text", result) &&
+               c_emit_expr(emitter, module_decl, function_decl, key_value, map_spec.key_type_name, result) &&
                c_buffer_append(&emitter->buffer, ", ") &&
-               c_emit_expr(emitter, module_decl, function_decl, assigned_value, "text", result) &&
+               c_emit_expr(emitter, module_decl, function_decl, assigned_value, map_spec.value_type_name, result) &&
                c_buffer_append(&emitter->buffer, ");");
     }
-
     return c_buffer_append(&emitter->buffer, "    ") &&
            c_emit_expr(emitter, module_decl, function_decl, trimmed, NULL, result) &&
            c_buffer_append(&emitter->buffer, ";");
@@ -6156,6 +6681,228 @@ static int c_emit_enum_definitions(
     return 1;
 }
 
+static int c_generated_map_is_emitted(
+        char emitted[][128],
+        size_t emitted_count,
+        const char *canonical_name) {
+    size_t index;
+
+    for (index = 0; index < emitted_count; index += 1) {
+        if (strcmp(emitted[index], canonical_name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int c_generated_map_mark_emitted(
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
+        const char *canonical_name,
+        c_emit_result *result) {
+    if (*emitted_count >= emitted_capacity) {
+        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "too many generated map specializations in one module");
+        return 0;
+    }
+
+    snprintf(emitted[*emitted_count], 128, "%s", canonical_name);
+    *emitted_count += 1;
+    return 1;
+}
+
+static int c_emit_generated_map_helpers_for_type(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *type_name,
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
+        c_emit_result *result) {
+    c_map_spec spec;
+    char key_c_type[128];
+    char value_c_type[128];
+    char base_type_name[128];
+    char suffix[128];
+    char heap_kind_fn[160];
+    char free_fn[160];
+    char clone_fn[160];
+    size_t base_length;
+
+    if (!c_map_spec_for_type(module_decl, type_name, &spec) || !spec.is_generated) {
+        return 1;
+    }
+
+    if (c_generated_map_is_emitted(emitted, *emitted_count, spec.canonical_name)) {
+        return 1;
+    }
+
+    if (!c_emit_generated_map_helpers_for_type(
+            emitter,
+            module_decl,
+            spec.key_type_name,
+            emitted,
+            emitted_capacity,
+            emitted_count,
+            result)) {
+        return 0;
+    }
+
+    if (!c_emit_generated_map_helpers_for_type(
+            emitter,
+            module_decl,
+            spec.value_type_name,
+            emitted,
+            emitted_capacity,
+            emitted_count,
+            result)) {
+        return 0;
+    }
+
+    if (!c_type_to_c(module_decl, spec.key_type_name, key_c_type, sizeof(key_c_type), result) ||
+            !c_type_to_c(module_decl, spec.value_type_name, value_c_type, sizeof(value_c_type), result)) {
+        return 0;
+    }
+
+    snprintf(base_type_name, sizeof(base_type_name), "%s", spec.c_type_name);
+    base_length = strlen(base_type_name);
+    if (base_length < 3 || strcmp(base_type_name + base_length - 2, " *") != 0) {
+        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "generated map C type '%s' must be a pointer type", spec.c_type_name);
+        return 0;
+    }
+    base_type_name[base_length - 2] = '\0';
+
+    if (strncmp(base_type_name, "zt_map_", 7) != 0) {
+        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "generated map base type '%s' has unexpected prefix", base_type_name);
+        return 0;
+    }
+
+    snprintf(suffix, sizeof(suffix), "%s", base_type_name + 7);
+    snprintf(heap_kind_fn, sizeof(heap_kind_fn), "%s_heap_kind", base_type_name);
+    snprintf(free_fn, sizeof(free_fn), "zt_free_map_%s", suffix);
+    snprintf(clone_fn, sizeof(clone_fn), "zt_map_%s_deep_copy", suffix);
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static uint32_t %s(void);", heap_kind_fn) &&
+            c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(
+                &emitter->buffer,
+                "ZT_DEFINE_MAP(%s, %s, %s, %s, %s(), %d, %d, %s, %s, %s)",
+                suffix,
+                key_c_type,
+                value_c_type,
+                spec.optional_value_type_name,
+                heap_kind_fn,
+                c_type_is_managed(spec.key_type_name) ? 1 : 0,
+                c_type_is_managed(spec.value_type_name) ? 1 : 0,
+                spec.key_eq_fn,
+                spec.optional_present_fn,
+                spec.optional_empty_fn) &&
+            c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static uint32_t %s(void) {", heap_kind_fn) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    static uint32_t kind = 0;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    if (kind == 0) {") &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(
+                &emitter->buffer,
+                "        kind = zt_register_dynamic_heap_kind((zt_heap_free_fn)%s, (zt_heap_clone_fn)%s);",
+                free_fn,
+                clone_fn) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    }") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    return kind;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    return c_generated_map_mark_emitted(emitted, emitted_capacity, emitted_count, spec.canonical_name, result);
+}
+
+static int c_emit_generated_map_helpers(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        c_emit_result *result) {
+    char emitted[128][128];
+    size_t emitted_count = 0;
+    size_t struct_index;
+    size_t function_index;
+
+    for (struct_index = 0; struct_index < module_decl->struct_count; struct_index += 1) {
+        const zir_struct_decl *struct_decl = &module_decl->structs[struct_index];
+        size_t field_index;
+        for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
+            if (!c_emit_generated_map_helpers_for_type(
+                    emitter,
+                    module_decl,
+                    struct_decl->fields[field_index].type_name,
+                    emitted,
+                    sizeof(emitted) / sizeof(emitted[0]),
+                    &emitted_count,
+                    result)) {
+                return 0;
+            }
+        }
+    }
+
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        const zir_function *function_decl = &module_decl->functions[function_index];
+        size_t param_index;
+        size_t block_index;
+
+        if (!c_emit_generated_map_helpers_for_type(
+                emitter,
+                module_decl,
+                function_decl->return_type,
+                emitted,
+                sizeof(emitted) / sizeof(emitted[0]),
+                &emitted_count,
+                result)) {
+            return 0;
+        }
+
+        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
+            if (!c_emit_generated_map_helpers_for_type(
+                    emitter,
+                    module_decl,
+                    function_decl->params[param_index].type_name,
+                    emitted,
+                    sizeof(emitted) / sizeof(emitted[0]),
+                    &emitted_count,
+                    result)) {
+                return 0;
+            }
+        }
+
+        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
+            const zir_block *block = &function_decl->blocks[block_index];
+            size_t instruction_index;
+            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
+                const zir_instruction *instruction = &block->instructions[instruction_index];
+                if (instruction->type_name != NULL &&
+                        !c_emit_generated_map_helpers_for_type(
+                            emitter,
+                            module_decl,
+                            instruction->type_name,
+                            emitted,
+                            sizeof(emitted) / sizeof(emitted[0]),
+                            &emitted_count,
+                            result)) {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
 static int c_generated_outcome_is_emitted(
         char emitted[][128],
         size_t emitted_count,
@@ -6789,7 +7536,9 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         return 0;
     }
 
-    if (!(c_emit_line(emitter, "#include \"runtime/c/zenith_rt.h\"") &&
+        if (!(c_emit_line(emitter, "#include \"runtime/c/zenith_rt.h\"") &&
+            (!c_module_requires_template_header(module_decl) ||
+                c_emit_line(emitter, "#include \"runtime/c/zenith_rt_templates.h\"")) &&
             c_emit_line(emitter, "#include <stdio.h>") &&
             (!c_module_requires_string_header(module_decl) ||
                 c_emit_line(emitter, "#include <string.h>")))) {
@@ -6806,6 +7555,10 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
     }
 
     if (!c_emit_enum_definitions(emitter, module_decl, result)) {
+        return 0;
+    }
+
+    if (!c_emit_generated_map_helpers(emitter, module_decl, result)) {
         return 0;
     }
 

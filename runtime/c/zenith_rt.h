@@ -49,6 +49,7 @@ typedef enum zt_heap_kind {
     ZT_HEAP_NET_CONNECTION = 26,
     ZT_HEAP_DYN_TEXT_REPR = 27,
     ZT_HEAP_LIST_DYN_TEXT_REPR = 28,
+    ZT_HEAP_LIST_F64 = 29,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -56,6 +57,13 @@ typedef struct zt_header {
     uint32_t rc;
     uint32_t kind;
 } zt_header;
+
+typedef void (*zt_heap_free_fn)(void *ref);
+typedef void *(*zt_heap_clone_fn)(void *ref);
+
+static inline zt_bool zt_i64_eq(zt_int left, zt_int right) {
+    return left == right;
+}
 
 typedef struct zt_text {
     zt_header header;
@@ -109,6 +117,13 @@ typedef struct zt_list_text {
     size_t capacity;
     zt_text **data;
 } zt_list_text;
+
+typedef struct zt_list_f64 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_float *data;
+} zt_list_f64;
 
 typedef struct zt_map_text_text {
     zt_header header;
@@ -397,6 +412,7 @@ void zt_runtime_report_error(zt_error_kind kind, const char *message, const char
 void zt_retain(void *ref);
 void zt_release(void *ref);
 void *zt_deep_copy(void *ref);
+uint32_t zt_register_dynamic_heap_kind(zt_heap_free_fn free_fn, zt_heap_clone_fn clone_fn);
 
 zt_shared_text *zt_shared_text_new(zt_text *value);
 zt_shared_text *zt_shared_text_retain(zt_shared_text *shared);
@@ -470,6 +486,17 @@ zt_list_text *zt_list_text_set_owned(zt_list_text *list, zt_int index_0, zt_text
 zt_int zt_list_text_len(const zt_list_text *list);
 zt_list_text *zt_list_text_slice(const zt_list_text *list, zt_int start_0, zt_int end_0);
 zt_list_text *zt_list_text_deep_copy(const zt_list_text *list);
+
+zt_list_f64 *zt_list_f64_new(void);
+zt_list_f64 *zt_list_f64_from_array(const zt_float *items, size_t count);
+void zt_list_f64_push(zt_list_f64 *list, zt_float value);
+zt_list_f64 *zt_list_f64_push_owned(zt_list_f64 *list, zt_float value);
+zt_float zt_list_f64_get(const zt_list_f64 *list, zt_int index_0);
+void zt_list_f64_set(zt_list_f64 *list, zt_int index_0, zt_float value);
+zt_list_f64 *zt_list_f64_set_owned(zt_list_f64 *list, zt_int index_0, zt_float value);
+zt_int zt_list_f64_len(const zt_list_f64 *list);
+zt_list_f64 *zt_list_f64_slice(const zt_list_f64 *list, zt_int start_0, zt_int end_0);
+
 zt_dyn_text_repr *zt_dyn_text_repr_from_i64(zt_int value);
 zt_dyn_text_repr *zt_dyn_text_repr_from_float(zt_float value);
 zt_dyn_text_repr *zt_dyn_text_repr_from_bool(zt_bool value);

@@ -39,6 +39,7 @@ Legend:
 | `list_slice_len` | `list<int>` slice and `len(list)` | `37` |
 | `text_slice_len` | `text` slice and `len(text)` | `8` |
 | `map_basic` | `map<text,text>` literal, index and update | `0` |
+| `map_int_text_basic` | `map<int,text>` literal, index, update and `len(map)` | `7` |
 | `map_safe_get` | Safe lookup `map.get(key) -> optional<text>` sem panic em chave ausente | `15` |
 | `list_safe_get` | Safe lookup `list.get(index) -> optional<int>` sem panic em indice ausente | `27` |
 | `map_len_basic` | `len(map<text,text>)` | `2` |

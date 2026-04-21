@@ -1,0 +1,45 @@
+---
+@target std.json
+---
+
+# std.json — Parse e Serialização JSON
+
+Módulo para converter texto JSON em estruturas Zenith e vice-versa.
+No MVP atual, opera sobre `map<text, text>` (objetos JSON flat com valores string).
+
+## Funções
+
+### parse
+
+```zt
+public func parse(input: text) -> result<map<text, text>, core.Error>
+```
+
+Converte texto JSON em um mapa de chaves e valores textuais.
+Retorna erro se o JSON for inválido ou não puder ser representado como `map<text, text>`.
+
+@param input — Texto contendo JSON válido.
+@return Mapa resultante, ou erro de parsing.
+
+### stringify
+
+```zt
+public func stringify(value: map<text, text>) -> text
+```
+
+Serializa um mapa em texto JSON compacto (sem formatação).
+
+@param value — Mapa a ser serializado.
+@return Texto JSON compactado em uma única linha.
+
+### pretty
+
+```zt
+public func pretty(value: map<text, text>, indent: int = 2) -> text
+```
+
+Serializa um mapa em texto JSON formatado com indentação para legibilidade.
+
+@param value — Mapa a ser serializado.
+@param indent — Número de espaços por nível de indentação (padrão: 2).
+@return Texto JSON formatado com quebras de linha e indentação.

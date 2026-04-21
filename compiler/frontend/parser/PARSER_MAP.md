@@ -48,7 +48,7 @@ Parser do Zenith. Responsável por:
 
 - Priority: Critical
 - Source files: 2
-- Extracted symbols: 68
+- Extracted symbols: 69
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -56,7 +56,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/frontend/parser/parser.c` | 1716 | 67 | 1 |
+| `compiler/frontend/parser/parser.c` | 1740 | 68 | 1 |
 | `compiler/frontend/parser/parser.h` | 31 | 1 | 5 |
 
 ### Local Dependencies
@@ -94,58 +94,59 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 153 | `func_def` | `zt_parser_error_contextual` |
 | 160 | `func_def` | `zt_parser_intern_unescaped` |
 | 183 | `func_def` | `zt_parser_strdup` |
-| 191 | `macro` | `ZT_PARSER_STACK_BUFFER_THRESHOLD` |
-| 193 | `func_def` | `zt_parser_alloc_buffer` |
-| 205 | `func_def` | `zt_parser_free_buffer` |
-| 211 | `func_def` | `zt_parser_is_contextual_ident` |
-| 215 | `func_def` | `zt_parser_token_is_identifier_text` |
-| 222 | `func_def` | `zt_parser_hex_digit_value` |
-| 229 | `func_def` | `zt_parser_normalize_hex_bytes` |
-| 261 | `func_def` | `zt_parser_ast_make` |
-| 278 | `func_decl` | `zt_parser_parse_type` |
-| 279 | `func_decl` | `zt_parser_parse_expression` |
-| 280 | `func_decl` | `zt_parser_parse_block` |
-| 281 | `func_decl` | `zt_parser_parse_statement` |
-| 282 | `func_decl` | `zt_parser_parse_params` |
-| 283 | `func_decl` | `zt_parser_parse_generic_constraints` |
-| 285 | `func_def` | `zt_parser_is_type_name` |
-| 301 | `func_def` | `zt_parser_expect_type_name` |
-| 308 | `func_def` | `zt_parser_parse_type_name_path` |
-| 342 | `func_def` | `zt_parser_parse_type` |
-| 372 | `func_def` | `zt_is_named_arg_label_token` |
-| 376 | `func_def` | `zt_is_named_arg_ahead` |
-| 382 | `func_def` | `zt_parser_parse_primary` |
-| 574 | `enum` | `zt_precedence_level` |
-| 585 | `func_def` | `zt_is_binary_op` |
-| 599 | `func_def` | `zt_binary_precedence` |
-| 611 | `func_def` | `zt_parser_parse_postfix` |
-| 722 | `func_def` | `zt_parser_parse_binary` |
-| 745 | `func_def` | `zt_parser_parse_expression` |
-| 749 | `func_def` | `zt_parser_parse_params` |
-| 789 | `func_def` | `zt_parser_parse_type_params` |
-| 808 | `func_def` | `zt_parser_parse_generic_constraint` |
-| 820 | `func_def` | `zt_parser_parse_generic_constraints` |
-| 834 | `func_def` | `zt_parser_parse_block_ex` |
-| 856 | `func_def` | `zt_parser_parse_block` |
-| 860 | `func_def` | `zt_parser_parse_if_stmt` |
-| 887 | `func_def` | `zt_parser_parse_while_stmt` |
-| 902 | `func_def` | `zt_parser_parse_for_stmt` |
-| 927 | `func_def` | `zt_parser_parse_repeat_stmt` |
-| 943 | `func_def` | `zt_parser_parse_match_stmt` |
-| 985 | `func_def` | `zt_parser_parse_statement` |
-| 1126 | `func_def` | `zt_parser_parse_func_decl` |
-| 1166 | `func_def` | `zt_parser_parse_struct_field` |
-| 1197 | `func_def` | `zt_parser_parse_struct_decl` |
-| 1221 | `func_def` | `zt_parser_parse_trait_method` |
-| 1245 | `func_def` | `zt_parser_parse_trait_decl` |
-| 1281 | `func_def` | `zt_parser_parse_apply_decl` |
-| 1347 | `func_def` | `zt_parser_parse_enum_decl` |
-| 1405 | `func_def` | `zt_parser_parse_extern_func` |
-| 1432 | `func_def` | `zt_parser_parse_extern_decl` |
-| 1462 | `func_def` | `zt_parser_parse_declaration` |
-| 1573 | `func_def` | `zt_parser_parse_import` |
-| 1612 | `func_def` | `zt_parse` |
-| 1706 | `func_def` | `zt_parser_result_dispose` |
+| 190 | `macro` | `ZT_PARSER_MAX_NAME_PATH_LEN` |
+| 192 | `func_def` | `zt_parser_note_name_path_too_long` |
+| 203 | `func_def` | `zt_parser_append_to_name_path` |
+| 232 | `func_def` | `zt_parser_append_char_to_name_path` |
+| 244 | `func_def` | `zt_parser_is_contextual_ident` |
+| 248 | `func_def` | `zt_parser_token_is_identifier_text` |
+| 255 | `func_def` | `zt_parser_hex_digit_value` |
+| 262 | `func_def` | `zt_parser_normalize_hex_bytes` |
+| 294 | `func_def` | `zt_parser_ast_make` |
+| 311 | `func_decl` | `zt_parser_parse_type` |
+| 312 | `func_decl` | `zt_parser_parse_expression` |
+| 313 | `func_decl` | `zt_parser_parse_block` |
+| 314 | `func_decl` | `zt_parser_parse_statement` |
+| 315 | `func_decl` | `zt_parser_parse_params` |
+| 316 | `func_decl` | `zt_parser_parse_generic_constraints` |
+| 318 | `func_def` | `zt_parser_is_type_name` |
+| 334 | `func_def` | `zt_parser_expect_type_name` |
+| 341 | `func_def` | `zt_parser_parse_type_name_path` |
+| 364 | `func_def` | `zt_parser_parse_type` |
+| 404 | `func_def` | `zt_is_named_arg_label_token` |
+| 408 | `func_def` | `zt_is_named_arg_ahead` |
+| 414 | `func_def` | `zt_parser_parse_primary` |
+| 606 | `enum` | `zt_precedence_level` |
+| 617 | `func_def` | `zt_is_binary_op` |
+| 631 | `func_def` | `zt_binary_precedence` |
+| 643 | `func_def` | `zt_parser_parse_postfix` |
+| 754 | `func_def` | `zt_parser_parse_binary` |
+| 777 | `func_def` | `zt_parser_parse_expression` |
+| 781 | `func_def` | `zt_parser_parse_params` |
+| 826 | `func_def` | `zt_parser_parse_type_params` |
+| 845 | `func_def` | `zt_parser_parse_generic_constraint` |
+| 857 | `func_def` | `zt_parser_parse_generic_constraints` |
+| 871 | `func_def` | `zt_parser_parse_block_ex` |
+| 893 | `func_def` | `zt_parser_parse_block` |
+| 897 | `func_def` | `zt_parser_parse_if_stmt` |
+| 924 | `func_def` | `zt_parser_parse_while_stmt` |
+| 939 | `func_def` | `zt_parser_parse_for_stmt` |
+| 964 | `func_def` | `zt_parser_parse_repeat_stmt` |
+| 980 | `func_def` | `zt_parser_parse_match_stmt` |
+| 1022 | `func_def` | `zt_parser_parse_statement` |
+| 1163 | `func_def` | `zt_parser_parse_func_decl` |
+| 1203 | `func_def` | `zt_parser_parse_struct_field` |
+| 1234 | `func_def` | `zt_parser_parse_struct_decl` |
+| 1258 | `func_def` | `zt_parser_parse_trait_method` |
+| 1282 | `func_def` | `zt_parser_parse_trait_decl` |
+| 1318 | `func_def` | `zt_parser_parse_apply_decl` |
+| 1384 | `func_def` | `zt_parser_parse_enum_decl` |
+| 1442 | `func_def` | `zt_parser_parse_extern_func` |
+| 1469 | `func_def` | `zt_parser_parse_extern_decl` |
+| 1499 | `func_def` | `zt_parser_parse_declaration` |
+| 1610 | `func_def` | `zt_parser_parse_import` |
+| 1642 | `func_def` | `zt_parse` |
+| 1731 | `func_def` | `zt_parser_result_dispose` |
 
 #### `compiler/frontend/parser/parser.h`
 

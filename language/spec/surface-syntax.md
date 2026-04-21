@@ -240,6 +240,12 @@ const message: text = fmt "Player {player.name} has {player.hp} HP"
 const report: text = "Coordinates: X=" + to_text(x) + ", Y=" + to_text(y)
 ```
 
+Implementation note for this compiler cut (2026-04-21):
+
+- `fmt "..."` interpolation is a canonical language direction, but codegen support is deferred to v2.
+- the parser emits a clear diagnostic when `fmt` interpolation is used.
+- use explicit `to_text(...)` concatenation until v2 interpolation lowering lands.
+
 Rules:
 
 - ordinary text literals do not interpolate.

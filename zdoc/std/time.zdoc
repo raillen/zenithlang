@@ -1,0 +1,171 @@
+---
+@target std.time
+---
+
+# std.time — Medição de Tempo
+
+Módulo para cronometragem, durações e conversões de timestamps Unix.
+Usa tipos tipados `Instant` e `Duration` para evitar confusão de unidades.
+
+## Tipos
+
+### Instant
+
+```zt
+public struct Instant
+    millis: int
+end
+```
+
+Representa um ponto no tempo absoluto (timestamp em milissegundos desde a epoch Unix).
+
+### Duration
+
+```zt
+public struct Duration
+    millis: int
+end
+```
+
+Representa uma diferença entre dois instantes (duração em milissegundos).
+
+## Funções de Instant
+
+### now
+
+```zt
+public func now() -> time.Instant
+```
+
+Captura o instante atual do relógio do sistema como timestamp Unix em milissegundos.
+
+@return Instant representando o momento da chamada.
+
+### since
+
+```zt
+public func since(start: time.Instant) -> time.Duration
+```
+
+Calcula quanto tempo se passou desde `start` até agora.
+
+@param start — Instante de início.
+@return Duração decorrida.
+
+### until
+
+```zt
+public func until(target: time.Instant) -> time.Duration
+```
+
+Calcula quanto tempo falta de agora até `target`.
+
+@param target — Instante alvo no futuro.
+@return Duração restante.
+
+### diff
+
+```zt
+public func diff(a: time.Instant, b: time.Instant) -> time.Duration
+```
+
+Calcula a diferença `b - a` entre dois instantes.
+
+@param a — Instante inicial.
+@param b — Instante final.
+@return Duração entre os dois instantes.
+
+### add
+
+```zt
+public func add(at: time.Instant, duration: time.Duration) -> time.Instant
+```
+
+Adiciona uma duração a um instante, retornando um novo instante futuro.
+
+### sub
+
+```zt
+public func sub(at: time.Instant, duration: time.Duration) -> time.Instant
+```
+
+Subtrai uma duração de um instante, retornando um novo instante passado.
+
+### sleep
+
+```zt
+public func sleep(duration: time.Duration) -> result<void, core.Error>
+```
+
+Suspende a execução pelo tempo indicado na duração.
+
+@param duration — Quanto tempo pausar.
+@return `void` em sucesso, ou erro do sistema.
+
+## Conversões Unix
+
+### from_unix
+
+```zt
+public func from_unix(ts: int) -> time.Instant
+```
+
+Cria um Instant a partir de um timestamp Unix em **segundos**.
+
+### from_unix_ms
+
+```zt
+public func from_unix_ms(ts: int) -> time.Instant
+```
+
+Cria um Instant a partir de um timestamp Unix em **milissegundos**.
+
+### to_unix
+
+```zt
+public func to_unix(at: time.Instant) -> int
+```
+
+Converte um Instant para timestamp Unix em **segundos** (truncado).
+
+### to_unix_ms
+
+```zt
+public func to_unix_ms(at: time.Instant) -> int
+```
+
+Converte um Instant para timestamp Unix em **milissegundos**.
+
+## Construtores de Duration
+
+### milliseconds
+
+```zt
+public func milliseconds(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` milissegundos.
+
+### seconds
+
+```zt
+public func seconds(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` segundos (`n * 1000` ms).
+
+### minutes
+
+```zt
+public func minutes(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` minutos (`n * 60_000` ms).
+
+### hours
+
+```zt
+public func hours(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` horas (`n * 3_600_000` ms).

@@ -233,6 +233,27 @@ build/
 
 Users should not edit generated files under `build/`.
 
+## Driver Architecture
+
+The compiler driver is modular, with shared state managed through an internal header.
+
+```text
+compiler/driver/
+  driver_internal.h   (shared types, extern globals, cross-module prototypes)
+  paths.c             (file I/O, path manipulation — zero cross-deps)
+  main.c              (CLI dispatch, pipeline, command handlers)
+  lsp.c               (independent LSP server)
+  doc_show.c           (documentation display)
+```
+
+Rules:
+
+- `driver_internal.h` is an internal header; do not include from outside `compiler/driver/`
+- globals are defined in `main.c` and declared `extern` in the header
+- `paths.c` contains pure utility functions with no dependencies on other driver modules
+- the build system auto-discovers all `.c` files via `os.walk('compiler')`; no build changes needed when adding files
+- new modules should follow the pattern: define functions in `.c`, declare prototypes in `driver_internal.h`
+
 ## Out Of Scope For MVP
 
 Out of scope:
@@ -244,3 +265,4 @@ Out of scope:
 - JS backend
 - cross-compilation policy
 - native package installer generation
+- `fmt "..."` interpolation lowering/emission in this cut (deferred to v2; parser reports explicit diagnostic)

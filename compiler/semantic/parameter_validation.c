@@ -6,8 +6,7 @@
  * to validate parameter ordering and argument usage.
  */
 
-#include "compiler/semantic/diagnostics/diagnostics.h"
-#include "compiler/frontend/ast/model.h"
+#include "compiler/semantic/parameter_validation.h"
 
 #include <stddef.h>
 
@@ -45,7 +44,7 @@ void zt_validate_parameter_ordering(zt_ast_node_list params, zt_diag_list *diagn
                 diagnostics,
                 ZT_DIAG_PARAM_ORDERING,
                 param->span,
-                "required parameter '%s' cannot follow defaulted parameter",
+                "parameter '%s' is required but comes after a parameter with a default value",
                 param->as.param.name
             );
         }

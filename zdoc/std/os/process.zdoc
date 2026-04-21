@@ -1,0 +1,94 @@
+---
+@target std.os.process
+---
+
+# std.os.process — Execução de Processos Externos
+
+Módulo para executar programas externos e inspecionar seu código de saída.
+
+## Tipos
+
+### ExitStatus
+
+```zt
+public struct ExitStatus
+    code: int
+end
+```
+
+Encapsula o código de saída de um processo executado.
+
+### Error
+
+```zt
+public enum Error
+    NotFound
+    PermissionDenied
+    IOFailure
+    StillRunning
+    Unknown
+end
+```
+
+Tipos de erro na execução de processos.
+
+## Funções
+
+### run
+
+```zt
+public func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<int, core.Error>
+```
+
+Executa um programa externo e retorna seu código de saída.
+
+@param program — Nome ou caminho do executável.
+@param args — Lista de argumentos (padrão: lista vazia).
+@param cwd — Diretório de trabalho para o processo (padrão: `none`, usa o diretório atual).
+@return Código de saída do processo como inteiro, ou erro.
+
+### run_program
+
+```zt
+public func run_program(program: text) -> result<int, core.Error>
+```
+
+Atalho para `run(program)` sem argumentos adicionais.
+
+@param program — Nome ou caminho do executável.
+@return Código de saída ou erro.
+
+### from_code
+
+```zt
+public func from_code(code: int) -> process.ExitStatus
+```
+
+Cria um `ExitStatus` a partir de um código de saída inteiro.
+
+@param code — Código de saída.
+@return Struct `ExitStatus` com o código.
+
+### exit_code
+
+```zt
+public func exit_code(status: process.ExitStatus) -> int
+```
+
+Extrai o código de saída numérico de um `ExitStatus`.
+
+### is_success
+
+```zt
+public func is_success(status: process.ExitStatus) -> bool
+```
+
+Retorna `true` se o código de saída for `0` (sucesso convencional).
+
+### is_failure
+
+```zt
+public func is_failure(status: process.ExitStatus) -> bool
+```
+
+Retorna `true` se o código de saída for diferente de `0`.

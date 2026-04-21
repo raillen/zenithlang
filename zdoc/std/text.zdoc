@@ -1,0 +1,33 @@
+---
+@target std.text
+---
+
+# std.text — Conversão de Texto e UTF-8
+
+Módulo para conversões seguras entre `text` (strings UTF-8 validadas) e `bytes` (dados brutos).
+
+## Funções
+
+### to_utf8
+
+```zt
+public func to_utf8(value: text) -> bytes
+```
+
+Converte texto validado em sua representação bruta como bytes UTF-8.
+Operação sempre segura pois `text` já é UTF-8 válido por definição no Zenith.
+
+@param value — Texto a ser convertido.
+@return Sequência de bytes contendo a codificação UTF-8 do texto.
+
+### from_utf8
+
+```zt
+public func from_utf8(value: bytes) -> result<text, text>
+```
+
+Tenta converter uma sequência de bytes em texto UTF-8 validado.
+Retorna erro com mensagem descritiva se os bytes não formarem UTF-8 válido.
+
+@param value — Sequência de bytes para validar como UTF-8.
+@return Texto validado em caso de sucesso, ou mensagem de erro descritiva.

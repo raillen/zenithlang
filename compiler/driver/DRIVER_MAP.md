@@ -8,35 +8,43 @@ Ponto de entrada do compiler. Responsável por:
 - Integração com LSP (Language Server Protocol)
 - Geração de documentação (ZDoc)
 
-## 📁 Arquivos Principais
+## 📁 Arquivos Modulares
 
 | Arquivo | Tamanho | Responsabilidade |
 |---------|---------|------------------|
-| `main.c` | 147 KB | Entry point, CLI parsing, compilation pipeline |
-| `lsp.c` | 8.7 KB | Language Server Protocol implementation |
-| `doc_show.c` | 19.3 KB | Documentation display/generation |
+| `driver_internal.h` | ~7 KB | Header compartilhado: tipos, globals `extern`, protótipos inter-módulo |
+| `paths.c` | ~11 KB | File I/O, manipulação de caminhos, path filter list, git ref validation |
+| `main.c` | ~139 KB | CLI, pipeline, comandos, diagnostics |
+| `lsp.c` | ~9 KB | Language Server Protocol implementation |
+| `doc_show.c` | ~20 KB | Documentation display/generation |
 
-## 🔍 Funções Críticas
+## 🏗️ Arquitetura Modular
 
-### main.c
-| Linha | Função | Responsabilidade | Dependencies | Pode Quebrar Se | Prioridade |
-|-------|--------|------------------|--------------|-----------------|------------|
-| - | - | - | - | - | 🔴 CRÍTICA |
+```text
+driver_internal.h (shared header)
+    ├── paths.c         (pure utilities, zero cross-deps)
+    ├── main.c          (CLI dispatch, pipeline, handlers)
+    ├── lsp.c           (independent LSP server)
+    └── doc_show.c      (documentation CLI)
+```
 
-### lsp.c
-| Linha | Função | Responsabilidade | Dependencies | Pode Quebrar Se | Prioridade |
-|-------|--------|------------------|--------------|-----------------|------------|
-| - | - | - | - | - | 🟡 MÉDIA |
+### paths.c — Funções de utilidade pura
+- `zt_read_file` / `zt_write_file` — I/O de arquivos
+- `zt_join_path` / `zt_dirname` / `zt_copy_text` — manipulação de paths
+- `zt_path_is_dir` / `zt_path_is_file` / `zt_path_has_extension` — queries
+- `zt_normalize_path_*` / `zt_path_char_equal` — normalização cross-platform
+- `zt_make_dirs` — criação recursiva de diretórios
+- `zt_path_filter_list_*` — filter list para `--since`
 
-### doc_show.c
-| Linha | Função | Responsabilidade | Dependencies | Pode Quebrar Se | Prioridade |
-|-------|--------|------------------|--------------|-----------------|------------|
-| - | - | - | - | - | 🟢 BAIXA |
+### driver_internal.h — Contrato compartilhado
+- Types: `zt_project_source_file`, `zt_project_source_file_list`, `zt_path_filter_list`
+- Globals `extern`: `global_arena`, `global_pool`, `zt_ci_mode_enabled`, etc.
+- Macros cross-platform: `ZT_MKDIR`, `ZT_GETCWD`, `ZT_POPEN`, `ZT_PCLOSE`
 
 ## ⚠️ Estado Crítico
 
-- **Argumentos globais**: `argc`, `argv` (parsing inicial)
-- **Configuração de compilação**: flags de otimização, target
+- **Globals compartilhados**: definidos em `main.c`, declarados `extern` em `driver_internal.h`
+- **Build system**: `build.py` auto-descobre via `os.walk('compiler')` — não precisa de mudanças
 - **Error handling**: cleanup de recursos em caso de falha
 
 ## 🔗 Dependencies Externas
@@ -44,19 +52,14 @@ Ponto de entrada do compiler. Responsável por:
 - `frontend/` → Lexer, Parser, AST
 - `semantic/` → Binder, Type Checker
 - `targets/c/` → Code Generation
-- `utils/` → Arena, Diagnostics
-
-## 🐛 Erros Comuns
-
-1. [A preencher]
-2. [A preencher]
-3. [A preencher]
+- `utils/` → Arena, Diagnostics, l10n
 
 ## 📝 Notas de Manutenção
 
-- Este arquivo é MASSIVO (147KB) → considerar refatoração
-- Pipeline de compilação é sequencial → fácil de seguir
+- `main.c` ainda contém pipeline + handlers (~3750 linhas) — futuras extrações possíveis
+- `paths.c` tem zero dependências em outros módulos do driver — seguro para estender
 - LSP é independente do pipeline principal
+
 
 <!-- CODEMAP:GENERATED:BEGIN -->
 ## Generated Index

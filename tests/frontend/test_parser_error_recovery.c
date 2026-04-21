@@ -620,6 +620,27 @@ static void test_error_recovery_empty_block(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
+/* Test 46: `fmt "..."` interpolation is deferred in this implementation cut */
+static void test_error_fmt_interpolation_deferred(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "func show(name: text)\n"
+        "    const msg: text = fmt \"Hello {name}\"\n"
+        "    const ok: text = \"fallback\"\n"
+        "end";
+    zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_GT((int)r.diagnostics.count, 0, "fmt interpolation reports deferred diagnostic");
+    ASSERT_NOT_NULL(r.root, "root exists after fmt deferred diagnostic");
+    ASSERT_EQ((int)r.root->as.file.declarations.count, 1, "function still parsed");
+    ASSERT_EQ((int)r.root->as.file.declarations.items[0]->as.func_decl.body->as.block.statements.count, 2, "parser recovers and continues after fmt deferred");
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 int main(void) {
     printf("Running parser error recovery tests...\n\n");
 
@@ -668,6 +689,7 @@ int main(void) {
     test_error_recovery_unclosed_string();
     test_error_recovery_deep_nesting();
     test_error_recovery_empty_block();
+    test_error_fmt_interpolation_deferred();
 
     printf("\nError recovery tests: %d/%d passed\n", tests_passed, tests_run);
     return (tests_passed == tests_run) ? 0 : 1;

@@ -1,4 +1,3 @@
-import filecmp
 import os
 import shutil
 import subprocess
@@ -52,12 +51,11 @@ def run_case(case):
     if not expected.exists():
         return False, f"golden expected missing: {expected}"
 
-    same = filecmp.cmp(str(actual), str(expected), shallow=False)
-    if same:
-        return True, ""
-
     actual_text = actual.read_text(encoding="utf-8")
     expected_text = expected.read_text(encoding="utf-8")
+    if actual_text.replace("\r\n", "\n") == expected_text.replace("\r\n", "\n"):
+        return True, ""
+
     return (
         False,
         f"golden mismatch ({case['id']})\n--- expected ---\n{expected_text}\n--- actual ---\n{actual_text}",

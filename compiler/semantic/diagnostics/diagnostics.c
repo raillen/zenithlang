@@ -528,6 +528,7 @@ const char *zt_diag_action_text(zt_diag_code code) {
         case ZT_DIAG_UNEXPECTED_TOKEN: return "Replace or remove the unexpected token.";
         case ZT_DIAG_TYPE_MISMATCH: return "Convert the value type or change the expected type.";
         case ZT_DIAG_CONST_REASSIGNMENT: return "Use var if the binding must be reassigned.";
+        case ZT_DIAG_PARAM_ORDERING: return "Move required parameters before parameters with default values (or add defaults).";
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "Add missing match cases or a default branch.";
         case ZT_DIAG_DUPLICATE_NAME: return "Rename one of the duplicate declarations.";
         case ZT_DIAG_SHADOWING: return "Use a different name to avoid shadowing the outer declaration.";

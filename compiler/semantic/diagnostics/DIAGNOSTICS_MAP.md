@@ -49,8 +49,8 @@ Sistema de diagnósticos. Responsável por:
 ## Generated Index
 
 - Priority: Low
-- Source files: 2
-- Extracted symbols: 39
+- Source files: 3
+- Extracted symbols: 41
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -58,12 +58,14 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/semantic/diagnostics/diagnostics.c` | 775 | 38 | 1 |
+| `compiler/semantic/diagnostics/diagnostics.c` | 776 | 38 | 1 |
 | `compiler/semantic/diagnostics/diagnostics.h` | 154 | 1 | 1 |
+| `compiler/semantic/parameter_validation.c` | 90 | 2 | 1 |
 
 ### Local Dependencies
 
 - `compiler/frontend/lexer/token.h`
+- `compiler/semantic/parameter_validation.h`
 - `compiler/utils/l10n.h`
 
 ### Related Tests
@@ -117,27 +119,34 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 465 | `func_def` | `zt_diag_code_effort` |
 | 514 | `func_def` | `zt_diag_effort_label` |
 | 523 | `func_def` | `zt_diag_action_text` |
-| 547 | `func_def` | `zt_cog_profile_error_limit` |
-| 556 | `func_def` | `zt_cog_profile_from_text` |
-| 564 | `func_def` | `zt_diag_telemetry_log` |
-| 593 | `macro` | `ANSI_RED` |
-| 594 | `macro` | `ANSI_GREEN` |
-| 595 | `macro` | `ANSI_YELLOW` |
-| 596 | `macro` | `ANSI_BLUE` |
-| 597 | `macro` | `ANSI_CYAN` |
-| 598 | `macro` | `ANSI_RESET` |
-| 600 | `func_def` | `zt_diag_render_detailed` |
-| 649 | `func_def` | `zt_diag_render_detailed_list` |
-| 659 | `func_def` | `zt_diag_render_action_first` |
-| 721 | `func_def` | `zt_diag_render_action_first_list` |
-| 753 | `func_def` | `zt_diag_render_ci` |
-| 764 | `func_def` | `zt_diag_render_ci_list` |
+| 548 | `func_def` | `zt_cog_profile_error_limit` |
+| 557 | `func_def` | `zt_cog_profile_from_text` |
+| 565 | `func_def` | `zt_diag_telemetry_log` |
+| 594 | `macro` | `ANSI_RED` |
+| 595 | `macro` | `ANSI_GREEN` |
+| 596 | `macro` | `ANSI_YELLOW` |
+| 597 | `macro` | `ANSI_BLUE` |
+| 598 | `macro` | `ANSI_CYAN` |
+| 599 | `macro` | `ANSI_RESET` |
+| 601 | `func_def` | `zt_diag_render_detailed` |
+| 650 | `func_def` | `zt_diag_render_detailed_list` |
+| 660 | `func_def` | `zt_diag_render_action_first` |
+| 722 | `func_def` | `zt_diag_render_action_first_list` |
+| 754 | `func_def` | `zt_diag_render_ci` |
+| 765 | `func_def` | `zt_diag_render_ci_list` |
 
 #### `compiler/semantic/diagnostics/diagnostics.h`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
 | 2 | `macro` | `ZENITH_NEXT_COMPILER_SEMANTIC_DIAGNOSTICS_H` |
+
+#### `compiler/semantic/parameter_validation.c`
+
+| Line | Kind | Symbol |
+| ---: | --- | --- |
+| 25 | `func_def` | `zt_validate_parameter_ordering` |
+| 66 | `func_def` | `zt_validate_argument_ordering` |
 
 ### Manual Notes
 

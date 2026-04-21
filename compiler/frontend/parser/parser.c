@@ -156,6 +156,7 @@ static void zt_parser_error_contextual(zt_parser *p, const char *base_message, c
     zt_diag_list_add(&p->result->diagnostics, ZT_DIAG_SYNTAX_ERROR, p->current.span, "%s", message);
 }
 
+static zt_ast_node *zt_parser_ast_make(zt_parser *p, zt_ast_kind kind, zt_source_span span);
 
 static const char *zt_parser_intern_unescaped(zt_parser *p, const char *text, size_t len) {
     char *buf = (char *)malloc(len + 1);
@@ -180,6 +181,27 @@ static const char *zt_parser_intern_unescaped(zt_parser *p, const char *text, si
     return interned;
 }
 
+static zt_ast_node *zt_parser_make_string_expr_from_token(zt_parser *p, zt_token tok) {
+    const char *content;
+    size_t content_len;
+    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_STRING_EXPR, tok.span);
+    if (node == NULL) return NULL;
+
+    if (tok.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT && tok.length >= 6) {
+        content = tok.text + 3;
+        content_len = tok.length - 6;
+    } else if (tok.length >= 2) {
+        content = tok.text + 1;
+        content_len = tok.length - 2;
+    } else {
+        content = tok.text;
+        content_len = tok.length;
+    }
+
+    node->as.string_expr.value = zt_parser_intern_unescaped(p, content, content_len);
+    return node;
+}
+
 static char *zt_parser_strdup(const char *s) {
     size_t len = strlen(s);
     char *dup = (char *)malloc(len + 1);
@@ -187,25 +209,58 @@ static char *zt_parser_strdup(const char *s) {
     return dup;
 }
 
-/* Buffer allocation strategy: use heap for large buffers to prevent stack overflow */
-#define ZT_PARSER_STACK_BUFFER_THRESHOLD 2048  /* 2KB threshold */
+#define ZT_PARSER_MAX_NAME_PATH_LEN 1024
 
-static char *zt_parser_alloc_buffer(size_t size, char *stack_buf, size_t stack_size) {
-    if (size <= stack_size && size <= ZT_PARSER_STACK_BUFFER_THRESHOLD) {
-        return stack_buf;  /* Use stack buffer for small sizes */
-    }
-    /* Use heap for large buffers */
-    char *heap_buf = (char *)malloc(size);
-    if (heap_buf == NULL) {
-        return stack_buf;  /* Fallback to stack if malloc fails */
-    }
-    return heap_buf;
+static void zt_parser_note_name_path_too_long(zt_parser *p, zt_source_span span, const char *label) {
+    if (p == NULL) return;
+    zt_diag_list_add(
+        &p->result->diagnostics,
+        ZT_DIAG_TOKEN_TOO_LONG,
+        span,
+        "%s is too long (max %d characters)",
+        label != NULL ? label : "name",
+        ZT_PARSER_MAX_NAME_PATH_LEN);
 }
 
-static void zt_parser_free_buffer(char *buf, char *stack_buf) {
-    if (buf != NULL && buf != stack_buf) {
-        free(buf);  /* Only free if it's from heap */
+static int zt_parser_append_to_name_path(
+        zt_parser *p,
+        char *buf,
+        size_t buf_cap,
+        size_t *len,
+        const char *text,
+        size_t text_len,
+        zt_source_span span,
+        int *overflowed,
+        const char *label) {
+    if (buf == NULL || len == NULL || buf_cap == 0) return 0;
+    if (overflowed != NULL && *overflowed) return 0;
+
+    if (*len + text_len + 1 > buf_cap) {
+        if (overflowed != NULL && !*overflowed) {
+            *overflowed = 1;
+            zt_parser_note_name_path_too_long(p, span, label);
+        }
+        return 0;
     }
+
+    if (text_len > 0 && text != NULL) {
+        memcpy(buf + *len, text, text_len);
+        *len += text_len;
+    }
+    buf[*len] = '\0';
+    return 1;
+}
+
+static int zt_parser_append_char_to_name_path(
+        zt_parser *p,
+        char *buf,
+        size_t buf_cap,
+        size_t *len,
+        char ch,
+        zt_source_span span,
+        int *overflowed,
+        const char *label) {
+    return zt_parser_append_to_name_path(p, buf, buf_cap, len, &ch, 1, span, overflowed, label);
 }
 
 static int zt_parser_is_contextual_ident(const zt_token *tok, const char *text) {
@@ -307,42 +362,37 @@ static zt_token zt_parser_expect_type_name(zt_parser *p) {
 
 static char *zt_parser_parse_type_name_path(zt_parser *p, zt_source_span *out_span) {
     zt_token name_tok = zt_parser_expect_type_name(p);
-    
-    /* Use stack buffer with fallback to heap */
-    char stack_buf[1024 * 8];
-    char *buf = zt_parser_alloc_buffer(sizeof(stack_buf), stack_buf, sizeof(stack_buf));
+
+    char buf[ZT_PARSER_MAX_NAME_PATH_LEN + 1];
     size_t len = 0;
+    int overflowed = 0;
 
     if (out_span != NULL) {
         *out_span = name_tok.span;
     }
 
     buf[0] = '\0';
-    memcpy(buf + len, name_tok.text, name_tok.length);
-    len += name_tok.length;
-    buf[len] = '\0';
+    zt_parser_append_to_name_path(p, buf, sizeof(buf), &len, name_tok.text, name_tok.length, name_tok.span, &overflowed, "type name");
 
     while (zt_parser_match(p, ZT_TOKEN_DOT)) {
         zt_token part_tok = zt_parser_expect_type_name(p);
-        if (len + 1 < 1024 * 8) {
-            buf[len++] = '.';
-        }
-        if (len + part_tok.length < 1024 * 8) {
-            memcpy(buf + len, part_tok.text, part_tok.length);
-            len += part_tok.length;
-        }
-        buf[len] = '\0';
+        zt_parser_append_char_to_name_path(p, buf, sizeof(buf), &len, '.', part_tok.span, &overflowed, "type name");
+        zt_parser_append_to_name_path(p, buf, sizeof(buf), &len, part_tok.text, part_tok.length, part_tok.span, &overflowed, "type name");
     }
 
-    char *result = (char *)zt_string_pool_intern(p->pool, buf);
-    zt_parser_free_buffer(buf, stack_buf);
-    return result;
+    return (char *)zt_string_pool_intern(p->pool, buf);
 }
 
 static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
     zt_source_span type_span = p->current.span;
     if (zt_parser_match(p, ZT_TOKEN_DYN)) {
-        zt_ast_node *inner = zt_parser_parse_type(p);
+        zt_ast_node *inner = NULL;
+        if (zt_parser_match(p, ZT_TOKEN_LT)) {
+            inner = zt_parser_parse_type(p);
+            zt_parser_expect(p, ZT_TOKEN_GT);
+        } else {
+            inner = zt_parser_parse_type(p);
+        }
         zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_DYN, type_span);
         if (node != NULL) {
             node->as.type_dyn.inner_type = inner;
@@ -408,25 +458,24 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         return node;
     }
 
-    if (tok.kind == ZT_TOKEN_STRING_LITERAL || tok.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
-        const char *content;
-        size_t content_len;
-        zt_parser_advance(p);
-        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_STRING_EXPR, tok.span);
-        if (node == NULL) return NULL;
-        /* Strip surrounding quotes from string view */
-        if (tok.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT && tok.length >= 6) {
-            content = tok.text + 3;
-            content_len = tok.length - 6;
-        } else if (tok.length >= 2) {
-            content = tok.text + 1;
-            content_len = tok.length - 2;
-        } else {
-            content = tok.text;
-            content_len = tok.length;
+    if (zt_parser_is_contextual_ident(&tok, "fmt")) {
+        zt_parser_fill_peek(p);
+        if (p->peek.kind == ZT_TOKEN_STRING_LITERAL || p->peek.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
+            zt_diag_list_add(
+                &p->result->diagnostics,
+                ZT_DIAG_SYNTAX_ERROR,
+                tok.span,
+                "fmt interpolation is deferred in this implementation cut (planned for v2). Use explicit to_text(...) concatenation for now");
+
+            zt_parser_advance(p);
+            tok = zt_parser_advance(p);
+            return zt_parser_make_string_expr_from_token(p, tok);
         }
-        node->as.string_expr.value = zt_parser_intern_unescaped(p, content, content_len);
-        return node;
+    }
+
+    if (tok.kind == ZT_TOKEN_STRING_LITERAL || tok.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
+        zt_parser_advance(p);
+        return zt_parser_make_string_expr_from_token(p, tok);
     }
 
     if (tok.kind == ZT_TOKEN_TRUE || tok.kind == ZT_TOKEN_FALSE) {
@@ -778,7 +827,12 @@ static zt_ast_node_list zt_parser_parse_params(zt_parser *p) {
 
             zt_ast_node *where_clause = NULL;
             if (zt_parser_match(p, ZT_TOKEN_WHERE)) {
-                where_clause = zt_parser_parse_expression(p);
+                zt_ast_node *cond = zt_parser_parse_expression(p);
+                where_clause = zt_parser_ast_make(p, ZT_AST_WHERE_CLAUSE, name_tok.span);
+                if (where_clause != NULL) {
+                    where_clause->as.where_clause.param_name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                    where_clause->as.where_clause.condition = cond;
+                }
             }
 
             zt_ast_node *param = zt_parser_ast_make(p, ZT_AST_PARAM, name_tok.span);
@@ -1584,23 +1638,18 @@ static zt_ast_node *zt_parser_parse_import(zt_parser *p) {
     zt_token import_tok = p->current;
     zt_parser_advance(p);
 
-    /* Use stack buffer with fallback to heap */
-    char stack_buf[1024 * 8];
-    char *path_buf = zt_parser_alloc_buffer(sizeof(stack_buf), stack_buf, sizeof(stack_buf));
+    char path_buf[ZT_PARSER_MAX_NAME_PATH_LEN + 1];
     size_t path_len = 0;
-    path_buf[0] = '\0';
+    int overflowed = 0;
 
     zt_token part = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-    memcpy(path_buf + path_len, part.text, part.length);
-    path_len += part.length;
-    path_buf[path_len] = '\0';
+    path_buf[0] = '\0';
+    zt_parser_append_to_name_path(p, path_buf, sizeof(path_buf), &path_len, part.text, part.length, part.span, &overflowed, "import path");
 
     while (zt_parser_match(p, ZT_TOKEN_DOT)) {
-        path_buf[path_len++] = '.';
+        zt_parser_append_char_to_name_path(p, path_buf, sizeof(path_buf), &path_len, '.', part.span, &overflowed, "import path");
         part = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-        memcpy(path_buf + path_len, part.text, part.length);
-        path_len += part.length;
-        path_buf[path_len] = '\0';
+        zt_parser_append_to_name_path(p, path_buf, sizeof(path_buf), &path_len, part.text, part.length, part.span, &overflowed, "import path");
     }
 
     char *alias = NULL;
@@ -1614,8 +1663,6 @@ static zt_ast_node *zt_parser_parse_import(zt_parser *p) {
         node->as.import_decl.path = (char *)zt_string_pool_intern(p->pool, path_buf);
         node->as.import_decl.alias = alias;
     }
-    
-    zt_parser_free_buffer(path_buf, stack_buf);
     return node;
 }
 
@@ -1651,25 +1698,20 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
     if (zt_parser_check(&parser, ZT_TOKEN_NAMESPACE)) {
         zt_parser_advance(&parser);
         zt_token ns = zt_parser_expect(&parser, ZT_TOKEN_IDENTIFIER);
-        
-        /* Use stack buffer with fallback to heap */
-        char stack_buf[1024 * 8];
-        char *ns_buf = zt_parser_alloc_buffer(sizeof(stack_buf), stack_buf, sizeof(stack_buf));
+
+        char ns_buf[ZT_PARSER_MAX_NAME_PATH_LEN + 1];
         size_t ns_len = 0;
+        int overflowed = 0;
+
         ns_buf[0] = '\0';
-        memcpy(ns_buf + ns_len, ns.text, ns.length);
-        ns_len += ns.length;
-        ns_buf[ns_len] = '\0';
+        zt_parser_append_to_name_path(&parser, ns_buf, sizeof(ns_buf), &ns_len, ns.text, ns.length, ns.span, &overflowed, "namespace");
 
         while (zt_parser_match(&parser, ZT_TOKEN_DOT)) {
-            ns_buf[ns_len++] = '.';
+            zt_parser_append_char_to_name_path(&parser, ns_buf, sizeof(ns_buf), &ns_len, '.', ns.span, &overflowed, "namespace");
             zt_token part = zt_parser_expect(&parser, ZT_TOKEN_IDENTIFIER);
-            memcpy(ns_buf + ns_len, part.text, part.length);
-            ns_len += part.length;
-            ns_buf[ns_len] = '\0';
+            zt_parser_append_to_name_path(&parser, ns_buf, sizeof(ns_buf), &ns_len, part.text, part.length, part.span, &overflowed, "namespace");
         }
         module_name = (char *)zt_string_pool_intern(pool, ns_buf);
-        zt_parser_free_buffer(ns_buf, stack_buf);
     }
 
     while (zt_parser_check(&parser, ZT_TOKEN_IMPORT)) {
@@ -1720,6 +1762,4 @@ void zt_parser_result_dispose(zt_parser_result *result) {
     }
     zt_diag_list_dispose(&result->diagnostics);
 }
-
-
 

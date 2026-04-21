@@ -1,0 +1,44 @@
+---
+@target std.fs
+---
+
+# std.fs — Sistema de Arquivos
+
+Módulo para operações de leitura, escrita e verificação de arquivos no disco.
+Todas as operações de I/O retornam `result` para tratamento seguro de erros.
+
+## Funções
+
+### read_text
+
+```zt
+public func read_text(file_path: text) -> result<text, core.Error>
+```
+
+Lê o conteúdo completo de um arquivo como texto.
+
+@param file_path — Caminho absoluto ou relativo do arquivo.
+@return Conteúdo do arquivo como texto, ou erro de I/O (arquivo não encontrado, permissão negada, etc).
+
+### write_text
+
+```zt
+public func write_text(file_path: text, value: text) -> result<void, core.Error>
+```
+
+Escreve texto em um arquivo, criando-o se não existir e sobrescrevendo se já existir.
+
+@param file_path — Caminho do arquivo destino.
+@param value — Conteúdo de texto a ser escrito.
+@return `void` em sucesso, ou erro de I/O.
+
+### exists
+
+```zt
+public func exists(file_path: text) -> bool
+```
+
+Verifica se um arquivo ou diretório existe no caminho indicado.
+
+@param file_path — Caminho a ser verificado.
+@return `true` se o caminho existir no sistema de arquivos.

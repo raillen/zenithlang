@@ -66,12 +66,14 @@ def test_behavior_project(name, path):
     - check-fail: check must fail.
     - build-fail: check must pass, build must fail.
     - run-fail: check/build must pass, run must fail.
+    - run-pass: check/build/run must pass.
     """
     check_fail = {
         "enum_match_non_exhaustive_error",
         "error_syntax",
         "error_type_mismatch",
         "functions_invalid_call_error",
+        "functions_param_ordering_error",
         "multifile_duplicate_symbol",
         "multifile_import_cycle",
         "multifile_missing_import",
@@ -79,6 +81,8 @@ def test_behavior_project(name, path):
         "mutability_const_reassign_error",
         "project_unknown_key_manifest",
         "monomorphization_limit_error",
+        "where_contract_param_where_invalid_error",
+        "where_contract_param_where_non_bool_error",
     }
 
     build_fail = {
@@ -90,6 +94,10 @@ def test_behavior_project(name, path):
         "where_contract_construct_error",
         "where_contract_field_assign_error",
         "where_contract_param_error",
+    }
+
+    run_pass = {
+        "extern_c_puts_e2e",
     }
 
     rc, out = run_cmd(f"check:{name}", [ZT_EXE, "check", path], timeout=45)
@@ -121,6 +129,25 @@ def test_behavior_project(name, path):
         rc_run, out_run = run_cmd(f"run:{name}", [ZT_EXE, "run", path], timeout=45)
         ok = rc_run != 0
         print_behavior_status(name, "run-fail", ok)
+        mark(ok, f"behavior/{name}", out_run[:160] if not ok else None)
+        return
+
+    if name in run_pass:
+        ok_check = "verification ok" in out or "check ok" in out
+        if not ok_check:
+            print_behavior_status(name, "run-pass", False)
+            mark(False, f"behavior/{name}", out[:160])
+            return
+
+        rc_build, out_build = run_cmd(f"build:{name}", [ZT_EXE, "build", path], timeout=120)
+        if rc_build != 0:
+            print_behavior_status(name, "run-pass", False)
+            mark(False, f"behavior/{name}", f"build failed: {out_build[:120]}")
+            return
+
+        rc_run, out_run = run_cmd(f"run:{name}", [ZT_EXE, "run", path], timeout=45)
+        ok = rc_run == 0
+        print_behavior_status(name, "run-pass", ok)
         mark(ok, f"behavior/{name}", out_run[:160] if not ok else None)
         return
 

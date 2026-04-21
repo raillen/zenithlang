@@ -1,5 +1,6 @@
 ﻿#include "compiler/semantic/binder/binder.h"
 
+#include "compiler/semantic/parameter_validation.h"
 #include <string.h>
 
 typedef struct zt_binder {
@@ -460,6 +461,8 @@ static void zt_bind_type_param_defs(zt_binder *binder, const zt_ast_node_list *t
     }
 }
 
+static void zt_bind_where_clause(zt_binder *binder, const zt_ast_node *where_clause, zt_scope *scope);
+
 static void zt_bind_param_list(zt_binder *binder, const zt_ast_node_list *params, zt_scope *scope) {
     size_t i;
     if (params == NULL) return;
@@ -469,6 +472,7 @@ static void zt_bind_param_list(zt_binder *binder, const zt_ast_node_list *params
         zt_bind_type_node(binder, param->as.param.type_node, scope);
         zt_bind_expression(binder, param->as.param.default_value, scope);
         zt_bind_declare_name(binder, scope, ZT_SYMBOL_PARAM, param->as.param.name, param->span, 0);
+        zt_bind_where_clause(binder, param->as.param.where_clause, scope);
     }
 }
 
@@ -491,6 +495,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
 
     switch (decl->kind) {
         case ZT_AST_FUNC_DECL:
+            zt_validate_parameter_ordering(decl->as.func_decl.params, &binder->result->diagnostics);
             zt_scope_init(&decl_scope, module_scope);
             zt_bind_type_param_defs(binder, &decl->as.func_decl.type_params, &decl_scope);
             zt_bind_param_list(binder, &decl->as.func_decl.params, &decl_scope);
@@ -521,6 +526,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 zt_scope method_scope;
                 if (method == NULL) continue;
                 zt_scope_init(&method_scope, &decl_scope);
+                zt_validate_parameter_ordering(method->as.trait_method.params, &binder->result->diagnostics);
                 zt_bind_param_list(binder, &method->as.trait_method.params, &method_scope);
                 zt_bind_type_node(binder, method->as.trait_method.return_type, &method_scope);
                 zt_scope_dispose(&method_scope);
@@ -572,6 +578,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 if (method == NULL) continue;
                 zt_scope_init(&method_scope, &decl_scope);
                 zt_bind_declare_name(binder, &method_scope, ZT_SYMBOL_IMPLICIT_SELF, "self", method->span, 1);
+                zt_validate_parameter_ordering(method->as.func_decl.params, &binder->result->diagnostics);
                 zt_bind_param_list(binder, &method->as.func_decl.params, &method_scope);
                 zt_bind_type_node(binder, method->as.func_decl.return_type, &method_scope);
                 zt_bind_block(binder, method->as.func_decl.body, &method_scope);
@@ -584,6 +591,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 const zt_ast_node *func = decl->as.extern_decl.functions.items[i];
                 if (func == NULL) continue;
                 zt_scope_init(&decl_scope, module_scope);
+                zt_validate_parameter_ordering(func->as.func_decl.params, &binder->result->diagnostics);
                 zt_bind_param_list(binder, &func->as.func_decl.params, &decl_scope);
                 zt_bind_type_node(binder, func->as.func_decl.return_type, &decl_scope);
                 zt_scope_dispose(&decl_scope);

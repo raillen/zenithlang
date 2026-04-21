@@ -50,7 +50,7 @@ Binder semântico. Responsável por:
 
 - Priority: Critical
 - Source files: 2
-- Extracted symbols: 27
+- Extracted symbols: 28
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -58,13 +58,14 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/semantic/binder/binder.c` | 684 | 26 | 0 |
+| `compiler/semantic/binder/binder.c` | 692 | 27 | 1 |
 | `compiler/semantic/binder/binder.h` | 26 | 1 | 3 |
 
 ### Local Dependencies
 
 - `compiler/frontend/ast/model.h`
 - `compiler/semantic/diagnostics/diagnostics.h`
+- `compiler/semantic/parameter_validation.h`
 - `compiler/semantic/symbols/symbols.h`
 
 ### Related Tests
@@ -94,32 +95,33 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 5 | `struct` | `zt_binder` |
-| 9 | `func_def` | `zt_scope_collect_names` |
-| 23 | `func_def` | `zt_bind_emit_unresolved_with_suggestion` |
-| 41 | `func_def` | `zt_bind_warn_confusing_name` |
-| 83 | `func_def` | `zt_is_builtin_type_name` |
-| 115 | `func_def` | `zt_import_local_name` |
-| 122 | `func_def` | `zt_bind_declare_name` |
-| 140 | `func_decl` | `zt_bind_expression` |
-| 141 | `func_decl` | `zt_bind_type_node` |
-| 142 | `func_decl` | `zt_bind_block` |
-| 144 | `func_def` | `zt_bind_simple_type_name` |
-| 174 | `func_def` | `zt_bind_type_node` |
-| 193 | `func_def` | `zt_bind_generic_constraints` |
-| 215 | `func_def` | `zt_bind_expr_list` |
-| 223 | `func_def` | `zt_bind_expression` |
-| 303 | `func_decl` | `zt_bind_expression` |
-| 305 | `func_def` | `zt_bind_match_pattern` |
-| 349 | `func_def` | `zt_bind_statement` |
-| 439 | `func_def` | `zt_bind_block` |
-| 452 | `func_def` | `zt_bind_type_param_defs` |
-| 463 | `func_def` | `zt_bind_param_list` |
-| 475 | `func_def` | `zt_bind_where_clause` |
-| 486 | `func_def` | `zt_bind_decl` |
-| 601 | `func_def` | `zt_bind_declare_top_level` |
-| 635 | `func_def` | `zt_bind_file` |
-| 672 | `func_def` | `zt_bind_result_dispose` |
+| 6 | `struct` | `zt_binder` |
+| 10 | `func_def` | `zt_scope_collect_names` |
+| 24 | `func_def` | `zt_bind_emit_unresolved_with_suggestion` |
+| 42 | `func_def` | `zt_bind_warn_confusing_name` |
+| 84 | `func_def` | `zt_is_builtin_type_name` |
+| 116 | `func_def` | `zt_import_local_name` |
+| 123 | `func_def` | `zt_bind_declare_name` |
+| 141 | `func_decl` | `zt_bind_expression` |
+| 142 | `func_decl` | `zt_bind_type_node` |
+| 143 | `func_decl` | `zt_bind_block` |
+| 145 | `func_def` | `zt_bind_simple_type_name` |
+| 175 | `func_def` | `zt_bind_type_node` |
+| 194 | `func_def` | `zt_bind_generic_constraints` |
+| 216 | `func_def` | `zt_bind_expr_list` |
+| 224 | `func_def` | `zt_bind_expression` |
+| 304 | `func_decl` | `zt_bind_expression` |
+| 306 | `func_def` | `zt_bind_match_pattern` |
+| 350 | `func_def` | `zt_bind_statement` |
+| 440 | `func_def` | `zt_bind_block` |
+| 453 | `func_def` | `zt_bind_type_param_defs` |
+| 464 | `func_decl` | `zt_bind_where_clause` |
+| 466 | `func_def` | `zt_bind_param_list` |
+| 479 | `func_def` | `zt_bind_where_clause` |
+| 490 | `func_def` | `zt_bind_decl` |
+| 609 | `func_def` | `zt_bind_declare_top_level` |
+| 643 | `func_def` | `zt_bind_file` |
+| 680 | `func_def` | `zt_bind_result_dispose` |
 
 #### `compiler/semantic/binder/binder.h`
 

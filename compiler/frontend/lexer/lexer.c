@@ -182,12 +182,6 @@ static zt_token zt_lexer_read_string(zt_lexer *lexer, size_t start_line, size_t 
         }
 
         if (ch == '\\' && lexer->position + 1 < lexer->source_length) {
-            char next_ch = lexer->source_text[lexer->position + 1];
-            if (next_ch == '{') {
-                zt_lexer_advance(lexer);
-                zt_lexer_advance(lexer);
-                return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_PART, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
-            }
             zt_lexer_advance(lexer);
         }
 
@@ -215,12 +209,6 @@ zt_token zt_lexer_resume_string(zt_lexer *lexer) {
         }
 
         if (ch == '\\' && lexer->position + 1 < lexer->source_length) {
-            char next_ch = lexer->source_text[lexer->position + 1];
-            if (next_ch == '{') {
-                zt_lexer_advance(lexer);
-                zt_lexer_advance(lexer);
-                return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_PART, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
-            }
             zt_lexer_advance(lexer);
         }
 
@@ -499,4 +487,3 @@ int zt_lexer_is_at_end(const zt_lexer *lexer) {
     if (lexer == NULL) return 1;
     return lexer->position >= lexer->source_length;
 }
-

@@ -14,7 +14,7 @@ enum Result
     Err(message: text)
 end
 
-func calc(value: int value > 0, label: text) -> int 
+func calc(value: int where value -> value > 0, label: text) -> int 
     const r: Result = Result.Ok
     match r
         case Result.Ok -> 

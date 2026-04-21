@@ -59,7 +59,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/semantic/types/checker.c` | 2829 | 77 | 2 |
+| `compiler/semantic/types/checker.c` | 2860 | 77 | 2 |
 | `compiler/semantic/types/checker.h` | 24 | 1 | 2 |
 | `compiler/semantic/types/types.c` | 283 | 19 | 0 |
 | `compiler/semantic/types/types.h` | 88 | 1 | 0 |
@@ -136,30 +136,30 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 580 | `func_def` | `zt_checker_register_type_params` |
 | 617 | `func_def` | `zt_checker_resolve_user_type` |
 | 663 | `func_def` | `zt_checker_resolve_type` |
-| 734 | `func_def` | `zt_checker_type_implements_trait` |
-| 801 | `func_def` | `zt_checker_same_or_contextually_assignable` |
-| 908 | `func_def` | `zt_checker_is_numeric_conversion_target` |
-| 915 | `func_def` | `zt_checker_validate_conversion` |
-| 951 | `func_def` | `zt_checker_bind_struct_field_type_params` |
-| 963 | `func_def` | `zt_checker_find_struct_field_decl` |
-| 974 | `func_def` | `zt_checker_find_enum_variant_decl` |
-| 991 | `func_def` | `zt_checker_enum_variant_field_type_node` |
-| 998 | `func_def` | `zt_checker_enum_variant_field_name` |
-| 1010 | `func_def` | `zt_checker_find_apply_method` |
-| 1033 | `func_def` | `zt_checker_build_qualified_name` |
-| 1059 | `func_def` | `zt_checker_check_field_expr` |
-| 1144 | `func_def` | `zt_checker_expression_is_mutable_target` |
-| 1164 | `func_def` | `zt_checker_check_call_expr` |
-| 1799 | `func_def` | `zt_checker_check_expression` |
-| 2227 | `func_def` | `zt_checker_check_statement` |
-| 2584 | `func_def` | `zt_checker_check_block` |
-| 2596 | `func_def` | `zt_checker_check_where_clause` |
-| 2611 | `func_def` | `zt_checker_check_generic_constraints` |
-| 2636 | `func_def` | `zt_checker_check_func_like` |
-| 2675 | `func_def` | `zt_checker_seed_module_const_bindings` |
-| 2690 | `func_def` | `zt_checker_check_decl` |
-| 2803 | `func_def` | `zt_check_file` |
-| 2824 | `func_def` | `zt_check_result_dispose` |
+| 740 | `func_def` | `zt_checker_type_implements_trait` |
+| 807 | `func_def` | `zt_checker_same_or_contextually_assignable` |
+| 914 | `func_def` | `zt_checker_is_numeric_conversion_target` |
+| 921 | `func_def` | `zt_checker_validate_conversion` |
+| 957 | `func_def` | `zt_checker_bind_struct_field_type_params` |
+| 969 | `func_def` | `zt_checker_find_struct_field_decl` |
+| 980 | `func_def` | `zt_checker_find_enum_variant_decl` |
+| 997 | `func_def` | `zt_checker_enum_variant_field_type_node` |
+| 1004 | `func_def` | `zt_checker_enum_variant_field_name` |
+| 1016 | `func_def` | `zt_checker_find_apply_method` |
+| 1039 | `func_def` | `zt_checker_build_qualified_name` |
+| 1065 | `func_def` | `zt_checker_check_field_expr` |
+| 1150 | `func_def` | `zt_checker_expression_is_mutable_target` |
+| 1170 | `func_def` | `zt_checker_check_call_expr` |
+| 1829 | `func_def` | `zt_checker_check_expression` |
+| 2257 | `func_def` | `zt_checker_check_statement` |
+| 2614 | `func_def` | `zt_checker_check_block` |
+| 2626 | `func_def` | `zt_checker_check_where_clause` |
+| 2641 | `func_def` | `zt_checker_check_generic_constraints` |
+| 2666 | `func_def` | `zt_checker_check_func_like` |
+| 2706 | `func_def` | `zt_checker_seed_module_const_bindings` |
+| 2721 | `func_def` | `zt_checker_check_decl` |
+| 2834 | `func_def` | `zt_check_file` |
+| 2855 | `func_def` | `zt_check_result_dispose` |
 
 #### `compiler/semantic/types/checker.h`
 

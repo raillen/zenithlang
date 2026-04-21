@@ -56,7 +56,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
 | `compiler/frontend/ast/model.c` | 140 | 8 | 1 |
-| `compiler/frontend/ast/model.h` | 399 | 1 | 2 |
+| `compiler/frontend/ast/model.h` | 404 | 1 | 2 |
 
 ### Local Dependencies
 

@@ -371,6 +371,37 @@ static void test_make_map_text_text_expr(void) {
     assert_rendered_contains_all("emit_make_map_text_text", &module_decl, fragments, ARRAY_COUNT(fragments));
 }
 
+static void test_make_map_int_text_expr(void) {
+    const zir_param params[] = {
+        zir_make_param("k1", "int", NULL),
+        zir_make_param("v1", "text", NULL),
+        zir_make_param("k2", "int", NULL),
+        zir_make_param("v2", "text", NULL),
+    };
+    const zir_instruction instructions[] = {
+        zir_make_assign_instruction("t0", "map<int,text>", "make_map<int,text> [k1: v1, k2: v2]"),
+        zir_make_assign_instruction("t1", "text", "index_seq t0, k2"),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator("t1")),
+    };
+    const zir_function functions[] = {
+        zir_make_function("pick_map_generated", params, ARRAY_COUNT(params), "text", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "#include \"runtime/c/zenith_rt_templates.h\"",
+        "static uint32_t zt_map_generated_map_int_text__heap_kind(void);",
+        "ZT_DEFINE_MAP(generated_map_int_text_, zt_int, zt_text *, zt_optional_text, zt_map_generated_map_int_text__heap_kind(), 0, 1, zt_i64_eq, zt_optional_text_present, zt_optional_text_empty)",
+        "kind = zt_register_dynamic_heap_kind((zt_heap_free_fn)zt_free_map_generated_map_int_text_, (zt_heap_clone_fn)zt_map_generated_map_int_text__deep_copy);",
+        "static zt_text *zt_main__pick_map_generated(zt_int k1, zt_text *v1, zt_int k2, zt_text *v2);",
+        "zt_map_generated_map_int_text_ *t0 = NULL;",
+        "t0 = zt_map_generated_map_int_text__from_arrays(((zt_int[]){k1, k2}), ((zt_text *[]){v1, v2}), 2);",
+        "t1 = zt_map_generated_map_int_text__get(t0, k2);",
+    };
+
+    assert_rendered_contains_all("emit_make_map_int_text", &module_decl, fragments, ARRAY_COUNT(fragments));
+}
 static void test_optional_present_empty_exprs(void) {
     const zir_param params[] = {
         zir_make_param("flag", "bool", NULL),
@@ -785,6 +816,33 @@ static void test_map_set_and_len_effects(void) {
     assert_rendered_contains_all("emit_map_set_and_len", &module_decl, fragments, ARRAY_COUNT(fragments));
 }
 
+static void test_map_int_text_set_and_len_effects(void) {
+    const zir_param params[] = {
+        zir_make_param("cfg", "map<int,text>", NULL),
+        zir_make_param("key", "int", NULL),
+        zir_make_param("value", "text", NULL),
+    };
+    const zir_instruction instructions[] = {
+        zir_make_effect_instruction("map_set cfg, key, value"),
+        zir_make_assign_instruction("t0", "int", "map_len cfg"),
+        zir_make_assign_instruction("t1", "text", "index_seq cfg, key"),
+    };
+    const zir_block blocks[] = {
+        zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator("t1")),
+    };
+    const zir_function functions[] = {
+        zir_make_function("update_generated_map", params, ARRAY_COUNT(params), "text", blocks, ARRAY_COUNT(blocks)),
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+    static const char *const fragments[] = {
+        "#include \"runtime/c/zenith_rt_templates.h\"",
+        "cfg = zt_map_generated_map_int_text__set_owned(cfg, key, value);",
+        "t0 = zt_map_generated_map_int_text__len(cfg);",
+        "t1 = zt_map_generated_map_int_text__get(cfg, key);",
+    };
+
+    assert_rendered_contains_all("emit_map_int_text_set_and_len", &module_decl, fragments, ARRAY_COUNT(fragments));
+}
 static void test_managed_param_return_retain(void) {
     const zir_param params[] = {
         zir_make_param("name", "text", NULL),
@@ -1013,6 +1071,63 @@ static void test_real_lowering_to_c(void) {    zt_arena test_arena;
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_real_lowering_dyn_list_to_c(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace main\n"
+        "func main() -> int\n"
+        "    const items: list<dyn<TextRepresentable>> = [1, true, 2.5, \"ok\"]\n"
+        "    var total: int = 0\n"
+        "\n"
+        "    for item, index in items\n"
+        "        total = total + len(item.to_text()) + index\n"
+        "    end\n"
+        "\n"
+        "    return total\n"
+        "end";
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "emitter_dyn.zt", src, strlen(src));
+    zt_hir_lower_result hir;
+    zir_lower_result zir;
+    static const char *const fragments[] = {
+        "zt_list_dyn_text_repr *items = NULL;",
+        "items = zt_list_dyn_text_repr_from_array_owned(((zt_dyn_text_repr *[]){zt_dyn_text_repr_from_i64((zt_int)(1)), zt_dyn_text_repr_from_bool(true), zt_dyn_text_repr_from_float(2.5), zt_dyn_text_repr_from_text_owned(zt_text_from_utf8_literal(\"ok\"))}), 4);",
+        "item = zt_list_dyn_text_repr_get(__zt_for_iter_0, __zt_for_index_1);",
+        "total = zt_add_i64(zt_add_i64(total, zt_dyn_text_repr_text_len(item)), index);",
+    };
+
+    if (parsed.diagnostics.count != 0) {
+        fprintf(stderr, "falha no teste real_lowering_dyn_list_to_c: parse errors=%zu\n", parsed.diagnostics.count);
+        zt_parser_result_dispose(&parsed);
+        exit(1);
+    }
+
+    hir = zt_lower_ast_to_hir(parsed.root);
+    if (hir.diagnostics.count != 0) {
+        fprintf(stderr, "falha no teste real_lowering_dyn_list_to_c: HIR diagnostics=%zu\n", hir.diagnostics.count);
+        zt_hir_lower_result_dispose(&hir);
+        zt_parser_result_dispose(&parsed);
+        exit(1);
+    }
+
+    zir = zir_lower_hir_to_zir(hir.module);
+    if (zir.diagnostics.count != 0) {
+        fprintf(stderr, "falha no teste real_lowering_dyn_list_to_c: ZIR diagnostics=%zu\n", zir.diagnostics.count);
+        zir_lower_result_dispose(&zir);
+        zt_hir_lower_result_dispose(&hir);
+        zt_parser_result_dispose(&parsed);
+        exit(1);
+    }
+
+    assert_rendered_contains_all("emit_real_lowering_dyn_list_to_c", &zir.module, fragments, ARRAY_COUNT(fragments));
+
+    zir_lower_result_dispose(&zir);
+    zt_hir_lower_result_dispose(&hir);
+    zt_parser_result_dispose(&parsed);
+}
+
 
 static void test_structured_extern_managed_arg_shield(void) {
     zir_expr *call = zir_expr_make_call_extern("c.zt_text_concat");
@@ -1223,6 +1338,7 @@ int main(void) {
     test_list_len_expr();
     test_make_list_text_expr();
     test_make_map_text_text_expr();
+    test_make_map_int_text_expr();
     test_optional_present_empty_exprs();
     test_optional_coalesce_exprs();
     test_optional_text_exprs();
@@ -1236,6 +1352,7 @@ int main(void) {
     test_generic_outcome_bool_core_error_exprs();
     test_list_set_effects();
     test_map_set_and_len_effects();
+    test_map_int_text_set_and_len_effects();
     test_managed_param_return_retain();
     test_structured_extern_managed_arg_shield();
     test_legacy_extern_assign_managed_arg_shield();
@@ -1243,6 +1360,7 @@ int main(void) {
     test_structured_extern_managed_return_shield_with_cleanup();
     test_structured_zir_emission();
     test_real_lowering_to_c();
+    test_real_lowering_dyn_list_to_c();
     test_main_wrapper_and_outputs();
     puts("C emitter tests OK");
     return 0;

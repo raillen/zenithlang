@@ -158,7 +158,7 @@ class Section:
 class MilestoneContext:
     milestone: str
     title: str
-    roadmap: Section
+    roadmap: Section | None
     checklist: Section
 
 
@@ -243,7 +243,7 @@ def extract_existing_paths(text: str) -> list[str]:
             continue
         normalized_candidate = candidate.replace("\\", "/")
         full_path = ROOT / normalized_candidate
-        if full_path.exists():
+        if full_path.exists() and full_path.is_file():
             discovered.append(normalize(full_path.resolve()))
     return sorted(dict.fromkeys(discovered))
 
@@ -306,9 +306,13 @@ def expand_test_patterns(patterns: Iterable[str]) -> list[str]:
     return sorted(dict.fromkeys(matched))
 
 
-def relevant_maps_and_files(roadmap: Section, checklist: Section, file_map: dict[str, str]) -> tuple[list[str], list[str], list[str], list[str]]:
-    direct_paths = extract_existing_paths(roadmap.body) + extract_existing_paths(checklist.body)
-    blob = token_blob(roadmap.title, roadmap.body, checklist.body)
+def relevant_maps_and_files(roadmap: Section | None, checklist: Section, file_map: dict[str, str]) -> tuple[list[str], list[str], list[str], list[str]]:
+    direct_paths = extract_existing_paths(checklist.body)
+    blob_parts = [checklist.title, checklist.body]
+    if roadmap is not None:
+        direct_paths.extend(extract_existing_paths(roadmap.body))
+        blob_parts.extend([roadmap.title, roadmap.body])
+    blob = token_blob(*blob_parts)
 
     candidate_files = list(direct_paths)
     candidate_maps = [file_map[path] for path in direct_paths if path in file_map]
@@ -325,27 +329,27 @@ def relevant_maps_and_files(roadmap: Section, checklist: Section, file_map: dict
     files = []
     for path in candidate_files:
         full_path = ROOT / path
-        if not full_path.exists():
+        if not full_path.exists() or not full_path.is_file():
             continue
         files.append(normalize(full_path.resolve()))
 
     maps = []
     for map_path in candidate_maps:
         full_path = ROOT / map_path
-        if full_path.exists():
+        if full_path.exists() and full_path.is_file():
             maps.append(normalize(full_path.resolve()))
 
     for path in files:
         if path in file_map:
             map_path = file_map[path]
             full_path = ROOT / map_path
-            if full_path.exists():
+            if full_path.exists() and full_path.is_file():
                 maps.append(normalize(full_path.resolve()))
 
     doc_paths = []
     for path in candidate_docs:
         full_path = ROOT / path
-        if full_path.exists():
+        if full_path.exists() and full_path.is_file():
             doc_paths.append(normalize(full_path.resolve()))
 
     source_files = []
@@ -363,7 +367,10 @@ def relevant_maps_and_files(roadmap: Section, checklist: Section, file_map: dict
 
 
 def choose_symbol_preview(path: str, milestone_text: str) -> list[str]:
-    summary = summarize_file(ROOT / path)
+    full_path = ROOT / path
+    if not full_path.exists() or not full_path.is_file():
+        return []
+    summary = summarize_file(full_path)
     symbols = [
         symbol
         for symbol in summary.symbols
@@ -442,7 +449,10 @@ def build_document(contexts: list[MilestoneContext]) -> str:
     for context in contexts:
         done_items, open_items = parse_checklist_status(context.checklist)
         maps, source_files, tests, docs = relevant_maps_and_files(context.roadmap, context.checklist, file_map)
-        milestone_blob = token_blob(context.title, context.roadmap.body, context.checklist.body)
+        milestone_blob_parts = [context.title, context.checklist.body]
+        if context.roadmap is not None:
+            milestone_blob_parts.append(context.roadmap.body)
+        milestone_blob = token_blob(*milestone_blob_parts)
 
         lines.extend(
             [
@@ -451,9 +461,12 @@ def build_document(contexts: list[MilestoneContext]) -> str:
                 "### Cascade Order",
                 "",
                 f"1. Checklist: `IMPLEMENTATION_CHECKLIST.md` lines {context.checklist.start_line}-{context.checklist.end_line}",
-                f"2. Roadmap: `IMPLEMENTATION_ROADMAP.md` lines {context.roadmap.start_line}-{context.roadmap.end_line}",
             ]
         )
+        if context.roadmap is not None:
+            lines.append(f"2. Roadmap: `IMPLEMENTATION_ROADMAP.md` lines {context.roadmap.start_line}-{context.roadmap.end_line}")
+        else:
+            lines.append("2. Roadmap: no dedicated milestone section; infer scope from checklist + nearby roadmap milestones")
 
         if maps:
             for index, map_path in enumerate(maps, start=3):
@@ -483,11 +496,14 @@ def build_document(contexts: list[MilestoneContext]) -> str:
                 "",
             ]
         )
-        roadmap_bits = roadmap_summary(context.roadmap)
-        if roadmap_bits:
-            lines.extend(roadmap_bits)
+        if context.roadmap is not None:
+            roadmap_bits = roadmap_summary(context.roadmap)
+            if roadmap_bits:
+                lines.extend(roadmap_bits)
+            else:
+                lines.append("- No structured roadmap fields found beyond the section text.")
         else:
-            lines.append("- No structured roadmap fields found beyond the section text.")
+            lines.append("- No dedicated roadmap section for this milestone.")
 
         lines.extend(
             [
@@ -541,9 +557,12 @@ def build_document(contexts: list[MilestoneContext]) -> str:
                 "```text",
                 f"Implement {context.milestone} ({context.title}).",
                 f"Start from IMPLEMENTATION_CHECKLIST.md lines {context.checklist.start_line}-{context.checklist.end_line}.",
-                f"Then read IMPLEMENTATION_ROADMAP.md lines {context.roadmap.start_line}-{context.roadmap.end_line}.",
             ]
         )
+        if context.roadmap is not None:
+            lines.append(f"Then read IMPLEMENTATION_ROADMAP.md lines {context.roadmap.start_line}-{context.roadmap.end_line}.")
+        else:
+            lines.append("Roadmap has no dedicated section for this milestone; infer scope from checklist and adjacent roadmap milestones.")
 
         if maps:
             lines.append("Then open these maps:")
@@ -575,15 +594,15 @@ def main() -> int:
 
     roadmap_sections = parse_sections(ROADMAP_PATH)
     checklist_sections = parse_sections(CHECKLIST_PATH)
-    common_ids = sorted(set(roadmap_sections) & set(checklist_sections), key=lambda value: int(value[1:]))
+    checklist_ids = sorted(set(checklist_sections), key=lambda value: int(value[1:]))
 
     contexts: list[MilestoneContext] = []
-    for milestone in common_ids:
-        roadmap = roadmap_sections[milestone]
+    for milestone in checklist_ids:
+        roadmap = roadmap_sections.get(milestone)
         checklist = checklist_sections[milestone]
         context = MilestoneContext(
             milestone=milestone,
-            title=roadmap.title,
+            title=roadmap.title if roadmap is not None else checklist.title,
             roadmap=roadmap,
             checklist=checklist,
         )

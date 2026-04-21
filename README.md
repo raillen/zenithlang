@@ -4,30 +4,31 @@
 
 # Zenith Language
 
-> Uma linguagem de programacao legivel, explicita, estavel visualmente e cognitivamente acessivel.
+> Uma linguagem de programação legível, explícita, estável visualmente e cognitivamente acessível.
 
-> Estado atual: produto 100% self-hosted com fechamento operacional/editorial concluido em `selfhost-pos100`.
-> Front door oficial: `ztc.lua` em caminho self-hosted estrito.
-> Base de runtime/backend: Lua 5.1 / LuaJIT / Lua 5.4.
+> Estado atual: compilador nativo v2 com backend C, pipeline completo (lex → parse → AST → semantic → HIR → ZIR → C → native).
+> Arquitetura: `.zt` → C → executável nativo via GCC/Clang.
 
-**Versao do front door:** v0.3.6
-**Target:** Lua 5.1 / LuaJIT / Lua 5.4
-**Compilador oficial:** `ztc.lua` + core self-hosted canonico em `src/compiler/syntax.zt`
-**Trilha Lua ativa:** referencia operacional para parser, binder, lowering, codegen e runtime
-**Status self-hosted:** oficializado, corte 100% fechado e residual pos-100 encerrado
+**Versão:** v2 (desenvolvimento ativo)
+**Target:** Executável nativo via C backend
+**Compilador:** `zt.exe` — implementado em C, auto-compilável via `build.py`
+**Pipeline:** Lexer → Parser → AST → Binder → Type Checker → HIR → ZIR → C Emitter → GCC
+**Foco:** Jogos, UI, desktop e automação
 
-## O que e Zenith?
+## O que é Zenith?
 
-Zenith e uma linguagem que transpila para Lua. Ela combina sintaxe propria, sistema de tipos explicito, lowering, um runtime pequeno e um compilador que hoje se apresenta por um front door self-hosted, sem fallback legado no caminho oficial.
+Zenith é uma linguagem com sintaxe própria, sistema de tipos explícito e compilação nativa via C. Combina legibilidade ("reading-first"), acessibilidade cognitiva e performance nativa.
 
-## Estado tecnico atual
+## Estado técnico atual
 
-- Fases 1-12 concluidas no recorte estabilizado;
-- front door oficial 100% self-hosted;
-- bootstrap deterministico e gate recorrente de release;
-- CLI oficial com `zpm`, `zman` e `ztest` em modo estrito;
-- politica de artefatos explicita para bootstrap, release, auditoria e smokes locais;
-- trilha legada isolada apenas para recuperacao extraordinaria.
+- Pipeline completo: lex, parse, bind, check, HIR, ZIR, C emit, native compile
+- 115/118 testes de conformidade passando
+- Runtime nativo em C (`zenith_rt.c`) com text, list, map, RC
+- Standard library em `.zt` com carregamento automático de módulos
+- Driver modular: `driver_internal.h`, `paths.c`, `main.c`
+- LSP integrado
+- Formatter e doc-check funcionais
+
 
 ## Recursos estaveis
 

@@ -51,6 +51,7 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 - `list_text_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<text>`.
 - `list_dyn_trait_basic/`: projeto valido. Exercita `list<dyn<TextRepresentable>>` heterogenea com iteracao e `item.to_text()`.
 - `map_basic/`: projeto valido. Exercita literal, indexacao por chave e atualizacao de `map<text,text>`.
+- `map_int_text_basic/`: projeto valido. Exercita literal, indexacao por chave `int`, `map_len` e atualizacao de `map<int,text>`.
 - `optional_result_basic/`: projeto valido. Exercita 
 one`, `success` e `error`.
 

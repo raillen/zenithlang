@@ -75,28 +75,28 @@ compiler/
 | Module | Priority | Source files | Symbols | Map |
 | --- | --- | ---: | ---: | --- |
 | Driver / CLI Code Map | Critical | 4 | 150 | [DRIVER_MAP.md](driver/DRIVER_MAP.md) |
-| Lexer Code Map | Critical | 4 | 18 | [LEXER_MAP.md](frontend/lexer/LEXER_MAP.md) |
-| Parser Code Map | Critical | 2 | 68 | [PARSER_MAP.md](frontend/parser/PARSER_MAP.md) |
+| Lexer Code Map | Critical | 4 | 25 | [LEXER_MAP.md](frontend/lexer/LEXER_MAP.md) |
+| Parser Code Map | Critical | 2 | 69 | [PARSER_MAP.md](frontend/parser/PARSER_MAP.md) |
 | AST Code Map | Medium | 2 | 9 | [AST_MAP.md](frontend/ast/AST_MAP.md) |
 | ZIR Model Code Map | Critical | 2 | 100 | [ZIR_MODEL_MAP.md](zir/ZIR_MODEL_MAP.md) |
 | ZIR Parser Code Map | Medium | 2 | 23 | [ZIR_PARSER_MAP.md](zir/ZIR_PARSER_MAP.md) |
 | ZIR Verifier Code Map | Medium | 2 | 35 | [ZIR_VERIFIER_MAP.md](zir/ZIR_VERIFIER_MAP.md) |
-| HIR Lowering Code Map | Medium | 2 | 64 | [HIR_LOWERING_MAP.md](hir/lowering/HIR_LOWERING_MAP.md) |
-| Binder Code Map | Critical | 2 | 27 | [BINDER_MAP.md](semantic/binder/BINDER_MAP.md) |
+| HIR Lowering Code Map | Medium | 2 | 66 | [HIR_LOWERING_MAP.md](hir/lowering/HIR_LOWERING_MAP.md) |
+| Binder Code Map | Critical | 2 | 28 | [BINDER_MAP.md](semantic/binder/BINDER_MAP.md) |
 | Type System Code Map | Critical | 4 | 98 | [TYPE_SYSTEM_MAP.md](semantic/types/TYPE_SYSTEM_MAP.md) |
 | Symbols Code Map | Medium | 2 | 9 | [SYMBOLS_MAP.md](semantic/symbols/SYMBOLS_MAP.md) |
-| Diagnostics Code Map | Low | 2 | 39 | [DIAGNOSTICS_MAP.md](semantic/diagnostics/DIAGNOSTICS_MAP.md) |
+| Diagnostics Code Map | Low | 3 | 41 | [DIAGNOSTICS_MAP.md](semantic/diagnostics/DIAGNOSTICS_MAP.md) |
 | C Emitter Code Map | Critical | 4 | 203 | [EMITTER_MAP.md](targets/c/EMITTER_MAP.md) |
 | Project / ZDoc Code Map | Medium | 4 | 77 | [PROJECT_MAP.md](project/PROJECT_MAP.md) |
 | Formatter Code Map | Low | 2 | 13 | [FORMATTER_MAP.md](tooling/FORMATTER_MAP.md) |
 | Utils Code Map | Low | 7 | 36 | [UTILS_MAP.md](utils/UTILS_MAP.md) |
-| Runtime Code Map | Critical | 2 | 591 | [RUNTIME_MAP.md](../runtime/c/RUNTIME_MAP.md) |
+| Runtime Code Map | Critical | 2 | 592 | [RUNTIME_MAP.md](../runtime/c/RUNTIME_MAP.md) |
 | Stdlib Code Map | Medium | 32 | 660 | [STDLIB_MAP.md](../stdlib/STDLIB_MAP.md) |
 
 ### Totals
 
-- Source files indexed: 81
-- Symbols indexed: 2220
+- Source files indexed: 82
+- Symbols indexed: 2234
 
 ### Workflow
 

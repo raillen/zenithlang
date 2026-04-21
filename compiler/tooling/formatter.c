@@ -333,6 +333,11 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
                 sb_append(sb, ">");
             }
             break;
+        case ZT_AST_TYPE_DYN:
+            sb_append(sb, "dyn<");
+            format_node(sb, node->as.type_dyn.inner_type);
+            sb_append(sb, ">");
+            break;
         case ZT_AST_BLOCK:
             sb_append(sb, "\n");
             sb->indent_level++;
@@ -568,9 +573,6 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, node->as.where_clause.param_name);
             sb_append(sb, " -> ");
             format_node(sb, node->as.where_clause.condition);
-            break;
-        case ZT_AST_FORMAT_STRING_EXPR:
-            sb_append(sb, "f\"format_string\""); // Simplified
             break;
         case ZT_AST_MATCH_BINDING:
             sb_append(sb, "todo_match_binding");

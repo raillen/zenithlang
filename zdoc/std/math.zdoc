@@ -1,0 +1,263 @@
+---
+@target std.math
+---
+
+# std.math — Funções Matemáticas
+
+Módulo com constantes, aritmética escalar, trigonometria, logaritmos e verificações de estado numérico.
+Funções de ponto flutuante delegam para a `libm` do C via runtime nativo.
+
+## Constantes
+
+### PI
+
+```zt
+public const PI: float = 3.141592653589793
+```
+
+Razão entre a circunferência e o diâmetro de um círculo (π).
+
+### E
+
+```zt
+public const E: float = 2.718281828459045
+```
+
+Base do logaritmo natural (número de Euler).
+
+### TAU
+
+```zt
+public const TAU: float = 6.283185307179586
+```
+
+Circunferência completa em radianos (2π).
+
+## Funções de Acesso às Constantes
+
+### pi, e, tau
+
+```zt
+public func pi() -> float
+public func e() -> float
+public func tau() -> float
+```
+
+Funções de conveniência que retornam as constantes `PI`, `E` e `TAU`.
+
+## Aritmética Inteira
+
+### abs
+
+```zt
+public func abs(value: int) -> int
+```
+
+Retorna o valor absoluto de um inteiro.
+
+@param value — Inteiro de entrada.
+@return Valor absoluto.
+
+### min
+
+```zt
+public func min(a: int, b: int) -> int
+```
+
+Retorna o menor entre dois inteiros.
+
+### max
+
+```zt
+public func max(a: int, b: int) -> int
+```
+
+Retorna o maior entre dois inteiros.
+
+### clamp
+
+```zt
+public func clamp(value: int, min: int, max: int) -> int
+```
+
+Limita um valor ao intervalo `[min, max]`.
+Se `value < min`, retorna `min`. Se `value > max`, retorna `max`. Caso contrário, retorna `value`.
+
+## Potências e Raízes
+
+### pow
+
+```zt
+public func pow(base: float, exponent: float) -> float
+```
+
+Calcula `base` elevado a `exponent`.
+
+### sqrt
+
+```zt
+public func sqrt(value: float) -> float
+```
+
+Calcula a raiz quadrada de um valor.
+
+## Arredondamento
+
+### floor
+
+```zt
+public func floor(value: float) -> float
+```
+
+Arredonda para baixo (em direção a menos infinito).
+
+### ceil
+
+```zt
+public func ceil(value: float) -> float
+```
+
+Arredonda para cima (em direção a mais infinito).
+
+### round
+
+```zt
+public func round(value: float) -> float
+```
+
+Arredonda para o inteiro mais próximo (half-away-from-zero: 0.5 arredonda para cima).
+
+### trunc
+
+```zt
+public func trunc(value: float) -> float
+```
+
+Trunca a parte decimal, arredondando em direção a zero.
+
+## Conversão Angular
+
+### deg_to_rad
+
+```zt
+public func deg_to_rad(x: float) -> float
+```
+
+Converte graus para radianos. Fórmula: `x * (PI / 180)`.
+
+### rad_to_deg
+
+```zt
+public func rad_to_deg(x: float) -> float
+```
+
+Converte radianos para graus. Fórmula: `x * (180 / PI)`.
+
+## Comparação
+
+### approx_equal
+
+```zt
+public func approx_equal(a: float, b: float, epsilon: float) -> bool
+```
+
+Compara dois floats com tolerância `epsilon`.
+Retorna `true` se `|a - b| <= epsilon`.
+
+## Trigonometria
+
+### sin, cos, tan
+
+```zt
+public func sin(value: float) -> float
+public func cos(value: float) -> float
+public func tan(value: float) -> float
+```
+
+Funções trigonométricas básicas. Entrada em radianos.
+
+### asin, acos, atan
+
+```zt
+public func asin(value: float) -> float
+public func acos(value: float) -> float
+public func atan(value: float) -> float
+```
+
+Funções trigonométricas inversas. Saída em radianos.
+
+### atan2
+
+```zt
+public func atan2(y: float, x: float) -> float
+```
+
+Calcula o arco tangente de `y/x`, usando os sinais de ambos os argumentos para determinar o quadrante correto.
+
+## Logaritmos e Exponencial
+
+### ln
+
+```zt
+public func ln(value: float) -> float
+```
+
+Logaritmo natural (base `e`).
+
+### log_ten
+
+```zt
+public func log_ten(value: float) -> float
+```
+
+Logaritmo base 10.
+
+### log2
+
+```zt
+public func log2(value: float) -> float
+```
+
+Logaritmo base 2.
+
+### log
+
+```zt
+public func log(value: float, base: float) -> float
+```
+
+Logaritmo em base arbitrária.
+
+### exp
+
+```zt
+public func exp(value: float) -> float
+```
+
+Calcula `e` elevado a `value` (função exponencial).
+
+## Verificações de Estado
+
+### is_nan
+
+```zt
+public func is_nan(value: float) -> bool
+```
+
+Retorna `true` se o valor for NaN (Not a Number).
+
+### is_infinite
+
+```zt
+public func is_infinite(value: float) -> bool
+```
+
+Retorna `true` se o valor for infinito positivo ou negativo.
+
+### is_finite
+
+```zt
+public func is_finite(value: float) -> bool
+```
+
+Retorna `true` se o valor for um número finito (nem NaN, nem infinito).

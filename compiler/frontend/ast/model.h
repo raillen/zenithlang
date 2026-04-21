@@ -63,7 +63,6 @@ typedef enum zt_ast_kind {
     ZT_AST_IDENT_EXPR,
     ZT_AST_GROUPED_EXPR,
     ZT_AST_WHERE_CLAUSE,
-    ZT_AST_FORMAT_STRING_EXPR,
     ZT_AST_MATCH_BINDING
 } zt_ast_kind;
 
@@ -400,4 +399,3 @@ const char *zt_ast_kind_name(zt_ast_kind kind);
 #endif
 
 #endif
-

@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zenith — Bytecode VM & Self-Hosting</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg:        #0f0f13;
+    --surface:   #17171e;
+    --surface2:  #1e1e27;
+    --border:    #2a2a38;
+    --accent:    #7c6af7;
+    --accent2:   #4fc4a0;
+    --warn:      #f0a05a;
+    --danger:    #e05f5f;
+    --text:      #d4d4e8;
+    --muted:     #7a7a9a;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+    --radius:    6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ─── Layout ─── */
+  .layout { display: flex; min-height: 100vh; }
+
+  nav {
+    width: 240px;
+    min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 2rem 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  nav .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    padding: 0 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+
+  nav a {
+    display: block;
+    padding: 5px 1.25rem;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+  nav a.active { color: var(--accent); }
+  nav .nav-section {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 1.25rem 1.25rem 0.4rem;
+  }
+
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 3rem 3.5rem;
+    overflow-x: hidden;
+  }
+
+  /* ─── Typography ─── */
+  h1 {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    margin: 3rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 2rem 0 0.75rem;
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent2);
+    margin: 1.5rem 0 0.5rem;
+    font-family: var(--mono);
+  }
+  p { margin-bottom: 0.9rem; color: var(--text); }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─── Divider ─── */
+  .part-divider {
+    margin: 3rem 0;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+  }
+  .part-divider .part-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .part-divider h2 {
+    border: none;
+    margin: 0;
+    padding: 0;
+    font-size: 22px;
+  }
+
+  /* ─── Code ─── */
+  pre {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.2rem 1.4rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  code { font-family: var(--mono); font-size: 13px; }
+  p code, li code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: var(--accent2);
+  }
+
+  /* ─── Syntax highlight (manual classes) ─── */
+  .kw  { color: #c594c5; }
+  .ty  { color: #fac863; }
+  .cm  { color: var(--muted); font-style: italic; }
+  .str { color: #99c794; }
+  .num { color: #f99157; }
+  .fn  { color: #6699cc; }
+  .op  { color: #5fb3b3; }
+
+  /* ─── Callouts ─── */
+  .callout {
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin: 1.25rem 0;
+    font-size: 14px;
+    border-left: 3px solid;
+  }
+  .callout.info    { background: #1a1f30; border-color: var(--accent); }
+  .callout.tip     { background: #101e1a; border-color: var(--accent2); }
+  .callout.warn    { background: #1f1a10; border-color: var(--warn); }
+  .callout.danger  { background: #1f1010; border-color: var(--danger); }
+  .callout-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .callout.info  .callout-title { color: var(--accent); }
+  .callout.tip   .callout-title { color: var(--accent2); }
+  .callout.warn  .callout-title { color: var(--warn); }
+  .callout.danger .callout-title { color: var(--danger); }
+
+  /* ─── Steps ─── */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 1rem 0 1.5rem; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .steps li::before {
+    content: counter(step);
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .steps li .step-content { flex: 1; }
+  .steps li strong { display: block; margin-bottom: 4px; color: #fff; }
+
+  /* ─── Table ─── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 1rem 0 1.5rem; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  td code { color: var(--warn); }
+  tr.head-row td { color: var(--accent2); font-weight: 500; }
+
+  /* ─── Badges ─── */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 99px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .badge-purple { background: #2e2560; color: #a99af7; }
+  .badge-teal   { background: #0e2820; color: #4fc4a0; }
+  .badge-warn   { background: #2a1d08; color: #f0a05a; }
+
+  /* ─── Diagram ─── */
+  .diagram {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin: 1rem 0 1.5rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  .d-hl  { color: var(--accent); }
+  .d-hl2 { color: var(--accent2); }
+  .d-dim { color: var(--muted); }
+
+  /* ─── File tree ─── */
+  .tree {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.4rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    margin: 1rem 0 1.5rem;
+    line-height: 1.7;
+  }
+  .tree .dir  { color: var(--accent); }
+  .tree .file { color: var(--text); }
+  .tree .cm   { color: var(--muted); }
+
+  /* ─── Progress bar ─── */
+  .roadmap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 1rem 0 1.5rem;
+  }
+  .road-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .road-n {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .road-n.done    { background: var(--accent2); color: #0a1e18; }
+  .road-n.current { background: var(--accent);  color: #fff; }
+  .road-n.todo    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .road-label { flex: 1; }
+  .road-badge { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  /* ─── Intro hero ─── */
+  .hero {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero .subtitle {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .hero .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hero .tag {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* ─── ul/ol ─── */
+  ul, ol { padding-left: 1.4rem; margin-bottom: 1rem; }
+  li { margin-bottom: 4px; font-size: 14px; }
+
+  /* ─── Section anchor ─── */
+  .anchor { color: var(--muted); margin-left: 8px; font-size: 14px; }
+  .anchor:hover { color: var(--accent); }
+
+  /* ─── Separator ─── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  /* ─── Footer ─── */
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  @media (max-width: 720px) {
+    nav { display: none; }
+    main { padding: 2rem 1.25rem; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ─── Sidebar ─── -->
+<nav>
+  <div class="logo">ZENITH / IMPL</div>
+
+  <div class="nav-section">Introdução</div>
+  <a href="#intro">Visão geral</a>
+  <a href="#prerequisitos">Prerequisitos</a>
+  <a href="#escolha">Qual caminho seguir?</a>
+
+  <div class="nav-section">Parte 1 — Bytecode</div>
+  <a href="#bytecode-conceito">O que é bytecode</a>
+  <a href="#instruction-set">Instruction set</a>
+  <a href="#formato-binario">Formato do arquivo</a>
+  <a href="#value-stack">Valores e stack</a>
+  <a href="#emitter">Emitter (AST → bytecode)</a>
+  <a href="#vm-loop">VM e dispatch loop</a>
+  <a href="#funcoes-closures">Funções e closures</a>
+  <a href="#gc-basico">GC básico</a>
+  <a href="#bytecode-testes">Testes</a>
+
+  <div class="nav-section">Parte 2 — Self-hosting</div>
+  <a href="#selfhost-conceito">O que é self-hosting</a>
+  <a href="#prerequisitos-selfhost">Prerequisitos</a>
+  <a href="#bootstrap">O bootstrap em 3 estágios</a>
+  <a href="#subset">Subset mínimo de Zenith</a>
+  <a href="#lexer-zenith">Lexer em Zenith</a>
+  <a href="#parser-zenith">Parser em Zenith</a>
+  <a href="#emitter-zenith">Emitter em Zenith</a>
+  <a href="#validacao">Validação</a>
+
+  <div class="nav-section">Referência</div>
+  <a href="#opcodes-ref">Tabela de opcodes</a>
+  <a href="#erros-comuns">Erros comuns</a>
+  <a href="#ordem-sugerida">Ordem sugerida</a>
+</nav>
+
+<!-- ─── Main content ─── -->
+<main>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Zenith — Bytecode VM &amp; Self-Hosting</h1>
+  <div class="subtitle">// Documentação de implementação incremental</div>
+  <div class="tags">
+    <span class="tag">C</span>
+    <span class="tag">compilador</span>
+    <span class="tag">bytecode</span>
+    <span class="tag">self-hosting</span>
+    <span class="tag">VM</span>
+  </div>
+</div>
+
+<!-- ─────────────────── INTRO ─────────────────── -->
+<section id="intro">
+<h2>Visão geral</h2>
+<p>Este documento cobre dois caminhos avançados para o compilador Zenith, em ordem de complexidade crescente. São independentes — você pode fazer só um, os dois, ou fazer o bytecode primeiro e depois o self-hosting.</p>
+
+<table>
+  <thead><tr><th>Caminho</th><th>O que produz</th><th>Dificuldade</th><th>Quando faz sentido</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Bytecode VM</strong></td><td>Seu próprio formato <code>.zbc</code> + VM em C</td><td class="badge badge-warn">Médio</td><td>Você quer controle total de execução, portabilidade, ou performance melhor que a transpilação para Lua</td></tr>
+    <tr><td><strong>Self-hosting</strong></td><td>O compilador Zenith reescrito em Zenith</td><td class="badge badge-purple">Avançado</td><td>A linguagem está madura o suficiente para se expressar; você quer independência do C</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="prerequisitos">
+<h3>Prerequisitos (o que você já precisa ter)</h3>
+<p>Antes de começar qualquer um dos caminhos, o compilador Zenith em C precisa ter:</p>
+<ol>
+  <li>Lexer completo — todos os tokens da linguagem reconhecidos</li>
+  <li>Parser completo — AST gerada corretamente para toda a sintaxe</li>
+  <li>Binder — resolução de nomes e escopos funcionando</li>
+  <li>Um backend funcional (a transpilação para Lua serve)</li>
+  <li>Testes de regressão — você precisa saber quando algo quebra</li>
+</ol>
+<div class="callout warn"><div class="callout-title">⚠ Não pule testes</div>Sem testes de regressão, você não vai saber se o novo backend (bytecode ou self-hosted) produz o mesmo resultado que o original. São seus guardrails.</div>
+</section>
+
+<section id="escolha">
+<h3>Qual caminho escolher agora?</h3>
+<div class="roadmap">
+  <div class="road-item"><div class="road-n todo">?</div><div class="road-label">A linguagem ainda está mudando?</div><div class="road-badge">→ bytecode primeiro</div></div>
+  <div class="road-item"><div class="road-n todo">?</div><div class="road-label">Você quer distribuir binários sem Lua?</div><div class="road-badge">→ bytecode</div></div>
+  <div class="road-item"><div class="road-n todo">?</div><div class="road-label">A linguagem consegue expressar structs, ponteiros/refs, e IO?</div><div class="road-badge">→ self-hosting possível</div></div>
+  <div class="road-item"><div class="road-n todo">?</div><div class="road-label">Você quer performance máxima?</div><div class="road-badge">→ bytecode + JIT futuro</div></div>
+</div>
+<div class="callout tip"><div class="callout-title">💡 Recomendação</div>Faça o bytecode VM primeiro. Ele te força a pensar na semântica de execução da linguagem de forma concreta — o que vai tornar o self-hosting muito mais fácil depois.</div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PARTE 1 — BYTECODE VM                       -->
+<!-- ═══════════════════════════════════════════ -->
+
+<div class="part-divider" id="bytecode-conceito">
+  <div class="part-label">Parte 1</div>
+  <h2>Bytecode VM <span class="badge badge-teal">Médio</span></h2>
+</div>
+
+<p>Em vez de transpilar para Lua, o compilador vai emitir um formato binário (<code>.zbc</code>) que uma VM em C interpreta diretamente. Você controla 100% da execução.</p>
+
+<h3>Como funciona em linhas gerais</h3>
+<div class="diagram"><span class="d-hl">Código Zenith</span>
+      │
+      ▼  lexer + parser + binder (você já tem)
+<span class="d-hl">AST</span>
+      │
+      ▼  <span class="d-hl2">novo: emitter bytecode</span>
+<span class="d-hl">arquivo .zbc</span>  ←  sequência de bytes com instruções
+      │
+      ▼  <span class="d-hl2">novo: VM em C</span>
+<span class="d-hl">execução</span>      ←  loop que lê e executa cada instrução</div>
+
+<!-- ─── INSTRUCTION SET ─── -->
+<section id="instruction-set">
+<h2>Passo 1 — Projetar o instruction set</h2>
+<p>O instruction set é a lista de operações que a sua VM sabe executar. Cada operação é representada por um número de 1 byte chamado <strong>opcode</strong>. Comece pequeno.</p>
+
+<h4>opcodes/opcode.h</h4>
+<pre><span class="kw">typedef</span> <span class="kw">enum</span> {
+    <span class="cm">/* ── Constantes ─────────────────────── */</span>
+    OP_CONST,       <span class="cm">// empurra constante[idx] na stack</span>
+    OP_NIL,         <span class="cm">// empurra nil</span>
+    OP_TRUE,        <span class="cm">// empurra true</span>
+    OP_FALSE,       <span class="cm">// empurra false</span>
+
+    <span class="cm">/* ── Aritmética ─────────────────────── */</span>
+    OP_ADD,         <span class="cm">// pop b, pop a → push a + b</span>
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_NEG,         <span class="cm">// negação unária</span>
+
+    <span class="cm">/* ── Comparação ─────────────────────── */</span>
+    OP_EQ,          <span class="cm">// push (a == b)</span>
+    OP_LT,          <span class="cm">// push (a &lt; b)</span>
+    OP_LE,          <span class="cm">// push (a &lt;= b)</span>
+
+    <span class="cm">/* ── Lógica ─────────────────────────── */</span>
+    OP_NOT,
+    OP_AND,
+    OP_OR,
+
+    <span class="cm">/* ── Variáveis ─────────────────────── */</span>
+    OP_GET_LOCAL,   <span class="cm">// lê variável local [slot]</span>
+    OP_SET_LOCAL,   <span class="cm">// escreve variável local [slot]</span>
+    OP_GET_GLOBAL,  <span class="cm">// lê variável global por nome</span>
+    OP_SET_GLOBAL,
+
+    <span class="cm">/* ── Controle de fluxo ──────────────── */</span>
+    OP_JUMP,        <span class="cm">// pula N bytes adiante</span>
+    OP_JUMP_IF_FALSE, <span class="cm">// pula se topo da stack for falsy</span>
+    OP_LOOP,        <span class="cm">// pula N bytes para trás (for loops)</span>
+
+    <span class="cm">/* ── Funções ────────────────────────── */</span>
+    OP_CALL,        <span class="cm">// chama função com N argumentos</span>
+    OP_RETURN,      <span class="cm">// retorna valor do topo</span>
+    OP_CLOSURE,     <span class="cm">// cria closure capturando variáveis</span>
+
+    <span class="cm">/* ── Stack ───────────────────────────── */</span>
+    OP_POP,         <span class="cm">// descarta topo da stack</span>
+    OP_PRINT,       <span class="cm">// pop e printa (debug)</span>
+
+    OP_HALT,        <span class="cm">// encerra execução</span>
+} <span class="ty">OpCode</span>;</pre>
+
+<div class="callout tip"><div class="callout-title">💡 Princípio</div>Stack-based VM: a maioria das instruções opera no topo da stack — elas fazem pop dos operandos e push do resultado. Isso é mais simples de implementar que uma register-based VM (como Lua usa internamente).</div>
+
+<h3>Instruções com operandos</h3>
+<p>Algumas instruções precisam de dados extras logo após o opcode:</p>
+<table>
+  <thead><tr><th>Instrução</th><th>Bytes extras</th><th>Significado</th></tr></thead>
+  <tbody>
+    <tr><td><code>OP_CONST</code></td><td>1 byte (índice)</td><td>qual constante do pool</td></tr>
+    <tr><td><code>OP_GET_LOCAL</code></td><td>1 byte (slot)</td><td>posição na stack frame</td></tr>
+    <tr><td><code>OP_JUMP</code></td><td>2 bytes (offset)</td><td>quantos bytes pular</td></tr>
+    <tr><td><code>OP_CALL</code></td><td>1 byte (argc)</td><td>número de argumentos</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── FORMATO BINÁRIO ─── -->
+<section id="formato-binario">
+<h2>Passo 2 — Formato do arquivo .zbc</h2>
+<p>O arquivo bytecode tem uma estrutura simples. Cada <strong>chunk</strong> representa uma função compilada.</p>
+
+<div class="diagram"><span class="d-hl">.zbc file layout</span>
+
+<span class="d-hl2">Header</span>
+  [4 bytes]  magic: 0x5A 0x45 0x4E 0x00  (<span class="str">"ZEN\0"</span>)
+  [1 byte]   version: 0x01
+  [1 byte]   flags: 0x00
+
+<span class="d-hl2">Chunk (uma por função/script principal)</span>
+  [4 bytes]  name_len   ← tamanho do nome em bytes
+  [N bytes]  name       ← nome da função (UTF-8)
+  [4 bytes]  code_len   ← número de bytes de código
+  [N bytes]  code       ← sequência de opcodes + operandos
+  [4 bytes]  const_count← número de constantes
+  [N items]  constants  ← pool de constantes
+  [4 bytes]  line_count ← mapeamento para debug
+  [N pairs]  lines      ← (offset, linha_original)
+
+<span class="d-hl2">Constant (cada item do pool)</span>
+  [1 byte]   type: 0=nil, 1=bool, 2=number, 3=string
+  [N bytes]  value (depende do tipo)</div>
+
+<h4>vm/chunk.h</h4>
+<pre><span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">uint8_t</span>*  code;        <span class="cm">// array de bytecode</span>
+    <span class="ty">int</span>       code_len;
+    <span class="ty">int</span>       code_cap;
+
+    <span class="ty">Value</span>*    constants;   <span class="cm">// pool de constantes</span>
+    <span class="ty">int</span>       const_len;
+    <span class="ty">int</span>       const_cap;
+
+    <span class="ty">int</span>*      lines;       <span class="cm">// para mensagens de erro</span>
+    <span class="ty">int</span>       lines_len;
+} <span class="ty">Chunk</span>;
+
+<span class="kw">void</span>    <span class="fn">chunk_init</span>(<span class="ty">Chunk</span>* c);
+<span class="kw">void</span>    <span class="fn">chunk_write</span>(<span class="ty">Chunk</span>* c, <span class="ty">uint8_t</span> byte, <span class="ty">int</span> line);
+<span class="ty">int</span>     <span class="fn">chunk_add_const</span>(<span class="ty">Chunk</span>* c, <span class="ty">Value</span> v);
+<span class="kw">void</span>    <span class="fn">chunk_free</span>(<span class="ty">Chunk</span>* c);</pre>
+</section>
+
+<!-- ─── VALUES & STACK ─── -->
+<section id="value-stack">
+<h2>Passo 3 — Representar valores</h2>
+<p>Zenith precisa representar diferentes tipos de valor em tempo de execução. A forma mais eficiente é uma <strong>tagged union</strong>:</p>
+
+<h4>vm/value.h</h4>
+<pre><span class="kw">typedef</span> <span class="kw">enum</span> {
+    VAL_NIL,
+    VAL_BOOL,
+    VAL_NUMBER,
+    VAL_STRING,
+    VAL_FUNCTION,
+    VAL_CLOSURE,
+} <span class="ty">ValueType</span>;
+
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">ValueType</span> type;
+    <span class="kw">union</span> {
+        <span class="ty">bool</span>     boolean;
+        <span class="ty">double</span>   number;
+        <span class="ty">ObjString</span>*   string;
+        <span class="ty">ObjFunction</span>* function;
+        <span class="ty">ObjClosure</span>*  closure;
+    } as;
+} <span class="ty">Value</span>;
+
+<span class="cm">/* Macros de conveniência */</span>
+<span class="kw">#define</span> IS_NIL(v)     ((v).type == VAL_NIL)
+<span class="kw">#define</span> IS_BOOL(v)    ((v).type == VAL_BOOL)
+<span class="kw">#define</span> IS_NUMBER(v)  ((v).type == VAL_NUMBER)
+<span class="kw">#define</span> AS_BOOL(v)    ((v).as.boolean)
+<span class="kw">#define</span> AS_NUMBER(v)  ((v).as.number)
+<span class="kw">#define</span> NIL_VAL       ((Value){VAL_NIL, {.number = 0}})
+<span class="kw">#define</span> BOOL_VAL(b)   ((Value){VAL_BOOL, {.boolean = b}})
+<span class="kw">#define</span> NUMBER_VAL(n) ((Value){VAL_NUMBER, {.number = n}})</pre>
+
+<h3>A stack de execução</h3>
+<p>A VM usa um array de <code>Value</code> como stack. O topo é controlado por um ponteiro <code>stack_top</code>:</p>
+
+<pre><span class="kw">#define</span> STACK_MAX 256
+
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">Value</span>  stack[STACK_MAX];
+    <span class="ty">Value</span>* stack_top;      <span class="cm">// aponta para slot ACIMA do topo</span>
+} <span class="ty">VM</span>;
+
+<span class="cm">/* Push: escreve o valor e avança o ponteiro */</span>
+<span class="kw">static inline void</span> <span class="fn">push</span>(<span class="ty">VM</span>* vm, <span class="ty">Value</span> v) {
+    *vm->stack_top = v;
+    vm->stack_top++;
+}
+
+<span class="cm">/* Pop: retrocede o ponteiro e retorna o valor */</span>
+<span class="kw">static inline</span> <span class="ty">Value</span> <span class="fn">pop</span>(<span class="ty">VM</span>* vm) {
+    vm->stack_top--;
+    <span class="kw">return</span> *vm->stack_top;
+}
+
+<span class="cm">/* Peek: lê sem remover (distance 0 = topo) */</span>
+<span class="kw">static inline</span> <span class="ty">Value</span> <span class="fn">peek</span>(<span class="ty">VM</span>* vm, <span class="ty">int</span> distance) {
+    <span class="kw">return</span> vm->stack_top[-1 - distance];
+}</pre>
+</section>
+
+<!-- ─── EMITTER ─── -->
+<section id="emitter">
+<h2>Passo 4 — O Emitter (AST → bytecode)</h2>
+<p>O emitter percorre a AST e emite opcodes para o chunk. Ele substitui o backend que transpila para Lua.</p>
+
+<h4>emit/emitter.c — exemplo de como compilar expressões</h4>
+<pre><span class="cm">/* Função principal: compila qualquer nó da AST */</span>
+<span class="kw">static void</span> <span class="fn">emit_node</span>(<span class="ty">Emitter</span>* e, <span class="ty">AstNode</span>* node) {
+    <span class="kw">switch</span> (node->kind) {
+
+    <span class="kw">case</span> NODE_NUMBER_LITERAL:
+        <span class="cm">// adiciona constante ao pool e emite OP_CONST</span>
+        <span class="ty">int</span> idx = <span class="fn">chunk_add_const</span>(e->chunk,
+                     <span class="fn">NUMBER_VAL</span>(node->number));
+        <span class="fn">emit_bytes</span>(e, OP_CONST, (<span class="ty">uint8_t</span>)idx);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> NODE_BOOL_LITERAL:
+        <span class="fn">emit_byte</span>(e, node->boolean ? OP_TRUE : OP_FALSE);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> NODE_BINARY_EXPR: {
+        <span class="cm">// compila lado esquerdo, depois direito, depois operação</span>
+        <span class="fn">emit_node</span>(e, node->binary.left);
+        <span class="fn">emit_node</span>(e, node->binary.right);
+        <span class="kw">switch</span> (node->binary.op) {
+            <span class="kw">case</span> TOK_PLUS:  <span class="fn">emit_byte</span>(e, OP_ADD); <span class="kw">break</span>;
+            <span class="kw">case</span> TOK_MINUS: <span class="fn">emit_byte</span>(e, OP_SUB); <span class="kw">break</span>;
+            <span class="kw">case</span> TOK_STAR:  <span class="fn">emit_byte</span>(e, OP_MUL); <span class="kw">break</span>;
+            <span class="kw">case</span> TOK_SLASH: <span class="fn">emit_byte</span>(e, OP_DIV); <span class="kw">break</span>;
+            <span class="kw">case</span> TOK_EQ_EQ: <span class="fn">emit_byte</span>(e, OP_EQ);  <span class="kw">break</span>;
+        }
+        <span class="kw">break</span>;
+    }
+
+    <span class="kw">case</span> NODE_VAR_DECL:
+        <span class="cm">// compila o valor inicial</span>
+        <span class="fn">emit_node</span>(e, node->var_decl.initializer);
+        <span class="cm">// registra o slot local (posição na stack frame)</span>
+        <span class="fn">declare_local</span>(e, node->var_decl.name);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> NODE_VAR_EXPR:
+        <span class="ty">int</span> slot = <span class="fn">resolve_local</span>(e, node->name);
+        <span class="kw">if</span> (slot >= <span class="num">0</span>) {
+            <span class="fn">emit_bytes</span>(e, OP_GET_LOCAL, (<span class="ty">uint8_t</span>)slot);
+        } <span class="kw">else</span> {
+            <span class="cm">// variável global</span>
+            <span class="fn">emit_load_global</span>(e, node->name);
+        }
+        <span class="kw">break</span>;
+    }
+}</pre>
+
+<h3>Compilando if-else (backpatching)</h3>
+<p>Controle de fluxo exige um truque chamado <strong>backpatching</strong>: você emite o jump antes de saber para onde ele vai, e depois volta para preencher o offset correto.</p>
+
+<pre><span class="kw">case</span> NODE_IF_STMT: {
+    <span class="cm">// 1. compila a condição</span>
+    <span class="fn">emit_node</span>(e, node->if_stmt.condition);
+
+    <span class="cm">// 2. emite o jump (offset ainda desconhecido → 0xFF 0xFF)</span>
+    <span class="ty">int</span> then_jump = <span class="fn">emit_jump</span>(e, OP_JUMP_IF_FALSE);
+    <span class="fn">emit_byte</span>(e, OP_POP);  <span class="cm">// descarta a condição</span>
+
+    <span class="cm">// 3. compila o bloco then</span>
+    <span class="fn">emit_node</span>(e, node->if_stmt.then_branch);
+
+    <span class="ty">int</span> else_jump = <span class="fn">emit_jump</span>(e, OP_JUMP);
+
+    <span class="cm">// 4. BACKPATCH: agora sabemos onde o then termina</span>
+    <span class="fn">patch_jump</span>(e, then_jump);
+    <span class="fn">emit_byte</span>(e, OP_POP);
+
+    <span class="cm">// 5. compila o bloco else (se existir)</span>
+    <span class="kw">if</span> (node->if_stmt.else_branch)
+        <span class="fn">emit_node</span>(e, node->if_stmt.else_branch);
+
+    <span class="fn">patch_jump</span>(e, else_jump);
+    <span class="kw">break</span>;
+}
+
+<span class="cm">/* emite jump com placeholder e retorna posição */</span>
+<span class="kw">static int</span> <span class="fn">emit_jump</span>(<span class="ty">Emitter</span>* e, <span class="ty">uint8_t</span> op) {
+    <span class="fn">emit_byte</span>(e, op);
+    <span class="fn">emit_byte</span>(e, <span class="num">0xFF</span>); <span class="cm">// high byte do offset</span>
+    <span class="fn">emit_byte</span>(e, <span class="num">0xFF</span>); <span class="cm">// low byte</span>
+    <span class="kw">return</span> e->chunk->code_len - <span class="num">2</span>;
+}
+
+<span class="cm">/* preenche o offset real */</span>
+<span class="kw">static void</span> <span class="fn">patch_jump</span>(<span class="ty">Emitter</span>* e, <span class="ty">int</span> offset) {
+    <span class="ty">int</span> jump = e->chunk->code_len - offset - <span class="num">2</span>;
+    e->chunk->code[offset]     = (jump >> <span class="num">8</span>) & <span class="num">0xFF</span>;
+    e->chunk->code[offset + <span class="num">1</span>] = jump & <span class="num">0xFF</span>;
+}</pre>
+</section>
+
+<!-- ─── VM LOOP ─── -->
+<section id="vm-loop">
+<h2>Passo 5 — A VM e o dispatch loop</h2>
+<p>O coração da VM é um loop que lê o próximo opcode e executa a instrução correspondente. Isso é chamado de <strong>interpreter loop</strong>.</p>
+
+<h4>vm/vm.c</h4>
+<pre><span class="kw">#define</span> READ_BYTE()  (*ip++)
+<span class="kw">#define</span> READ_SHORT() (ip += 2, (ip[-2] << 8) | ip[-1])
+<span class="kw">#define</span> READ_CONST() (chunk->constants[READ_BYTE()])
+<span class="kw">#define</span> BINARY_OP(op) \
+    <span class="kw">do</span> { \
+        <span class="kw">if</span> (!IS_NUMBER(peek(vm, 0)) || !IS_NUMBER(peek(vm, 1))) \
+            <span class="kw">return</span> runtime_error(vm, <span class="str">"operands must be numbers"</span>); \
+        <span class="ty">double</span> b = AS_NUMBER(pop(vm)); \
+        <span class="ty">double</span> a = AS_NUMBER(pop(vm)); \
+        push(vm, NUMBER_VAL(a op b)); \
+    } <span class="kw">while</span>(0)
+
+<span class="ty">InterpretResult</span> <span class="fn">vm_run</span>(<span class="ty">VM</span>* vm, <span class="ty">Chunk</span>* chunk) {
+    <span class="ty">uint8_t</span>* ip = chunk->code;  <span class="cm">// instruction pointer</span>
+
+    <span class="kw">for</span> (;;) {
+        <span class="ty">uint8_t</span> instruction = READ_BYTE();
+        <span class="kw">switch</span> (instruction) {
+
+        <span class="kw">case</span> OP_CONST:
+            push(vm, READ_CONST());
+            <span class="kw">break</span>;
+
+        <span class="kw">case</span> OP_NIL:   push(vm, NIL_VAL);        <span class="kw">break</span>;
+        <span class="kw">case</span> OP_TRUE:  push(vm, BOOL_VAL(<span class="kw">true</span>)); <span class="kw">break</span>;
+        <span class="kw">case</span> OP_FALSE: push(vm, BOOL_VAL(<span class="kw">false</span>));<span class="kw">break</span>;
+
+        <span class="kw">case</span> OP_ADD: BINARY_OP(+); <span class="kw">break</span>;
+        <span class="kw">case</span> OP_SUB: BINARY_OP(-); <span class="kw">break</span>;
+        <span class="kw">case</span> OP_MUL: BINARY_OP(*); <span class="kw">break</span>;
+        <span class="kw">case</span> OP_DIV: BINARY_OP(/); <span class="kw">break</span>;
+
+        <span class="kw">case</span> OP_EQ: {
+            <span class="ty">Value</span> b = pop(vm), a = pop(vm);
+            push(vm, BOOL_VAL(<span class="fn">values_equal</span>(a, b)));
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">case</span> OP_JUMP: {
+            <span class="ty">uint16_t</span> offset = READ_SHORT();
+            ip += offset;
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">case</span> OP_JUMP_IF_FALSE: {
+            <span class="ty">uint16_t</span> offset = READ_SHORT();
+            <span class="kw">if</span> (<span class="fn">is_falsy</span>(peek(vm, 0))) ip += offset;
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">case</span> OP_GET_LOCAL: {
+            <span class="ty">uint8_t</span> slot = READ_BYTE();
+            push(vm, vm->stack[slot]);
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">case</span> OP_SET_LOCAL: {
+            <span class="ty">uint8_t</span> slot = READ_BYTE();
+            vm->stack[slot] = peek(vm, 0); <span class="cm">// não faz pop</span>
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">case</span> OP_POP:   pop(vm);  <span class="kw">break</span>;
+        <span class="kw">case</span> OP_PRINT: <span class="fn">print_value</span>(pop(vm)); printf(<span class="str">"\n"</span>); <span class="kw">break</span>;
+        <span class="kw">case</span> OP_HALT:  <span class="kw">return</span> INTERPRET_OK;
+        }
+    }
+}</pre>
+
+<div class="callout info"><div class="callout-title">ℹ Instruction Pointer</div>O <code>ip</code> (instruction pointer) é um ponteiro simples para o array de bytecode. Cada <code>READ_BYTE()</code> avança ele em 1 byte. Isso é extremamente rápido.</div>
+</section>
+
+<!-- ─── FUNÇÕES E CLOSURES ─── -->
+<section id="funcoes-closures">
+<h2>Passo 6 — Funções e closures</h2>
+<p>Funções em bytecode funcionam com <strong>call frames</strong>: cada chamada empilha um frame que guarda o estado local daquela chamada.</p>
+
+<h4>vm/vm.h</h4>
+<pre><span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">ObjClosure</span>* closure;  <span class="cm">// a função sendo executada</span>
+    <span class="ty">uint8_t</span>*    ip;       <span class="cm">// instrução atual NESTE frame</span>
+    <span class="ty">Value</span>*      slots;    <span class="cm">// ponteiro para o início das locais</span>
+} <span class="ty">CallFrame</span>;
+
+<span class="kw">#define</span> FRAMES_MAX 64
+
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">CallFrame</span>  frames[FRAMES_MAX];
+    <span class="ty">int</span>        frame_count;
+    <span class="ty">Value</span>      stack[STACK_MAX];
+    <span class="ty">Value</span>*     stack_top;
+    <span class="ty">Table</span>      globals;   <span class="cm">// hash table de variáveis globais</span>
+    <span class="ty">Obj</span>*       objects;   <span class="cm">// lista ligada para GC</span>
+} <span class="ty">VM</span>;</pre>
+
+<h3>Chamando uma função</h3>
+<pre><span class="kw">static bool</span> <span class="fn">call_value</span>(<span class="ty">VM</span>* vm, <span class="ty">Value</span> callee, <span class="ty">int</span> argc) {
+    <span class="kw">if</span> (!IS_CLOSURE(callee))
+        <span class="kw">return</span> <span class="fn">runtime_error</span>(vm, <span class="str">"can only call functions"</span>);
+
+    <span class="ty">ObjClosure</span>* closure = AS_CLOSURE(callee);
+    <span class="kw">if</span> (argc != closure->function->arity)
+        <span class="kw">return</span> <span class="fn">runtime_error</span>(vm, <span class="str">"wrong number of arguments"</span>);
+
+    <span class="kw">if</span> (vm->frame_count == FRAMES_MAX)
+        <span class="kw">return</span> <span class="fn">runtime_error</span>(vm, <span class="str">"stack overflow"</span>);
+
+    <span class="ty">CallFrame</span>* frame = &vm->frames[vm->frame_count++];
+    frame->closure = closure;
+    frame->ip      = closure->function->chunk.code;
+    frame->slots   = vm->stack_top - argc - <span class="num">1</span>;
+    <span class="kw">return true</span>;
+}</pre>
+
+<h3>Closures — capturando variáveis</h3>
+<p>Uma closure captura variáveis do escopo externo através de <strong>upvalues</strong>: referências para valores que podem viver além do frame em que foram declarados.</p>
+
+<pre><span class="kw">typedef</span> <span class="kw">struct</span> <span class="ty">ObjUpvalue</span> {
+    <span class="ty">Obj</span>        base;
+    <span class="ty">Value</span>*     location;   <span class="cm">// aponta para o valor na stack</span>
+    <span class="ty">Value</span>      closed;     <span class="cm">// valor quando o frame é encerrado</span>
+    <span class="kw">struct</span> <span class="ty">ObjUpvalue</span>* next;
+} <span class="ty">ObjUpvalue</span>;
+
+<span class="kw">typedef</span> <span class="kw">struct</span> {
+    <span class="ty">Obj</span>         base;
+    <span class="ty">ObjFunction</span>* function;
+    <span class="ty">ObjUpvalue</span>** upvalues;  <span class="cm">// array de upvalues capturados</span>
+    <span class="ty">int</span>          upvalue_count;
+} <span class="ty">ObjClosure</span>;</pre>
+</section>
+
+<!-- ─── GC BÁSICO ─── -->
+<section id="gc-basico">
+<h2>Passo 7 — Garbage Collector básico</h2>
+<p>A VM precisa liberar memória de strings, closures e outros objetos heap-allocated. O GC mais simples para começar é o <strong>mark-and-sweep</strong>.</p>
+
+<ol class="steps">
+  <li>
+    <div class="step-content">
+      <strong>Mark (marcar)</strong>
+      A VM percorre todas as raízes (stack, globals, frames) e marca cada objeto alcançável com um bit <code>is_marked = true</code>.
+    </div>
+  </li>
+  <li>
+    <div class="step-content">
+      <strong>Sweep (varrer)</strong>
+      A VM percorre a lista ligada de todos os objetos alocados. Objetos não marcados são liberados. Objetos marcados têm o bit resetado para a próxima coleta.
+    </div>
+  </li>
+</ol>
+
+<pre><span class="kw">void</span> <span class="fn">gc_collect</span>(<span class="ty">VM</span>* vm) {
+    <span class="cm">/* 1. Mark — começa pelas raízes */</span>
+    <span class="kw">for</span> (<span class="ty">Value</span>* slot = vm->stack; slot < vm->stack_top; slot++)
+        <span class="fn">gc_mark_value</span>(vm, *slot);
+
+    <span class="kw">for</span> (<span class="ty">int</span> i = <span class="num">0</span>; i < vm->frame_count; i++)
+        <span class="fn">gc_mark_object</span>(vm, (<span class="ty">Obj</span>*)vm->frames[i].closure);
+
+    <span class="fn">gc_mark_table</span>(vm, &vm->globals);
+
+    <span class="cm">/* 2. Sweep — libera o que não foi marcado */</span>
+    <span class="ty">Obj</span>** obj = &vm->objects;
+    <span class="kw">while</span> (*obj != NULL) {
+        <span class="kw">if</span> (!(*obj)->is_marked) {
+            <span class="ty">Obj</span>* unreached = *obj;
+            *obj = unreached->next;
+            <span class="fn">obj_free</span>(unreached);
+        } <span class="kw">else</span> {
+            (*obj)->is_marked = <span class="kw">false</span>;
+            obj = &(*obj)->next;
+        }
+    }
+}</pre>
+
+<div class="callout tip"><div class="callout-title">💡 Quando chamar o GC?</div>Não chame a cada alocação — é muito caro. Use um threshold: quando o total de bytes alocados ultrapassar um limite (ex: 1MB inicial), trigger um ciclo de coleta.</div>
+</section>
+
+<!-- ─── TESTES BYTECODE ─── -->
+<section id="bytecode-testes">
+<h2>Passo 8 — Testando a VM</h2>
+<p>Adicione um <strong>disassembler</strong> antes de qualquer outra coisa — ele vai imprimir o bytecode gerado de forma legível e é indispensável para debugar o emitter.</p>
+
+<pre><span class="kw">void</span> <span class="fn">disassemble_chunk</span>(<span class="ty">Chunk</span>* chunk, <span class="kw">const char</span>* name) {
+    printf(<span class="str">"== %s ==\n"</span>, name);
+    <span class="kw">for</span> (<span class="ty">int</span> offset = <span class="num">0</span>; offset < chunk->code_len; ) {
+        offset = <span class="fn">disassemble_instruction</span>(chunk, offset);
+    }
+}</pre>
+
+<p>Output esperado para <code>1 + 2 * 3</code>:</p>
+<pre><span class="cm">== main ==
+0000  OP_CONST    0  '1'
+0002  OP_CONST    1  '2'
+0004  OP_CONST    2  '3'
+0006  OP_MUL
+0007  OP_ADD
+0008  OP_HALT</span></pre>
+
+<h3>Estrutura de arquivos da VM</h3>
+<div class="tree">
+<span class="dir">src/</span>
+├── <span class="dir">opcodes/</span>
+│   ├── <span class="file">opcode.h</span>       <span class="cm"># enum de opcodes</span>
+├── <span class="dir">vm/</span>
+│   ├── <span class="file">chunk.h/.c</span>    <span class="cm"># chunk: bytecode + constantes</span>
+│   ├── <span class="file">value.h/.c</span>    <span class="cm"># Value tagged union</span>
+│   ├── <span class="file">vm.h/.c</span>       <span class="cm"># dispatch loop</span>
+│   ├── <span class="file">object.h/.c</span>   <span class="cm"># strings, funções, closures</span>
+│   ├── <span class="file">table.h/.c</span>    <span class="cm"># hash table para globals</span>
+│   └── <span class="file">gc.c</span>          <span class="cm"># garbage collector</span>
+├── <span class="dir">emit/</span>
+│   └── <span class="file">emitter.h/.c</span>  <span class="cm"># AST → bytecode</span>
+└── <span class="dir">debug/</span>
+    └── <span class="file">disasm.h/.c</span>   <span class="cm"># disassembler para debug</span>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PARTE 2 — SELF-HOSTING                      -->
+<!-- ═══════════════════════════════════════════ -->
+
+<div class="part-divider" id="selfhost-conceito">
+  <div class="part-label">Parte 2</div>
+  <h2>Self-Hosting <span class="badge badge-purple">Avançado</span></h2>
+</div>
+
+<p>Self-hosting significa que o compilador Zenith é escrito em Zenith. Em vez de um compilador em C que compila Zenith, você vai ter um compilador em Zenith que compila Zenith — e ele pode compilar a si mesmo.</p>
+
+<h3>Por que isso é especial?</h3>
+<p>Um compilador self-hosted é uma prova de maturidade da linguagem. Se Zenith consegue expressar seu próprio compilador — com todas as estruturas de dados, algoritmos e IO necessários — ela está completa o suficiente para uso geral.</p>
+
+<div class="callout warn"><div class="callout-title">⚠ Prerequisito crítico</div>Self-hosting cria um problema de bootstrap circular: você precisa de um compilador Zenith para compilar o compilador Zenith. A solução é o processo de <strong>3 estágios</strong> descrito abaixo.</div>
+
+<!-- ─── PREREQUISITOS SELFHOST ─── -->
+<section id="prerequisitos-selfhost">
+<h2>Passo 1 — O que a linguagem precisa ter</h2>
+<p>Antes de escrever o compilador em Zenith, ela precisa suportar:</p>
+<table>
+  <thead><tr><th>Funcionalidade</th><th>Para que serve no compilador</th><th>Urgente?</th></tr></thead>
+  <tbody>
+    <tr><td>Structs ou records</td><td>Representar tokens, nós de AST, escopos</td><td>✅ Sim</td></tr>
+    <tr><td>Arrays dinâmicos</td><td>Buffer de tokens, lista de nós filhos</td><td>✅ Sim</td></tr>
+    <tr><td>Strings com indexação</td><td>Lexer precisa ler caractere por caractere</td><td>✅ Sim</td></tr>
+    <tr><td>Ponteiros ou referências</td><td>Linked lists, grafo da AST</td><td>✅ Sim</td></tr>
+    <tr><td>IO de arquivo</td><td>Ler o arquivo fonte, escrever o output</td><td>✅ Sim</td></tr>
+    <tr><td>Recursão</td><td>Parser recursivo-descendente</td><td>✅ Sim</td></tr>
+    <tr><td>Closures / funções de ordem superior</td><td>Opcional — simplifica mas não é essencial</td><td>⚡ Opcional</td></tr>
+    <tr><td>Generics / templates</td><td>Não necessário — pode usar Any/casting</td><td>❌ Não</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── BOOTSTRAP ─── -->
+<section id="bootstrap">
+<h2>Passo 2 — O bootstrap em 3 estágios</h2>
+<p>O bootstrap é o processo de criar uma cadeia de compiladores até o compilador final ser capaz de compilar a si mesmo. Chamamos os compiladores de <strong>stage 0, stage 1 e stage 2</strong>.</p>
+
+<div class="diagram"><span class="d-hl">Stage 0</span>  — O compilador Zenith original em C
+          (você já tem este)
+              │
+              │ compila
+              ▼
+<span class="d-hl">zenith_compiler.zen</span>  ← o compilador reescrito em Zenith
+              │
+              │ Stage 0 compila zenith_compiler.zen
+              ▼
+<span class="d-hl">Stage 1</span>  — binário do compilador, gerado pelo Stage 0
+              │
+              │ Stage 1 compila zenith_compiler.zen novamente
+              ▼
+<span class="d-hl">Stage 2</span>  — binário do compilador, gerado pelo Stage 1
+
+<span class="d-hl2">Validação:</span>  Stage 1 e Stage 2 devem ser bit-a-bit idênticos.
+Se forem, o compilador está correto. 🎉</div>
+
+<div class="callout tip"><div class="callout-title">💡 Por que comparar Stage 1 e Stage 2?</div>Se um compilador compilar a si mesmo e produzir um output idêntico ao da compilação anterior, você tem uma garantia forte de correção. Essa técnica se chama <strong>Diverse Double-Compiling</strong>.</div>
+
+<h3>Comandos do bootstrap</h3>
+<pre><span class="cm"># Stage 0: compilador em C compila o compilador Zenith</span>
+$ zenithc --output stage1 src/compiler/zenith_compiler.zen
+
+<span class="cm"># Stage 1: compilador Zenith compila a si mesmo</span>
+$ ./stage1 --output stage2 src/compiler/zenith_compiler.zen
+
+<span class="cm"># Validação: os dois binários devem ser iguais</span>
+$ diff stage1 stage2
+<span class="cm"># (nenhuma saída = sucesso!)</span></pre>
+</section>
+
+<!-- ─── SUBSET ─── -->
+<section id="subset">
+<h2>Passo 3 — Comece com um subset mínimo</h2>
+<p>Não tente reescrever o compilador completo de uma vez. Comece com uma versão mínima que compila um subset de Zenith, e vá expandindo.</p>
+
+<div class="roadmap">
+  <div class="road-item"><div class="road-n current">1</div><div class="road-label"><strong>Mini Zenith</strong> — lexer + parser de expressões simples + emitter de bytecode</div><div class="road-badge">~500 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">2</div><div class="road-label"><strong>+ Statements</strong> — if/else, while, declaração de variáveis</div><div class="road-badge">+300 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">3</div><div class="road-label"><strong>+ Funções</strong> — declaração, chamada, retorno, recursão</div><div class="road-badge">+400 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">4</div><div class="road-label"><strong>+ Structs</strong> — a estrutura de dados mais crítica para o compilador</div><div class="road-badge">+500 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">5</div><div class="road-label"><strong>+ Arrays dinâmicos</strong> — essencial para listas de tokens e nós</div><div class="road-badge">+200 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">6</div><div class="road-label"><strong>Reescrever o lexer</strong> em Zenith usando as features acima</div><div class="road-badge">ponto crítico</div></div>
+  <div class="road-item"><div class="road-n todo">7</div><div class="road-label"><strong>Reescrever o parser</strong> em Zenith (recursivo-descendente)</div><div class="road-badge">~1000 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">8</div><div class="road-label"><strong>Reescrever o emitter</strong> em Zenith</div><div class="road-badge">~800 linhas</div></div>
+  <div class="road-item"><div class="road-n todo">9</div><div class="road-label"><strong>Bootstrap completo</strong> — Stage 0 compila Stage 1, valida</div><div class="road-badge">🎉</div></div>
+</div>
+</section>
+
+<!-- ─── LEXER ZENITH ─── -->
+<section id="lexer-zenith">
+<h2>Passo 4 — O Lexer em Zenith</h2>
+<p>O lexer lê o arquivo fonte caractere por caractere e produz uma lista de tokens. Em Zenith, vai parecer algo assim:</p>
+
+<pre><span class="cm">// Definição de tipos que o lexer precisa</span>
+<span class="kw">struct</span> <span class="ty">Token</span> {
+    kind:    <span class="ty">TokenKind</span>,
+    lexeme:  <span class="ty">String</span>,
+    line:    <span class="ty">Int</span>,
+}
+
+<span class="kw">struct</span> <span class="ty">Lexer</span> {
+    source:  <span class="ty">String</span>,
+    start:   <span class="ty">Int</span>,   <span class="cm">// início do token atual</span>
+    current: <span class="ty">Int</span>,   <span class="cm">// posição atual de leitura</span>
+    line:    <span class="ty">Int</span>,
+}
+
+<span class="kw">fn</span> <span class="fn">lexer_new</span>(source: <span class="ty">String</span>) -> <span class="ty">Lexer</span> {
+    <span class="kw">return</span> Lexer { source, start: 0, current: 0, line: 1 }
+}
+
+<span class="kw">fn</span> <span class="fn">next_token</span>(l: *<span class="ty">Lexer</span>) -> <span class="ty">Token</span> {
+    <span class="fn">skip_whitespace</span>(l)
+    l.start = l.current
+
+    <span class="kw">if</span> <span class="fn">is_at_end</span>(l) { <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_EOF) }
+
+    <span class="kw">let</span> c = <span class="fn">advance</span>(l)  <span class="cm">// lê e avança</span>
+
+    <span class="kw">if</span> <span class="fn">is_alpha</span>(c) { <span class="kw">return</span> <span class="fn">scan_identifier</span>(l) }
+    <span class="kw">if</span> <span class="fn">is_digit</span>(c) { <span class="kw">return</span> <span class="fn">scan_number</span>(l) }
+
+    <span class="kw">match</span> c {
+        <span class="str">'('</span> => <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_LPAREN),
+        <span class="str">')'</span> => <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_RPAREN),
+        <span class="str">'+'</span> => <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_PLUS),
+        <span class="str">'='</span> => {
+            <span class="kw">if</span> <span class="fn">match_char</span>(l, <span class="str">'='</span>) { <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_EQ_EQ) }
+            <span class="kw">return</span> <span class="fn">make_token</span>(l, TOKEN_EQ)
+        },
+        <span class="cm">// ... demais casos</span>
+    }
+}</pre>
+</section>
+
+<!-- ─── PARSER ZENITH ─── -->
+<section id="parser-zenith">
+<h2>Passo 5 — O Parser em Zenith</h2>
+<p>O parser usa o lexer para produzir a AST. A técnica mais simples — e que você provavelmente já usa no compilador C — é o <strong>parser recursivo-descendente</strong>.</p>
+
+<pre><span class="kw">struct</span> <span class="ty">Parser</span> {
+    lexer:    <span class="ty">Lexer</span>,
+    current:  <span class="ty">Token</span>,
+    previous: <span class="ty">Token</span>,
+    had_error: <span class="ty">Bool</span>,
+}
+
+<span class="cm">// Cada regra gramatical vira uma função</span>
+<span class="kw">fn</span> <span class="fn">parse_expr</span>(p: *<span class="ty">Parser</span>) -> *<span class="ty">AstNode</span> {
+    <span class="kw">return</span> <span class="fn">parse_assignment</span>(p)
+}
+
+<span class="kw">fn</span> <span class="fn">parse_assignment</span>(p: *<span class="ty">Parser</span>) -> *<span class="ty">AstNode</span> {
+    <span class="kw">let</span> left = <span class="fn">parse_equality</span>(p)
+    <span class="kw">if</span> <span class="fn">match</span>(p, TOKEN_EQ) {
+        <span class="kw">let</span> right = <span class="fn">parse_assignment</span>(p)  <span class="cm">// recursão (right-associative)</span>
+        <span class="kw">return</span> <span class="fn">node_assign</span>(left, right)
+    }
+    <span class="kw">return</span> left
+}
+
+<span class="kw">fn</span> <span class="fn">parse_equality</span>(p: *<span class="ty">Parser</span>) -> *<span class="ty">AstNode</span> {
+    <span class="kw">let</span> left = <span class="fn">parse_comparison</span>(p)
+    <span class="kw">while</span> <span class="fn">match_any</span>(p, [TOKEN_EQ_EQ, TOKEN_BANG_EQ]) {
+        <span class="kw">let</span> op = p.previous
+        <span class="kw">let</span> right = <span class="fn">parse_comparison</span>(p)
+        left = <span class="fn">node_binary</span>(op, left, right)
+    }
+    <span class="kw">return</span> left
+}
+
+<span class="cm">// Padrão: o mesmo cascadeamento de precedência que o parser C</span>
+<span class="cm">// parse_expr → parse_assignment → parse_equality</span>
+<span class="cm">// → parse_comparison → parse_addition → parse_multiplication</span>
+<span class="cm">// → parse_unary → parse_primary</span></pre>
+
+<div class="callout info"><div class="callout-title">ℹ A AST em Zenith</div>Você vai precisar de uma tagged union para nós da AST — da mesma forma que o compilador C tem. Em linguagens com structs mas sem enums-with-data, use um campo <code>kind: Int</code> + uma union ou um campo <code>data: Any</code>.</div>
+</section>
+
+<!-- ─── EMITTER ZENITH ─── -->
+<section id="emitter-zenith">
+<h2>Passo 6 — O Emitter em Zenith</h2>
+<p>O emitter em Zenith vai emitir o mesmo bytecode que o emitter em C emite. A lógica é idêntica — a diferença é só que agora ela está escrita em Zenith.</p>
+
+<pre><span class="kw">struct</span> <span class="ty">Emitter</span> {
+    chunk:    <span class="ty">Chunk</span>,
+    locals:   <span class="ty">Array</span>[<span class="ty">Local</span>],
+    scope_depth: <span class="ty">Int</span>,
+}
+
+<span class="kw">fn</span> <span class="fn">emit_node</span>(e: *<span class="ty">Emitter</span>, node: *<span class="ty">AstNode</span>) {
+    <span class="kw">match</span> node.kind {
+        NODE_NUMBER =>
+            <span class="fn">emit_const</span>(e, <span class="fn">value_number</span>(node.number)),
+        NODE_BINARY =>
+            <span class="fn">emit_binary</span>(e, node),
+        NODE_IF =>
+            <span class="fn">emit_if</span>(e, node),
+        NODE_WHILE =>
+            <span class="fn">emit_while</span>(e, node),
+        NODE_CALL =>
+            <span class="fn">emit_call</span>(e, node),
+        <span class="cm">// ... demais casos espelham o emitter em C</span>
+    }
+}
+
+<span class="kw">fn</span> <span class="fn">emit_while</span>(e: *<span class="ty">Emitter</span>, node: *<span class="ty">AstNode</span>) {
+    <span class="kw">let</span> loop_start = e.chunk.code_len  <span class="cm">// guarda onde o loop começa</span>
+    <span class="fn">emit_node</span>(e, node.while_stmt.condition)
+    <span class="kw">let</span> exit_jump = <span class="fn">emit_jump</span>(e, OP_JUMP_IF_FALSE)
+    <span class="fn">emit_byte</span>(e, OP_POP)
+    <span class="fn">emit_node</span>(e, node.while_stmt.body)
+    <span class="fn">emit_loop</span>(e, loop_start)   <span class="cm">// volta para o início</span>
+    <span class="fn">patch_jump</span>(e, exit_jump)
+    <span class="fn">emit_byte</span>(e, OP_POP)
+}</pre>
+</section>
+
+<!-- ─── VALIDAÇÃO ─── -->
+<section id="validacao">
+<h2>Passo 7 — Validação e o momento do bootstrap</h2>
+<p>Quando os três componentes (lexer, parser, emitter) estiverem funcionando em Zenith, chegou a hora do bootstrap:</p>
+
+<ol class="steps">
+  <li>
+    <div class="step-content">
+      <strong>Compile o compilador Zenith com Stage 0 (C)</strong>
+      <pre style="margin-top:8px">$ zenithc -o stage1 src/compiler/main.zen</pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-content">
+      <strong>Use Stage 1 para compilar o compilador novamente</strong>
+      <pre style="margin-top:8px">$ ./stage1 -o stage2 src/compiler/main.zen</pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-content">
+      <strong>Compare os binários</strong>
+      <pre style="margin-top:8px">$ sha256sum stage1 stage2
+<span class="cm"># Se os hashes forem iguais: ✅ self-hosting concluído</span></pre>
+    </div>
+  </li>
+  <li>
+    <div class="step-content">
+      <strong>A partir de agora: Stage 0 pode ser aposentado</strong>
+      O compilador Zenith é oficialmente self-hosted. Novos features são implementados em Zenith e compilados com a versão anterior.
+    </div>
+  </li>
+</ol>
+
+<div class="callout danger"><div class="callout-title">🔴 Se Stage 1 ≠ Stage 2</div>Há um bug no emitter do compilador Zenith. O compilador produz outputs diferentes dependendo de como foi compilado — geralmente causado por comportamento undefined (uninitialised memory, overflow de int) no compilador em C, ou por uma inconsistência no próprio emitter Zenith.</div>
+
+<h3>Estrutura do projeto self-hosted</h3>
+<div class="tree">
+<span class="dir">src/</span>
+├── <span class="dir">compiler/</span>        <span class="cm"># o compilador escrito EM Zenith</span>
+│   ├── <span class="file">main.zen</span>     <span class="cm"># ponto de entrada</span>
+│   ├── <span class="file">lexer.zen</span>
+│   ├── <span class="file">token.zen</span>    <span class="cm"># tipos de tokens</span>
+│   ├── <span class="file">ast.zen</span>      <span class="cm"># nós da AST</span>
+│   ├── <span class="file">parser.zen</span>
+│   ├── <span class="file">binder.zen</span>
+│   ├── <span class="file">emitter.zen</span>
+│   └── <span class="file">chunk.zen</span>    <span class="cm"># chunk e format .zbc</span>
+├── <span class="dir">bootstrap/</span>       <span class="cm"># o compilador ORIGINAL em C (stage 0)</span>
+│   └── <span class="cm">(seu compiler.c atual aqui)</span>
+└── <span class="dir">tests/</span>
+    ├── <span class="file">lex_tests.zen</span>
+    ├── <span class="file">parse_tests.zen</span>
+    └── <span class="file">emit_tests.zen</span>
+</div>
+</section>
+
+<!-- ─── REFERÊNCIA: OPCODES ─── -->
+<section id="opcodes-ref">
+<h2>Referência — Tabela de opcodes</h2>
+<table>
+  <thead><tr><th>Opcode</th><th>Byte</th><th>Operandos</th><th>Stack antes → depois</th><th>Descrição</th></tr></thead>
+  <tbody>
+    <tr class="head-row"><td colspan="5">Constantes</td></tr>
+    <tr><td><code>OP_CONST</code></td><td>0x00</td><td>idx (1B)</td><td>→ value</td><td>Push constante do pool</td></tr>
+    <tr><td><code>OP_NIL</code></td><td>0x01</td><td>—</td><td>→ nil</td><td>Push nil</td></tr>
+    <tr><td><code>OP_TRUE</code></td><td>0x02</td><td>—</td><td>→ true</td><td>Push true</td></tr>
+    <tr><td><code>OP_FALSE</code></td><td>0x03</td><td>—</td><td>→ false</td><td>Push false</td></tr>
+    <tr class="head-row"><td colspan="5">Aritmética</td></tr>
+    <tr><td><code>OP_ADD</code></td><td>0x10</td><td>—</td><td>a, b → a+b</td><td>Soma</td></tr>
+    <tr><td><code>OP_SUB</code></td><td>0x11</td><td>—</td><td>a, b → a-b</td><td>Subtração</td></tr>
+    <tr><td><code>OP_MUL</code></td><td>0x12</td><td>—</td><td>a, b → a*b</td><td>Multiplicação</td></tr>
+    <tr><td><code>OP_DIV</code></td><td>0x13</td><td>—</td><td>a, b → a/b</td><td>Divisão</td></tr>
+    <tr><td><code>OP_NEG</code></td><td>0x14</td><td>—</td><td>a → -a</td><td>Negação unária</td></tr>
+    <tr class="head-row"><td colspan="5">Comparação</td></tr>
+    <tr><td><code>OP_EQ</code></td><td>0x20</td><td>—</td><td>a, b → bool</td><td>Igualdade</td></tr>
+    <tr><td><code>OP_LT</code></td><td>0x21</td><td>—</td><td>a, b → bool</td><td>Menor que</td></tr>
+    <tr><td><code>OP_LE</code></td><td>0x22</td><td>—</td><td>a, b → bool</td><td>Menor ou igual</td></tr>
+    <tr class="head-row"><td colspan="5">Controle de fluxo</td></tr>
+    <tr><td><code>OP_JUMP</code></td><td>0x30</td><td>offset (2B)</td><td>—</td><td>Pula offset bytes</td></tr>
+    <tr><td><code>OP_JUMP_IF_FALSE</code></td><td>0x31</td><td>offset (2B)</td><td>—</td><td>Pula se topo for falsy</td></tr>
+    <tr><td><code>OP_LOOP</code></td><td>0x32</td><td>offset (2B)</td><td>—</td><td>Pula offset bytes para trás</td></tr>
+    <tr class="head-row"><td colspan="5">Variáveis</td></tr>
+    <tr><td><code>OP_GET_LOCAL</code></td><td>0x40</td><td>slot (1B)</td><td>→ value</td><td>Lê local</td></tr>
+    <tr><td><code>OP_SET_LOCAL</code></td><td>0x41</td><td>slot (1B)</td><td>value →</td><td>Escreve local</td></tr>
+    <tr><td><code>OP_GET_GLOBAL</code></td><td>0x42</td><td>name_idx (1B)</td><td>→ value</td><td>Lê global</td></tr>
+    <tr><td><code>OP_SET_GLOBAL</code></td><td>0x43</td><td>name_idx (1B)</td><td>value →</td><td>Escreve global</td></tr>
+    <tr class="head-row"><td colspan="5">Funções</td></tr>
+    <tr><td><code>OP_CALL</code></td><td>0x50</td><td>argc (1B)</td><td>fn, args → ret</td><td>Chama função</td></tr>
+    <tr><td><code>OP_RETURN</code></td><td>0x51</td><td>—</td><td>value → (frame pop)</td><td>Retorna do frame</td></tr>
+    <tr><td><code>OP_CLOSURE</code></td><td>0x52</td><td>fn_idx + upvalues</td><td>→ closure</td><td>Cria closure</td></tr>
+    <tr class="head-row"><td colspan="5">Stack</td></tr>
+    <tr><td><code>OP_POP</code></td><td>0x60</td><td>—</td><td>value →</td><td>Descarta topo</td></tr>
+    <tr><td><code>OP_PRINT</code></td><td>0x61</td><td>—</td><td>value →</td><td>Printa e descarta</td></tr>
+    <tr><td><code>OP_HALT</code></td><td>0xFF</td><td>—</td><td>—</td><td>Encerra VM</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── ERROS COMUNS ─── -->
+<section id="erros-comuns">
+<h2>Erros comuns e como resolver</h2>
+<table>
+  <thead><tr><th>Erro</th><th>Causa provável</th><th>Solução</th></tr></thead>
+  <tbody>
+    <tr><td>VM produz resultado errado em aritmética</td><td>Ordem de pop errada — pop a antes de b</td><td>Confirme: <code>b = pop(); a = pop();</code> para operações binárias</td></tr>
+    <tr><td>Jump não vai para o lugar certo</td><td>Cálculo do offset errado no patch_jump</td><td>O offset deve ser relativo ao byte APÓS o operando do jump</td></tr>
+    <tr><td>Variáveis locais leem o valor errado</td><td>Slot calculado errado no emitter</td><td>Cheque que o slot começa do início do frame, não do início da stack global</td></tr>
+    <tr><td>Stack overflow em recursão simples</td><td>FRAMES_MAX muito pequeno ou frame não sendo liberado</td><td>Verifique que OP_RETURN faz <code>frame_count--</code></td></tr>
+    <tr><td>GC libera objeto ainda em uso</td><td>Raiz não marcada no phase mark</td><td>Garanta que constants e upvalues de closures abertas são marcados</td></tr>
+    <tr><td>Stage 1 ≠ Stage 2 no bootstrap</td><td>UB no compilador C ou bug no emitter Zenith</td><td>Adicione assertions no emitter, compare byte-a-byte os chunks gerados</td></tr>
+    <tr><td>Self-hosted entra em loop infinito</td><td>Bug no parser recursivo — regra consome zero tokens</td><td>Garanta que toda chamada recursiva sempre avança pelo menos um token</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ─── ORDEM SUGERIDA ─── -->
+<section id="ordem-sugerida">
+<h2>Ordem de implementação sugerida</h2>
+<div class="roadmap">
+  <div class="road-item"><div class="road-n done">✓</div><div class="road-label">Compilador C com lexer, parser, binder, e transpilação para Lua</div><div class="road-badge">você já tem</div></div>
+  <div class="road-item"><div class="road-n todo">1</div><div class="road-label">Tipos de valor (<code>Value</code>, tagged union) + Chunk (bytecode + constants)</div><div class="road-badge">~2-3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">2</div><div class="road-label">Disassembler — ferramenta de debug essencial, faça antes da VM</div><div class="road-badge">~1 dia</div></div>
+  <div class="road-item"><div class="road-n todo">3</div><div class="road-label">VM com dispatch loop — comece só com constantes e aritmética</div><div class="road-badge">~2 dias</div></div>
+  <div class="road-item"><div class="road-n todo">4</div><div class="road-label">Emitter básico — compila expressões e statements simples</div><div class="road-badge">~3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">5</div><div class="road-label">Variáveis locais + globais na VM</div><div class="road-badge">~2 dias</div></div>
+  <div class="road-item"><div class="road-n todo">6</div><div class="road-label">Controle de fluxo (if/while/for) com backpatching</div><div class="road-badge">~2 dias</div></div>
+  <div class="road-item"><div class="road-n todo">7</div><div class="road-label">Call frames + funções na VM</div><div class="road-badge">~3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">8</div><div class="road-label">Closures e upvalues</div><div class="road-badge">~3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">9</div><div class="road-label">GC (mark-and-sweep)</div><div class="road-badge">~2-3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">10</div><div class="road-label">Structs/records no bytecode</div><div class="road-badge">~3 dias</div></div>
+  <div class="road-item"><div class="road-n todo">—</div><div class="road-label"><em>Zenith agora tem um runtime completo e portável. Self-hosting pode começar aqui.</em></div><div class="road-badge">marco</div></div>
+  <div class="road-item"><div class="road-n todo">11</div><div class="road-label">Lexer reescrito em Zenith</div><div class="road-badge">~4 dias</div></div>
+  <div class="road-item"><div class="road-n todo">12</div><div class="road-label">Parser reescrito em Zenith</div><div class="road-badge">~5 dias</div></div>
+  <div class="road-item"><div class="road-n todo">13</div><div class="road-label">Emitter reescrito em Zenith</div><div class="road-badge">~5 dias</div></div>
+  <div class="road-item"><div class="road-n todo">14</div><div class="road-label">Bootstrap completo — Stage 0 → Stage 1 → Stage 2, validação</div><div class="road-badge">🎉</div></div>
+</div>
+</section>
+
+<footer>
+  Zenith Language — Documentação de Implementação<br>
+  Bytecode VM &amp; Self-Hosting · Versão 1.0
+</footer>
+
+</main>
+</div>
+</body>
+</html>

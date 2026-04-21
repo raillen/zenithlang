@@ -291,6 +291,7 @@ int main(void) {
         { "tests/behavior/list_text_basic", "tests\\behavior\\list_text_basic\\build\\list-text-basic.exe", "list_text_basic", 0 },
         { "tests/behavior/list_dyn_trait_basic", "tests\\behavior\\list_dyn_trait_basic\\build\\list-dyn-trait-basic.exe", "list_dyn_trait_basic", 16 },
         { "tests/behavior/map_basic", "tests\\behavior\\map_basic\\build\\map-basic.exe", "map_basic", 0 },
+        { "tests/behavior/map_int_text_basic", "tests\\behavior\\map_int_text_basic\\build\\map-int-text-basic.exe", "map_int_text_basic", 7 },
         { "tests/behavior/map_safe_get", "tests\\behavior\\map_safe_get\\build\\map-safe-get.exe", "map_safe_get", 15 },
         { "tests/behavior/list_safe_get", "tests\\behavior\\list_safe_get\\build\\list-safe-get.exe", "list_safe_get", 27 },
         { "tests/behavior/value_semantics_collections", "tests\\behavior\\value_semantics_collections\\build\\value-semantics-collections.exe", "value_semantics_collections", 131 },

@@ -56,7 +56,6 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_IDENT_EXPR: return "ident_expr";
         case ZT_AST_GROUPED_EXPR: return "grouped_expr";
         case ZT_AST_WHERE_CLAUSE: return "where_clause";
-        case ZT_AST_FORMAT_STRING_EXPR: return "format_string_expr";
         case ZT_AST_MATCH_BINDING: return "match_binding";
         default: return "unknown";
     }
@@ -135,5 +134,4 @@ zt_ast_named_arg_list zt_ast_named_arg_list_make(void) {
     list.capacity = 0;
     return list;
 }
-
 

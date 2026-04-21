@@ -1174,7 +1174,6 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
 
     if (callee == NULL) return result;
 
-    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: callee kind is %s", zt_ast_kind_name(callee->kind));
 
     if (callee->kind == ZT_AST_IDENT_EXPR) {
         const char *name = callee->as.ident_expr.name;
@@ -1764,7 +1763,6 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 const char *trait_name = trait_type != NULL ? trait_type->name : NULL;
                 const zt_ast_node *trait_decl = zt_catalog_find_decl(&checker->catalog, trait_name);
 
-                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: looking for '%s' in trait '%s'", method_name, trait_name != NULL ? trait_name : "<null>");
 
                 if (trait_decl != NULL && trait_decl->kind == ZT_AST_TRAIT_DECL) {
                     size_t m;
@@ -1773,7 +1771,7 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                         if (method != NULL && method->kind == ZT_AST_TRAIT_METHOD && strcmp(method->as.trait_method.name, method_name) == 0) {
                             zt_type_dispose(result.type);
                             result.type = zt_checker_resolve_type(checker, method->as.trait_method.return_type, scope);
-                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: found method '%s' in trait '%s'", method_name, trait_name);
+
                             break;
                         }
                     }
@@ -1840,8 +1838,6 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
         info.type = zt_type_make(ZT_TYPE_VOID);
         return info;
     }
-
-    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_PROJECT_INVALID_INPUT, node->span, "DEBUG: expr kind is %s", zt_ast_kind_name(node->kind));
 
     switch (node->kind) {
         case ZT_AST_INT_EXPR:
@@ -2687,6 +2683,7 @@ static void zt_checker_check_func_like(zt_checker *checker, const zt_ast_node *f
             zt_expr_info_dispose(&default_info);
         }
         zt_binding_scope_declare(&scope, ZT_BINDING_VALUE, param->as.param.name, zt_type_clone(param_type), 0);
+        zt_checker_check_where_clause(checker, param->as.param.where_clause, &scope, param_type);
         zt_type_dispose(param_type);
     }
 

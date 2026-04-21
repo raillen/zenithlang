@@ -41,6 +41,9 @@ typedef struct zt_func_meta {
     zt_func_param_meta *params;
     size_t param_count;
     size_t param_capacity;
+    int is_extern;
+    char *extern_binding;
+    char *extern_abi_name;
 } zt_func_meta;
 
 typedef struct zt_method_meta {
@@ -84,6 +87,21 @@ static char *zt_lower_strdup(const char *text) {
     if (copy == NULL) return NULL;
     memcpy(copy, text, len + 1);
     return copy;
+}
+
+static char *zt_lower_join_with_dot(const char *left, const char *right) {
+    size_t left_len;
+    size_t right_len;
+    char *out;
+    if (left == NULL || right == NULL) return NULL;
+    left_len = strlen(left);
+    right_len = strlen(right);
+    out = (char *)malloc(left_len + 1 + right_len + 1);
+    if (out == NULL) return NULL;
+    memcpy(out, left, left_len);
+    out[left_len] = '.';
+    memcpy(out + left_len + 1, right, right_len + 1);
+    return out;
 }
 
 static void *zt_lower_grow_array(void *items, size_t *capacity, size_t item_size) {
@@ -266,6 +284,12 @@ static zt_type *zt_lower_type_from_ast(zt_lower_ctx *ctx, const zt_ast_node *nod
         if (is_builtin) return zt_type_make(kind);
         return zt_type_make_named(ZT_TYPE_USER, node->as.type_simple.name);
     }
+    if (node->kind == ZT_AST_TYPE_DYN) {
+        zt_type_list args = zt_type_list_make();
+        zt_type *inner_type = zt_lower_type_from_ast(ctx, node->as.type_dyn.inner_type);
+        zt_type_list_push(&args, inner_type != NULL ? inner_type : zt_unknown_type());
+        return zt_type_make_with_args(ZT_TYPE_DYN, "dyn", args);
+    }
     if (node->kind == ZT_AST_TYPE_GENERIC) {
         return zt_lower_type_from_generic(ctx, node->as.type_generic.name, &node->as.type_generic.type_args);
     }
@@ -403,7 +427,12 @@ static const zt_struct_field_meta *zt_find_struct_field_meta(const zt_struct_met
 
 static const zt_func_meta *zt_find_func_meta(const zt_lower_ctx *ctx, const char *name) {
     size_t i;
-    if (name == NULL) return NULL;
+    if (ctx == NULL || name == NULL) return NULL;
+
+    for (i = 0; i < ctx->func_count; i += 1) {
+        if (ctx->funcs[i].name != NULL && strcmp(ctx->funcs[i].name, name) == 0) return &ctx->funcs[i];
+    }
+
     for (i = 0; i < ctx->func_count; i += 1) {
         if (zt_name_eq(ctx->funcs[i].name, name)) return &ctx->funcs[i];
     }
@@ -463,14 +492,14 @@ static void zt_collect_struct_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl
     }
 }
 
-static void zt_collect_func_symbol(
+static zt_func_meta *zt_collect_func_symbol(
         zt_lower_ctx *ctx,
         const char *name,
         const zt_ast_node_list *params,
         const zt_ast_node *return_type) {
     size_t i;
     zt_func_meta *meta = zt_push_func_meta(ctx);
-    if (meta == NULL) return;
+    if (meta == NULL) return NULL;
     meta->name = zt_lower_strdup(name);
     meta->return_type = return_type != NULL ? zt_lower_type_from_ast(ctx, return_type) : zt_type_make(ZT_TYPE_VOID);
     for (i = 0; i < params->count; i += 1) {
@@ -483,6 +512,7 @@ static void zt_collect_func_symbol(
         p->type = zt_lower_type_from_ast(ctx, param->as.param.type_node);
         p->default_value = param->as.param.default_value;
     }
+    return meta;
 }
 
 static void zt_collect_apply_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl) {
@@ -520,6 +550,24 @@ static void zt_collect_const_symbol(zt_lower_ctx *ctx, const zt_ast_node *decl) 
     meta->is_lowering = 0;
 }
 
+static void zt_collect_extern_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl) {
+    size_t i;
+    if (ctx == NULL || decl == NULL || decl->kind != ZT_AST_EXTERN_DECL) return;
+
+    for (i = 0; i < decl->as.extern_decl.functions.count; i += 1) {
+        const zt_ast_node *func = decl->as.extern_decl.functions.items[i];
+        zt_func_meta *meta;
+        if (func == NULL || func->kind != ZT_AST_FUNC_DECL) continue;
+
+        meta = zt_collect_func_symbol(ctx, func->as.func_decl.name, &func->as.func_decl.params, func->as.func_decl.return_type);
+        if (meta == NULL) continue;
+
+        meta->is_extern = 1;
+        meta->extern_binding = zt_lower_strdup(decl->as.extern_decl.binding);
+        meta->extern_abi_name = zt_lower_strdup(zt_last_segment(func->as.func_decl.name));
+    }
+}
+
 static void zt_collect_symbols(zt_lower_ctx *ctx, const zt_ast_node *root) {
     size_t i;
     if (root == NULL || root->kind != ZT_AST_FILE) return;
@@ -532,6 +580,8 @@ static void zt_collect_symbols(zt_lower_ctx *ctx, const zt_ast_node *root) {
         if (decl == NULL) continue;
         if (decl->kind == ZT_AST_FUNC_DECL) {
             zt_collect_func_symbol(ctx, decl->as.func_decl.name, &decl->as.func_decl.params, decl->as.func_decl.return_type);
+        } else if (decl->kind == ZT_AST_EXTERN_DECL) {
+            zt_collect_extern_symbols(ctx, decl);
         } else if (decl->kind == ZT_AST_APPLY_DECL) {
             zt_collect_apply_symbols(ctx, decl);
         } else if (decl->kind == ZT_AST_CONST_DECL) {
@@ -1088,6 +1138,7 @@ static zt_hir_expr *zt_lower_call_expr(
     func_meta = zt_find_func_meta(ctx, callee_path);
     {
         zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, func_meta);
+        char *callee_name = NULL;
         zt_type *return_type = expected != NULL
             ? zt_type_clone(expected)
             : (func_meta != NULL ? zt_type_clone(func_meta->return_type) :
@@ -1097,7 +1148,19 @@ static zt_hir_expr *zt_lower_call_expr(
             zt_hir_expr_list_dispose(&args);
             return NULL;
         }
-        result->as.call_expr.callee_name = zt_lower_strdup(callee_path);
+
+        if (func_meta != NULL &&
+            func_meta->is_extern &&
+            func_meta->extern_binding != NULL &&
+            func_meta->extern_abi_name != NULL &&
+            strcmp(func_meta->extern_binding, "c") == 0) {
+            callee_name = zt_lower_join_with_dot(func_meta->extern_binding, func_meta->extern_abi_name);
+        }
+        if (callee_name == NULL) {
+            callee_name = zt_lower_strdup(callee_path);
+        }
+
+        result->as.call_expr.callee_name = callee_name;
         result->as.call_expr.args = args;
         return result;
     }
@@ -1929,6 +1992,8 @@ zt_hir_lower_result zt_lower_ast_to_hir(const zt_ast_node *root) {
     for (i = 0; i < ctx.func_count; i += 1) {
         size_t p;
         free(ctx.funcs[i].name);
+        free(ctx.funcs[i].extern_binding);
+        free(ctx.funcs[i].extern_abi_name);
         zt_type_dispose(ctx.funcs[i].return_type);
         for (p = 0; p < ctx.funcs[i].param_count; p += 1) {
             free(ctx.funcs[i].params[p].name);

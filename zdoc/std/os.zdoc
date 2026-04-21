@@ -1,0 +1,165 @@
+---
+@target std.os
+---
+
+# std.os — Sistema Operacional
+
+Módulo para detecção de plataforma/arquitetura, variáveis de ambiente, PID e diretório corrente.
+
+## Tipos
+
+### Platform
+
+```zt
+public enum Platform
+    Windows
+    Linux
+    MacOS
+    Unknown
+end
+```
+
+Enumeração das plataformas suportadas pelo Zenith.
+
+### Arch
+
+```zt
+public enum Arch
+    X64
+    X86
+    Arm64
+    Unknown
+end
+```
+
+Enumeração das arquiteturas de processador detectáveis.
+
+### Error
+
+```zt
+public enum Error
+    NotFound
+    PermissionDenied
+    AlreadyExists
+    NotADirectory
+    IOError
+    Unknown
+end
+```
+
+Tipos de erro específicos do módulo OS.
+
+## Funções de Diretório e Ambiente
+
+### current_dir
+
+```zt
+public func current_dir() -> result<text, core.Error>
+```
+
+Retorna o diretório de trabalho atual do processo.
+
+### change_dir
+
+```zt
+public func change_dir(dir_path: text) -> result<void, core.Error>
+```
+
+Altera o diretório de trabalho atual.
+
+@param dir_path — Novo diretório de trabalho.
+
+### env
+
+```zt
+public func env(name: text) -> optional<text>
+```
+
+Lê uma variável de ambiente. Retorna `none` se não existir.
+
+@param name — Nome da variável (ex: `"PATH"`, `"HOME"`).
+@return Valor da variável ou `none`.
+
+### pid
+
+```zt
+public func pid() -> int
+```
+
+Retorna o PID (Process ID) do processo atual.
+
+## Detecção de Plataforma
+
+### platform
+
+```zt
+public func platform() -> os.Platform
+```
+
+Detecta a plataforma do sistema operacional em execução.
+Retorna `Platform.Unknown` se não for Windows, Linux ou MacOS.
+
+### arch
+
+```zt
+public func arch() -> os.Arch
+```
+
+Detecta a arquitetura do processador.
+Reconhece variantes como `"amd64"`, `"x86_64"`, `"aarch64"`.
+
+### platform_text
+
+```zt
+public func platform_text() -> text
+```
+
+Retorna o nome bruto da plataforma como texto (ex: `"windows"`, `"linux"`, `"macos"`).
+
+### arch_text
+
+```zt
+public func arch_text() -> text
+```
+
+Retorna o nome bruto da arquitetura como texto (ex: `"x64"`, `"arm64"`).
+
+### is_platform
+
+```zt
+public func is_platform(p: os.Platform) -> bool
+```
+
+Verifica se a plataforma atual corresponde ao valor especificado.
+
+### is_arch
+
+```zt
+public func is_arch(a: os.Arch) -> bool
+```
+
+Verifica se a arquitetura atual corresponde ao valor especificado.
+
+### is_windows
+
+```zt
+public func is_windows() -> bool
+```
+
+Atalho para `is_platform(Platform.Windows)`.
+
+### is_linux
+
+```zt
+public func is_linux() -> bool
+```
+
+Atalho para `is_platform(Platform.Linux)`.
+
+### is_macos
+
+```zt
+public func is_macos() -> bool
+```
+
+Atalho para `is_platform(Platform.MacOS)`.

@@ -24,7 +24,9 @@ typedef enum c_legalized_seq_kind {
     C_LEGALIZED_SEQ_LIST_TEXT_INDEX,
     C_LEGALIZED_SEQ_LIST_TEXT_SLICE,
     C_LEGALIZED_SEQ_LIST_TEXT_LEN,
-    C_LEGALIZED_SEQ_MAP_TEXT_TEXT_INDEX
+    C_LEGALIZED_SEQ_MAP_TEXT_TEXT_INDEX,
+    C_LEGALIZED_SEQ_MAP_INDEX,
+    C_LEGALIZED_SEQ_MAP_LEN
 } c_legalized_seq_kind;
 
 typedef struct c_legalize_result {
@@ -35,8 +37,8 @@ typedef struct c_legalize_result {
 
 typedef struct c_legalized_seq_expr {
     c_legalized_seq_kind kind;
-    char runtime_name[64];
-    char sequence_type_name[64];
+    char runtime_name[160];
+    char sequence_type_name[96];
     char sequence_expr[128];
     char arg1_expr[64];
     char arg2_expr[64];
