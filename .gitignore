@@ -24,6 +24,7 @@ src/compiler/syntax.lua.map
 # Build artifacts
 *.o
 *.exe
+*.py
 build_errors.txt
 output.txt
 reports/perf/*.json
