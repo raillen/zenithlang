@@ -12,6 +12,12 @@ Decision documents remain the historical source for rationale, tradeoffs and con
 
 These spec files are the implementation-facing reference used after the design consolidation.
 
+## Project context (AI-assisted)
+
+- These specs are part of an early AI-assisted language development initiative.
+- The repository is used as a study case, training ground, and validation target.
+- Final architecture and release decisions remain human-owned.
+
 ## Canonical Documents
 
 - `surface-syntax.md`: user-visible Zenith language syntax and semantic rules.

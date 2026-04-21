@@ -9,6 +9,13 @@ Regras desta area:
 - o objetivo e priorizar legibilidade, previsibilidade e baixo atrito neural
 - a surface syntax deve servir a semantica da linguagem, nao ao backend
 
+## Origem do projeto (IA-assistida)
+
+Zenith se posiciona como uma das iniciativas iniciais de linguagem desenvolvidas com forte assistencia de IA, e como estudo pratico de engenharia de linguagem com IA.
+
+- O projeto usa IA de forma intensa para acelerar iteracao e validacao tecnica.
+- A decisao final de linguagem, escopo e release permanece humana e documentada.
+
 Documentos canonicos consolidados:
 
 - `spec/README.md`: indice dos specs canonicos.

@@ -13,6 +13,14 @@ Zenith is a reading-first language with explicit semantics and a native compilat
 - Pre-release target: `0.3.0-alpha.1`
 - Milestones M0-M38: completed
 
+## Project origin (AI-assisted)
+
+Zenith positions itself as one of the early language initiatives intentionally built with strong AI assistance, and as a practical case study in AI-assisted language engineering.
+
+- The project is intentionally developed with heavy AI assistance.
+- Primary goals include personal study, technical upskilling, and validation of an AI-assisted workflow.
+- Language decisions, scope cuts, and release gates remain human-owned and explicitly documented.
+
 What is intentionally deferred to the next cycle:
 
 - full interpolation lowering (`FORMAT_STRING_EXPR` is parsed, but HIR/ZIR/emitter are not finalized for it)
