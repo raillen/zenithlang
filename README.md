@@ -64,6 +64,10 @@ Build:
 
 ```bash
 python build.py
+# or
+bash build.sh
+# or (Windows)
+build.bat
 ```
 
 Help:
@@ -209,3 +213,8 @@ Notes:
 - `docs/planning/checklist-v2.md`
 - `docs/planning/cascade-v2.md`
 - `docs/planning/cascade-v1.md`
+
+## Wiki
+
+- https://github.com/raillen/zenithlang/wiki
+- Source pages: `docs/wiki/`
