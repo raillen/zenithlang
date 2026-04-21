@@ -1,100 +1,55 @@
-# Zenith Final Conformance Matrix (M32)
+# Zenith Final Conformance Matrix (R2.M11)
 
-- Status: implemented, with explicit open gates
-- Date: 2026-04-20
-- Scope: final matrix using the canonical status labels from `language/spec/implementation-status.md`
+- Status: conformant for RC 2.0 gate
+- Date: 2026-04-21
+- Scope: compiler + runtime + tooling + perf gates for release candidate
 
-## Inputs Used In This Snapshot
+## Inputs Used
 
-- `language/spec/implementation-status.md` (label vocabulary and closure rules)
-- `language/surface-implementation-status.md` (current implementation cut)
-- `tests/behavior/MATRIX.md` (M16 behavior map)
-- `docs/planning/checklist-v1.md` (M32 required coverage)
-- `tests/perf/README.md` and latest local `perf quick` run output
-- latest local runs on this date:
-  - `python run_all_tests.py` (failed: rebuild output parsing/encoding + behavior failures in `std_fs_path_basic` and `std_math_basic`)
-  - `python tests/perf/run_perf.py --suite quick` (failed at `micro_runtime_core`)
-  - `zt fmt --check tests/behavior/simple_app` (passed)
-  - `zt doc check tests/behavior/simple_app` (passed)
-  - `zt test tests/behavior/std_test_attr_pass_skip` (passed: `pass=1 skip=1 fail=0`)
-  - `.ztc-tmp/tests/conformance/test_m16.exe` (failed: `29/122`)
+- `language/spec/implementation-status.md`
+- `language/surface-implementation-status.md`
+- `tests/behavior/MATRIX.md`
+- `reports/suites/smoke__latest.json`
+- `reports/suites/pr_gate__latest.json`
+- `reports/suites/nightly__latest.json`
+- `reports/suites/stress__latest.json`
+- `reports/perf/summary-nightly.json`
 
-## Canonical Labels
-
-This matrix uses only canonical labels:
-
-- `Spec`
-- `Parsed`
-- `Semantic`
-- `Lowered`
-- `Emitted`
-- `Runtime`
-- `Executable`
-- `Conformant`
-- `Deferred`
-- `Risk`
-- `Rejected`
-
-## Layer Matrix By Feature
-
-Notes:
-
-- `-` means the layer is not applicable for that row.
-- `Lowering+Backend` uses `Lowered`/`Emitted` depending on current evidence.
-
-| Feature | Parser | Semantic | Lowering+Backend | Runtime | Diagnostics | Formatter | Overall | Evidence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Project model (`zenith.ztproj`, namespace/imports, multifile) | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `multifile_*`, `public_const_module`; CLI `check/build` |
-| Functions and control flow (`if/while/repeat/for/match`) | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `control_flow_*`, `functions_*` |
-| Structs, traits, `apply`, mutating methods | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `structs_*`, `methods_*` |
-| Collections, `optional/result`, value semantics | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `list_*`, `map_*`, `optional_result_*`, `value_semantics_*` |
-| Runtime `where` contracts | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `where_contracts_ok`, `where_contract_*_error` |
-| Enum payload and exhaustive `match` | Parsed | Semantic | Lowered | Deferred | Semantic | Executable | Semantic | `enum_match` and `enum_match_non_exhaustive_error` validate semantic path; no stable full E2E conformance gate yet |
-| Diagnostics renderer (cross-stage) | - | - | - | - | Executable | - | Executable | golden fragments in `tests/fixtures/diagnostics/*` + CLI checks |
-| Formatter (`zt fmt`, check mode) | - | - | - | - | - | Executable | Executable | `zt fmt --check tests/behavior/simple_app` pass |
-| Stdlib MVP modules (`std.*`) | Parsed | Semantic | Emitted | Executable | Executable | Executable | Executable | behavior: `std_*` projects + module files in `stdlib/std/` |
-| CLI final (`check/build/run/test/fmt/doc check`) | - | - | - | - | Executable | Executable | Executable | `run_all_tests.py` exercises command set; `zt test/fmt/doc check` executed |
-| ZDoc (`zt doc check`, links/targets/pages) | - | - | - | - | Executable | - | Executable | `zt doc check tests/behavior/simple_app` pass; driver tests include `test_zdoc.exe` |
-
-## Risk Matrix (Explicit `Risk` Coverage)
-
-| Risk Item | Label | Gate State | Current Mitigation / Evidence |
-| --- | --- | --- | --- |
-| RC cycles without full cycle strategy | Risk | Open | Tracked in `language/spec/backend-scalability-risk-model.md`; planned closure in `M35` |
-| Monomorphization code bloat | Risk | Open (partially mitigated) | `build.monomorphization_limit` + behavior `monomorphization_limit_error`; still needs long-scale closure |
-| Heap-vs-stack wrappers overhead | Risk | Open (partially mitigated) | stack/in-place work exists for `optional/result`, but perf gate still failing in current snapshot |
-| Runtime `where` completeness | Executable | Closed for current subset | runtime errors validated via `where_contract_*` behavior tests |
-| Exhaustive enum match in emitted C path | Risk | Open | semantic diagnostics present, but missing stable E2E conformance closure in current gate snapshot |
-
-## M36 Performance Integration (By Critical Benchmark)
-
-Snapshot from latest local `python tests/perf/run_perf.py --suite quick`:
-
-| Benchmark | Status | Evidence |
-| --- | --- | --- |
-| `micro_frontend_small_check` | Executable | pass |
-| `micro_lowering_small_emit_c` | Executable | pass |
-| `micro_runtime_core` | Risk | fail (`backend.c.emit`: missing `std.bytes` wrapper symbols in generated C) |
-| `micro_stdlib_core` | Deferred | not executed (suite stopped after previous fail) |
-| `macro_small_check` | Deferred | not executed in latest failed run |
-| `macro_small_build_cold` | Deferred | not executed in latest failed run |
-| `macro_small_build_warm` | Deferred | not executed in latest failed run |
-| `macro_small_run` | Deferred | not executed in latest failed run |
-| `macro_small_test` | Deferred | not executed in latest failed run |
-| `macro_medium_check` | Deferred | not executed in latest failed run |
-| `nightly` gate (`tests/perf/gate_nightly.ps1`) | Deferred | still pending dedicated long window |
-
-## Full-Suite Gate Snapshot (M32)
+## Gate Snapshot
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| Consolidated suite run before stable declaration | Executable | `python run_all_tests.py` was executed; result failed with actionable blockers |
-| Stable conformance gate (`M16`) | Deferred | `.ztc-tmp/tests/conformance/test_m16.exe` returned `29/122` |
-| Performance quick gate | Risk | failed at `micro_runtime_core` |
-| Performance nightly gate | Deferred | not fully executed in dedicated long window |
+| `smoke` | `Conformant` | `9/9` pass (`reports/suites/smoke__latest.json`) |
+| `pr_gate` | `Conformant` | `112/112` pass (`reports/suites/pr_gate__latest.json`) |
+| `nightly` | `Conformant` | `114/114` pass (`reports/suites/nightly__latest.json`) |
+| `stress` | `Conformant` | `21/21` pass (`reports/suites/stress__latest.json`) |
+| Perf nightly | `Conformant` | `status=pass`, `23` benchmarks (`reports/perf/summary-nightly.json`) |
 
-## M32 Closure Statement
+## Layer Matrix
 
-M32 is implemented as a real, auditable matrix with canonical labels, layer coverage, explicit risks and integrated performance status by benchmark.
+Canonical labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`, `Executable`, `Conformant`, `Risk`, `Deferred`, `Rejected`.
 
-Stable MVP release remains blocked until the open gates above are resolved.
+| Area | Parser | Semantic | Lowered | Emitted | Runtime | Overall |
+| --- | --- | --- | --- | --- | --- | --- |
+| Project model (`.ztproj`, namespace/imports) | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Core syntax/control-flow/functions | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Structs/traits/apply/methods | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Collections + optional/result + `?` | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Enum match + exhaustiveness | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Formatter (`zt fmt --check`) | `Spec` | `-` | `-` | `-` | `Executable` | `Conformant` |
+| ZDoc (`zt doc check`) | `Spec` | `Semantic` | `-` | `-` | `Executable` | `Conformant` |
+| Stdlib MVP (`std.*`) | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+
+## Risk Matrix
+
+| Risk Item | Label | Current State |
+| --- | --- | --- |
+| RC cycles strategy (ownership graph) | `Risk` | tracked, not blocking RC gate |
+| Long-horizon monomorphization scale | `Risk` | gate active (`monomorphization_limit_error`) |
+| Runtime diagnostic code taxonomy drift | `Risk` | tracked as P2 docs/runtime alignment |
+
+## RC Statement
+
+Release candidate 2.0 gate is green on all mandatory suites and nightly perf.
+
+No open P0 blocker was found in this cut.

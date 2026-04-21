@@ -2,6 +2,30 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [0.3.0-rc.1] - 2026-04-21
+
+### Adicionado
+- Feature pack A completo (R2.M9):
+  - `panic(...)` como statement de fonte
+  - `optional<T>?` com propagacao de `none`
+  - match de optional com `case value` e exhaustividade de enum
+- `fmt "..."` completo ponta a ponta (parser, semantic, lowering, emitter, formatter, testes)
+- aliases canonicos de inteiros sem sinal: `u8`, `u16`, `u32`, `u64`
+
+### Corrigido
+- coerencia de `check(...)` como intrinsic e validacao de tipo
+- construcao qualificada de `core.Error(...)` no fluxo completo
+- `Comparable` no prelude/checker e operadores relacionais alinhados por trait
+- classificacao de suite para `fmt_interpolation_type_error` no gate `pr_gate/nightly/stress`
+
+### Qualidade E Performance
+- suites obrigatorias de RC verdes:
+  - `python run_suite.py smoke` (`9/9`)
+  - `python run_suite.py pr_gate` (`112/112`)
+  - `python run_suite.py nightly` (`114/114`)
+  - `python run_suite.py stress` (`21/21`)
+- performance nightly em `pass` com `23` benchmarks (`reports/perf/summary-nightly.json`)
+
 ## [0.2.5] - 2026-04-09
 
 ### Adicionado (Stdlib Foundation)

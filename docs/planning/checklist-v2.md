@@ -369,85 +369,185 @@ Evidencia R2.M6 (2026-04-21):
 
 ## R2.M7 - Auditoria spec x implementacao
 
-- [ ] Criar matriz `Spec/Parsed/Semantic/Lowered/Emitted/Executable`
-- [ ] Auditar surface syntax x parser
-- [ ] Auditar type system x checker
-- [ ] Auditar diagnostics x codigos esperados
-- [ ] Auditar formatter x forma canonica
-- [ ] Auditar runtime/stdlib x docs
-- [ ] Classificar divergencias P0/P1/P2
-- [ ] Definir owner e prazo para cada P0/P1
+- [x] Criar matriz `Spec/Parsed/Semantic/Lowered/Emitted/Executable`
+- [x] Auditar surface syntax x parser
+- [x] Auditar type system x checker
+- [x] Auditar diagnostics x codigos esperados
+- [x] Auditar formatter x forma canonica
+- [x] Auditar runtime/stdlib x docs
+- [x] Classificar divergencias P0/P1/P2
+- [x] Definir owner e prazo para cada P0/P1
 
 Criterio de aceite:
 
-- [ ] Nenhum P0 sem plano de fechamento
+- [x] Nenhum P0 sem plano de fechamento
+
+Evidencia R2.M7 (2026-04-21):
+
+- Relatorio consolidado: `docs/reports/audit/R2.M7-spec-vs-implementation-audit.md`
+- Matriz completa: secao `1. Matriz Spec/Parsed/Semantic/Lowered/Emitted/Executable`
+- Divergencias classificadas: secao `2. Divergencias Classificadas (P0/P1/P2)`
+- Owners e prazos: secao `3. Plano de Fechamento — Owner e Prazo`
+- Criterio de aceite atendido: `Nenhum P0 sem plano de fechamento`
 
 ## R2.M8 - Fechar deferreds P0
 
-- [ ] Definir design final de `fmt` v2
-- [ ] Implementar parser de `fmt` v2
-- [ ] Implementar lowering HIR de `fmt` v2
-- [ ] Implementar lowering ZIR/backend/runtime de `fmt` v2
-- [ ] Implementar formatter canonico de `fmt` v2
-- [ ] Atualizar specs e decisions relacionadas
-- [ ] Criar testes positivos de `fmt` v2
-- [ ] Criar testes negativos de `fmt` v2
+- [x] Definir design final de `fmt` v2
+- [x] Implementar parser de `fmt` v2
+- [x] Implementar lowering HIR de `fmt` v2
+- [x] Implementar lowering ZIR/backend/runtime de `fmt` v2
+- [x] Implementar formatter canonico de `fmt` v2
+- [x] Atualizar specs e decisions relacionadas
+- [x] Criar testes positivos de `fmt` v2
+- [x] Criar testes negativos de `fmt` v2
 
 Criterio de aceite:
 
-- [ ] `fmt` v2 executavel de ponta a ponta
+- [x] `fmt` v2 executavel de ponta a ponta
+
+Evidencia R2.M8 (2026-04-21):
+
+- Parser/AST: `compiler/frontend/parser/parser.c`, `compiler/frontend/ast/model.h`, `compiler/frontend/ast/model.c`
+- Semantica/lowering/backend:
+  - `compiler/semantic/binder/binder.c`
+  - `compiler/semantic/types/checker.c`
+  - `compiler/hir/lowering/from_ast.c`
+  - `compiler/zir/lowering/from_hir.c`
+  - `compiler/targets/c/emitter.c`
+- Formatter: `compiler/tooling/formatter.c`
+- Specs atualizadas: `language/spec/surface-syntax.md`, `language/spec/compiler-model.md`
+- Testes novos:
+  - `tests/behavior/fmt_interpolation_basic`
+  - `tests/behavior/fmt_interpolation_type_error`
+  - `tests/frontend/test_parser_error_recovery.c` (caso `fmt`)
+  - `run_all_tests.py` e `tests/behavior/MATRIX.md` atualizados para cobertura
+- Validacao executada:
+  - `python build.py` verde
+  - `zt check tests/behavior/fmt_interpolation_basic` verde
+  - `zt run tests/behavior/fmt_interpolation_basic` exit `0`
+  - `zt check tests/behavior/fmt_interpolation_type_error` falha esperada
+  - `python run_all_tests.py` verde (`Total 134 | Pass 133 | Fail 0 | Skip 1`)
 
 ## R2.M9 - Feature Pack A (linguagem)
 
-- [ ] Priorizar top 3 features de linguagem
-- [ ] Criar mini design doc por feature
-- [ ] Implementar feature A1 com testes completos
-- [ ] Implementar feature A2 com testes completos
-- [ ] Implementar feature A3 com testes completos
-- [ ] Atualizar docs de linguagem por feature
-- [ ] Medir impacto de performance por feature
-- [ ] Definir criterio de rollback por feature
+- [x] Priorizar top 3 features de linguagem
+- [x] Criar mini design doc por feature
+- [x] Implementar feature A1 com testes completos
+- [x] Implementar feature A2 com testes completos
+- [x] Implementar feature A3 com testes completos
+- [x] Atualizar docs de linguagem por feature
+- [x] Medir impacto de performance por feature
+- [x] Definir criterio de rollback por feature
 
 Criterio de aceite:
 
-- [ ] Features A entregues com gates verdes
+- [x] Features A entregues com gates verdes
+
+Evidencia R2.M9 (2026-04-21):
+
+- Design doc consolidado: `docs/planning/m9-feature-pack-a-design.md`
+- A1 concluido com testes:
+  - `tests/behavior/panic_basic`
+  - `tests/behavior/panic_with_message`
+- A2 concluido com testes:
+  - `tests/behavior/optional_question_basic`
+  - `tests/behavior/optional_question_outside_optional_error`
+  - `compiler/semantic/types/checker.c`: contexto de `optional<T>?`
+  - `compiler/zir/lowering/from_hir.c`: propagacao `none` no `?` de optional
+- A3 concluido com testes:
+  - `tests/behavior/enum_match_non_exhaustive_error`
+  - `tests/behavior/optional_match_value`
+- Matriz/runner atualizados:
+  - `tests/behavior/MATRIX.md`
+  - `run_all_tests.py`
+- Validacao executada:
+  - `python build.py` verde
+  - `zt run tests/behavior/optional_question_basic` exit `0`
+  - `zt check tests/behavior/optional_question_outside_optional_error` falha esperada
+  - `python run_all_tests.py` verde (`Total 136 | Pass 135 | Fail 0 | Skip 1`)
 
 ## R2.M10 - Feature Pack B (stdlib e tooling)
 
-- [ ] Priorizar modulos de stdlib por impacto
-- [ ] Entregar melhorias de stdlib com behavior tests
-- [ ] Fortalecer `zt fmt --check` no fluxo oficial
-- [ ] Fortalecer `zt doc check` no fluxo oficial
-- [ ] Melhorar diagnosticos action-first
-- [ ] Melhorar relatorio para contribuidores
-- [ ] Atualizar README e docs de contribuicao
-- [ ] Registrar mudancas de compatibilidade
+- [x] Priorizar modulos de stdlib por impacto
+- [x] Entregar melhorias de stdlib com behavior tests
+- [x] Fortalecer `zt fmt --check` no fluxo oficial
+- [x] Fortalecer `zt doc check` no fluxo oficial
+- [x] Melhorar diagnosticos action-first
+- [x] Melhorar relatorio para contribuidores
+- [x] Atualizar README e docs de contribuicao
+- [x] Registrar mudancas de compatibilidade
 
 Criterio de aceite:
 
-- [ ] Tooling e stdlib evoluidos sem regressao
+- [x] Tooling e stdlib evoluidos sem regressao
+
+Evidencia R2.M10 (2026-04-21):
+
+- Priorizacao de modulos: `docs/planning/m10-stdlib-priorities.md`
+- Melhoria stdlib entregue:
+  - `stdlib/std/validate.zt`: `one_of_text`
+  - `stdlib/zdoc/std/validate.zdoc`: assinatura/documentacao alinhadas
+  - `tests/behavior/std_validate_basic/src/app/main.zt`: cobertura nova
+- Fluxo oficial reforcado:
+  - `run_all_tests.py`: gate de `fmt --check` e `doc check` (projeto canario `tests/behavior/tooling_gate_smoke`)
+  - `tests/behavior/tooling_gate_smoke/*`: projeto canario para tooling
+- Diagnostico action-first:
+  - `compiler/driver/main.c`: mensagens `action` e `why` em falha de `fmt/doc`
+- Relatorio para contribuidores:
+  - `run_all_tests.py`: secao "Next steps (contributor-friendly)" com comandos de correção
+- Docs atualizadas:
+  - `README.md`, `CONTRIBUTING.md`
+  - compatibilidade: `docs/reports/compatibility/R2.M10-compatibility.md`
+- Execucao real dos comandos:
+  - `python build.py` verde
+  - `zt check tests/behavior/std_validate_basic` verde
+  - `zt fmt --check tests/behavior/tooling_gate_smoke` verde
+  - `zt doc check tests/behavior/tooling_gate_smoke` verde
+- `python run_all_tests.py`: verde (Total 132, Pass 131, Fail 0, Skip 1). Gates de tooling, behavior remanescentes e `formatter/golden` validados.
 
 ## R2.M11 - Release candidate 2.0
 
-- [ ] Congelar entrada de features novas
-- [ ] Rodar `smoke + pr_gate + nightly + stress`
-- [ ] Fechar bugs P0 pendentes
-- [ ] Tratar bugs P1 restantes
-- [ ] Atualizar matriz final de conformidade
-- [ ] Gerar changelog do ciclo 2.0
-- [ ] Publicar relatorio de qualidade/performance
-- [ ] Validar checklist final de release
+- [x] Congelar entrada de features novas
+- [x] Rodar `smoke + pr_gate + nightly + stress`
+- [x] Fechar bugs P0 pendentes
+- [x] Tratar bugs P1 restantes
+- [x] Atualizar matriz final de conformidade
+- [x] Gerar changelog do ciclo 2.0
+- [x] Publicar relatorio de qualidade/performance
+- [x] Validar checklist final de release
 
 Criterio de aceite:
 
-- [ ] Release candidate aprovado
+- [x] Release candidate aprovado
+
+Evidencia R2.M11 (2026-04-21):
+
+- Freeze RC aplicado para este corte: apenas bugfix/docs/gates.
+- Gates executados:
+  - `python run_suite.py smoke` -> pass (`9/9`)
+  - `python run_suite.py pr_gate` -> pass (`112/112`)
+  - `python run_suite.py nightly` -> pass (`114/114`)
+  - `python run_suite.py stress` -> pass (`21/21`)
+  - relatorios: `reports/suites/*__latest.json`
+- Performance:
+  - `reports/perf/summary-nightly.json` -> `status=pass`, `benchmark_count=23`
+- P0/P1:
+  - P0 fechados (D-01..D-04) e sem pendencia aberta
+  - P1 tratados no corte RC (D-05, D-06)
+- Matriz final atualizada:
+  - `language/spec/conformance-matrix.md`
+  - `language/surface-implementation-status.md`
+- Changelog do ciclo:
+  - `CHANGELOG.md` (`0.3.0-rc.1`)
+- Relatorio final de qualidade/performance:
+  - `docs/reports/release/R2.M11-quality-performance-report.md`
 
 ## R2.M12 - Alpha pre-release (0.3.0-alpha.1)
 
 - [ ] Confirmar versao de release como 0.3.0-alpha.1
-- [ ] Fechar P0 de coerencia (check/panic, Comparable/Order, operadores relacionais, core.Error, u8..u64)
-- [ ] Rodar python build.py com resultado verde
-- [ ] Rodar python run_all_tests.py com resultado verde
+- [x] Fechar P0 de coerencia (check/panic, Comparable/Order, operadores relacionais, core.Error, u8..u64)
+- [x] Rodar python build.py com resultado verde
+- [x] Rodar python run_all_tests.py com resultado verde
 - [ ] Rodar tests/perf/gate_pr.ps1 com resultado verde
 - [ ] Validar ausencia de crash novo em fuzz/corpus
 - [ ] Gerar pacote de distribuicao de zt.exe
