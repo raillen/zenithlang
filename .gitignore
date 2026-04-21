@@ -34,3 +34,7 @@ reports/perf/*.md
 # Local/generated docs artifacts
 doc_check_output.txt
 
+
+# Exclude website from language repo
+zenith-website/
+

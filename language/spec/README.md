@@ -69,7 +69,7 @@ Older decisions are not deleted because they preserve why the rule exists.
 
 ## Relationship To Implementation
 
-Implementation status is tracked separately in `../surface-implementation-status.md` and `../../IMPLEMENTATION_CHECKLIST.md`.
+Implementation status is tracked separately in `../surface-implementation-status.md` and `../../docs/planning/checklist-v1.md`.
 
 The compiler may lag behind this spec during implementation milestones.
 

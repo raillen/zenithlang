@@ -3,7 +3,7 @@
 - Status: working comparison note
 - Date: 2026-04-20
 - Scope: sintaxe, recursos, runtime, tooling, maturidade e posicionamento
-- Base: decisions canonicas em `language/decisions/` + estado de implementacao em `IMPLEMENTATION_CHECKLIST.md`
+- Base: decisions canonicas em `language/decisions/` + estado de implementacao em `docs/planning/checklist-v1.md`
 
 ## 1. Objetivo
 
@@ -318,4 +318,4 @@ Longo prazo:
 13. `language/decisions/078-backend-scalability-and-runtime-risk-policy.md`
 14. `language/decisions/079-memory-and-dispatch-architecture.md`
 15. `language/decisions/082-syntax-accessibility-ergonomics.md`
-16. `IMPLEMENTATION_CHECKLIST.md`
+16. `docs/planning/checklist-v1.md`

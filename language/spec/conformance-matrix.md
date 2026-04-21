@@ -9,7 +9,7 @@
 - `language/spec/implementation-status.md` (label vocabulary and closure rules)
 - `language/surface-implementation-status.md` (current implementation cut)
 - `tests/behavior/MATRIX.md` (M16 behavior map)
-- `IMPLEMENTATION_CHECKLIST.md` (M32 required coverage)
+- `docs/planning/checklist-v1.md` (M32 required coverage)
 - `tests/perf/README.md` and latest local `perf quick` run output
 - latest local runs on this date:
   - `python run_all_tests.py` (failed: rebuild output parsing/encoding + behavior failures in `std_fs_path_basic` and `std_math_basic`)

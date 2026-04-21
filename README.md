@@ -166,7 +166,7 @@ Planned alpha package (`0.3.0-alpha.1`) includes:
 Compatibility policy:
 
 - before `1.0.0`, breaking changes are allowed between pre-releases
-- deferred items are tracked in `IMPLEMENTATION_ROADMAP_2_0.md` and `IMPLEMENTATION_CHECKLIST_2_0.md`
+- deferred items are tracked in `docs/planning/roadmap-v2.md` and `docs/planning/checklist-v2.md`
 
 ## Licensing package
 
@@ -201,11 +201,11 @@ Notes:
 - `stdlib/` -> public standard library and docs
 - `tests/` -> behavior, semantic, runtime, targets, perf
 - `language/spec/` -> canonical language and tooling specs
-- `docs/licensing/` -> practical licensing guide
+- `docs/` -> planning, reports, guides, licensing and standards
 
-## Roadmap and operational docs
+## Documentation hub
 
-- `IMPLEMENTATION_ROADMAP_2_0.md`
-- `IMPLEMENTATION_CHECKLIST_2_0.md`
-- `IMPLEMENTATION_CASCADE_2_0.md`
-- `IMPLEMENTATION_CASCADE.md`
+- `docs/planning/roadmap-v2.md`
+- `docs/planning/checklist-v2.md`
+- `docs/planning/cascade-v2.md`
+- `docs/planning/cascade-v1.md`
