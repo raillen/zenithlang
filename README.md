@@ -8,10 +8,9 @@ Zenith is a reading-first language with explicit semantics and a native compilat
 
 ## Current state
 
-- Status: active development (v2 compiler track)
-- Baseline: `0.2.x`
-- Pre-release target: `0.3.0-alpha.1`
-- Milestones M0-M38: completed
+- Status: alpha published (v2 compiler track)
+- Current version: `0.3.0-alpha.1` (2026-04-21)
+- Alpha gate milestone: `R2.M12` closed
 
 ## Project origin (AI-assisted)
 
@@ -23,8 +22,8 @@ Zenith positions itself as one of the early language initiatives intentionally b
 
 What is intentionally deferred to the next cycle:
 
-- full interpolation lowering (`FORMAT_STRING_EXPR` is parsed, but HIR/ZIR/emitter are not finalized for it)
 - Compass LSP productization
+- public API expansion for `stdlib/platform/` (remains internal)
 
 ## Philosophy
 
