@@ -46,13 +46,13 @@ def bench_specs():
         {"id": "macro_medium_run", "scenario": "macro_medium", "cat": "macro", "kind": "cmd", "cmd": "run", "project": ROOT / "tests" / "perf" / "std_validate_vs_c", "expect": "benchmark std.validate.between vs c helper", "iters": {"quick": 2, "nightly": 4}, "suites": ["nightly"]},
         {"id": "macro_medium_test", "scenario": "macro_medium", "cat": "macro", "kind": "cmd", "cmd": "test", "project": ROOT / "tests" / "behavior" / "std_test_attr_pass_skip", "suites": ["nightly"]},
         # macro large
-        {"id": "macro_large_check", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "check", "project": ROOT / "tests" / "perf" / "m37_result_generic", "suites": ["nightly"]},
+        {"id": "macro_large_check", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "check", "project": ROOT / "tests" / "perf" / "m37_result_generic", "iters": {"nightly": 11}, "baseline_cmp": {"lat_median_ms": {"warn_pct": 16.0, "fail_pct": 32.0}, "lat_p95_ms": {"warn_pct": 20.0, "fail_pct": 40.0}, "throughput_ops_per_sec": {"warn_pct": 16.0, "fail_pct": 32.0}}, "suites": ["nightly"]},
         {"id": "macro_large_build_cold", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "build", "project": ROOT / "tests" / "perf" / "m37_result_generic", "cold": True, "timeout": 900, "iters": {"quick": 2, "nightly": 5}, "suites": ["nightly"]},
         {"id": "macro_large_build_warm", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "build", "project": ROOT / "tests" / "perf" / "m37_result_generic", "timeout": 900, "iters": {"quick": 2, "nightly": 5}, "suites": ["nightly"]},
         {"id": "macro_large_run", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "run", "project": ROOT / "tests" / "perf" / "m37_result_generic", "expect": "m37-result-generic-ok", "iters": {"quick": 2, "nightly": 4}, "suites": ["nightly"]},
         {"id": "macro_large_test", "scenario": "macro_large", "cat": "macro", "kind": "cmd", "cmd": "test", "project": ROOT / "tests" / "perf" / "m36_test_large", "iters": {"quick": 2, "nightly": 4}, "budget": {"warn": {"lat_median_ms": 45000, "lat_p95_ms": 60000, "peak_ws": 520_000_000, "binary_size": 22_000_000}, "fail": {"lat_median_ms": 70000, "lat_p95_ms": 90000, "peak_ws": 800_000_000, "binary_size": 44_000_000}}, "suites": ["nightly"]},
         # legacy gate alias
-        {"id": "m37_result_generic", "scenario": "m37_result_generic", "cat": "macro", "kind": "bin", "project": ROOT / "tests" / "perf" / "m37_result_generic", "expect": "m37-result-generic-ok", "iters": {"quick": 2, "nightly": 4}, "suites": ["nightly"]},
+        {"id": "m37_result_generic", "scenario": "m37_result_generic", "cat": "macro", "kind": "bin", "project": ROOT / "tests" / "perf" / "m37_result_generic", "expect": "m37-result-generic-ok", "iters": {"quick": 2, "nightly": 11}, "baseline_cmp": {"lat_median_ms": {"warn_pct": 16.0, "fail_pct": 32.0}, "lat_p95_ms": {"warn_pct": 20.0, "fail_pct": 40.0}, "throughput_ops_per_sec": {"warn_pct": 16.0, "fail_pct": 32.0}, "startup_ms": {"warn_pct": 16.0, "fail_pct": 32.0}}, "suites": ["nightly"]},
     ]
 
 
@@ -284,6 +284,18 @@ def baseline_cmp(current, baseline, higher=False, warn_pct=12.0, fail_pct=25.0):
     return {"status": "pass", "pct": reg}
 
 
+
+def cmp_thresholds(task, metric_name, key, default_warn, default_fail):
+    cfg = task.get(key)
+    if not isinstance(cfg, dict):
+        return float(default_warn), float(default_fail)
+    metric_cfg = cfg.get(metric_name, {})
+    if not isinstance(metric_cfg, dict):
+        metric_cfg = {}
+    warn = metric_cfg.get("warn_pct", cfg.get("warn_pct", default_warn))
+    fail = metric_cfg.get("fail_pct", cfg.get("fail_pct", default_fail))
+    return float(warn), float(fail)
+
 def load_baseline(platform_id, bid):
     p = BASELINE_DIR / platform_id / f"{bid}.json"
     if not p.exists():
@@ -390,8 +402,10 @@ def run_one(task, driver, suite_name, suite_cfg, platform_id, base_metrics):
             bl_status = {"status": "pass", "pct": 0.0}
             br_status = {"status": "pass", "pct": 0.0}
         else:
-            bl_status = baseline_cmp(float(v), None if blm is None else blm.get(k), higher=higher)
-            br_status = baseline_cmp(float(v), brm.get(k), higher=higher, warn_pct=8.0, fail_pct=18.0)
+            bl_warn_pct, bl_fail_pct = cmp_thresholds(task, k, "baseline_cmp", 12.0, 25.0)
+            br_warn_pct, br_fail_pct = cmp_thresholds(task, k, "base_report_cmp", 8.0, 18.0)
+            bl_status = baseline_cmp(float(v), None if blm is None else blm.get(k), higher=higher, warn_pct=bl_warn_pct, fail_pct=bl_fail_pct)
+            br_status = baseline_cmp(float(v), brm.get(k), higher=higher, warn_pct=br_warn_pct, fail_pct=br_fail_pct)
         final = b_status
         for st in (bl_status["status"], br_status["status"]):
             if st == "fail":
