@@ -1,0 +1,41 @@
+﻿{
+    "frozen_at_utc":  "2026-04-21T13:16:10.2540533Z",
+    "frozen_by":  "tools/triage_cycle.py --freeze-baseline",
+    "source_file":  "reports/perf/summary-quick.json",
+    "source_generated_at_utc":  "2026-04-20T18:46:22.421373+00:00",
+    "suite":  "quick",
+    "status":  "pass",
+    "benchmark_count":  10,
+    "platform_key":  "windows-AMD64",
+    "scenario_status":  {
+                            "micro_frontend":  {
+                                                   "status":  "pass",
+                                                   "count":  1
+                                               },
+                            "micro_lowering_backend":  {
+                                                           "status":  "pass",
+                                                           "count":  1
+                                                       },
+                            "micro_runtime":  {
+                                                  "status":  "pass",
+                                                  "count":  1
+                                              },
+                            "micro_stdlib":  {
+                                                 "status":  "pass",
+                                                 "count":  1
+                                             },
+                            "macro_small":  {
+                                                "status":  "pass",
+                                                "count":  5
+                                            },
+                            "macro_medium":  {
+                                                 "status":  "pass",
+                                                 "count":  1
+                                             }
+                        },
+    "notes":  [
+                  "This is the perf baseline snapshot for R2.M0.",
+                  "Per-benchmark baselines in tests/perf/baselines/windows-AMD64 were started during freeze run.",
+                  "Current quick perf execution is failing before full suite completion due runtime/backend issue in local workspace."
+              ]
+}

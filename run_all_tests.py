@@ -19,6 +19,15 @@ BEHAVIOR_DIR = os.path.join("tests", "behavior")
 RESULTS = {"pass": [], "fail": [], "skip": []}
 
 
+def safe_print(message=""):
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        sanitized = str(message).encode(encoding, errors="replace").decode(encoding, errors="replace")
+        print(sanitized)
+
+
 def section(title):
     print("\n" + "=" * 60)
     print(f"  {title}")
@@ -259,9 +268,9 @@ def main():
     print(f"  Skip : {len(RESULTS['skip'])}")
 
     if RESULTS["fail"]:
-        print("\n  Failures:")
+        safe_print("\n  Failures:")
         for failure in RESULTS["fail"]:
-            print(f"    - {failure}")
+            safe_print(f"    - {failure}")
         return 1
 
     print("\n  All checks passed.")

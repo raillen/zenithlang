@@ -1,0 +1,129 @@
+{
+  "suite": "smoke",
+  "timestamp": "20260421T135025Z",
+  "elapsed_ms": 2405,
+  "total": 9,
+  "pass": 9,
+  "fail": 0,
+  "by_layer": {
+    "frontend": {
+      "pass": 8,
+      "fail": 0
+    },
+    "runtime": {
+      "pass": 1,
+      "fail": 0
+    }
+  },
+  "by_fail_class": {},
+  "entries": [
+    {
+      "test_id": "behavior/enum_match_non_exhaustive_error",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-fail",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/error_type_mismatch",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-fail",
+      "passed": true,
+      "elapsed_ms": 14,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/functions_invalid_call_error",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-fail",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/multifile_import_alias",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-pass",
+      "passed": true,
+      "elapsed_ms": 15,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/optional_result_basic",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-pass",
+      "passed": true,
+      "elapsed_ms": 14,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/result_question_basic",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-pass",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/simple_app",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-pass",
+      "passed": true,
+      "elapsed_ms": 16,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/std_io_basic",
+      "layer": "frontend",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "check-pass",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "behavior/where_contract_param_error",
+      "layer": "runtime",
+      "kind": "behavior",
+      "suite": "smoke",
+      "stage": "run-fail",
+      "passed": true,
+      "elapsed_ms": 2326,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    }
+  ]
+}

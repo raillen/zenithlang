@@ -1,0 +1,9 @@
+func main() -> int
+    var total: int = 0
+    var i: int = 0
+    while i < 10
+        total = total + i
+        i = i + 1
+    end
+    return total
+end

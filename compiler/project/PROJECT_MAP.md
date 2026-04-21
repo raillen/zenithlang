@@ -50,7 +50,7 @@ Gerenciamento de projeto e documentação. Responsável por:
 
 - Priority: Medium
 - Source files: 4
-- Extracted symbols: 77
+- Extracted symbols: 82
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -58,7 +58,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/project/zdoc.c` | 1203 | 45 | 1 |
+| `compiler/project/zdoc.c` | 1286 | 50 | 1 |
 | `compiler/project/zdoc.h` | 71 | 1 | 1 |
 | `compiler/project/ztproj.c` | 834 | 30 | 1 |
 | `compiler/project/ztproj.h` | 104 | 1 | 0 |
@@ -88,43 +88,48 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 45 | `struct` | `zt_zdoc_public_symbol_list` |
 | 51 | `func_def` | `zt_copy_text` |
 | 61 | `func_def` | `zt_path_char_equal` |
-| 70 | `func_def` | `zt_join_path` |
-| 96 | `func_def` | `zt_path_is_dir` |
-| 108 | `func_def` | `zt_path_has_extension` |
-| 116 | `func_def` | `zt_strip_prefix_path` |
-| 141 | `func_def` | `zt_read_file_text` |
-| 187 | `func_def` | `zt_trim_inplace` |
-| 205 | `func_decl` | `zt_zdoc_diagnostic_push` |
-| 215 | `func_def` | `zt_zdoc_file_list_push` |
-| 238 | `func_def` | `zt_zdoc_file_list_dispose` |
-| 244 | `func_def` | `zt_discover_zdoc_files` |
-| 319 | `func_def` | `zt_symbol_equal` |
-| 324 | `func_def` | `zt_zdoc_symbol_list_push` |
-| 357 | `func_def` | `zt_zdoc_symbol_list_dispose` |
-| 363 | `func_def` | `zt_zdoc_public_symbol_equal` |
-| 371 | `func_def` | `zt_zdoc_public_symbol_list_push` |
-| 408 | `func_def` | `zt_zdoc_public_symbol_list_dispose` |
-| 414 | `func_def` | `zt_mark_public_symbol_documented` |
-| 431 | `func_def` | `zt_emit_missing_public_doc_warnings` |
-| 461 | `func_def` | `zt_symbol_exists` |
-| 481 | `func_def` | `zt_symbol_exists_local` |
-| 498 | `func_def` | `zt_add_symbol_pair` |
-| 530 | `func_def` | `zt_collect_source_symbols` |
-| 628 | `func_def` | `zt_zdoc_diagnostic_list_init` |
-| 633 | `func_def` | `zt_zdoc_diagnostic_list_dispose` |
-| 639 | `func_def` | `zt_zdoc_diagnostic_error_count` |
-| 650 | `func_def` | `zt_zdoc_diagnostic_warning_count` |
-| 661 | `func_def` | `zt_zdoc_severity_name` |
-| 665 | `func_def` | `zt_zdoc_code_name` |
-| 679 | `func_def` | `zt_zdoc_diagnostic_push` |
-| 717 | `func_def` | `zt_extract_tag_value` |
-| 742 | `func_def` | `zt_starts_with_guides` |
-| 758 | `func_def` | `zt_make_paired_source_path` |
-| 780 | `func_def` | `zt_resolve_target` |
-| 791 | `func_def` | `zt_resolve_link` |
-| 800 | `func_def` | `zt_scan_links` |
-| 860 | `func_def` | `zt_check_zdoc_file` |
-| 1101 | `func_def` | `zt_zdoc_check_project` |
+| 70 | `func_def` | `zt_path_equal` |
+| 86 | `func_def` | `zt_join_path` |
+| 112 | `func_def` | `zt_path_is_dir` |
+| 124 | `func_def` | `zt_path_has_extension` |
+| 132 | `func_def` | `zt_strip_prefix_path` |
+| 157 | `func_def` | `zt_read_file_text` |
+| 203 | `func_def` | `zt_trim_inplace` |
+| 221 | `func_decl` | `zt_zdoc_diagnostic_push` |
+| 231 | `func_def` | `zt_zdoc_file_list_push` |
+| 254 | `func_def` | `zt_zdoc_file_list_dispose` |
+| 260 | `func_def` | `zt_discover_zdoc_files` |
+| 335 | `func_def` | `zt_symbol_equal` |
+| 340 | `func_def` | `zt_zdoc_symbol_list_push` |
+| 373 | `func_def` | `zt_zdoc_symbol_list_dispose` |
+| 379 | `func_def` | `zt_zdoc_public_symbol_equal` |
+| 387 | `func_def` | `zt_zdoc_public_symbol_list_push` |
+| 424 | `func_def` | `zt_zdoc_public_symbol_list_dispose` |
+| 430 | `func_def` | `zt_mark_public_symbol_documented` |
+| 447 | `func_def` | `zt_emit_missing_public_doc_warnings` |
+| 477 | `func_def` | `zt_symbol_exists` |
+| 497 | `func_def` | `zt_symbol_exists_local` |
+| 514 | `func_def` | `zt_add_symbol_pair` |
+| 546 | `func_def` | `zt_collect_source_symbols` |
+| 644 | `func_def` | `zt_zdoc_diagnostic_list_init` |
+| 649 | `func_def` | `zt_zdoc_diagnostic_list_dispose` |
+| 655 | `func_def` | `zt_zdoc_diagnostic_error_count` |
+| 666 | `func_def` | `zt_zdoc_diagnostic_warning_count` |
+| 677 | `func_def` | `zt_zdoc_severity_name` |
+| 681 | `func_def` | `zt_zdoc_code_name` |
+| 695 | `func_def` | `zt_zdoc_diagnostic_push` |
+| 733 | `func_def` | `zt_extract_tag_value` |
+| 758 | `func_def` | `zt_starts_with_guides` |
+| 774 | `func_def` | `zt_ascii_equal_ci` |
+| 777 | `func_def` | `zt_text_equal_ci_with_sep` |
+| 793 | `func_def` | `zt_is_locale_segment` |
+| 812 | `func_def` | `zt_normalize_zdoc_relative_path` |
+| 828 | `func_def` | `zt_make_paired_source_path` |
+| 850 | `func_def` | `zt_resolve_target` |
+| 861 | `func_def` | `zt_resolve_link` |
+| 870 | `func_def` | `zt_scan_links` |
+| 930 | `func_def` | `zt_check_zdoc_file` |
+| 1184 | `func_def` | `zt_zdoc_check_project` |
 
 #### `compiler/project/zdoc.h`
 

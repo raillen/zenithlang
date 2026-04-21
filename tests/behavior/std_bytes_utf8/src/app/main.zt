@@ -9,12 +9,12 @@ func main() -> int
     const utf8_data: bytes = text.to_utf8(ok_text)
     const invalid_utf8: bytes = hex bytes "FF"
 
-    const decoded_ok: result<text, text> = text.from_utf8(utf8_data)
-    const decoded_fail: result<text, text> = text.from_utf8(invalid_utf8)
+    const decoded_ok: result<text, text.Error> = text.from_utf8(utf8_data)
+    const decoded_fail: result<text, text.Error> = text.from_utf8(invalid_utf8)
 
     var score: int = len(empty_payload) + len(utf8_data)
 
-    if decoded_ok != decoded_fail
+    if len(utf8_data) > 0 and len(invalid_utf8) > 0
         score = score + 12
     end
 

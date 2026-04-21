@@ -1,7 +1,9 @@
 --- @target: namespace
-# std.os.process — Execução de Processos Externos
+# std.os.process — Processos Filhos
 
-Módulo para executar programas externos e inspecionar seu código de saída.
+Módulo de execução de processos filhos.
+Execução explícita via `program` + `args`, sem shell.
+Código de saída não-zero é resultado válido, não erro.
 ---
 
 --- @target: ExitStatus
@@ -11,7 +13,20 @@ public struct ExitStatus
 end
 ```
 
-Encapsula o código de saída de um processo executado.
+Status de saída de um processo filho.
+Código 0 indica sucesso convencional; outros códigos são resultados válidos.
+---
+
+--- @target: CapturedRun
+```zt
+public struct CapturedRun
+    status: process.ExitStatus
+    stdout_text: text
+    stderr_text: text
+end
+```
+
+Resultado de execução com captura textual de stdout e stderr.
 ---
 
 --- @target: Error
@@ -20,71 +35,38 @@ public enum Error
     NotFound
     PermissionDenied
     IOFailure
-    StillRunning
+    DecodeFailed
     Unknown
 end
 ```
 
-Tipos de erro na execução de processos.
-
-## Funções
+Erro de nível de transporte (spawn, wait, captura).
+Código de saída não-zero NÃO é `process.Error`.
 ---
 
 --- @target: run
 ```zt
-public func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<int, core.Error>
+public func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<process.ExitStatus, process.Error>
 ```
 
-Executa um programa externo e retorna seu código de saída.
+Executa um programa e aguarda sua conclusão.
+Não usa shell. Argumentos são passados explicitamente.
 
-@param program — Nome ou caminho do executável.
-@param args — Lista de argumentos (padrão: lista vazia).
-@param cwd — Diretório de trabalho para o processo (padrão: `none`, usa o diretório atual).
-@return Código de saída do processo como inteiro, ou erro.
+@param program — Caminho ou nome do programa.
+@param args — Argumentos do programa (padrão: `[]`).
+@param cwd — Diretório de trabalho opcional.
+@return Status de saída, ou erro de transporte.
 ---
 
---- @target: run_program
+--- @target: run_capture
 ```zt
-public func run_program(program: text) -> result<int, core.Error>
+public func run_capture(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<process.CapturedRun, process.Error>
 ```
 
-Atalho para `run(program)` sem argumentos adicionais.
+Executa um programa e captura stdout e stderr como texto (UTF-8).
 
-@param program — Nome ou caminho do executável.
-@return Código de saída ou erro.
----
-
---- @target: from_code
-```zt
-public func from_code(code: int) -> process.ExitStatus
-```
-
-Cria um `ExitStatus` a partir de um código de saída inteiro.
-
-@param code — Código de saída.
-@return Struct `ExitStatus` com o código.
----
-
---- @target: exit_code
-```zt
-public func exit_code(status: process.ExitStatus) -> int
-```
-
-Extrai o código de saída numérico de um `ExitStatus`.
----
-
---- @target: is_success
-```zt
-public func is_success(status: process.ExitStatus) -> bool
-```
-
-Retorna `true` se o código de saída for `0` (sucesso convencional).
----
-
---- @target: is_failure
-```zt
-public func is_failure(status: process.ExitStatus) -> bool
-```
-
-Retorna `true` se o código de saída for diferente de `0`.
+@param program — Caminho ou nome do programa.
+@param args — Argumentos do programa (padrão: `[]`).
+@param cwd — Diretório de trabalho opcional.
+@return Resultado capturado, ou erro de transporte.
 ---

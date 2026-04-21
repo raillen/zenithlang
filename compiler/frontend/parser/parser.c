@@ -263,14 +263,8 @@ static int zt_parser_append_char_to_name_path(
     return zt_parser_append_to_name_path(p, buf, buf_cap, len, &ch, 1, span, overflowed, label);
 }
 
-static int zt_parser_is_contextual_ident(const zt_token *tok, const char *text) {
-    return tok != NULL && tok->kind == ZT_TOKEN_IDENTIFIER && tok->length == strlen(text) && strncmp(tok->text, text, tok->length) == 0;
-}
-
-static int zt_parser_token_is_identifier_text(const zt_token *tok, const char *text) {
-    size_t length;
+static int zt_parser_token_is_identifier_literal(const zt_token *tok, const char *text, size_t length) {
     if (tok == NULL || text == NULL || tok->kind != ZT_TOKEN_IDENTIFIER) return 0;
-    length = strlen(text);
     return tok->length == length && strncmp(tok->text, text, length) == 0;
 }
 
@@ -458,7 +452,7 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         return node;
     }
 
-    if (zt_parser_is_contextual_ident(&tok, "fmt")) {
+    if (zt_parser_token_is_identifier_literal(&tok, "fmt", 3)) {
         zt_parser_fill_peek(p);
         if (p->peek.kind == ZT_TOKEN_STRING_LITERAL || p->peek.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
             zt_diag_list_add(
@@ -590,9 +584,9 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         return node;
     }
 
-    if (zt_parser_is_contextual_ident(&tok, "hex")) {
+    if (zt_parser_token_is_identifier_literal(&tok, "hex", 3)) {
         zt_parser_fill_peek(p);
-        if (zt_parser_is_contextual_ident(&p->peek, "bytes")) {
+        if (zt_parser_token_is_identifier_literal(&p->peek, "bytes", 5)) {
             zt_parser_advance(p);
             zt_parser_advance(p);
             if (p->current.kind != ZT_TOKEN_STRING_LITERAL && p->current.kind != ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
@@ -1542,7 +1536,7 @@ static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
             zt_parser_advance(p);
             {
                 zt_token attr_name = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-                if (zt_parser_token_is_identifier_text(&attr_name, "test")) {
+                if (zt_parser_token_is_identifier_literal(&attr_name, "test", 4)) {
                     is_test_attr = 1;
                 } else {
                     zt_diag_list_add(&p->result->diagnostics, ZT_DIAG_SYNTAX_ERROR, attr_name.span,

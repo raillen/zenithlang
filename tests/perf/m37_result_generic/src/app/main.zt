@@ -92,6 +92,7 @@ func main() -> result<void, core.Error>
     io.print("")?
     io.print("")?
 
-    io.print_line("m37-result-generic-ok")?
+    io.write("m37-result-generic-ok")?
+    io.write("\n")?
     return success()
 end

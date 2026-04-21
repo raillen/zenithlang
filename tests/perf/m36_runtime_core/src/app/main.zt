@@ -65,6 +65,7 @@ func main() -> result<void, core.Error>
         return error("m36 runtime score below expected")
     end
 
-    io.print_line("m36-runtime-core-ok")?
+    io.write("m36-runtime-core-ok")?
+    io.write("\n")?
     return success()
 end

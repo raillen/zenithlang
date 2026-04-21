@@ -1,0 +1,6 @@
+Running optional/result property tests...
+
+
+Optional/Result property tests: 12/14 passed
+FAIL: optional_type_mismatch should have type error: expected diag code 30, not found
+FAIL: none_to_non_optional should have type error: expected diag code 30, not found

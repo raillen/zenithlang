@@ -2,19 +2,19 @@ namespace app.main
 
 import std.fs as fs
 
-func main() -> result<void, core.Error>
+func main() -> result<void, fs.Error>
     const path: text = ".ztc-tmp/std_fs_basic.txt"
 
     fs.write_text(path, "Zenith FS baseline")?
 
-    const exists_ok: bool = fs.exists(path)
+    const exists_ok: bool = fs.exists(path)?
     if exists_ok == false
-        return error("std.fs.exists returned false after write_text")
+        return error(fs.Error.NotFound)
     end
 
     const content: text = fs.read_text(path)?
     if len(content) == 0
-        return error("std.fs.read_text returned empty content")
+        return error(fs.Error.IOError)
     end
 
     return success()

@@ -55,8 +55,8 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/frontend/ast/model.c` | 140 | 8 | 1 |
-| `compiler/frontend/ast/model.h` | 404 | 1 | 2 |
+| `compiler/frontend/ast/model.c` | 138 | 8 | 1 |
+| `compiler/frontend/ast/model.h` | 402 | 1 | 2 |
 
 ### Local Dependencies
 
@@ -76,13 +76,13 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | Line | Kind | Symbol |
 | ---: | --- | --- |
 | 6 | `func_def` | `zt_ast_kind_name` |
-| 66 | `func_def` | `zt_ast_make` |
-| 75 | `func_def` | `zt_ast_node_list_push` |
-| 88 | `func_def` | `zt_ast_named_arg_list_push` |
-| 101 | `func_def` | `zt_ast_map_entry_list_push` |
-| 114 | `func_def` | `zt_ast_node_list_make` |
-| 122 | `func_def` | `zt_ast_map_entry_list_make` |
-| 131 | `func_def` | `zt_ast_named_arg_list_make` |
+| 65 | `func_def` | `zt_ast_make` |
+| 74 | `func_def` | `zt_ast_node_list_push` |
+| 87 | `func_def` | `zt_ast_named_arg_list_push` |
+| 100 | `func_def` | `zt_ast_map_entry_list_push` |
+| 113 | `func_def` | `zt_ast_node_list_make` |
+| 121 | `func_def` | `zt_ast_map_entry_list_make` |
+| 130 | `func_def` | `zt_ast_named_arg_list_make` |
 
 #### `compiler/frontend/ast/model.h`
 

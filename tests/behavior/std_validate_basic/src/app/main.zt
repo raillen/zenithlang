@@ -6,10 +6,10 @@ func main() -> int
     const age_ok: bool = validate.between(18, min: 0, max: 130)
     const status_ok: bool = validate.one_of(200, [200, 201, 204])
     const name_ok: bool = validate.length_between("Zenith", min: 3, max: 20)
-    const clean_ok: bool = validate.no_whitespace("zenith_lang")
-    const space_ok: bool = validate.has_whitespace("zenith lang")
+    const positive_ok: bool = validate.positive(42)
+    const non_neg_ok: bool = validate.non_negative(0)
 
-    if age_ok and status_ok and name_ok and clean_ok and space_ok
+    if age_ok and status_ok and name_ok and positive_ok and non_neg_ok
         return 42
     end
 

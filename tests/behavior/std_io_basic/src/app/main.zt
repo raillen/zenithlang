@@ -6,9 +6,8 @@ func main() -> result<void, core.Error>
     io.write("Hello from std.io!")?
     io.write("\n")?
 
-    io.print("Stderr outputs correctly.", to: true)?
-    io.print("\n", to: true)?
+    io.print("Stderr outputs correctly.", to: io.stderr)?
+    io.print("\n", to: io.stderr)?
 
     return success()
 end
-

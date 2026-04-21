@@ -1,6 +1,10 @@
--- Biblioteca Padrão Zenith — Módulo Format
--- Formatação numérica: hex, binário, bytes (binary/decimal).
+-- Zenith Standard Library — Format Module
+-- Presentation formatting: numbers, dates, bytes, hex, binary (Decision 060).
+-- 🏗️ TYPES
 -- 🏗️ EXTERN C
+-- 🔢 NUMBER / PERCENT
+-- 📅 DATE / DATETIME
+-- 💾 BYTES / HEX / BIN
 namespace std.format
 
 public enum BytesStyle
@@ -9,26 +13,40 @@ public enum BytesStyle
 end
 
 extern c
+    func zt_format_number(value: float, decimals: int) -> text
+    func zt_format_percent(value: float, decimals: int) -> text
+    func zt_format_date(millis: int, style: text) -> text
+    func zt_format_datetime(millis: int, style: text, locale: text) -> text
+    func zt_format_date_pattern(millis: int, pattern: text) -> text
+    func zt_format_datetime_pattern(millis: int, pattern: text) -> text
     func zt_format_hex_i64(value: int) -> text
     func zt_format_bin_i64(value: int) -> text
     func zt_format_bytes_binary(value: int, decimals: int) -> text
     func zt_format_bytes_decimal(value: int, decimals: int) -> text
 end
 
-public func style_binary() -> format.BytesStyle
-    return format.BytesStyle.Binary
+public func number(value: float, decimals: int = 0) -> text
+    return format.zt_format_number(value, decimals)
 end
 
-public func style_decimal() -> format.BytesStyle
-    return format.BytesStyle.Decimal
+public func percent(value: float, decimals: int = 0) -> text
+    return format.zt_format_percent(value, decimals)
 end
 
-public func hex(value: int) -> text
-    return format.zt_format_hex_i64(value)
+public func date(millis: int, style: text = "iso") -> text
+    return format.zt_format_date(millis, style)
 end
 
-public func bin(value: int) -> text
-    return format.zt_format_bin_i64(value)
+public func datetime(millis: int, style: text = "short", locale: text = "") -> text
+    return format.zt_format_datetime(millis, style, locale)
+end
+
+public func date_pattern(millis: int, pattern: text) -> text
+    return format.zt_format_date_pattern(millis, pattern)
+end
+
+public func datetime_pattern(millis: int, pattern: text) -> text
+    return format.zt_format_datetime_pattern(millis, pattern)
 end
 
 public func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binary, decimals: int = 1) -> text
@@ -42,11 +60,10 @@ public func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binar
     end
 end
 
-public func bytes_binary(value: int, decimals: int = 1) -> text
-    return format.bytes(value, style: format.style_binary(), decimals: decimals)
+public func hex(value: int) -> text
+    return format.zt_format_hex_i64(value)
 end
 
-public func bytes_decimal(value: int, decimals: int = 1) -> text
-    return format.bytes(value, style: format.style_decimal(), decimals: decimals)
+public func bin(value: int) -> text
+    return format.zt_format_bin_i64(value)
 end
-

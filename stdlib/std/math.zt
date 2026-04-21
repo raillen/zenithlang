@@ -1,4 +1,12 @@
--- Zenith Standard Library - std.math
+-- Zenith Standard Library — Math Module
+-- Pure numeric mathematics (Decision 062).
+-- 🏗️ EXTERN C
+-- 📐 CONSTANTS
+-- ➗ ARITHMETIC
+-- 📏 ROUNDING
+-- 📐 TRIGONOMETRY
+-- 📊 LOGARITHMS / EXPONENTIALS
+-- 🔍 INSPECTION
 namespace std.math
 
 extern c
@@ -25,44 +33,42 @@ extern c
     func zt_math_is_finite(value: float) -> bool
 end
 
-public const PI: float = 3.141592653589793
-public const E: float = 2.718281828459045
-public const TAU: float = 6.283185307179586
+public const pi: float = 3.141592653589793
+public const e: float = 2.718281828459045
+public const tau: float = 6.283185307179586
 
-public func pi() -> float
-    return math.PI
+public func infinity() -> float
+    const zero: float = 0.0
+    return 1.0 / zero
 end
 
-public func e() -> float
-    return math.E
+public func nan() -> float
+    const zero: float = 0.0
+    return zero / zero
 end
 
-public func tau() -> float
-    return math.TAU
-end
-
-public func abs(value: int) -> int
-    if value < 0
-        return 0 - value
+public func abs(value: float) -> float
+    if value < 0.0
+        return 0.0 - value
     end
     return value
 end
 
-public func min(a: int, b: int) -> int
+public func min(a: float, b: float) -> float
     if a < b
         return a
     end
     return b
 end
 
-public func max(a: int, b: int) -> int
+public func max(a: float, b: float) -> float
     if a > b
         return a
     end
     return b
 end
 
-public func clamp(value: int, min: int, max: int) -> int
+public func clamp(value: float, min: float, max: float) -> float
     if value < min
         return min
     end
@@ -97,11 +103,11 @@ public func trunc(value: float) -> float
 end
 
 public func deg_to_rad(x: float) -> float
-    return x * (math.PI / 180.0)
+    return x * (math.pi / 180.0)
 end
 
 public func rad_to_deg(x: float) -> float
-    return x * (180.0 / math.PI)
+    return x * (180.0 / math.pi)
 end
 
 public func approx_equal(a: float, b: float, epsilon: float) -> bool

@@ -1,0 +1,25 @@
+{
+  "benchmark_id": "micro_stdlib_core",
+  "generated_at_utc": "2026-04-21T16:02:35.642007+00:00",
+  "platform_key": "windows-AMD64",
+  "host": {
+    "host": "RAILLEN-REDE",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "system": "windows",
+    "release": "11",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "python_version": "3.12.0",
+    "cpu_count": 12
+  },
+  "metric_values": {
+    "lat_median_ms": 231.014,
+    "lat_p95_ms": 271.566,
+    "lat_std_ms": 23.992,
+    "throughput_ops_per_sec": 4.3287,
+    "peak_ws": 0,
+    "alloc_proxy": 0,
+    "binary_size": 240291,
+    "startup_ms": 231.014
+  }
+}

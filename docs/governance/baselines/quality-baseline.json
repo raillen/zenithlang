@@ -1,0 +1,12 @@
+{
+  "generated_at_utc": "2026-04-21T13:08:34.153995+00:00",
+  "git_sha": "6e3058dc8c8604f6d698fd38c06b656f9ef969c6",
+  "command": "python run_all_tests.py",
+  "summary": {
+    "total": 119,
+    "pass": 112,
+    "fail": 6,
+    "skip": 1
+  },
+  "notes": "Frozen by tools/triage_cycle.py --freeze-baseline"
+}

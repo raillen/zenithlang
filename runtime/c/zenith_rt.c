@@ -1,4 +1,4 @@
-﻿#include "runtime/c/zenith_rt.h"
+#include "runtime/c/zenith_rt.h"
 #include "runtime/c/zenith_rt_templates.h"
 
 #include <ctype.h>
@@ -1496,6 +1496,15 @@ zt_text *zt_text_concat(const zt_text *a, const zt_text *b) {
 
     left_len = a->len;
     right_len = b->len;
+    if (left_len == 0) {
+        zt_retain((void *)b);
+        return (zt_text *)b;
+    }
+    if (right_len == 0) {
+        zt_retain((void *)a);
+        return (zt_text *)a;
+    }
+
     value = zt_text_from_utf8(NULL, left_len + right_len);
     if (left_len > 0) {
         memcpy(value->data, a->data, left_len);
@@ -1538,6 +1547,11 @@ zt_text *zt_text_slice(const zt_text *value, zt_int start_0, zt_int end_0) {
         return zt_text_from_utf8("", 0);
     }
 
+    if (start_pos == 0 && end_pos + 1 == value->len) {
+        zt_retain((void *)value);
+        return (zt_text *)value;
+    }
+
     return zt_text_from_utf8(value->data + start_pos, end_pos - start_pos + 1);
 }
 
@@ -1555,6 +1569,10 @@ zt_bool zt_text_eq(const zt_text *a, const zt_text *b) {
 
     if (a->len == 0) {
         return true;
+    }
+
+    if (a->data[0] != b->data[0]) {
+        return false;
     }
 
     return memcmp(a->data, b->data, a->len) == 0;
@@ -1882,8 +1900,9 @@ zt_optional_text zt_queue_text_dequeue(zt_list_text *queue) {
     queue->len -= 1;
     queue->data[queue->len] = NULL;
 
-    opt = zt_optional_text_present(value);
-    zt_release(value);
+    zt_runtime_require_text(value, "queue<text> entry cannot be null");
+    opt.is_present = true;
+    opt.value = value;
     return opt;
 }
 
@@ -1958,8 +1977,9 @@ zt_optional_text zt_stack_text_pop(zt_list_text *stack) {
     stack->len -= 1;
     stack->data[stack->len] = NULL;
 
-    opt = zt_optional_text_present(value);
-    zt_release(value);
+    zt_runtime_require_text(value, "stack<text> entry cannot be null");
+    opt.is_present = true;
+    opt.value = value;
     return opt;
 }
 
@@ -2434,15 +2454,14 @@ zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome
 
 zt_outcome_i64_core_error zt_outcome_i64_core_error_success(zt_int value) {
     zt_outcome_i64_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = true;
     outcome.value = value;
+    outcome.error = (zt_core_error){0};
     return outcome;
 }
 
 zt_outcome_i64_core_error zt_outcome_i64_core_error_failure(zt_core_error error) {
     zt_outcome_i64_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = false;
     outcome.value = 0;
     outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
@@ -2485,14 +2504,13 @@ void zt_outcome_i64_core_error_dispose(zt_outcome_i64_core_error *outcome) {
 
 zt_outcome_void_core_error zt_outcome_void_core_error_success(void) {
     zt_outcome_void_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = true;
+    outcome.error = (zt_core_error){0};
     return outcome;
 }
 
 zt_outcome_void_core_error zt_outcome_void_core_error_failure(zt_core_error error) {
     zt_outcome_void_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = false;
     outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
     return outcome;
@@ -2530,17 +2548,17 @@ void zt_outcome_void_core_error_dispose(zt_outcome_void_core_error *outcome) {
 zt_outcome_text_core_error zt_outcome_text_core_error_success(zt_text *value) {
     zt_outcome_text_core_error outcome;
     zt_runtime_require_text(value, "zt_outcome_text_text_success requires value text");
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = true;
     outcome.value = value;
+    outcome.error = (zt_core_error){0};
     zt_retain(value);
     return outcome;
 }
 
 zt_outcome_text_core_error zt_outcome_text_core_error_failure(zt_core_error error) {
     zt_outcome_text_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = false;
+    outcome.value = NULL;
     outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
     return outcome;
 }
@@ -2587,9 +2605,9 @@ void zt_outcome_text_core_error_dispose(zt_outcome_text_core_error *outcome) {
 
 zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_success(zt_optional_text value) {
     zt_outcome_optional_text_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = true;
     outcome.value = value;
+    outcome.error = (zt_core_error){0};
     if (value.is_present) {
         zt_runtime_require_text(value.value, "zt_outcome_optional_text_text_success requires present text");
         zt_retain(value.value);
@@ -2599,7 +2617,6 @@ zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_success(
 
 zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_failure(zt_core_error error) {
     zt_outcome_optional_text_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = false;
     outcome.value = zt_optional_text_empty();
     outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
@@ -2652,9 +2669,9 @@ void zt_outcome_optional_text_core_error_dispose(zt_outcome_optional_text_core_e
 
 zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_success(zt_optional_bytes value) {
     zt_outcome_optional_bytes_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = true;
     outcome.value = value;
+    outcome.error = (zt_core_error){0};
     if (value.is_present) {
         zt_runtime_require_bytes(value.value, "zt_outcome_optional_bytes_core_error_success requires present bytes");
         zt_retain(value.value);
@@ -2664,7 +2681,6 @@ zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_succes
 
 zt_outcome_optional_bytes_core_error zt_outcome_optional_bytes_core_error_failure(zt_core_error error) {
     zt_outcome_optional_bytes_core_error outcome;
-    memset(&outcome, 0, sizeof(outcome));
     outcome.is_success = false;
     outcome.value = zt_optional_bytes_empty();
     outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
@@ -4114,6 +4130,175 @@ static uint64_t zt_u64_magnitude(zt_int value) {
         return (uint64_t)value;
     }
     return (uint64_t)(-(value + 1)) + 1u;
+}
+
+static zt_bool zt_text_equals_literal(const zt_text *value, const char *literal) {
+    size_t literal_len;
+    if (value == NULL || literal == NULL) return false;
+    literal_len = strlen(literal);
+    if (value->len != literal_len) return false;
+    return memcmp(value->data, literal, literal_len) == 0;
+}
+
+static zt_int zt_format_clamp_decimals(zt_int decimals) {
+    if (decimals < 0) return 0;
+    if (decimals > 9) return 9;
+    return decimals;
+}
+
+static zt_bool zt_unix_ms_to_utc_tm(zt_int millis, struct tm *out_tm, int *out_ms_part) {
+    zt_int seconds;
+    zt_int ms_part;
+    time_t epoch_seconds;
+
+    if (out_tm == NULL) return false;
+
+    seconds = millis / 1000;
+    ms_part = millis % 1000;
+    if (ms_part < 0) {
+        ms_part += 1000;
+        seconds -= 1;
+    }
+
+    epoch_seconds = (time_t)seconds;
+    if ((zt_int)epoch_seconds != seconds) {
+        return false;
+    }
+
+#ifdef _WIN32
+    if (gmtime_s(out_tm, &epoch_seconds) != 0) return false;
+#else
+    if (gmtime_r(&epoch_seconds, out_tm) == NULL) return false;
+#endif
+
+    if (out_ms_part != NULL) {
+        *out_ms_part = (int)ms_part;
+    }
+    return true;
+}
+
+zt_text *zt_format_number(zt_float value, zt_int decimals) {
+    char format_spec[16];
+    char buffer[128];
+    zt_int clamped_decimals = zt_format_clamp_decimals(decimals);
+
+    snprintf(format_spec, sizeof(format_spec), "%%.%df", (int)clamped_decimals);
+    snprintf(buffer, sizeof(buffer), format_spec, (double)value);
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_percent(zt_float value, zt_int decimals) {
+    char format_spec[20];
+    char buffer[128];
+    zt_int clamped_decimals = zt_format_clamp_decimals(decimals);
+
+    snprintf(format_spec, sizeof(format_spec), "%%.%df%%%%", (int)clamped_decimals);
+    snprintf(buffer, sizeof(buffer), format_spec, (double)(value * 100.0));
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_date(zt_int millis, const zt_text *style) {
+    struct tm utc_tm;
+    const char *pattern = "%Y-%m-%d";
+    char buffer[128];
+
+    if (zt_text_equals_literal(style, "long")) {
+        pattern = "%A, %d %B %Y";
+    } else if (zt_text_equals_literal(style, "short")) {
+        pattern = "%Y-%m-%d";
+    } else if (zt_text_equals_literal(style, "iso")) {
+        pattern = "%Y-%m-%d";
+    }
+
+    if (!zt_unix_ms_to_utc_tm(millis, &utc_tm, NULL)) {
+        return zt_text_from_utf8_literal("1970-01-01");
+    }
+
+    if (strftime(buffer, sizeof(buffer), pattern, &utc_tm) == 0) {
+        return zt_text_from_utf8_literal("1970-01-01");
+    }
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_datetime(zt_int millis, const zt_text *style, const zt_text *locale) {
+    struct tm utc_tm;
+    int ms_part = 0;
+    char buffer[160];
+    (void)locale;
+
+    if (!zt_unix_ms_to_utc_tm(millis, &utc_tm, &ms_part)) {
+        return zt_text_from_utf8_literal("1970-01-01T00:00:00.000Z");
+    }
+
+    if (zt_text_equals_literal(style, "short")) {
+        if (strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", &utc_tm) == 0) {
+            return zt_text_from_utf8_literal("1970-01-01 00:00");
+        }
+        return zt_text_from_utf8_literal(buffer);
+    }
+
+    if (zt_text_equals_literal(style, "long")) {
+        if (strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S UTC", &utc_tm) == 0) {
+            return zt_text_from_utf8_literal("1970-01-01 00:00:00 UTC");
+        }
+        return zt_text_from_utf8_literal(buffer);
+    }
+
+    if (strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &utc_tm) == 0) {
+        return zt_text_from_utf8_literal("1970-01-01T00:00:00.000Z");
+    }
+
+    {
+        char iso_buffer[176];
+        snprintf(iso_buffer, sizeof(iso_buffer), "%s.%03dZ", buffer, ms_part);
+        return zt_text_from_utf8_literal(iso_buffer);
+    }
+}
+
+zt_text *zt_format_date_pattern(zt_int millis, const zt_text *pattern) {
+    struct tm utc_tm;
+    const char *strftime_pattern = "%Y-%m-%d";
+    char buffer[128];
+
+    if (zt_text_equals_literal(pattern, "yyyy-MM-dd")) {
+        strftime_pattern = "%Y-%m-%d";
+    } else if (zt_text_equals_literal(pattern, "dd/MM/yyyy")) {
+        strftime_pattern = "%d/%m/%Y";
+    } else if (zt_text_equals_literal(pattern, "MM/dd/yyyy")) {
+        strftime_pattern = "%m/%d/%Y";
+    }
+
+    if (!zt_unix_ms_to_utc_tm(millis, &utc_tm, NULL)) {
+        return zt_text_from_utf8_literal("1970-01-01");
+    }
+
+    if (strftime(buffer, sizeof(buffer), strftime_pattern, &utc_tm) == 0) {
+        return zt_text_from_utf8_literal("1970-01-01");
+    }
+    return zt_text_from_utf8_literal(buffer);
+}
+
+zt_text *zt_format_datetime_pattern(zt_int millis, const zt_text *pattern) {
+    struct tm utc_tm;
+    const char *strftime_pattern = "%Y-%m-%dT%H:%M:%S";
+    char buffer[160];
+
+    if (zt_text_equals_literal(pattern, "yyyy-MM-dd HH:mm:ss")) {
+        strftime_pattern = "%Y-%m-%d %H:%M:%S";
+    } else if (zt_text_equals_literal(pattern, "yyyy-MM-ddTHH:mm:ss")) {
+        strftime_pattern = "%Y-%m-%dT%H:%M:%S";
+    } else if (zt_text_equals_literal(pattern, "HH:mm:ss")) {
+        strftime_pattern = "%H:%M:%S";
+    }
+
+    if (!zt_unix_ms_to_utc_tm(millis, &utc_tm, NULL)) {
+        return zt_text_from_utf8_literal("1970-01-01T00:00:00");
+    }
+
+    if (strftime(buffer, sizeof(buffer), strftime_pattern, &utc_tm) == 0) {
+        return zt_text_from_utf8_literal("1970-01-01T00:00:00");
+    }
+    return zt_text_from_utf8_literal(buffer);
 }
 
 zt_text *zt_format_hex_i64(zt_int value) {

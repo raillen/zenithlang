@@ -1,0 +1,4 @@
+namespace test1
+func demo() -> int
+    return null
+end

@@ -31,7 +31,8 @@ end
 func main()->int
 const u:User=User(name:"Ana",age:20)
 if calc(1,label:u.name)>0
-io.print_line("ok")
+io.write("ok")
+io.write("\n")
 return 0
 end
 return 1

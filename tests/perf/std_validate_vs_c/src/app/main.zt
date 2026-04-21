@@ -72,7 +72,8 @@ func report_case(label: text, elapsed_ms: int, hits: int) -> result<void, core.E
     io.print(" ms=0x")?
     io.print(format.hex(elapsed_ms))?
     io.print(" hits=0x")?
-    return io.print_line(format.hex(hits))
+    io.write(format.hex(hits))?
+    return io.write("\n")
 end
 
 func main() -> result<void, core.Error>
@@ -81,9 +82,11 @@ func main() -> result<void, core.Error>
     var start_at: time.Instant = time.now()
     var elapsed: time.Duration = time.seconds(0)
 
-    io.print_line("benchmark std.validate.between vs c helper")?
+    io.write("benchmark std.validate.between vs c helper")?
+    io.write("\n")?
     io.print("iterations=0x")?
-    io.print_line(format.hex(iterations))?
+    io.write(format.hex(iterations))?
+    io.write("\n")?
 
     start_at = time.now()
     const hits_std: int = bench_std_validate_between()

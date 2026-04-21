@@ -1,0 +1,13 @@
+micro_frontend_small_check: fail
+micro_lowering_small_emit_c: fail
+micro_runtime_core: pass
+micro_stdlib_core: pass
+macro_small_check: fail
+macro_small_build_cold: fail
+macro_small_build_warm: fail
+macro_small_run: fail
+macro_small_test: fail
+macro_medium_check: fail
+summary: fail
+json: C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\reports\perf\summary-quick.json
+md: C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\reports\perf\summary-quick.md

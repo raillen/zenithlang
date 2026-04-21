@@ -1,9 +1,11 @@
--- Biblioteca Padrão Zenith — Módulo Time
--- Medição de tempo: Instant, Duration, conversões unix, sleep.
--- 🏗️ TIPOS
+-- Zenith Standard Library — Time Module
+-- Instant, Duration, system clock, unix conversion, sleep (Decision 063).
+-- 🏗️ TYPES
 -- 🏗️ EXTERN C
--- ⏱️ OPERAÇÕES DE INSTANT
--- ⏳ CONSTRUTORES DE DURATION
+-- ⏱️ CLOCK AND SLEEP
+-- ⏳ TEMPORAL ARITHMETIC
+-- 🔄 UNIX CONVERSION
+-- 🏗️ DURATION CONSTRUCTORS
 namespace std.time
 
 public struct Instant
@@ -78,4 +80,3 @@ end
 public func hours(n: int) -> time.Duration
     return time.Duration(millis: n * 3600000)
 end
-

@@ -771,6 +771,60 @@ static int zt_starts_with_guides(const char *relative_path) {
     return 0;
 }
 
+static int zt_ascii_equal_ci(char left, char right) {
+    return tolower((unsigned char)left) == tolower((unsigned char)right);
+}
+static int zt_text_equal_ci_with_sep(
+        const char *left,
+        size_t left_length,
+        const char *right) {
+    size_t i;
+    if (left == NULL || right == NULL) return 0;
+    for (i = 0; i < left_length; i += 1) {
+        if (right[i] == '\0') return 0;
+        if ((left[i] == '-' || left[i] == '_') &&
+                (right[i] == '-' || right[i] == '_')) {
+            continue;
+        }
+        if (!zt_ascii_equal_ci(left[i], right[i])) return 0;
+    }
+    return right[left_length] == '\0';
+}
+static int zt_is_locale_segment(const char *segment, size_t segment_length) {
+    static const char *known_locales[] = {
+        "en",
+        "es",
+        "ja",
+        "jp",
+        "pt",
+        "pt-br",
+        "pt_br"
+    };
+    size_t i;
+    if (segment == NULL || segment_length == 0) return 0;
+    for (i = 0; i < sizeof(known_locales) / sizeof(known_locales[0]); i += 1) {
+        if (zt_text_equal_ci_with_sep(segment, segment_length, known_locales[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+static int zt_normalize_zdoc_relative_path(
+        const char *relative_path,
+        char *dest,
+        size_t capacity) {
+    const char *sep;
+    size_t head_length;
+    if (relative_path == NULL || dest == NULL || capacity == 0) return 0;
+    sep = relative_path;
+    while (*sep != '\0' && *sep != '/' && *sep != '\\') sep += 1;
+    head_length = (size_t)(sep - relative_path);
+    if (*sep == '\0' || !zt_is_locale_segment(relative_path, head_length)) {
+        return zt_copy_text(dest, capacity, relative_path);
+    }
+    return zt_copy_text(dest, capacity, sep + 1);
+}
+
 static int zt_make_paired_source_path(
         char *dest,
         size_t capacity,
@@ -882,6 +936,7 @@ static int zt_check_zdoc_file(
         zt_zdoc_public_symbol_list *public_symbols,
         zt_zdoc_diagnostic_list *diagnostics) {
     char relative_path[512];
+    char normalized_relative_path[512];
     char paired_source_path[512];
     int is_guide;
     char *text;
@@ -906,7 +961,19 @@ static int zt_check_zdoc_file(
             "Move this file under zdoc.root or fix zdoc.root in zenith.ztproj.");
     }
 
-    is_guide = zt_starts_with_guides(relative_path);
+    if (!zt_normalize_zdoc_relative_path(relative_path, normalized_relative_path, sizeof(normalized_relative_path))) {
+        return zt_zdoc_diagnostic_push(
+            diagnostics,
+            ZT_ZDOC_ERROR,
+            ZT_ZDOC_MALFORMED_BLOCK,
+            path,
+            1,
+            1,
+            "unable to normalize zdoc relative path",
+            "Use shorter paths under zdoc.root.");
+    }
+
+    is_guide = zt_starts_with_guides(normalized_relative_path);
 
     paired_source_path[0] = '\0';
     if (!is_guide) {
@@ -915,7 +982,7 @@ static int zt_check_zdoc_file(
                 sizeof(paired_source_path),
                 project_root,
                 source_root,
-                relative_path)) {
+                normalized_relative_path)) {
             return zt_zdoc_diagnostic_push(
                 diagnostics,
                 ZT_ZDOC_ERROR,

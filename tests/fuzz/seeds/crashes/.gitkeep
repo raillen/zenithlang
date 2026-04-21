@@ -1,0 +1,3 @@
+# Persistent directory for crash seeds discovered by fuzzing.
+# Any `.zt` file added here is replayed by `tests/fuzz/replay.py`
+# and by `python run_suite.py pr_gate|nightly|stress`.

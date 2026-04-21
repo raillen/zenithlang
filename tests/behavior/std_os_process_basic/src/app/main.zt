@@ -2,16 +2,15 @@ namespace app.main
 
 import std.os.process as process
 
-func main() -> result<void, core.Error>
+func main() -> result<void, process.Error>
     const arg0: text = "-Command"
     const arg1: text = "exit 5"
     const args: list<text> = [arg0, arg1]
 
-    const code: int = process.run(program: "powershell", args: args)?
-    const status: process.ExitStatus = process.from_code(code)
+    const status: process.ExitStatus = process.run(program: "powershell", args: args)?
 
-    if process.exit_code(status) != 5
-        return error("std.os.process.run returned unexpected exit code")
+    if status.code != 5
+        return error(process.Error.Unknown)
     end
 
     return success()

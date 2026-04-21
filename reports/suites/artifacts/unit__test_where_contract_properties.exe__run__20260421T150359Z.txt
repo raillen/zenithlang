@@ -1,0 +1,6 @@
+Running where/contracts property tests...
+
+
+Where/Contracts property tests: 11/12 passed
+FAIL: where_multiple_constraints type: diagnostics=1
+  diag: map key type 'result<Equatable>' must implement Hashable and Equatable

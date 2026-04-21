@@ -1,0 +1,24 @@
+{
+  "benchmark_id": "macro_large_check",
+  "generated_at_utc": "2026-04-21T16:08:53.877696+00:00",
+  "platform_key": "windows-AMD64",
+  "host": {
+    "host": "RAILLEN-REDE",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "system": "windows",
+    "release": "11",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "python_version": "3.12.0",
+    "cpu_count": 12
+  },
+  "metric_values": {
+    "lat_median_ms": 14.569,
+    "lat_p95_ms": 16.276,
+    "lat_std_ms": 1.261,
+    "throughput_ops_per_sec": 68.6375,
+    "peak_ws": 0,
+    "alloc_proxy": 0,
+    "binary_size": 240118
+  }
+}

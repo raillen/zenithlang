@@ -7,9 +7,9 @@ pub func main() -> int
     print("--- Testando Módulo std.math ---")
 
     -- 1. Constantes e Core
-    print("PI:  " + math.PI)
-    print("E:   " + math.E)
-    print("TAU: " + math.TAU)
+    print("PI:  " + math.pi)
+    print("E:   " + math.e)
+    print("TAU: " + math.tau)
     
     print("Round 3.6: " + math.round(3.6))
     print("Clamp 15 [0, 10]: " + math.clamp(15.0, 0.0, 10.0))

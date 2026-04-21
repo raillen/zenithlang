@@ -369,6 +369,12 @@ Regra:
 
 - preservar compatibilidade e gates de qualidade/performance.
 
+Baixa prioridade (P3, nao bloqueia alpha):
+
+- internacionalizacao da documentacao (zdoc e guias) com fallback previsivel de idioma;
+- traducao gradual de ZDocs da stdlib para stdlib/zdoc/en/..., mantendo stdlib/zdoc/std/... como baseline atual;
+- definir contrato de exibicao por idioma para zt doc show e preparar alinhamento futuro com LSP/Compass.
+
 ## R2.M11 - Release candidate 2.0
 
 Objetivo:

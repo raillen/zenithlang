@@ -1,10 +1,10 @@
--- Biblioteca PadrÃ£o Zenith â€” MÃ³dulo OS
--- InteraÃ§Ã£o com o sistema operacional: diretÃ³rio, env, plataforma, arquitetura.
--- ðŸ—ï¸ TIPOS
--- ðŸ—ï¸ EXTERN C
--- ðŸ“‚ DIRETÃ“RIO / ENV
--- ðŸ’» DETECÃ‡ÃƒO DE PLATAFORMA
--- ðŸš¨ ERROS
+-- Zenith Standard Library — OS Module
+-- Process environment, platform, architecture (Decision 067).
+-- 🏗️ TYPES
+-- 🏗️ EXTERN C
+-- 📋 ARGS / ENV
+-- 💻 PLATFORM / ARCH
+-- 📂 CURRENT DIRECTORY
 namespace std.os
 
 public enum Platform
@@ -24,27 +24,22 @@ end
 public enum Error
     NotFound
     PermissionDenied
-    AlreadyExists
-    NotADirectory
     IOError
     Unknown
 end
 
 extern c
-    func zt_host_os_current_dir() -> result<text, core.Error>
-    func zt_host_os_change_dir(dir_path: text) -> result<void, core.Error>
+    func zt_host_os_args() -> list<text>
     func zt_host_os_env(name: text) -> optional<text>
     func zt_host_os_pid() -> int
     func zt_host_os_platform() -> text
     func zt_host_os_arch() -> text
+    func zt_host_os_current_dir() -> result<text, os.Error>
+    func zt_host_os_change_dir(dir_path: text) -> result<void, os.Error>
 end
 
-public func current_dir() -> result<text, core.Error>
-    return os.zt_host_os_current_dir()
-end
-
-public func change_dir(dir_path: text) -> result<void, core.Error>
-    return os.zt_host_os_change_dir(dir_path)
+public func args() -> list<text>
+    return os.zt_host_os_args()
 end
 
 public func env(name: text) -> optional<text>
@@ -83,88 +78,10 @@ public func arch() -> os.Arch
     return os.Arch.Unknown
 end
 
-public func platform_text() -> text
-    return os.zt_host_os_platform()
+public func current_dir() -> result<text, os.Error>
+    return os.zt_host_os_current_dir()
 end
 
-public func arch_text() -> text
-    return os.zt_host_os_arch()
-end
-
-public func is_platform(p: os.Platform) -> bool
-    match p
-        case os.Platform.Windows
-            return os.is_windows()
-        case os.Platform.Linux
-            return os.is_linux()
-        case os.Platform.MacOS
-            return os.is_macos()
-        case os.Platform.Unknown
-            match os.platform()
-                case os.Platform.Unknown
-                    return true
-                case default
-                    return false
-            end
-    end
-end
-
-public func is_arch(a: os.Arch) -> bool
-    match a
-        case os.Arch.X64
-            match os.arch()
-                case os.Arch.X64
-                    return true
-                case default
-                    return false
-            end
-        case os.Arch.X86
-            match os.arch()
-                case os.Arch.X86
-                    return true
-                case default
-                    return false
-            end
-        case os.Arch.Arm64
-            match os.arch()
-                case os.Arch.Arm64
-                    return true
-                case default
-                    return false
-            end
-        case os.Arch.Unknown
-            match os.arch()
-                case os.Arch.Unknown
-                    return true
-                case default
-                    return false
-            end
-    end
-end
-
-public func is_windows() -> bool
-    match os.platform()
-        case os.Platform.Windows
-            return true
-        case default
-            return false
-    end
-end
-
-public func is_linux() -> bool
-    match os.platform()
-        case os.Platform.Linux
-            return true
-        case default
-            return false
-    end
-end
-
-public func is_macos() -> bool
-    match os.platform()
-        case os.Platform.MacOS
-            return true
-        case default
-            return false
-    end
+public func change_dir(path: text) -> result<void, os.Error>
+    return os.zt_host_os_change_dir(path)
 end

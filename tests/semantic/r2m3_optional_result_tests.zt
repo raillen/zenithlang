@@ -1,0 +1,52 @@
+// Testes de Propriedades - Optional/Result
+// R2.M3 - Hardening Semântico
+
+// TEST 1: Optional pode receber null
+namespace test_optional_null
+func demo() -> int?
+    return null
+end
+
+// TEST 2: Optional pode receber valor
+namespace test_optional_value
+func demo() -> int?
+    return 42
+end
+
+// TEST 3: Result pode ser Ok
+namespace test_result_ok
+func demo() -> Result<int, text>
+    return Ok(42)
+end
+
+// TEST 4: Result pode ser Error  
+namespace test_result_error
+func demo() -> Result<int, text>
+    return Error("fail")
+end
+
+// TEST 5: Try operator em Result
+namespace test_try_operator
+func safe_div(a: int, b: int) -> Result<int, text>
+    if b == 0 then
+        return Error("div by zero")
+    end
+    return Ok(a / b)
+end
+
+func demo() -> int?
+    let result = safe_div(10, 2)
+    return try result
+end
+
+// TEST 6: Null NÃO pode ir para non-optional (deve falhar)
+namespace test_null_to_non_optional_fail
+func demo() -> int
+    return null  // ERROR: ZT_DIAG_TYPE_MISMATCH
+end
+
+// TEST 7: Type mismatch em Result (deve falhar)
+namespace test_result_type_mismatch_fail
+func demo() -> Result<int, text>
+    return Ok("texto")  // ERROR: ZT_DIAG_TYPE_MISMATCH
+end

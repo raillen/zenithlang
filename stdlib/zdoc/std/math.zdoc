@@ -1,84 +1,86 @@
---- @target: namespace
-# std.math — Funções Matemáticas
+﻿--- @target: namespace
+# std.math â€” MatemÃ¡tica NumÃ©rica
 
-Módulo com constantes, aritmética escalar, trigonometria, logaritmos e verificações de estado numérico.
-Funções de ponto flutuante delegam para a `libm` do C via runtime nativo.
+MÃ³dulo puro de matemÃ¡tica numÃ©rica.
+Inclui aritmÃ©tica escalar, trigonometria, logaritmos, exponenciais, arredondamento e constantes.
 ---
 
---- @target: PI
+--- @target: pi
 ```zt
-public const PI: float = 3.141592653589793
+public const pi: float = 3.141592653589793
 ```
 
-Razão entre a circunferência e o diâmetro de um círculo (π).
+Constante pi (Ï€).
 ---
 
---- @target: E
+--- @target: e
 ```zt
-public const E: float = 2.718281828459045
+public const e: float = 2.718281828459045
 ```
 
-Base do logaritmo natural (número de Euler).
+Constante de Euler (e).
 ---
 
---- @target: TAU
+--- @target: tau
 ```zt
-public const TAU: float = 6.283185307179586
+public const tau: float = 6.283185307179586
 ```
 
-Circunferência completa em radianos (2π).
-
-## Funções de Acesso às Constantes
+Constante tau (Ï„ = 2Ï€).
 ---
 
---- @target: pi, e, tau
+--- @target: infinity
 ```zt
-public func pi() -> float
-public func e() -> float
-public func tau() -> float
+public func infinity() -> float
 ```
 
-Funções de conveniência que retornam as constantes `PI`, `E` e `TAU`.
+Retorna o valor IEEE 754 de infinito positivo.
+---
 
-## Aritmética Inteira
+--- @target: nan
+```zt
+public func nan() -> float
+```
+
+Retorna o valor IEEE 754 NaN (Not a Number).
 ---
 
 --- @target: abs
 ```zt
-public func abs(value: int) -> int
+public func abs(value: float) -> float
 ```
 
-Retorna o valor absoluto de um inteiro.
-
-@param value — Inteiro de entrada.
+Retorna o valor absoluto.
 @return Valor absoluto.
 ---
 
 --- @target: min
 ```zt
-public func min(a: int, b: int) -> int
+public func min(a: float, b: float) -> float
 ```
 
-Retorna o menor entre dois inteiros.
+Retorna o menor entre dois valores.
 ---
 
 --- @target: max
 ```zt
-public func max(a: int, b: int) -> int
+public func max(a: float, b: float) -> float
 ```
 
-Retorna o maior entre dois inteiros.
+Retorna o maior entre dois valores.
 ---
 
 --- @target: clamp
 ```zt
-public func clamp(value: int, min: int, max: int) -> int
+public func clamp(value: float, min: float, max: float) -> float
 ```
 
 Limita um valor ao intervalo `[min, max]`.
-Se `value < min`, retorna `min`. Se `value > max`, retorna `max`. Caso contrário, retorna `value`.
 
-## Potências e Raízes
+@param value â€” Valor a limitar.
+@param min â€” Limite inferior (inclusivo).
+@param max â€” Limite superior (inclusivo).
+@return Valor limitado.
 ---
 
 --- @target: pow
@@ -86,7 +88,7 @@ Se `value < min`, retorna `min`. Se `value > max`, retorna `max`. Caso contrári
 public func pow(base: float, exponent: float) -> float
 ```
 
-Calcula `base` elevado a `exponent`.
+Eleva `base` Ã  potÃªncia `exponent`.
 ---
 
 --- @target: sqrt
@@ -94,9 +96,7 @@ Calcula `base` elevado a `exponent`.
 public func sqrt(value: float) -> float
 ```
 
-Calcula a raiz quadrada de um valor.
-
-## Arredondamento
+Raiz quadrada. Retorna `nan` para valores negativos.
 ---
 
 --- @target: floor
@@ -104,7 +104,7 @@ Calcula a raiz quadrada de um valor.
 public func floor(value: float) -> float
 ```
 
-Arredonda para baixo (em direção a menos infinito).
+Arredonda para baixo (em direÃ§Ã£o a -âˆž).
 ---
 
 --- @target: ceil
@@ -112,7 +112,7 @@ Arredonda para baixo (em direção a menos infinito).
 public func ceil(value: float) -> float
 ```
 
-Arredonda para cima (em direção a mais infinito).
+Arredonda para cima (em direÃ§Ã£o a +âˆž).
 ---
 
 --- @target: round
@@ -120,7 +120,7 @@ Arredonda para cima (em direção a mais infinito).
 public func round(value: float) -> float
 ```
 
-Arredonda para o inteiro mais próximo (half-away-from-zero: 0.5 arredonda para cima).
+Arredonda usando semÃ¢ntica "half away from zero".
 ---
 
 --- @target: trunc
@@ -128,9 +128,7 @@ Arredonda para o inteiro mais próximo (half-away-from-zero: 0.5 arredonda para 
 public func trunc(value: float) -> float
 ```
 
-Trunca a parte decimal, arredondando em direção a zero.
-
-## Conversão Angular
+Trunca a parte fracionÃ¡ria (em direÃ§Ã£o a zero).
 ---
 
 --- @target: deg_to_rad
@@ -138,7 +136,7 @@ Trunca a parte decimal, arredondando em direção a zero.
 public func deg_to_rad(x: float) -> float
 ```
 
-Converte graus para radianos. Fórmula: `x * (PI / 180)`.
+Converte graus para radianos.
 ---
 
 --- @target: rad_to_deg
@@ -146,9 +144,7 @@ Converte graus para radianos. Fórmula: `x * (PI / 180)`.
 public func rad_to_deg(x: float) -> float
 ```
 
-Converte radianos para graus. Fórmula: `x * (180 / PI)`.
-
-## Comparação
+Converte radianos para graus.
 ---
 
 --- @target: approx_equal
@@ -156,30 +152,60 @@ Converte radianos para graus. Fórmula: `x * (180 / PI)`.
 public func approx_equal(a: float, b: float, epsilon: float) -> bool
 ```
 
-Compara dois floats com tolerância `epsilon`.
-Retorna `true` se `|a - b| <= epsilon`.
+Verifica igualdade aproximada entre dois floats.
 
-## Trigonometria
+@param a â€” Primeiro valor.
+@param b â€” Segundo valor.
+@param epsilon â€” TolerÃ¢ncia mÃ¡xima.
+@return `true` se `|a - b| <= epsilon`.
 ---
 
---- @target: sin, cos, tan
+--- @target: sin
 ```zt
 public func sin(value: float) -> float
+```
+
+Seno em radianos.
+---
+
+--- @target: cos
+```zt
 public func cos(value: float) -> float
+```
+
+Cosseno em radianos.
+---
+
+--- @target: tan
+```zt
 public func tan(value: float) -> float
 ```
 
-Funções trigonométricas básicas. Entrada em radianos.
+Tangente em radianos.
 ---
 
---- @target: asin, acos, atan
+--- @target: asin
 ```zt
 public func asin(value: float) -> float
+```
+
+Arco-seno. Retorna `nan` para valores fora de `[-1, 1]`.
+---
+
+--- @target: acos
+```zt
 public func acos(value: float) -> float
+```
+
+Arco-cosseno. Retorna `nan` para valores fora de `[-1, 1]`.
+---
+
+--- @target: atan
+```zt
 public func atan(value: float) -> float
 ```
 
-Funções trigonométricas inversas. Saída em radianos.
+Arco-tangente.
 ---
 
 --- @target: atan2
@@ -187,9 +213,11 @@ Funções trigonométricas inversas. Saída em radianos.
 public func atan2(y: float, x: float) -> float
 ```
 
-Calcula o arco tangente de `y/x`, usando os sinais de ambos os argumentos para determinar o quadrante correto.
+Arco-tangente de dois argumentos (quadrant-aware).
 
-## Logaritmos e Exponencial
+@param y â€” Componente vertical.
+@param x â€” Componente horizontal.
+@return Ã‚ngulo em radianos.
 ---
 
 --- @target: ln
@@ -197,7 +225,7 @@ Calcula o arco tangente de `y/x`, usando os sinais de ambos os argumentos para d
 public func ln(value: float) -> float
 ```
 
-Logaritmo natural (base `e`).
+Logaritmo natural (base e).
 ---
 
 --- @target: log_ten
@@ -221,7 +249,11 @@ Logaritmo base 2.
 public func log(value: float, base: float) -> float
 ```
 
-Logaritmo em base arbitrária.
+Logaritmo em base arbitrÃ¡ria.
+
+@param value â€” Valor.
+@param base â€” Base do logaritmo.
+@return Resultado do logaritmo.
 ---
 
 --- @target: exp
@@ -229,9 +261,7 @@ Logaritmo em base arbitrária.
 public func exp(value: float) -> float
 ```
 
-Calcula `e` elevado a `value` (função exponencial).
-
-## Verificações de Estado
+Exponencial (e^value).
 ---
 
 --- @target: is_nan
@@ -239,7 +269,7 @@ Calcula `e` elevado a `value` (função exponencial).
 public func is_nan(value: float) -> bool
 ```
 
-Retorna `true` se o valor for NaN (Not a Number).
+Verifica se o valor Ã© NaN.
 ---
 
 --- @target: is_infinite
@@ -247,7 +277,7 @@ Retorna `true` se o valor for NaN (Not a Number).
 public func is_infinite(value: float) -> bool
 ```
 
-Retorna `true` se o valor for infinito positivo ou negativo.
+Verifica se o valor Ã© infinito (positivo ou negativo).
 ---
 
 --- @target: is_finite
@@ -255,5 +285,6 @@ Retorna `true` se o valor for infinito positivo ou negativo.
 public func is_finite(value: float) -> bool
 ```
 
-Retorna `true` se o valor for um número finito (nem NaN, nem infinito).
+Verifica se o valor Ã© finito (nÃ£o NaN e nÃ£o infinito).
 ---
+

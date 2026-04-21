@@ -56,7 +56,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/tooling/formatter.c` | 587 | 12 | 1 |
+| `compiler/tooling/formatter.c` | 589 | 12 | 1 |
 | `compiler/tooling/formatter.h` | 17 | 1 | 1 |
 
 ### Local Dependencies
@@ -87,7 +87,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 62 | `func_def` | `op_to_str` |
 | 83 | `func_def` | `format_node_list_comma` |
 | 90 | `func_def` | `format_node` |
-| 581 | `func_def` | `zt_format_node_to_string` |
+| 583 | `func_def` | `zt_format_node_to_string` |
 
 #### `compiler/tooling/formatter.h`
 

@@ -701,6 +701,36 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_number")) {
+        call = zir_expr_make_call_extern("c.zt_format_number");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_percent")) {
+        call = zir_expr_make_call_extern("c.zt_format_percent");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_date")) {
+        call = zir_expr_make_call_extern("c.zt_format_date");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_datetime")) {
+        call = zir_expr_make_call_extern("c.zt_format_datetime");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_date_pattern")) {
+        call = zir_expr_make_call_extern("c.zt_format_date_pattern");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_datetime_pattern")) {
+        call = zir_expr_make_call_extern("c.zt_format_datetime_pattern");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "format", "zt_format_bin_i64")) {
         call = zir_expr_make_call_extern("c.zt_format_bin_i64");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -711,7 +741,7 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
-if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
+    if (zir_call_is_module_func(callee_name, "format", "zt_format_bytes_decimal")) {
         call = zir_expr_make_call_extern("c.zt_format_bytes_decimal");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
@@ -2514,6 +2544,5 @@ void zir_lower_result_dispose(zir_lower_result *result) {
     zt_diag_list_dispose(&result->diagnostics);
     memset(result, 0, sizeof(*result));
 }
-
 
 

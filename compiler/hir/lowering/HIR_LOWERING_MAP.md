@@ -56,7 +56,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/hir/lowering/from_ast.c` | 2029 | 65 | 1 |
+| `compiler/hir/lowering/from_ast.c` | 2035 | 65 | 1 |
 | `compiler/hir/lowering/from_ast.h` | 26 | 1 | 3 |
 
 ### Local Dependencies
@@ -102,46 +102,46 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 222 | `func_decl` | `zt_lower_type_from_ast` |
 | 224 | `func_def` | `zt_lower_type_from_generic` |
 | 278 | `func_def` | `zt_lower_type_from_ast` |
-| 293 | `func_def` | `zt_push_struct_meta` |
-| 304 | `func_def` | `zt_push_func_meta` |
-| 315 | `func_def` | `zt_push_method_meta` |
-| 326 | `func_def` | `zt_push_const_meta` |
-| 337 | `func_def` | `zt_push_struct_field_meta` |
-| 348 | `func_def` | `zt_push_func_param_meta` |
-| 359 | `func_def` | `zt_find_struct_meta` |
-| 368 | `func_def` | `zt_find_enum_decl_ast` |
-| 379 | `func_def` | `zt_find_enum_variant_ast` |
-| 394 | `func_def` | `zt_enum_variant_field_type_node` |
-| 401 | `func_def` | `zt_enum_variant_field_name` |
-| 413 | `func_def` | `zt_find_struct_field_meta` |
-| 422 | `func_def` | `zt_find_func_meta` |
-| 436 | `func_def` | `zt_find_method_meta` |
-| 450 | `func_def` | `zt_find_const_meta` |
-| 459 | `func_def` | `zt_build_apply_name` |
-| 470 | `func_def` | `zt_collect_struct_symbols` |
-| 489 | `func_def` | `zt_collect_func_symbol` |
-| 512 | `func_def` | `zt_collect_apply_symbols` |
-| 536 | `func_def` | `zt_collect_const_symbol` |
-| 547 | `func_def` | `zt_collect_extern_symbols` |
-| 565 | `func_def` | `zt_collect_symbols` |
-| 587 | `func_def` | `zt_expr_to_path` |
-| 612 | `func_def` | `zt_make_expr` |
-| 623 | `func_decl` | `zt_lower_expr` |
-| 625 | `func_def` | `zt_lower_call_args` |
-| 707 | `func_def` | `zt_lower_struct_constructor` |
-| 787 | `func_def` | `zt_lower_enum_unit_variant` |
-| 814 | `func_def` | `zt_lower_enum_constructor` |
-| 932 | `func_def` | `zt_lower_call_expr` |
-| 1163 | `func_def` | `zt_lower_expr` |
-| 1504 | `func_decl` | `zt_lower_stmt` |
-| 1506 | `func_def` | `zt_lower_block` |
-| 1522 | `func_def` | `zt_lower_stmt` |
-| 1724 | `func_def` | `zt_lower_struct_decl` |
-| 1769 | `func_def` | `zt_lower_enum_decl` |
-| 1827 | `func_def` | `zt_lower_function_decl_core` |
-| 1907 | `func_def` | `zt_lower_apply_decl` |
-| 1930 | `func_def` | `zt_lower_ast_to_hir` |
-| 2017 | `func_def` | `zt_hir_lower_result_dispose` |
+| 299 | `func_def` | `zt_push_struct_meta` |
+| 310 | `func_def` | `zt_push_func_meta` |
+| 321 | `func_def` | `zt_push_method_meta` |
+| 332 | `func_def` | `zt_push_const_meta` |
+| 343 | `func_def` | `zt_push_struct_field_meta` |
+| 354 | `func_def` | `zt_push_func_param_meta` |
+| 365 | `func_def` | `zt_find_struct_meta` |
+| 374 | `func_def` | `zt_find_enum_decl_ast` |
+| 385 | `func_def` | `zt_find_enum_variant_ast` |
+| 400 | `func_def` | `zt_enum_variant_field_type_node` |
+| 407 | `func_def` | `zt_enum_variant_field_name` |
+| 419 | `func_def` | `zt_find_struct_field_meta` |
+| 428 | `func_def` | `zt_find_func_meta` |
+| 442 | `func_def` | `zt_find_method_meta` |
+| 456 | `func_def` | `zt_find_const_meta` |
+| 465 | `func_def` | `zt_build_apply_name` |
+| 476 | `func_def` | `zt_collect_struct_symbols` |
+| 495 | `func_def` | `zt_collect_func_symbol` |
+| 518 | `func_def` | `zt_collect_apply_symbols` |
+| 542 | `func_def` | `zt_collect_const_symbol` |
+| 553 | `func_def` | `zt_collect_extern_symbols` |
+| 571 | `func_def` | `zt_collect_symbols` |
+| 593 | `func_def` | `zt_expr_to_path` |
+| 618 | `func_def` | `zt_make_expr` |
+| 629 | `func_decl` | `zt_lower_expr` |
+| 631 | `func_def` | `zt_lower_call_args` |
+| 713 | `func_def` | `zt_lower_struct_constructor` |
+| 793 | `func_def` | `zt_lower_enum_unit_variant` |
+| 820 | `func_def` | `zt_lower_enum_constructor` |
+| 938 | `func_def` | `zt_lower_call_expr` |
+| 1169 | `func_def` | `zt_lower_expr` |
+| 1510 | `func_decl` | `zt_lower_stmt` |
+| 1512 | `func_def` | `zt_lower_block` |
+| 1528 | `func_def` | `zt_lower_stmt` |
+| 1730 | `func_def` | `zt_lower_struct_decl` |
+| 1775 | `func_def` | `zt_lower_enum_decl` |
+| 1833 | `func_def` | `zt_lower_function_decl_core` |
+| 1913 | `func_def` | `zt_lower_apply_decl` |
+| 1936 | `func_def` | `zt_lower_ast_to_hir` |
+| 2023 | `func_def` | `zt_hir_lower_result_dispose` |
 
 #### `compiler/hir/lowering/from_ast.h`
 

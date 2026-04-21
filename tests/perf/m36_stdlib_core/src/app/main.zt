@@ -9,7 +9,7 @@ import std.validate as validate
 
 func main() -> result<void, core.Error>
     const raw: text = "{\"a\":\"1\",\"b\":\"2\"}"
-    const parsed: map<text, text> = json.parse(raw)?
+    const parsed: map<text,text> = json.parse(raw)?
 
     const compact: text = json.stringify(parsed)
     const pretty: text = json.pretty(parsed)
@@ -37,6 +37,7 @@ func main() -> result<void, core.Error>
         return error("m36 stdlib validate/random failed")
     end
 
-    io.print_line("m36-stdlib-core-ok")?
+    io.write("m36-stdlib-core-ok")?
+    io.write("\n")?
     return success()
 end

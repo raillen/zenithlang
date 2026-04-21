@@ -1,8 +1,8 @@
--- Biblioteca Padrão Zenith — Módulo FS.Path
--- Manipulação de caminhos: join, normalize, base, dir, ext, absolute, relative.
+-- Zenith Standard Library — FS.Path Module
+-- Pure lexical path operations (Decision 065).
 -- 🏗️ EXTERN C
--- 🔧 HELPERS INTERNOS
--- 🛤️ OPERAÇÕES DE CAMINHO
+-- 🔧 INTERNAL HELPERS
+-- 🛤️ PATH OPERATIONS
 namespace std.fs.path
 
 extern c
@@ -31,23 +31,34 @@ public func _last_index_of(value: text, needle: text) -> int
     return -1
 end
 
-public func join(base: text, child: text) -> text
-    if len(base) == 0
-        return child
+public func join(parts: list<text>) -> text
+    if len(parts) == 0
+        return ""
     end
 
-    if len(child) == 0
-        return base
+    var res: text = parts[0]
+    var i: int = 1
+
+    while i < len(parts)
+        const part: text = parts[i]
+        if len(part) > 0
+            if len(res) > 0
+                const slash: text = "/"
+                const last_char: text = res[len(res) - 1]
+                if path._text_eq(last_char, slash)
+                    res = path.zt_text_concat(res, part)
+                else
+                    const with_sep: text = path.zt_text_concat(res, slash)
+                    res = path.zt_text_concat(with_sep, part)
+                end
+            else
+                res = part
+            end
+        end
+        i = i + 1
     end
 
-    const slash: text = "/"
-    const last_base: text = base[len(base) - 1]
-    if path._text_eq(last_base, slash)
-        return path.zt_text_concat(base, child)
-    end
-
-    const with_sep: text = path.zt_text_concat(base, slash)
-    return path.zt_text_concat(with_sep, child)
+    return res
 end
 
 public func normalize(value: text) -> text
@@ -73,7 +84,7 @@ public func relative(value: text, from: text) -> text
     return path.zt_path_relative(value, from)
 end
 
-public func base(value: text) -> text
+public func base_name(value: text) -> text
     if len(value) == 0
         return ""
     end
@@ -91,7 +102,37 @@ public func base(value: text) -> text
     return value[(slash_index + 1)..(len(value) - 1)]
 end
 
-public func dir(value: text) -> text
+public func name_without_extension(value: text) -> text
+    const file_name: text = path.base_name(value)
+    if len(file_name) == 0
+        return ""
+    end
+
+    const dot: text = "."
+    const dot_index: int = path._last_index_of(file_name, dot)
+    if dot_index <= 0
+        return file_name
+    end
+
+    return file_name[0..(dot_index - 1)]
+end
+
+public func extension(value: text) -> text
+    const file_name: text = path.base_name(value)
+    if len(file_name) == 0
+        return ""
+    end
+
+    const dot: text = "."
+    const dot_index: int = path._last_index_of(file_name, dot)
+    if dot_index <= 0 or dot_index == len(file_name) - 1
+        return ""
+    end
+
+    return file_name[(dot_index + 1)..(len(file_name) - 1)]
+end
+
+public func parent(value: text) -> text
     if len(value) == 0
         return ""
     end
@@ -109,85 +150,39 @@ public func dir(value: text) -> text
     return value[0..(slash_index - 1)]
 end
 
-public func ext(value: text) -> text
-    const file_name: text = path.base(value)
-    if len(file_name) == 0
-        return ""
+public func has_extension(value: text, expected: text) -> bool
+    const ext_val: text = path.extension(value)
+    if ext_val == expected
+        return true
     end
 
-    const dot: text = "."
-    const dot_index: int = path._last_index_of(file_name, dot)
-    if dot_index <= 0 or dot_index == len(file_name) - 1
-        return ""
-    end
-
-    return file_name[(dot_index + 1)..(len(file_name) - 1)]
+    const with_dot: text = path.zt_text_concat(".", ext_val)
+    return expected == with_dot
 end
 
-public func name_without_extension(value: text) -> text
-    const file_name: text = path.base(value)
-    if len(file_name) == 0
-        return ""
-    end
-
-    const dot: text = "."
-    const dot_index: int = path._last_index_of(file_name, dot)
-    if dot_index <= 0
-        return file_name
-    end
-
-    return file_name[0..(dot_index - 1)]
-end
-
-public func has_ext(value: text, expected_ext: text) -> bool
-    var normalized: text = expected_ext
-    const dot: text = "."
-
-    if len(normalized) > 0 and path._text_eq(normalized[0], dot)
-        if len(normalized) == 1
-            normalized = ""
-        else
-            normalized = normalized[1..(len(normalized) - 1)]
-        end
-    end
-
-    return path._text_eq(path.ext(value), normalized)
-end
-
-public func change_ext(value: text, new_ext: text) -> text
-    const file_name: text = path.base(value)
+public func change_extension(value: text, new_ext: text) -> text
+    const file_name: text = path.base_name(value)
     if len(file_name) == 0
         return value
     end
 
-    const directory: text = path.dir(value)
+    const directory: text = path.parent(value)
     const stem: text = path.name_without_extension(value)
-    const dot: text = "."
     const root: text = "/"
-    var normalized: text = new_ext
+    var base_name: text = stem
 
-    if len(normalized) > 0 and path._text_eq(normalized[0], dot)
-        if len(normalized) == 1
-            normalized = ""
-        else
-            normalized = normalized[1..(len(normalized) - 1)]
-        end
-    end
-
-    var next_name: text = stem
-    if len(normalized) > 0
-        const stem_with_dot: text = path.zt_text_concat(stem, dot)
-        next_name = path.zt_text_concat(stem_with_dot, normalized)
+    if len(new_ext) > 0 and new_ext != "."
+        const stem_with_dot: text = path.zt_text_concat(base_name, ".")
+        base_name = path.zt_text_concat(stem_with_dot, new_ext)
     end
 
     if len(directory) == 0
-        return next_name
+        return base_name
     end
 
     if path._text_eq(directory, root)
-        return path.zt_text_concat(directory, next_name)
+        return path.zt_text_concat(directory, base_name)
     end
 
-    return path.join(directory, next_name)
+    return path.join([directory, base_name])
 end
-

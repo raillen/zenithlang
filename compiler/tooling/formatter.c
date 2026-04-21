@@ -42,6 +42,40 @@ static void sb_append(sb_t *sb, const char *str) {
     if (str) sb_append_len(sb, str, strlen(str));
 }
 
+static void sb_append_string_value(sb_t *sb, const char *value) {
+    if (!value) return;
+
+    int needs_escape = 0;
+    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+        if (*p == '\n' || *p == '\r' || *p == '\t' || *p == '"' || *p == '\\') {
+            needs_escape = 1;
+            break;
+        }
+    }
+
+    if (!needs_escape) {
+        sb_append(sb, value);
+        return;
+    }
+
+    sb_append(sb, "\"");
+    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+        switch (*p) {
+            case '\n': sb_append(sb, "\\n"); break;
+            case '\r': sb_append(sb, "\\r"); break;
+            case '\t': sb_append(sb, "\\t"); break;
+            case '"': sb_append(sb, "\\\""); break;
+            case '\\': sb_append(sb, "\\\\"); break;
+            default: {
+                char ch[2] = {(char)*p, '\0'};
+                sb_append(sb, ch);
+                break;
+            }
+        }
+    }
+    sb_append(sb, "\"");
+}
+
 static void sb_indent(sb_t *sb) {
     for (int i = 0; i < sb->indent_level; i++) {
         sb_append(sb, "    ");
@@ -523,7 +557,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, node->as.float_expr.value);
             break;
         case ZT_AST_STRING_EXPR:
-            sb_append(sb, node->as.string_expr.value);
+            sb_append_string_value(sb, node->as.string_expr.value);
             break;
         case ZT_AST_BYTES_EXPR:
             sb_append(sb, node->as.bytes_expr.value);

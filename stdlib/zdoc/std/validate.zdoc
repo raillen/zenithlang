@@ -1,48 +1,53 @@
 --- @target: namespace
 # std.validate — Predicados de Validação
 
-Módulo com funções puras que retornam `bool` para validação de inteiros e texto.
-Projetado para uso em cláusulas `where` e verificações de entrada.
+Módulo de predicados booleanos puros para uso em cláusulas `where` e condições.
+Não realiza I/O, transformação, parsing ou validação de domínio.
 ---
 
 --- @target: between
 ```zt
-public func between(value: int, min: int, max: int) -> bool
+public func between(value: float, min: float, max: float) -> bool
 ```
 
-Verifica se `value` está no intervalo fechado `[min, max]`.
+Verifica se o valor está no intervalo `[min, max]` (inclusivo).
+
+@param value — Valor a verificar.
+@param min — Limite inferior (inclusivo).
+@param max — Limite superior (inclusivo).
+@return `true` se `min <= value <= max`.
 ---
 
 --- @target: positive
 ```zt
-public func positive(value: int) -> bool
+public func positive(value: float) -> bool
 ```
 
-Retorna `true` se `value > 0`.
+Verifica se o valor é estritamente positivo (`> 0`).
 ---
 
 --- @target: non_negative
 ```zt
-public func non_negative(value: int) -> bool
+public func non_negative(value: float) -> bool
 ```
 
-Retorna `true` se `value >= 0`.
+Verifica se o valor é não-negativo (`>= 0`).
 ---
 
 --- @target: negative
 ```zt
-public func negative(value: int) -> bool
+public func negative(value: float) -> bool
 ```
 
-Retorna `true` se `value < 0`.
+Verifica se o valor é estritamente negativo (`< 0`).
 ---
 
 --- @target: non_zero
 ```zt
-public func non_zero(value: int) -> bool
+public func non_zero(value: float) -> bool
 ```
 
-Retorna `true` se `value != 0`.
+Verifica se o valor é diferente de zero.
 ---
 
 --- @target: one_of
@@ -50,14 +55,11 @@ Retorna `true` se `value != 0`.
 public func one_of(value: int, candidates: list<int>) -> bool
 ```
 
-Verifica se `value` está presente na lista de candidatos.
-Percorre a lista linearmente.
+Verifica se o valor está na lista de candidatos.
 
-@param value — Valor a procurar.
-@param candidates — Lista de valores válidos.
-@return `true` se `value` for encontrado na lista.
-
-## Validação de Texto
+@param value — Valor a verificar.
+@param candidates — Lista de valores aceitos.
+@return `true` se `value` está em `candidates`.
 ---
 
 --- @target: not_empty
@@ -65,7 +67,7 @@ Percorre a lista linearmente.
 public func not_empty(value: text) -> bool
 ```
 
-Retorna `true` se o texto tiver pelo menos 1 caractere (`len(value) > 0`).
+Verifica se o texto não é vazio.
 ---
 
 --- @target: min_length
@@ -73,7 +75,11 @@ Retorna `true` se o texto tiver pelo menos 1 caractere (`len(value) > 0`).
 public func min_length(value: text, min: int) -> bool
 ```
 
-Retorna `true` se `len(value) >= min`.
+Verifica se o texto tem comprimento mínimo.
+
+@param value — Texto a verificar.
+@param min — Comprimento mínimo.
+@return `true` se `len(value) >= min`.
 ---
 
 --- @target: max_length
@@ -81,7 +87,11 @@ Retorna `true` se `len(value) >= min`.
 public func max_length(value: text, max: int) -> bool
 ```
 
-Retorna `true` se `len(value) <= max`.
+Verifica se o texto tem comprimento máximo.
+
+@param value — Texto a verificar.
+@param max — Comprimento máximo.
+@return `true` se `len(value) <= max`.
 ---
 
 --- @target: length_between
@@ -89,22 +99,10 @@ Retorna `true` se `len(value) <= max`.
 public func length_between(value: text, min: int, max: int) -> bool
 ```
 
-Retorna `true` se o comprimento do texto estiver no intervalo `[min, max]`.
----
+Verifica se o comprimento do texto está no intervalo `[min, max]`.
 
---- @target: no_whitespace
-```zt
-public func no_whitespace(value: text) -> bool
-```
-
-Retorna `true` se o texto não contiver nenhum caractere de espaço em branco (espaço, tab, `\n`, `\r`).
-Percorre cada caractere do texto.
----
-
---- @target: has_whitespace
-```zt
-public func has_whitespace(value: text) -> bool
-```
-
-Retorna `true` se o texto contiver pelo menos um caractere de espaço em branco (espaço, tab, `\n`, `\r`).
+@param value — Texto a verificar.
+@param min — Comprimento mínimo (inclusivo).
+@param max — Comprimento máximo (inclusivo).
+@return `true` se `min <= len(value) <= max`.
 ---

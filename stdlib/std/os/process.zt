@@ -1,46 +1,37 @@
--- Biblioteca Padrão Zenith — Módulo OS.Process
--- Execução de processos externos e códigos de saída.
--- 🏗️ TIPOS
+-- Zenith Standard Library — OS.Process Module
+-- Child-process execution and typed results (Decision 068).
+-- 🏗️ TYPES
 -- 🏗️ EXTERN C
--- 🚨 ERROS
+-- 🚀 EXECUTION
 namespace std.os.process
 
 public struct ExitStatus
     code: int
 end
 
+public struct CapturedRun
+    status: process.ExitStatus
+    stdout_text: text
+    stderr_text: text
+end
+
 public enum Error
     NotFound
     PermissionDenied
     IOFailure
-    StillRunning
+    DecodeFailed
     Unknown
 end
 
 extern c
-    func zt_host_process_run(program: text, args: list<text>, cwd: optional<text>) -> result<int, core.Error>
+    func zt_host_process_run(program: text, args: list<text>, cwd: optional<text>) -> result<process.ExitStatus, process.Error>
+    func zt_host_process_run_capture(program: text, args: list<text>, cwd: optional<text>) -> result<process.CapturedRun, process.Error>
 end
 
-public func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<int, core.Error>
+public func run(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<process.ExitStatus, process.Error>
     return process.zt_host_process_run(program, args, cwd)
 end
 
-public func run_program(program: text) -> result<int, core.Error>
-    return process.run(program)
-end
-
-public func from_code(code: int) -> process.ExitStatus
-    return process.ExitStatus(code: code)
-end
-
-public func exit_code(status: process.ExitStatus) -> int
-    return status.code
-end
-
-public func is_success(status: process.ExitStatus) -> bool
-    return status.code == 0
-end
-
-public func is_failure(status: process.ExitStatus) -> bool
-    return status.code != 0
+public func run_capture(program: text, args: list<text> = [], cwd: optional<text> = none) -> result<process.CapturedRun, process.Error>
+    return process.zt_host_process_run_capture(program, args, cwd)
 end

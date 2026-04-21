@@ -1,0 +1,4 @@
+func main() -> int
+    const s: string = "no close
+    return 0
+end

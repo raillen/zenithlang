@@ -1,7 +1,7 @@
--- Biblioteca Padrão Zenith — Módulo Validate
--- Predicados de validação para inteiros e texto.
--- 🔢 VALIDAÇÃO DE INTEIROS
--- 📝 VALIDAÇÃO DE TEXTO
+-- Zenith Standard Library — Validate Module
+-- Pure boolean predicates for where clauses and conditions (Decision 061).
+-- 🔢 NUMERIC PREDICATES
+-- 📝 TEXT LENGTH PREDICATES
 namespace std.validate
 
 public func between(value: int, min: int, max: int) -> bool
@@ -49,34 +49,3 @@ public func length_between(value: text, min: int, max: int) -> bool
     const count: int = len(value)
     return count >= min and count <= max
 end
-
-public func no_whitespace(value: text) -> bool
-    const space: text = " "
-    const tab: text = "\t"
-    const newline: text = "\n"
-    const carriage: text = "\r"
-
-    for ch in value
-        if ch == space or ch == tab or ch == newline or ch == carriage
-            return false
-        end
-    end
-
-    return true
-end
-
-public func has_whitespace(value: text) -> bool
-    const space: text = " "
-    const tab: text = "\t"
-    const newline: text = "\n"
-    const carriage: text = "\r"
-
-    for ch in value
-        if ch == space or ch == tab or ch == newline or ch == carriage
-            return true
-        end
-    end
-
-    return false
-end
-

@@ -635,34 +635,68 @@ static zt_hir_expr_list zt_lower_call_args(
         const zt_func_meta *meta) {
     zt_hir_expr_list out = zt_hir_expr_list_make();
     size_t i;
+    size_t positional_count;
+    size_t named_count;
+
     if (call_expr == NULL || call_expr->kind != ZT_AST_CALL_EXPR) return out;
 
+    positional_count = call_expr->as.call_expr.positional_args.count;
+    named_count = call_expr->as.call_expr.named_args.count;
+
     if (meta == NULL) {
-        for (i = 0; i < call_expr->as.call_expr.positional_args.count; i += 1) {
+        size_t total = positional_count + named_count;
+        if (total > 0) {
+            out.items = (zt_hir_expr **)calloc(total, sizeof(zt_hir_expr *));
+            if (out.items != NULL) out.capacity = total;
+        }
+
+        for (i = 0; i < positional_count; i += 1) {
             zt_hir_expr_list_push(&out, zt_lower_expr(ctx, scope, call_expr->as.call_expr.positional_args.items[i], NULL));
         }
-        for (i = 0; i < call_expr->as.call_expr.named_args.count; i += 1) {
+        for (i = 0; i < named_count; i += 1) {
             zt_hir_expr_list_push(&out, zt_lower_expr(ctx, scope, call_expr->as.call_expr.named_args.items[i].value, NULL));
         }
-        if (call_expr->as.call_expr.named_args.count > 0) {
+        if (named_count > 0) {
             zt_add_diag(ctx, call_expr->span, "named arguments require known signature during lowering");
         }
         return out;
     }
 
     {
-        zt_hir_expr **ordered = (zt_hir_expr **)calloc(meta->param_count > 0 ? meta->param_count : 1, sizeof(zt_hir_expr *));
-        unsigned char *filled = (unsigned char *)calloc(meta->param_count > 0 ? meta->param_count : 1, sizeof(unsigned char));
+        const size_t param_count = meta->param_count;
+        zt_hir_expr *ordered_stack[16];
+        unsigned char filled_stack[16];
+        zt_hir_expr **ordered = ordered_stack;
+        unsigned char *filled = filled_stack;
+        int heap_alloc = 0;
+        size_t storage_count = param_count > 0 ? param_count : 1;
         size_t pos = 0;
+
+        memset(ordered_stack, 0, sizeof(ordered_stack));
+        memset(filled_stack, 0, sizeof(filled_stack));
+
+        if (storage_count > 16) {
+            ordered = (zt_hir_expr **)calloc(storage_count, sizeof(zt_hir_expr *));
+            filled = (unsigned char *)calloc(storage_count, sizeof(unsigned char));
+            heap_alloc = 1;
+        }
+
         if (ordered == NULL || filled == NULL) {
-            free(ordered);
-            free(filled);
+            if (heap_alloc) {
+                free(ordered);
+                free(filled);
+            }
             zt_add_diag(ctx, call_expr->span, "out of memory lowering call args");
             return out;
         }
 
-        for (i = 0; i < call_expr->as.call_expr.positional_args.count; i += 1) {
-            if (pos >= meta->param_count) {
+        if (param_count > 0) {
+            out.items = (zt_hir_expr **)calloc(param_count, sizeof(zt_hir_expr *));
+            if (out.items != NULL) out.capacity = param_count;
+        }
+
+        for (i = 0; i < positional_count; i += 1) {
+            if (pos >= param_count) {
                 zt_add_diag(ctx, call_expr->span, "too many positional args");
                 break;
             }
@@ -671,11 +705,11 @@ static zt_hir_expr_list zt_lower_call_args(
             pos += 1;
         }
 
-        for (i = 0; i < call_expr->as.call_expr.named_args.count; i += 1) {
+        for (i = 0; i < named_count; i += 1) {
             const zt_ast_named_arg *named = &call_expr->as.call_expr.named_args.items[i];
             size_t p;
             int found = 0;
-            for (p = 0; p < meta->param_count; p += 1) {
+            for (p = 0; p < param_count; p += 1) {
                 if (zt_text_eq(meta->params[p].name, named->name)) {
                     found = 1;
                     if (filled[p]) {
@@ -690,7 +724,7 @@ static zt_hir_expr_list zt_lower_call_args(
             if (!found) zt_add_diag(ctx, named->span, "unknown named argument");
         }
 
-        for (i = 0; i < meta->param_count; i += 1) {
+        for (i = 0; i < param_count; i += 1) {
             if (!filled[i]) {
                 if (meta->params[i].default_value != NULL) {
                     ordered[i] = zt_lower_expr(ctx, scope, meta->params[i].default_value, meta->params[i].type);
@@ -703,8 +737,10 @@ static zt_hir_expr_list zt_lower_call_args(
             zt_hir_expr_list_push(&out, ordered[i]);
         }
 
-        free(ordered);
-        free(filled);
+        if (heap_alloc) {
+            free(ordered);
+            free(filled);
+        }
     }
 
     return out;

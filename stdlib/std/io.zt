@@ -1,9 +1,28 @@
--- Biblioteca Padrão Zenith — Módulo IO
--- Entrada e saída padrão: stdin, stdout, stderr.
+-- Zenith Standard Library — IO Module
+-- Typed textual input/output/error streams (Decision 058).
+-- 🏗️ TYPES
 -- 🏗️ EXTERN C
--- 📖 LEITURA
--- ✍️ ESCRITA
+-- 📖 READ
+-- ✍️ WRITE
 namespace std.io
+
+public struct Input
+    handle: int
+end
+
+public struct Output
+    handle: int
+end
+
+public enum Error
+    ReadFailed
+    WriteFailed
+    Unknown
+end
+
+public const input: io.Input = io.Input(handle: 0)
+public const output: io.Output = io.Output(handle: 1)
+public const stderr: io.Output = io.Output(handle: 2)
 
 extern c
     func zt_host_read_line_stdin() -> result<optional<text>, core.Error>
@@ -12,40 +31,21 @@ extern c
     func zt_host_write_stderr(value: text) -> result<void, core.Error>
 end
 
-public func read_line(from: bool = false) -> result<optional<text>, core.Error>
-    if from
-        return io.zt_host_read_line_stdin()
-    end
+public func read_line(from: io.Input = io.input) -> result<optional<text>, core.Error>
     return io.zt_host_read_line_stdin()
 end
 
-public func read_all(from: bool = false) -> result<text, core.Error>
-    if from
-        return io.zt_host_read_all_stdin()
-    end
+public func read_all(from: io.Input = io.input) -> result<text, core.Error>
     return io.zt_host_read_all_stdin()
 end
 
-public func write(value: text, to: bool = false) -> result<void, core.Error>
-    if to
+public func write(value: text, to: io.Output = io.output) -> result<void, core.Error>
+    if to.handle == 2
         return io.zt_host_write_stderr(value)
     end
     return io.zt_host_write_stdout(value)
 end
 
-public func print(value: text, to: bool = false) -> result<void, core.Error>
+public func print(value: text, to: io.Output = io.output) -> result<void, core.Error>
     return io.write(value, to: to)
-end
-
-public func print_line(value: text, to: bool = false) -> result<void, core.Error>
-    io.print(value, to: to)?
-    return io.print("\n", to: to)
-end
-
-public func eprint(value: text) -> result<void, core.Error>
-    return io.write(value, to: true)
-end
-
-public func eprint_line(value: text) -> result<void, core.Error>
-    return io.print_line(value, to: true)
 end

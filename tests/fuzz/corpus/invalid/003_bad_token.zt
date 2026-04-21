@@ -1,0 +1,4 @@
+func main() -> int
+    const x: int = @@@!!!
+    return x
+end

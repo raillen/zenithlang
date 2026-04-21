@@ -28,7 +28,7 @@
 #define ZT_TEMPLATE_IF_NOT_1(...)
 #define ZT_TEMPLATE_IF_NOT(flag, ...) ZT_TEMPLATE_CAT(ZT_TEMPLATE_IF_NOT_, flag)(__VA_ARGS__)
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
  * ZT_DEFINE_LIST(SUFFIX, ELEM_TYPE, HEAP_KIND, IS_PTR)
  *
  * Generates:
@@ -44,7 +44,7 @@
  *   - zt_list_##SUFFIX *zt_list_##SUFFIX##_set_owned(...)
  *   - zt_int zt_list_##SUFFIX##_len(...)
  *   - zt_list_##SUFFIX *zt_list_##SUFFIX##_slice(...)
- * ───────────────────────────────────────────────────────────────────────────── */
+ * -------------------------------------------------------------------------- */
 
 #define ZT_DEFINE_LIST_STRUCT(SUFFIX, ELEM_TYPE, HEAP_KIND, IS_PTR)             \
                                                                                  \
@@ -1267,13 +1267,16 @@ OPTIONAL_TYPE zt_pqueue_##SUFFIX##_pop(zt_pqueue_##SUFFIX *heap) {             \
         zt_pqueue_##SUFFIX##_sift_down(heap, 0);                                \
     }                                                                           \
     ZT_TEMPLATE_IF(IS_PTR,                                                      \
-        OPTIONAL_TYPE opt = OPTIONAL_PRESENT_FN(result);                        \
-        zt_release((void *)result);                                             \
+        OPTIONAL_TYPE opt;                                                      \
+        heap->data[heap->len] = (ELEM_TYPE)NULL;                                \
+        opt.is_present = true;                                                  \
+        opt.value = result;                                                     \
         return opt;                                                             \
     )                                                                           \
     ZT_TEMPLATE_IF_NOT(IS_PTR,                                                  \
         return OPTIONAL_PRESENT_FN(result);                                     \
     )                                                                           \
+    return OPTIONAL_EMPTY_FN(); /* unreachable */                               \
 }                                                                               \
                                                                                 \
 OPTIONAL_TYPE zt_pqueue_##SUFFIX##_peek(const zt_pqueue_##SUFFIX *heap) {      \
@@ -1422,13 +1425,15 @@ OPTIONAL_TYPE zt_circbuf_##SUFFIX##_pop(zt_circbuf_##SUFFIX *buf) {            \
     buf->head = (buf->head + 1) % buf->capacity;                                \
     buf->len -= 1;                                                              \
     ZT_TEMPLATE_IF(IS_PTR,                                                      \
-        OPTIONAL_TYPE opt = OPTIONAL_PRESENT_FN(value);                         \
-        zt_release((void *)value);                                              \
+        OPTIONAL_TYPE opt;                                                      \
+        opt.is_present = true;                                                  \
+        opt.value = value;                                                      \
         return opt;                                                             \
     )                                                                           \
     ZT_TEMPLATE_IF_NOT(IS_PTR,                                                  \
         return OPTIONAL_PRESENT_FN(value);                                      \
     )                                                                           \
+    return OPTIONAL_EMPTY_FN(); /* unreachable */                               \
 }                                                                               \
                                                                                 \
 OPTIONAL_TYPE zt_circbuf_##SUFFIX##_peek(const zt_circbuf_##SUFFIX *buf) {     \
@@ -1981,7 +1986,7 @@ zt_int zt_btreeset_##SUFFIX##_len(const zt_btreeset_##SUFFIX *set) {           \
     return (zt_int)set->len;                                                    \
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
  * ZT_DEFINE_OPTIONAL(SUFFIX, ELEM_TYPE, IS_PTR)
  *
  * Generates:
@@ -1990,7 +1995,7 @@ zt_int zt_btreeset_##SUFFIX##_len(const zt_btreeset_##SUFFIX *set) {           \
  *   - zt_optional_##SUFFIX zt_optional_##SUFFIX##_empty(void)
  *   - zt_bool zt_optional_##SUFFIX##_is_present(zt_optional_##SUFFIX value)
  *   - ELEM_TYPE zt_optional_##SUFFIX##_coalesce(zt_optional_##SUFFIX value, ELEM_TYPE fallback)
- * ───────────────────────────────────────────────────────────────────────────── */
+ * -------------------------------------------------------------------------- */
 
 #define ZT_DEFINE_OPTIONAL(SUFFIX, ELEM_TYPE, IS_PTR)                           \
                                                                                  \
@@ -2002,7 +2007,7 @@ typedef struct zt_optional_##SUFFIX {                                           
 static inline zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(              \
         ELEM_TYPE value) {                                                       \
     zt_optional_##SUFFIX result;                                                 \
-    if (IS_PTR) { zt_retain((void *)value); }                                   \
+    if (IS_PTR && (const void *)value != NULL) { zt_retain((void *)value); }                                   \
     result.is_present = true;                                                    \
     result.value = value;                                                         \
     return result;                                                               \
@@ -2010,7 +2015,7 @@ static inline zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(              
                                                                                  \
 static inline zt_optional_##SUFFIX zt_optional_##SUFFIX##_empty(void) {         \
     zt_optional_##SUFFIX result;                                                 \
-    memset(&result, 0, sizeof(result));                                          \
+    result.value = (ELEM_TYPE)0;                                          \
     result.is_present = false;                                                   \
     return result;                                                               \
 }                                                                                \
@@ -2023,16 +2028,16 @@ static inline zt_bool zt_optional_##SUFFIX##_is_present(                        
 static inline ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                        \
         zt_optional_##SUFFIX opt, ELEM_TYPE fallback) {                          \
     ELEM_TYPE selected = opt.is_present ? opt.value : fallback;                  \
-    if (IS_PTR) { zt_retain((void *)selected); }                                \
+    if (IS_PTR && (const void *)selected != NULL) { zt_retain((void *)selected); }                                \
     return selected;                                                             \
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
  * ZT_DEFINE_OPTIONAL_IMPL(SUFFIX, ELEM_TYPE, IS_PTR)
  *
  * Like ZT_DEFINE_OPTIONAL but only generates function implementations.
  * Use this in zenith_rt.c where structs are already declared in zenith_rt.h.
- * ───────────────────────────────────────────────────────────────────────────── */
+ * -------------------------------------------------------------------------- */
 
 
 
@@ -2040,7 +2045,7 @@ static inline ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                        
                                                                                  \
 zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(ELEM_TYPE value) {          \
     zt_optional_##SUFFIX result;                                                 \
-    if (IS_PTR) { zt_retain((void *)value); }                                   \
+    if (IS_PTR && (const void *)value != NULL) { zt_retain((void *)value); }                                   \
     result.is_present = true;                                                    \
     result.value = value;                                                         \
     return result;                                                               \
@@ -2048,7 +2053,7 @@ zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(ELEM_TYPE value) {          
                                                                                  \
 zt_optional_##SUFFIX zt_optional_##SUFFIX##_empty(void) {                       \
     zt_optional_##SUFFIX result;                                                 \
-    memset(&result, 0, sizeof(result));                                          \
+    result.value = (ELEM_TYPE)0;                                          \
     result.is_present = false;                                                   \
     return result;                                                               \
 }                                                                                \
@@ -2060,11 +2065,11 @@ zt_bool zt_optional_##SUFFIX##_is_present(zt_optional_##SUFFIX opt) {           
 ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                                       \
         zt_optional_##SUFFIX opt, ELEM_TYPE fallback) {                          \
     ELEM_TYPE selected = opt.is_present ? opt.value : fallback;                  \
-    if (IS_PTR) { zt_retain((void *)selected); }                                \
+    if (IS_PTR && (const void *)selected != NULL) { zt_retain((void *)selected); }                                \
     return selected;                                                             \
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
  * ZT_DEFINE_OUTCOME_IMPL(SUFFIX, VAL_TYPE, ERR_TYPE, VAL_IS_PTR)
  *
  * Generates outcome<VAL_TYPE, ERR_TYPE> function implementations.
@@ -2077,14 +2082,14 @@ ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                                      
  *   - zt_bool zt_outcome_##SUFFIX##_is_success(zt_outcome_##SUFFIX outcome)
  *   - VAL_TYPE zt_outcome_##SUFFIX##_value(zt_outcome_##SUFFIX outcome)
  *   - zt_outcome_##SUFFIX zt_outcome_##SUFFIX##_propagate(zt_outcome_##SUFFIX outcome)
- * ───────────────────────────────────────────────────────────────────────────── */
+ * -------------------------------------------------------------------------- */
 
 #define ZT_DEFINE_OUTCOME_IMPL(SUFFIX, VAL_TYPE, ERR_TYPE, VAL_IS_PTR)          \
                                                                                  \
 zt_outcome_##SUFFIX zt_outcome_##SUFFIX##_success(VAL_TYPE value) {             \
     zt_outcome_##SUFFIX outcome;                                                 \
-    memset(&outcome, 0, sizeof(outcome));                                        \
-    if (VAL_IS_PTR) { zt_retain((void *)value); }                               \
+    \
+    if (VAL_IS_PTR && (const void *)value != NULL) { zt_retain((void *)value); }                               \
     outcome.is_success = true;                                                   \
     outcome.value = value;                                                        \
     outcome.error = NULL;                                                         \
@@ -2093,14 +2098,15 @@ zt_outcome_##SUFFIX zt_outcome_##SUFFIX##_success(VAL_TYPE value) {             
                                                                                  \
 zt_outcome_##SUFFIX zt_outcome_##SUFFIX##_failure(ERR_TYPE error) {             \
     zt_outcome_##SUFFIX outcome;                                                 \
-    memset(&outcome, 0, sizeof(outcome));                                        \
+    \
     if (error == NULL) {                                                          \
         zt_runtime_error(ZT_ERR_PANIC,                                          \
             "zt_outcome_" #SUFFIX "_failure requires error");                    \
     }                                                                            \
     zt_retain((void *)error);                                                    \
-    outcome.is_success = false;                                                   \
-    outcome.error = error;                                                        \
+    outcome.is_success = false;                                                 \
+    outcome.value = (VAL_TYPE)0;                                                \
+    outcome.error = error;                                                      \
     return outcome;                                                              \
 }                                                                                \
                                                                                  \
@@ -2116,7 +2122,7 @@ VAL_TYPE zt_outcome_##SUFFIX##_value(zt_outcome_##SUFFIX outcome) {             
         zt_runtime_error(ZT_ERR_PANIC,                                          \
             "outcome<" #SUFFIX "> success value cannot be null");                \
     }                                                                            \
-    if (VAL_IS_PTR) { zt_retain((void *)outcome.value); }                       \
+    if (VAL_IS_PTR && (const void *)outcome.value != NULL) { zt_retain((void *)outcome.value); }                       \
     return outcome.value;                                                         \
 }                                                                                \
                                                                                  \

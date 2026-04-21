@@ -16,7 +16,16 @@
 
 static int tests_run = 0;
 static int tests_passed = 0;
+static zt_arena test_arena;
+static zt_string_pool test_pool;
+static int parser_fixture_ready = 0;
 
+static void ensure_parser_fixture(void) {
+    if (parser_fixture_ready) return;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+    parser_fixture_ready = 1;
+}
 #define ASSERT_TRUE(condition, msg) do { \
     tests_run++; \
     if (condition) { tests_passed++; } \
@@ -93,7 +102,8 @@ static int list_has_code(
 }
 
 static zt_parser_result parse_source_or_fail(const char *path, const char *source_text) {
-    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, ath, source_text, strlen(source_text));
+    ensure_parser_fixture();
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, path, source_text, strlen(source_text));
     if (parsed.diagnostics.count != 0) {
         size_t i;
         fprintf(stderr, "FAIL: parser errors while preparing zdoc test fixture (%s)\n", path);
@@ -349,6 +359,53 @@ static void test_zdoc_private_docs_supported(void) {
 }
 
 
+static void test_zdoc_locale_prefixed_docs_supported(void) {
+    const char *base = ".ztc-tmp/tests/zdoc/locale_prefixed";
+    const char *source_path = ".ztc-tmp/tests/zdoc/locale_prefixed/src/app/main.zt";
+    const char *source_text =
+        "namespace app\n"
+        "\n"
+        "public func main() -> int\n"
+        "    return 0\n"
+        "end\n";
+    const char *api_doc_en =
+        "--- @target: main\n"
+        "API docs in English.\n"
+        "---\n";
+    const char *guide_doc_en =
+        "--- @page: getting-started\n"
+        "Guide text linking @link main.\n"
+        "---\n";
+    const char *guide_doc_pt =
+        "--- @page: visao-geral\n"
+        "Guia com link @link main.\n"
+        "---\n";
+    zt_parser_result parsed;
+    zt_zdoc_source_unit unit;
+    zt_zdoc_diagnostic_list diagnostics;
+
+    ASSERT_TRUE(ensure_dir(".ztc-tmp/tests/zdoc/locale_prefixed/src/app"), "zdoc locale source dir");
+    ASSERT_TRUE(ensure_dir(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/en/app"), "zdoc locale en api dir");
+    ASSERT_TRUE(ensure_dir(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/en/guides"), "zdoc locale en guides dir");
+    ASSERT_TRUE(ensure_dir(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/pt_BR/guides"), "zdoc locale pt_BR guides dir");
+
+    ASSERT_TRUE(write_text_file(source_path, source_text), "zdoc locale source write");
+    ASSERT_TRUE(write_text_file(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/en/app/main.zdoc", api_doc_en), "zdoc locale en api write");
+    ASSERT_TRUE(write_text_file(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/en/guides/getting-started.zdoc", guide_doc_en), "zdoc locale en guide write");
+    ASSERT_TRUE(write_text_file(".ztc-tmp/tests/zdoc/locale_prefixed/zdoc/pt_BR/guides/visao-geral.zdoc", guide_doc_pt), "zdoc locale pt_BR guide write");
+
+    parsed = parse_source_or_fail(source_path, source_text);
+    unit.source_path = source_path;
+    unit.root = parsed.root;
+
+    zt_zdoc_diagnostic_list_init(&diagnostics);
+    ASSERT_TRUE(zt_zdoc_check_project(base, "src", "zdoc", &unit, 1, &diagnostics), "zdoc locale check call");
+    ASSERT_TRUE(zt_zdoc_diagnostic_error_count(&diagnostics) == 0, "zdoc locale has no errors");
+    ASSERT_TRUE(zt_zdoc_diagnostic_warning_count(&diagnostics) == 0, "zdoc locale has no warnings");
+
+    zt_zdoc_diagnostic_list_dispose(&diagnostics);
+    zt_parser_result_dispose(&parsed);
+}
 int main(void) {
     test_zdoc_ok();
     test_zdoc_missing_target();
@@ -356,6 +413,7 @@ int main(void) {
     test_zdoc_unresolved_target_and_link();
     test_zdoc_missing_public_doc_warning();
     test_zdoc_private_docs_supported();
+    test_zdoc_locale_prefixed_docs_supported();
 
     printf("ZDoc tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

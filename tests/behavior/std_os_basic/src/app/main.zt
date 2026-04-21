@@ -20,47 +20,6 @@ func arch_is_known(value: os.Arch) -> bool
     end
 end
 
-func raw_platform_is_known(raw: text) -> bool
-    if raw == "windows"
-        return true
-    end
-    if raw == "linux"
-        return true
-    end
-    if raw == "macos"
-        return true
-    end
-    return false
-end
-
-func raw_arch_is_known(raw: text) -> bool
-    if raw == "x64"
-        return true
-    end
-    if raw == "amd64"
-        return true
-    end
-    if raw == "x86_64"
-        return true
-    end
-    if raw == "x86"
-        return true
-    end
-    if raw == "i386"
-        return true
-    end
-    if raw == "i686"
-        return true
-    end
-    if raw == "arm64"
-        return true
-    end
-    if raw == "aarch64"
-        return true
-    end
-    return false
-end
-
 func main() -> result<void, core.Error>
     const current_pid: int = os.pid()
     if current_pid <= 0
@@ -70,22 +29,12 @@ func main() -> result<void, core.Error>
     const current_platform: os.Platform = os.platform()
     const current_arch: os.Arch = os.arch()
 
-    const raw_platform: text = os.platform_text()
-    const raw_arch: text = os.arch_text()
-    if len(raw_platform) == 0 or len(raw_arch) == 0
-        return error("std.os platform/arch raw text should not be empty")
+    if platform_is_known(current_platform) == false
+        return error("std.os.platform returned Unknown")
     end
 
-    if raw_platform_is_known(raw_platform)
-        if platform_is_known(current_platform) == false
-            return error("std.os.platform returned Unknown for a known raw platform")
-        end
-    end
-
-    if raw_arch_is_known(raw_arch)
-        if arch_is_known(current_arch) == false
-            return error("std.os.arch returned Unknown for a known raw architecture")
-        end
+    if arch_is_known(current_arch) == false
+        return error("std.os.arch returned Unknown")
     end
 
     const cwd: text = os.current_dir()?
@@ -97,4 +46,3 @@ func main() -> result<void, core.Error>
 
     return success()
 end
-

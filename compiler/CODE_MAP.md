@@ -74,9 +74,9 @@ compiler/
 
 | Module | Priority | Source files | Symbols | Map |
 | --- | --- | ---: | ---: | --- |
-| Driver / CLI Code Map | Critical | 4 | 150 | [DRIVER_MAP.md](driver/DRIVER_MAP.md) |
+| Driver / CLI Code Map | Critical | 8 | 207 | [DRIVER_MAP.md](driver/DRIVER_MAP.md) |
 | Lexer Code Map | Critical | 4 | 25 | [LEXER_MAP.md](frontend/lexer/LEXER_MAP.md) |
-| Parser Code Map | Critical | 2 | 69 | [PARSER_MAP.md](frontend/parser/PARSER_MAP.md) |
+| Parser Code Map | Critical | 2 | 71 | [PARSER_MAP.md](frontend/parser/PARSER_MAP.md) |
 | AST Code Map | Medium | 2 | 9 | [AST_MAP.md](frontend/ast/AST_MAP.md) |
 | ZIR Model Code Map | Critical | 2 | 100 | [ZIR_MODEL_MAP.md](zir/ZIR_MODEL_MAP.md) |
 | ZIR Parser Code Map | Medium | 2 | 23 | [ZIR_PARSER_MAP.md](zir/ZIR_PARSER_MAP.md) |
@@ -86,17 +86,17 @@ compiler/
 | Type System Code Map | Critical | 4 | 98 | [TYPE_SYSTEM_MAP.md](semantic/types/TYPE_SYSTEM_MAP.md) |
 | Symbols Code Map | Medium | 2 | 9 | [SYMBOLS_MAP.md](semantic/symbols/SYMBOLS_MAP.md) |
 | Diagnostics Code Map | Low | 3 | 41 | [DIAGNOSTICS_MAP.md](semantic/diagnostics/DIAGNOSTICS_MAP.md) |
-| C Emitter Code Map | Critical | 4 | 203 | [EMITTER_MAP.md](targets/c/EMITTER_MAP.md) |
-| Project / ZDoc Code Map | Medium | 4 | 77 | [PROJECT_MAP.md](project/PROJECT_MAP.md) |
+| C Emitter Code Map | Critical | 4 | 228 | [EMITTER_MAP.md](targets/c/EMITTER_MAP.md) |
+| Project / ZDoc Code Map | Medium | 4 | 82 | [PROJECT_MAP.md](project/PROJECT_MAP.md) |
 | Formatter Code Map | Low | 2 | 13 | [FORMATTER_MAP.md](tooling/FORMATTER_MAP.md) |
 | Utils Code Map | Low | 7 | 36 | [UTILS_MAP.md](utils/UTILS_MAP.md) |
-| Runtime Code Map | Critical | 2 | 592 | [RUNTIME_MAP.md](../runtime/c/RUNTIME_MAP.md) |
-| Stdlib Code Map | Medium | 32 | 660 | [STDLIB_MAP.md](../stdlib/STDLIB_MAP.md) |
+| Runtime Code Map | Critical | 3 | 420 | [RUNTIME_MAP.md](../runtime/c/RUNTIME_MAP.md) |
+| Stdlib Code Map | Medium | 32 | 841 | [STDLIB_MAP.md](../stdlib/STDLIB_MAP.md) |
 
 ### Totals
 
-- Source files indexed: 82
-- Symbols indexed: 2234
+- Source files indexed: 87
+- Symbols indexed: 2332
 
 ### Workflow
 

@@ -2555,32 +2555,18 @@ static int c_emit_call_expr(
         const char *args_text,
         int direct_call,
         c_emit_result *result) {
-    /* Use heap-allocated buffer for call expressions (can be nested deeply) */
-    char *callee = (char *)malloc(256);
-    char *mangled = NULL;
+    char callee[256];
+    char mangled[256];
     const char *call_name = NULL;
-    int ok = 1;
-    
-    if (callee == NULL) {
-        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "failed to allocate memory for call expression");
-        return 0;
-    }
 
-    if (!c_copy_trimmed(callee, 256, callee_text)) {
-        free(callee);
+    if (!c_copy_trimmed(callee, sizeof(callee), callee_text)) {
         return 0;
     }
 
     if (direct_call) {
         zir_function pseudo_function;
         pseudo_function.name = callee;
-        mangled = (char *)malloc(256);
-        if (mangled == NULL) {
-            free(callee);
-            c_emit_set_result(result, C_EMIT_INVALID_INPUT, "failed to allocate memory for mangled symbol");
-            return 0;
-        }
-        c_build_function_symbol(module_decl, &pseudo_function, mangled, 256);
+        c_build_function_symbol(module_decl, &pseudo_function, mangled, sizeof(mangled));
         call_name = mangled;
     } else if (strncmp(callee, "c.", 2) == 0) {
         call_name = callee + 2;
@@ -2591,18 +2577,12 @@ static int c_emit_call_expr(
             "extern call '%s' is not supported by the current C emitter subset",
             callee
         );
-        free(callee);
-        if (mangled) free(mangled);
         return 0;
     }
 
-    ok = c_buffer_append_format(&emitter->buffer, "%s(", call_name) &&
-         c_emit_call_args(emitter, module_decl, function_decl, callee, args_text, direct_call, result) &&
-         c_buffer_append(&emitter->buffer, ")");
-    
-    free(callee);
-    if (mangled) free(mangled);
-    return ok;
+    return c_buffer_append_format(&emitter->buffer, "%s(", call_name) &&
+           c_emit_call_args(emitter, module_decl, function_decl, callee, args_text, direct_call, result) &&
+           c_buffer_append(&emitter->buffer, ")");
 }
 
 static int c_emit_expr(

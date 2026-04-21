@@ -1,7 +1,8 @@
 --- @target: namespace
 # std.os — Sistema Operacional
 
-Módulo para detecção de plataforma/arquitetura, variáveis de ambiente, PID e diretório corrente.
+Módulo para consultas e mutações de estado do processo atual.
+Processos filhos ficam em `std.os.process`.
 ---
 
 --- @target: Platform
@@ -14,7 +15,8 @@ public enum Platform
 end
 ```
 
-Enumeração das plataformas suportadas pelo Zenith.
+Plataforma do sistema operacional.
+Use `os.platform()` para obter o valor atual.
 ---
 
 --- @target: Arch
@@ -27,7 +29,8 @@ public enum Arch
 end
 ```
 
-Enumeração das arquiteturas de processador detectáveis.
+Arquitetura do processador.
+Use `os.arch()` para obter o valor atual.
 ---
 
 --- @target: Error
@@ -35,34 +38,20 @@ Enumeração das arquiteturas de processador detectáveis.
 public enum Error
     NotFound
     PermissionDenied
-    AlreadyExists
-    NotADirectory
     IOError
     Unknown
 end
 ```
 
-Tipos de erro específicos do módulo OS.
-
-## Funções de Diretório e Ambiente
+Erro tipado para operações do sistema operacional.
 ---
 
---- @target: current_dir
+--- @target: args
 ```zt
-public func current_dir() -> result<text, core.Error>
+public func args() -> list<text>
 ```
 
-Retorna o diretório de trabalho atual do processo.
----
-
---- @target: change_dir
-```zt
-public func change_dir(dir_path: text) -> result<void, core.Error>
-```
-
-Altera o diretório de trabalho atual.
-
-@param dir_path — Novo diretório de trabalho.
+Retorna o vetor de argumentos do processo.
 ---
 
 --- @target: env
@@ -70,10 +59,11 @@ Altera o diretório de trabalho atual.
 public func env(name: text) -> optional<text>
 ```
 
-Lê uma variável de ambiente. Retorna `none` se não existir.
+Consulta uma variável de ambiente.
+Retorna `none` se a variável não existir.
 
-@param name — Nome da variável (ex: `"PATH"`, `"HOME"`).
-@return Valor da variável ou `none`.
+@param name — Nome da variável.
+@return Valor da variável, ou `none`.
 ---
 
 --- @target: pid
@@ -81,9 +71,7 @@ Lê uma variável de ambiente. Retorna `none` se não existir.
 public func pid() -> int
 ```
 
-Retorna o PID (Process ID) do processo atual.
-
-## Detecção de Plataforma
+Retorna o PID do processo atual.
 ---
 
 --- @target: platform
@@ -91,8 +79,7 @@ Retorna o PID (Process ID) do processo atual.
 public func platform() -> os.Platform
 ```
 
-Detecta a plataforma do sistema operacional em execução.
-Retorna `Platform.Unknown` se não for Windows, Linux ou MacOS.
+Retorna a plataforma do sistema operacional.
 ---
 
 --- @target: arch
@@ -100,62 +87,24 @@ Retorna `Platform.Unknown` se não for Windows, Linux ou MacOS.
 public func arch() -> os.Arch
 ```
 
-Detecta a arquitetura do processador.
-Reconhece variantes como `"amd64"`, `"x86_64"`, `"aarch64"`.
+Retorna a arquitetura do processador.
 ---
 
---- @target: platform_text
+--- @target: current_dir
 ```zt
-public func platform_text() -> text
+public func current_dir() -> result<text, os.Error>
 ```
 
-Retorna o nome bruto da plataforma como texto (ex: `"windows"`, `"linux"`, `"macos"`).
+Retorna o diretório de trabalho atual.
 ---
 
---- @target: arch_text
+--- @target: change_dir
 ```zt
-public func arch_text() -> text
+public func change_dir(path: text) -> result<void, os.Error>
 ```
 
-Retorna o nome bruto da arquitetura como texto (ex: `"x64"`, `"arm64"`).
----
+Altera o diretório de trabalho atual.
 
---- @target: is_platform
-```zt
-public func is_platform(p: os.Platform) -> bool
-```
-
-Verifica se a plataforma atual corresponde ao valor especificado.
----
-
---- @target: is_arch
-```zt
-public func is_arch(a: os.Arch) -> bool
-```
-
-Verifica se a arquitetura atual corresponde ao valor especificado.
----
-
---- @target: is_windows
-```zt
-public func is_windows() -> bool
-```
-
-Atalho para `is_platform(Platform.Windows)`.
----
-
---- @target: is_linux
-```zt
-public func is_linux() -> bool
-```
-
-Atalho para `is_platform(Platform.Linux)`.
----
-
---- @target: is_macos
-```zt
-public func is_macos() -> bool
-```
-
-Atalho para `is_platform(Platform.MacOS)`.
+@param path — Novo diretório de trabalho.
+@return `void` em sucesso, ou erro.
 ---

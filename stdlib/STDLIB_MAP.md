@@ -77,7 +77,7 @@ Nao permitido:
 
 - Priority: Medium
 - Source files: 32
-- Extracted symbols: 660
+- Extracted symbols: 841
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -87,36 +87,36 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | --- | ---: | ---: | ---: |
 | `stdlib/std/bytes.zt` | 41 | 15 | 0 |
 | `stdlib/std/collections.zt` | 456 | 167 | 0 |
-| `stdlib/std/format.zt` | 53 | 13 | 0 |
-| `stdlib/std/fs.zt` | 22 | 7 | 0 |
-| `stdlib/std/fs/path.zt` | 194 | 41 | 0 |
-| `stdlib/std/io.zt` | 52 | 12 | 0 |
-| `stdlib/std/json.zt` | 22 | 7 | 0 |
-| `stdlib/std/math.zt` | 173 | 56 | 0 |
+| `stdlib/std/format.zt` | 70 | 21 | 0 |
+| `stdlib/std/fs.zt` | 124 | 40 | 0 |
+| `stdlib/std/fs/path.zt` | 205 | 43 | 0 |
+| `stdlib/std/io.zt` | 52 | 15 | 0 |
+| `stdlib/std/json.zt` | 111 | 34 | 0 |
+| `stdlib/std/math.zt` | 179 | 57 | 0 |
 | `stdlib/std/net.zt` | 95 | 14 | 1 |
-| `stdlib/std/os.zt` | 171 | 25 | 0 |
-| `stdlib/std/os/process.zt` | 47 | 10 | 0 |
+| `stdlib/std/os.zt` | 88 | 20 | 0 |
+| `stdlib/std/os/process.zt` | 38 | 8 | 0 |
 | `stdlib/std/random.zt` | 34 | 9 | 0 |
 | `stdlib/std/test.zt` | 21 | 7 | 0 |
-| `stdlib/std/text.zt` | 16 | 5 | 0 |
-| `stdlib/std/time.zt` | 82 | 20 | 0 |
-| `stdlib/std/validate.zt` | 83 | 22 | 0 |
-| `stdlib/zdoc/std/bytes.zdoc` | 43 | 7 | 0 |
-| `stdlib/zdoc/std/collections.zdoc` | 644 | 89 | 0 |
-| `stdlib/zdoc/std/format.zdoc` | 62 | 9 | 0 |
-| `stdlib/zdoc/std/fs.zdoc` | 26 | 4 | 0 |
-| `stdlib/zdoc/std/fs/path.zdoc` | 93 | 13 | 0 |
-| `stdlib/zdoc/std/io.zdoc` | 55 | 8 | 0 |
-| `stdlib/zdoc/std/json.zdoc` | 26 | 4 | 0 |
-| `stdlib/zdoc/std/math.zdoc` | 228 | 34 | 0 |
-| `stdlib/zdoc/std/net.zdoc` | 32 | 6 | 0 |
-| `stdlib/zdoc/std/os.zdoc` | 160 | 16 | 0 |
-| `stdlib/zdoc/std/os/process.zdoc` | 95 | 9 | 0 |
-| `stdlib/zdoc/std/random.zdoc` | 38 | 3 | 0 |
-| `stdlib/zdoc/std/test.zdoc` | 19 | 3 | 0 |
-| `stdlib/zdoc/std/text.zdoc` | 14 | 2 | 0 |
-| `stdlib/zdoc/std/time.zdoc` | 108 | 11 | 0 |
-| `stdlib/zdoc/std/validate.zdoc` | 73 | 12 | 0 |
+| `stdlib/std/text.zt` | 179 | 58 | 0 |
+| `stdlib/std/time.zt` | 88 | 21 | 0 |
+| `stdlib/std/validate.zt` | 52 | 12 | 0 |
+| `stdlib/zdoc/std/bytes.zdoc` | 89 | 8 | 0 |
+| `stdlib/zdoc/std/collections.zdoc` | 828 | 88 | 0 |
+| `stdlib/zdoc/std/format.zdoc` | 130 | 11 | 0 |
+| `stdlib/zdoc/std/fs.zdoc` | 209 | 21 | 0 |
+| `stdlib/zdoc/std/fs/path.zdoc` | 131 | 13 | 0 |
+| `stdlib/zdoc/std/io.zdoc` | 117 | 11 | 0 |
+| `stdlib/zdoc/std/json.zdoc` | 197 | 20 | 0 |
+| `stdlib/zdoc/std/math.zdoc` | 292 | 34 | 0 |
+| `stdlib/zdoc/std/net.zdoc` | 125 | 9 | 0 |
+| `stdlib/zdoc/std/os.zdoc` | 111 | 11 | 0 |
+| `stdlib/zdoc/std/os/process.zdoc` | 73 | 6 | 0 |
+| `stdlib/zdoc/std/random.zdoc` | 41 | 4 | 0 |
+| `stdlib/zdoc/std/test.zdoc` | 31 | 3 | 0 |
+| `stdlib/zdoc/std/text.zdoc` | 357 | 31 | 0 |
+| `stdlib/zdoc/std/time.zdoc` | 162 | 19 | 0 |
+| `stdlib/zdoc/std/validate.zdoc` | 109 | 11 | 0 |
 
 ### Local Dependencies
 
@@ -369,31 +369,72 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 4 | `namespace` | `std.format` |
-| 6 | `enum` | `BytesStyle` |
-| 12 | `func` | `zt_format_hex_i64` |
-| 13 | `func` | `zt_format_bin_i64` |
-| 14 | `func` | `zt_format_bytes_binary` |
-| 15 | `func` | `zt_format_bytes_decimal` |
-| 18 | `func` | `style_binary` |
-| 22 | `func` | `style_decimal` |
-| 26 | `func` | `hex` |
-| 30 | `func` | `bin` |
-| 34 | `func` | `bytes` |
-| 45 | `func` | `bytes_binary` |
-| 49 | `func` | `bytes_decimal` |
+| 8 | `namespace` | `std.format` |
+| 10 | `enum` | `BytesStyle` |
+| 16 | `func` | `zt_format_number` |
+| 17 | `func` | `zt_format_percent` |
+| 18 | `func` | `zt_format_date` |
+| 19 | `func` | `zt_format_datetime` |
+| 20 | `func` | `zt_format_date_pattern` |
+| 21 | `func` | `zt_format_datetime_pattern` |
+| 22 | `func` | `zt_format_hex_i64` |
+| 23 | `func` | `zt_format_bin_i64` |
+| 24 | `func` | `zt_format_bytes_binary` |
+| 25 | `func` | `zt_format_bytes_decimal` |
+| 28 | `func` | `number` |
+| 32 | `func` | `percent` |
+| 36 | `func` | `date` |
+| 40 | `func` | `datetime` |
+| 44 | `func` | `date_pattern` |
+| 48 | `func` | `datetime_pattern` |
+| 52 | `func` | `bytes` |
+| 63 | `func` | `hex` |
+| 67 | `func` | `bin` |
 
 #### `stdlib/std/fs.zt`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 4 | `namespace` | `std.fs` |
-| 7 | `func` | `zt_host_read_file` |
-| 8 | `func` | `zt_host_write_file` |
-| 9 | `func` | `zt_host_path_exists` |
-| 12 | `func` | `read_text` |
-| 16 | `func` | `write_text` |
-| 20 | `func` | `exists` |
+| 11 | `namespace` | `std.fs` |
+| 13 | `enum` | `Error` |
+| 24 | `struct` | `Metadata` |
+| 33 | `func` | `zt_host_read_file` |
+| 34 | `func` | `zt_host_write_file` |
+| 35 | `func` | `zt_host_fs_append_text` |
+| 36 | `func` | `zt_host_path_exists` |
+| 37 | `func` | `zt_host_fs_is_file` |
+| 38 | `func` | `zt_host_fs_is_dir` |
+| 39 | `func` | `zt_host_fs_create_dir` |
+| 40 | `func` | `zt_host_fs_create_dir_all` |
+| 41 | `func` | `zt_host_fs_list` |
+| 42 | `func` | `zt_host_fs_remove_file` |
+| 43 | `func` | `zt_host_fs_remove_dir` |
+| 44 | `func` | `zt_host_fs_remove_dir_all` |
+| 45 | `func` | `zt_host_fs_copy_file` |
+| 46 | `func` | `zt_host_fs_move` |
+| 47 | `func` | `zt_host_fs_metadata` |
+| 48 | `func` | `zt_host_fs_size` |
+| 49 | `func` | `zt_host_fs_modified_at` |
+| 50 | `func` | `zt_host_fs_created_at` |
+| 53 | `func` | `read_text` |
+| 57 | `func` | `write_text` |
+| 61 | `func` | `append_text` |
+| 65 | `func` | `exists` |
+| 66 | `const` | `val` |
+| 70 | `func` | `is_file` |
+| 74 | `func` | `is_dir` |
+| 78 | `func` | `create_dir` |
+| 82 | `func` | `create_dir_all` |
+| 86 | `func` | `list` |
+| 90 | `func` | `remove_file` |
+| 94 | `func` | `remove_dir` |
+| 98 | `func` | `remove_dir_all` |
+| 102 | `func` | `copy_file` |
+| 106 | `func` | `move` |
+| 110 | `func` | `metadata` |
+| 114 | `func` | `size` |
+| 118 | `func` | `modified_at` |
+| 122 | `func` | `created_at` |
 
 #### `stdlib/std/fs/path.zt`
 
@@ -409,127 +450,160 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 17 | `func` | `_text_eq` |
 | 21 | `func` | `_last_index_of` |
 | 34 | `func` | `join` |
-| 43 | `const` | `slash` |
-| 44 | `const` | `last_base` |
-| 49 | `const` | `with_sep` |
-| 53 | `func` | `normalize` |
-| 57 | `func` | `is_absolute` |
-| 61 | `func` | `is_relative` |
-| 68 | `func` | `absolute` |
-| 72 | `func` | `relative` |
-| 76 | `func` | `base` |
-| 81 | `const` | `slash` |
-| 82 | `const` | `slash_index` |
-| 94 | `func` | `dir` |
-| 99 | `const` | `slash` |
-| 100 | `const` | `slash_index` |
-| 112 | `func` | `ext` |
-| 113 | `const` | `file_name` |
-| 118 | `const` | `dot` |
-| 119 | `const` | `dot_index` |
-| 127 | `func` | `name_without_extension` |
-| 128 | `const` | `file_name` |
-| 133 | `const` | `dot` |
-| 134 | `const` | `dot_index` |
-| 142 | `func` | `has_ext` |
-| 144 | `const` | `dot` |
-| 157 | `func` | `change_ext` |
-| 158 | `const` | `file_name` |
-| 163 | `const` | `directory` |
-| 164 | `const` | `stem` |
-| 165 | `const` | `dot` |
-| 166 | `const` | `root` |
-| 179 | `const` | `stem_with_dot` |
+| 43 | `const` | `part` |
+| 46 | `const` | `slash` |
+| 47 | `const` | `last_char` |
+| 51 | `const` | `with_sep` |
+| 64 | `func` | `normalize` |
+| 68 | `func` | `is_absolute` |
+| 72 | `func` | `is_relative` |
+| 79 | `func` | `absolute` |
+| 83 | `func` | `relative` |
+| 87 | `func` | `base_name` |
+| 92 | `const` | `slash` |
+| 93 | `const` | `slash_index` |
+| 105 | `func` | `name_without_extension` |
+| 106 | `const` | `file_name` |
+| 111 | `const` | `dot` |
+| 112 | `const` | `dot_index` |
+| 120 | `func` | `extension` |
+| 121 | `const` | `file_name` |
+| 126 | `const` | `dot` |
+| 127 | `const` | `dot_index` |
+| 135 | `func` | `parent` |
+| 140 | `const` | `slash` |
+| 141 | `const` | `slash_index` |
+| 153 | `func` | `has_extension` |
+| 155 | `const` | `dot` |
+| 165 | `const` | `ext_val` |
+| 169 | `func` | `change_extension` |
+| 170 | `const` | `file_name` |
+| 175 | `const` | `directory` |
+| 176 | `const` | `stem` |
+| 177 | `const` | `dot` |
+| 178 | `const` | `root` |
+| 191 | `const` | `stem_with_dot` |
 
 #### `stdlib/std/io.zt`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 6 | `namespace` | `std.io` |
-| 9 | `func` | `zt_host_read_line_stdin` |
-| 10 | `func` | `zt_host_read_all_stdin` |
-| 11 | `func` | `zt_host_write_stdout` |
-| 12 | `func` | `zt_host_write_stderr` |
-| 15 | `func` | `read_line` |
-| 22 | `func` | `read_all` |
-| 29 | `func` | `write` |
-| 36 | `func` | `print` |
-| 40 | `func` | `print_line` |
-| 45 | `func` | `eprint` |
-| 49 | `func` | `eprint_line` |
+| 7 | `namespace` | `std.io` |
+| 9 | `struct` | `Input` |
+| 13 | `struct` | `Output` |
+| 17 | `enum` | `Error` |
+| 23 | `const` | `input` |
+| 24 | `const` | `output` |
+| 25 | `const` | `err` |
+| 28 | `func` | `zt_host_read_line_stdin` |
+| 29 | `func` | `zt_host_read_all_stdin` |
+| 30 | `func` | `zt_host_write_stdout` |
+| 31 | `func` | `zt_host_write_stderr` |
+| 34 | `func` | `read_line` |
+| 38 | `func` | `read_all` |
+| 42 | `func` | `write` |
+| 49 | `func` | `print` |
 
 #### `stdlib/std/json.zt`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 4 | `namespace` | `std.json` |
-| 7 | `func` | `zt_json_parse_map_text_text` |
-| 8 | `func` | `zt_json_stringify_map_text_text` |
-| 9 | `func` | `zt_json_pretty_map_text_text` |
-| 12 | `func` | `parse` |
-| 16 | `func` | `stringify` |
-| 20 | `func` | `pretty` |
+| 9 | `namespace` | `std.json` |
+| 11 | `struct` | `Value` |
+| 15 | `struct` | `Object` |
+| 19 | `struct` | `Array` |
+| 23 | `enum` | `Kind` |
+| 32 | `enum` | `Error` |
+| 41 | `func` | `zt_json_parse` |
+| 42 | `func` | `zt_json_stringify` |
+| 43 | `func` | `zt_json_pretty` |
+| 44 | `func` | `zt_json_read_file` |
+| 45 | `func` | `zt_json_write_file` |
+| 46 | `func` | `zt_json_kind` |
+| 47 | `func` | `zt_json_has_key` |
+| 48 | `func` | `zt_json_get_key` |
+| 49 | `func` | `zt_json_as_text` |
+| 50 | `func` | `zt_json_as_int` |
+| 51 | `func` | `zt_json_as_float` |
+| 52 | `func` | `zt_json_as_bool` |
+| 53 | `func` | `zt_json_as_array` |
+| 54 | `func` | `zt_json_as_object` |
+| 57 | `func` | `parse` |
+| 61 | `func` | `stringify` |
+| 65 | `func` | `pretty` |
+| 69 | `func` | `read` |
+| 73 | `func` | `write` |
+| 77 | `func` | `kind` |
+| 81 | `func` | `has_key` |
+| 85 | `func` | `get_key` |
+| 89 | `func` | `as_text` |
+| 93 | `func` | `as_int` |
+| 97 | `func` | `as_float` |
+| 101 | `func` | `as_bool` |
+| 105 | `func` | `as_array` |
+| 109 | `func` | `as_object` |
 
 #### `stdlib/std/math.zt`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 2 | `namespace` | `std.math` |
-| 5 | `func` | `zt_math_pow` |
-| 6 | `func` | `zt_math_sqrt` |
-| 7 | `func` | `zt_math_floor` |
-| 8 | `func` | `zt_math_ceil` |
-| 9 | `func` | `zt_math_round_half_away_from_zero` |
-| 10 | `func` | `zt_math_trunc` |
-| 11 | `func` | `zt_math_sin` |
-| 12 | `func` | `zt_math_cos` |
-| 13 | `func` | `zt_math_tan` |
-| 14 | `func` | `zt_math_asin` |
-| 15 | `func` | `zt_math_acos` |
-| 16 | `func` | `zt_math_atan` |
-| 17 | `func` | `zt_math_atan2` |
-| 18 | `func` | `zt_math_ln` |
-| 19 | `func` | `zt_math_log_ten` |
-| 20 | `func` | `zt_math_log2` |
-| 21 | `func` | `zt_math_log` |
-| 22 | `func` | `zt_math_exp` |
-| 23 | `func` | `zt_math_is_nan` |
-| 24 | `func` | `zt_math_is_infinite` |
-| 25 | `func` | `zt_math_is_finite` |
-| 28 | `const` | `PI` |
-| 29 | `const` | `E` |
-| 30 | `const` | `TAU` |
-| 32 | `func` | `pi` |
-| 36 | `func` | `e` |
-| 40 | `func` | `tau` |
-| 44 | `func` | `abs` |
-| 51 | `func` | `min` |
-| 58 | `func` | `max` |
-| 65 | `func` | `clamp` |
-| 75 | `func` | `pow` |
-| 79 | `func` | `sqrt` |
-| 83 | `func` | `floor` |
-| 87 | `func` | `ceil` |
-| 91 | `func` | `round` |
-| 95 | `func` | `trunc` |
-| 99 | `func` | `deg_to_rad` |
-| 103 | `func` | `rad_to_deg` |
-| 107 | `func` | `approx_equal` |
-| 115 | `func` | `sin` |
-| 119 | `func` | `cos` |
-| 123 | `func` | `tan` |
-| 127 | `func` | `asin` |
-| 131 | `func` | `acos` |
-| 135 | `func` | `atan` |
-| 139 | `func` | `atan2` |
-| 143 | `func` | `ln` |
-| 147 | `func` | `log_ten` |
-| 151 | `func` | `log2` |
-| 155 | `func` | `log` |
-| 159 | `func` | `exp` |
-| 163 | `func` | `is_nan` |
-| 167 | `func` | `is_infinite` |
-| 171 | `func` | `is_finite` |
+| 10 | `namespace` | `std.math` |
+| 13 | `func` | `zt_math_pow` |
+| 14 | `func` | `zt_math_sqrt` |
+| 15 | `func` | `zt_math_floor` |
+| 16 | `func` | `zt_math_ceil` |
+| 17 | `func` | `zt_math_round_half_away_from_zero` |
+| 18 | `func` | `zt_math_trunc` |
+| 19 | `func` | `zt_math_sin` |
+| 20 | `func` | `zt_math_cos` |
+| 21 | `func` | `zt_math_tan` |
+| 22 | `func` | `zt_math_asin` |
+| 23 | `func` | `zt_math_acos` |
+| 24 | `func` | `zt_math_atan` |
+| 25 | `func` | `zt_math_atan2` |
+| 26 | `func` | `zt_math_ln` |
+| 27 | `func` | `zt_math_log_ten` |
+| 28 | `func` | `zt_math_log2` |
+| 29 | `func` | `zt_math_log` |
+| 30 | `func` | `zt_math_exp` |
+| 31 | `func` | `zt_math_is_nan` |
+| 32 | `func` | `zt_math_is_infinite` |
+| 33 | `func` | `zt_math_is_finite` |
+| 34 | `func` | `zt_math_get_infinity` |
+| 35 | `func` | `zt_math_get_nan` |
+| 38 | `const` | `pi` |
+| 39 | `const` | `e` |
+| 40 | `const` | `tau` |
+| 42 | `func` | `infinity` |
+| 46 | `func` | `nan` |
+| 50 | `func` | `abs` |
+| 57 | `func` | `min` |
+| 64 | `func` | `max` |
+| 71 | `func` | `clamp` |
+| 81 | `func` | `pow` |
+| 85 | `func` | `sqrt` |
+| 89 | `func` | `floor` |
+| 93 | `func` | `ceil` |
+| 97 | `func` | `round` |
+| 101 | `func` | `trunc` |
+| 105 | `func` | `deg_to_rad` |
+| 109 | `func` | `rad_to_deg` |
+| 113 | `func` | `approx_equal` |
+| 121 | `func` | `sin` |
+| 125 | `func` | `cos` |
+| 129 | `func` | `tan` |
+| 133 | `func` | `asin` |
+| 137 | `func` | `acos` |
+| 141 | `func` | `atan` |
+| 145 | `func` | `atan2` |
+| 149 | `func` | `ln` |
+| 153 | `func` | `log10` |
+| 157 | `func` | `log2` |
+| 161 | `func` | `log` |
+| 165 | `func` | `exp` |
+| 169 | `func` | `is_nan` |
+| 173 | `func` | `is_infinite` |
+| 177 | `func` | `is_finite` |
 
 #### `stdlib/std/net.zt`
 
@@ -558,27 +632,22 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 10 | `enum` | `Platform` |
 | 17 | `enum` | `Arch` |
 | 24 | `enum` | `Error` |
-| 34 | `func` | `zt_host_os_current_dir` |
-| 35 | `func` | `zt_host_os_change_dir` |
-| 36 | `func` | `zt_host_os_env` |
-| 37 | `func` | `zt_host_os_pid` |
-| 38 | `func` | `zt_host_os_platform` |
-| 39 | `func` | `zt_host_os_arch` |
-| 42 | `func` | `current_dir` |
-| 46 | `func` | `change_dir` |
-| 50 | `func` | `env` |
-| 54 | `func` | `pid` |
-| 58 | `func` | `platform` |
-| 59 | `const` | `raw` |
-| 72 | `func` | `arch` |
-| 73 | `const` | `raw` |
-| 86 | `func` | `platform_text` |
-| 90 | `func` | `arch_text` |
-| 94 | `func` | `is_platform` |
-| 112 | `func` | `is_arch` |
-| 145 | `func` | `is_windows` |
-| 154 | `func` | `is_linux` |
-| 163 | `func` | `is_macos` |
+| 32 | `func` | `zt_host_os_args` |
+| 33 | `func` | `zt_host_os_env` |
+| 34 | `func` | `zt_host_os_pid` |
+| 35 | `func` | `zt_host_os_platform` |
+| 36 | `func` | `zt_host_os_arch` |
+| 37 | `func` | `zt_host_os_current_dir` |
+| 38 | `func` | `zt_host_os_change_dir` |
+| 41 | `func` | `args` |
+| 45 | `func` | `env` |
+| 49 | `func` | `pid` |
+| 53 | `func` | `platform` |
+| 54 | `const` | `raw` |
+| 67 | `func` | `arch` |
+| 68 | `const` | `raw` |
+| 81 | `func` | `current_dir` |
+| 85 | `func` | `change_dir` |
 
 #### `stdlib/std/os/process.zt`
 
@@ -586,14 +655,12 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | ---: | --- | --- |
 | 6 | `namespace` | `std.os.process` |
 | 8 | `struct` | `ExitStatus` |
-| 12 | `enum` | `Error` |
-| 21 | `func` | `zt_host_process_run` |
-| 24 | `func` | `run` |
-| 28 | `func` | `run_program` |
-| 32 | `func` | `from_code` |
-| 36 | `func` | `exit_code` |
-| 40 | `func` | `is_success` |
-| 44 | `func` | `is_failure` |
+| 12 | `struct` | `CapturedRun` |
+| 18 | `enum` | `Error` |
+| 27 | `func` | `zt_host_process_run` |
+| 28 | `func` | `zt_host_process_run_capture` |
+| 31 | `func` | `run` |
+| 35 | `func` | `run_capture` |
 
 #### `stdlib/std/random.zt`
 
@@ -626,35 +693,89 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | Line | Kind | Symbol |
 | ---: | --- | --- |
 | 2 | `namespace` | `std.text` |
-| 5 | `func` | `zt_text_to_utf8_bytes` |
-| 6 | `func` | `zt_text_from_utf8_bytes` |
-| 9 | `func` | `to_utf8` |
-| 13 | `func` | `from_utf8` |
+| 4 | `enum` | `Error` |
+| 9 | `func` | `zt_text_to_utf8_bytes` |
+| 10 | `func` | `zt_text_from_utf8_bytes` |
+| 12 | `func` | `zt_text_trim` |
+| 13 | `func` | `zt_text_trim_start` |
+| 14 | `func` | `zt_text_trim_end` |
+| 16 | `func` | `zt_text_contains` |
+| 17 | `func` | `zt_text_starts_with` |
+| 18 | `func` | `zt_text_ends_with` |
+| 19 | `func` | `zt_text_has_whitespace` |
+| 21 | `func` | `zt_text_index_of` |
+| 22 | `func` | `zt_text_last_index_of` |
+| 24 | `func` | `zt_text_replace_all` |
+| 25 | `func` | `zt_text_replace_first` |
+| 27 | `func` | `zt_text_split` |
+| 28 | `func` | `zt_text_split_lines` |
+| 29 | `func` | `zt_text_join` |
+| 31 | `func` | `zt_text_is_empty` |
+| 33 | `func` | `zt_text_to_lower` |
+| 34 | `func` | `zt_text_to_upper` |
+| 35 | `func` | `zt_text_capitalize` |
+| 36 | `func` | `zt_text_title_case` |
+| 38 | `func` | `zt_text_is_digits` |
+| 40 | `func` | `zt_text_pad_left` |
+| 41 | `func` | `zt_text_pad_right` |
+| 43 | `func` | `zt_text_mask` |
+| 44 | `func` | `zt_text_limit` |
+| 45 | `func` | `zt_text_truncate` |
+| 50 | `func` | `to_utf8` |
+| 54 | `func` | `from_utf8` |
+| 60 | `func` | `trim` |
+| 64 | `func` | `trim_start` |
+| 68 | `func` | `trim_end` |
+| 74 | `func` | `contains` |
+| 78 | `func` | `starts_with` |
+| 82 | `func` | `ends_with` |
+| 86 | `func` | `has_prefix` |
+| 90 | `func` | `has_suffix` |
+| 94 | `func` | `has_whitespace` |
+| 98 | `func` | `is_empty` |
+| 102 | `func` | `is_digits` |
+| 108 | `func` | `index_of` |
+| 112 | `func` | `last_index_of` |
+| 118 | `func` | `replace_all` |
+| 122 | `func` | `replace_first` |
+| 128 | `func` | `split` |
+| 132 | `func` | `split_lines` |
+| 136 | `func` | `join` |
+| 142 | `func` | `to_lower` |
+| 146 | `func` | `to_upper` |
+| 150 | `func` | `capitalize` |
+| 154 | `func` | `title_case` |
+| 160 | `func` | `pad_left` |
+| 164 | `func` | `pad_right` |
+| 168 | `func` | `mask` |
+| 172 | `func` | `limit` |
+| 176 | `func` | `truncate` |
 
 #### `stdlib/std/time.zt`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 7 | `namespace` | `std.time` |
-| 9 | `struct` | `Instant` |
-| 13 | `struct` | `Duration` |
-| 18 | `func` | `zt_host_time_now_unix_ms` |
-| 19 | `func` | `zt_host_time_sleep_ms` |
-| 22 | `func` | `now` |
-| 26 | `func` | `sleep` |
-| 30 | `func` | `since` |
-| 34 | `func` | `until` |
-| 38 | `func` | `diff` |
-| 42 | `func` | `add` |
-| 46 | `func` | `sub` |
-| 50 | `func` | `from_unix` |
-| 54 | `func` | `from_unix_ms` |
-| 58 | `func` | `to_unix` |
-| 62 | `func` | `to_unix_ms` |
-| 66 | `func` | `milliseconds` |
-| 70 | `func` | `seconds` |
-| 74 | `func` | `minutes` |
-| 78 | `func` | `hours` |
+| 9 | `namespace` | `std.time` |
+| 11 | `struct` | `Instant` |
+| 15 | `struct` | `Duration` |
+| 19 | `enum` | `Error` |
+| 25 | `func` | `zt_host_time_now_unix_ms` |
+| 26 | `func` | `zt_host_time_sleep_ms` |
+| 29 | `func` | `now` |
+| 33 | `func` | `sleep` |
+| 37 | `func` | `since` |
+| 41 | `func` | `until` |
+| 45 | `func` | `diff` |
+| 49 | `func` | `add` |
+| 53 | `func` | `sub` |
+| 57 | `func` | `from_unix` |
+| 61 | `func` | `from_unix_ms` |
+| 65 | `func` | `to_unix` |
+| 69 | `func` | `to_unix_ms` |
+| 73 | `func` | `milliseconds` |
+| 77 | `func` | `seconds` |
+| 81 | `func` | `minutes` |
+| 85 | `func` | `hours` |
 
 #### `stdlib/std/validate.zt`
 
@@ -672,326 +793,386 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 44 | `func` | `max_length` |
 | 48 | `func` | `length_between` |
 | 49 | `const` | `count` |
-| 53 | `func` | `no_whitespace` |
-| 54 | `const` | `space` |
-| 55 | `const` | `tab` |
-| 56 | `const` | `newline` |
-| 57 | `const` | `carriage` |
-| 68 | `func` | `has_whitespace` |
-| 69 | `const` | `space` |
-| 70 | `const` | `tab` |
-| 71 | `const` | `newline` |
-| 72 | `const` | `carriage` |
 
 #### `stdlib/zdoc/std/bytes.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `empty` |
-| 7 | `doc_target` | `from_list` |
-| 13 | `doc_target` | `to_list` |
-| 19 | `doc_target` | `join` |
-| 25 | `doc_target` | `starts_with` |
-| 31 | `doc_target` | `ends_with` |
-| 37 | `doc_target` | `contains` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `empty` |
+| 18 | `doc_target` | `from_list` |
+| 30 | `doc_target` | `to_list` |
+| 42 | `doc_target` | `join` |
+| 54 | `doc_target` | `starts_with` |
+| 66 | `doc_target` | `ends_with` |
+| 78 | `doc_target` | `contains` |
 
 #### `stdlib/zdoc/std/collections.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.collections` |
-| 5 | `doc_target` | `queue_int_new` |
-| 10 | `doc_target` | `queue_int_enqueue` |
-| 17 | `doc_target` | `queue_int_dequeue` |
-| 23 | `doc_target` | `queue_int_peek` |
-| 29 | `doc_target` | `queue_text_new` |
-| 34 | `doc_target` | `queue_text_enqueue` |
-| 41 | `doc_target` | `queue_text_dequeue` |
-| 47 | `doc_target` | `queue_text_peek` |
-| 53 | `doc_target` | `stack_int_new` |
-| 58 | `doc_target` | `stack_int_push` |
-| 65 | `doc_target` | `stack_int_pop` |
-| 71 | `doc_target` | `stack_int_peek` |
-| 77 | `doc_target` | `stack_text_new` |
-| 82 | `doc_target` | `stack_text_push` |
-| 89 | `doc_target` | `stack_text_pop` |
-| 95 | `doc_target` | `stack_text_peek` |
-| 101 | `doc_target` | `grid2d_int_new` |
-| 109 | `doc_target` | `grid2d_int_get` |
-| 118 | `doc_target` | `grid2d_int_set` |
-| 128 | `doc_target` | `grid2d_int_fill` |
-| 136 | `doc_target` | `grid2d_int_rows` |
-| 143 | `doc_target` | `grid2d_int_cols` |
-| 150 | `doc_target` | `grid2d_text_new` |
-| 158 | `doc_target` | `grid2d_text_get` |
-| 167 | `doc_target` | `grid2d_text_set` |
-| 177 | `doc_target` | `grid2d_text_fill` |
-| 185 | `doc_target` | `grid2d_text_rows` |
-| 192 | `doc_target` | `grid2d_text_cols` |
-| 199 | `doc_target` | `pqueue_int_new` |
-| 204 | `doc_target` | `pqueue_int_push` |
-| 212 | `doc_target` | `pqueue_int_pop` |
-| 219 | `doc_target` | `pqueue_int_peek` |
-| 226 | `doc_target` | `pqueue_int_len` |
-| 233 | `doc_target` | `pqueue_text_new` |
-| 238 | `doc_target` | `pqueue_text_push` |
-| 246 | `doc_target` | `pqueue_text_pop` |
-| 253 | `doc_target` | `pqueue_text_peek` |
-| 260 | `doc_target` | `pqueue_text_len` |
-| 267 | `doc_target` | `circbuf_int_new` |
-| 274 | `doc_target` | `circbuf_int_push` |
-| 282 | `doc_target` | `circbuf_int_pop` |
-| 289 | `doc_target` | `circbuf_int_peek` |
-| 296 | `doc_target` | `circbuf_int_len` |
-| 303 | `doc_target` | `circbuf_int_capacity` |
-| 310 | `doc_target` | `circbuf_int_is_full` |
-| 317 | `doc_target` | `circbuf_text_new` |
-| 324 | `doc_target` | `circbuf_text_push` |
-| 332 | `doc_target` | `circbuf_text_pop` |
-| 339 | `doc_target` | `circbuf_text_peek` |
-| 346 | `doc_target` | `circbuf_text_len` |
-| 353 | `doc_target` | `circbuf_text_capacity` |
-| 360 | `doc_target` | `circbuf_text_is_full` |
-| 367 | `doc_target` | `btreemap_text_new` |
-| 373 | `doc_target` | `btreemap_text_set` |
-| 382 | `doc_target` | `btreemap_text_get` |
-| 390 | `doc_target` | `btreemap_text_get_optional` |
-| 398 | `doc_target` | `btreemap_text_contains` |
-| 406 | `doc_target` | `btreemap_text_remove` |
-| 414 | `doc_target` | `btreemap_text_len` |
-| 421 | `doc_target` | `btreeset_text_new` |
-| 426 | `doc_target` | `btreeset_text_insert` |
-| 434 | `doc_target` | `btreeset_text_contains` |
-| 442 | `doc_target` | `btreeset_text_remove` |
-| 450 | `doc_target` | `btreeset_text_len` |
-| 457 | `doc_target` | `grid3d_int_new` |
-| 466 | `doc_target` | `grid3d_int_get` |
-| 476 | `doc_target` | `grid3d_int_set` |
-| 487 | `doc_target` | `grid3d_int_fill` |
-| 495 | `doc_target` | `grid3d_int_depth` |
-| 502 | `doc_target` | `grid3d_int_rows` |
-| 509 | `doc_target` | `grid3d_int_cols` |
-| 516 | `doc_target` | `grid3d_text_new` |
-| 525 | `doc_target` | `grid3d_text_get` |
-| 535 | `doc_target` | `grid3d_text_set` |
-| 546 | `doc_target` | `grid3d_text_fill` |
-| 554 | `doc_target` | `grid3d_text_depth` |
-| 561 | `doc_target` | `grid3d_text_rows` |
-| 568 | `doc_target` | `grid3d_text_cols` |
-| 575 | `doc_target` | `pqueue_int_is_empty` |
-| 582 | `doc_target` | `pqueue_text_is_empty` |
-| 589 | `doc_target` | `circbuf_int_is_empty` |
-| 596 | `doc_target` | `circbuf_text_is_empty` |
-| 603 | `doc_target` | `btreemap_text_is_empty` |
-| 610 | `doc_target` | `btreeset_text_is_empty` |
-| 617 | `doc_target` | `grid2d_int_size` |
-| 624 | `doc_target` | `grid2d_text_size` |
-| 631 | `doc_target` | `grid3d_int_size` |
-| 638 | `doc_target` | `grid3d_text_size` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `queue_int_new` |
+| 17 | `doc_target` | `queue_text_new` |
+| 26 | `doc_target` | `queue_int_enqueue` |
+| 35 | `doc_target` | `queue_text_enqueue` |
+| 44 | `doc_target` | `queue_int_dequeue` |
+| 53 | `doc_target` | `queue_text_dequeue` |
+| 62 | `doc_target` | `queue_int_peek` |
+| 73 | `doc_target` | `queue_text_peek` |
+| 84 | `doc_target` | `stack_int_new` |
+| 93 | `doc_target` | `stack_text_new` |
+| 102 | `doc_target` | `stack_int_push` |
+| 111 | `doc_target` | `stack_text_push` |
+| 120 | `doc_target` | `stack_int_pop` |
+| 129 | `doc_target` | `stack_text_pop` |
+| 138 | `doc_target` | `stack_int_peek` |
+| 149 | `doc_target` | `stack_text_peek` |
+| 160 | `doc_target` | `grid2d_int_new` |
+| 169 | `doc_target` | `grid2d_text_new` |
+| 178 | `doc_target` | `grid2d_int_get` |
+| 187 | `doc_target` | `grid2d_text_get` |
+| 196 | `doc_target` | `grid2d_int_set` |
+| 205 | `doc_target` | `grid2d_text_set` |
+| 214 | `doc_target` | `grid2d_int_fill` |
+| 223 | `doc_target` | `grid2d_text_fill` |
+| 232 | `doc_target` | `grid2d_int_rows` |
+| 241 | `doc_target` | `grid2d_text_rows` |
+| 250 | `doc_target` | `grid2d_int_cols` |
+| 259 | `doc_target` | `grid2d_text_cols` |
+| 268 | `doc_target` | `grid2d_int_size` |
+| 279 | `doc_target` | `grid2d_text_size` |
+| 290 | `doc_target` | `grid3d_int_new` |
+| 299 | `doc_target` | `grid3d_text_new` |
+| 308 | `doc_target` | `grid3d_int_get` |
+| 317 | `doc_target` | `grid3d_text_get` |
+| 326 | `doc_target` | `grid3d_int_set` |
+| 335 | `doc_target` | `grid3d_text_set` |
+| 344 | `doc_target` | `grid3d_int_fill` |
+| 353 | `doc_target` | `grid3d_text_fill` |
+| 362 | `doc_target` | `grid3d_int_depth` |
+| 371 | `doc_target` | `grid3d_text_depth` |
+| 380 | `doc_target` | `grid3d_int_rows` |
+| 395 | `doc_target` | `cols` |
+| 410 | `doc_target` | `size e grid3d_text_rows` |
+| 425 | `doc_target` | `cols` |
+| 440 | `doc_target` | `size` |
+| 455 | `doc_target` | `pqueue_int_new` |
+| 464 | `doc_target` | `pqueue_text_new` |
+| 473 | `doc_target` | `pqueue_int_push` |
+| 482 | `doc_target` | `pqueue_text_push` |
+| 491 | `doc_target` | `pqueue_int_pop` |
+| 500 | `doc_target` | `pqueue_text_pop` |
+| 509 | `doc_target` | `pqueue_int_peek` |
+| 518 | `doc_target` | `pqueue_text_peek` |
+| 527 | `doc_target` | `pqueue_int_len` |
+| 536 | `doc_target` | `pqueue_text_len` |
+| 545 | `doc_target` | `pqueue_int_is_empty` |
+| 556 | `doc_target` | `pqueue_text_is_empty` |
+| 567 | `doc_target` | `circbuf_int_new` |
+| 576 | `doc_target` | `circbuf_text_new` |
+| 585 | `doc_target` | `circbuf_int_push` |
+| 594 | `doc_target` | `circbuf_text_push` |
+| 603 | `doc_target` | `circbuf_int_pop` |
+| 612 | `doc_target` | `circbuf_text_pop` |
+| 621 | `doc_target` | `circbuf_int_peek` |
+| 630 | `doc_target` | `circbuf_text_peek` |
+| 639 | `doc_target` | `circbuf_int_len` |
+| 648 | `doc_target` | `circbuf_text_len` |
+| 657 | `doc_target` | `circbuf_int_capacity` |
+| 666 | `doc_target` | `circbuf_text_capacity` |
+| 675 | `doc_target` | `circbuf_int_is_full` |
+| 684 | `doc_target` | `circbuf_text_is_full` |
+| 693 | `doc_target` | `circbuf_int_is_empty` |
+| 704 | `doc_target` | `circbuf_text_is_empty` |
+| 715 | `doc_target` | `btreemap_text_new` |
+| 723 | `doc_target` | `btreemap_text_set` |
+| 731 | `doc_target` | `btreemap_text_get` |
+| 739 | `doc_target` | `btreemap_text_get_optional` |
+| 747 | `doc_target` | `btreemap_text_contains` |
+| 755 | `doc_target` | `btreemap_text_remove` |
+| 763 | `doc_target` | `btreemap_text_len` |
+| 771 | `doc_target` | `btreemap_text_is_empty` |
+| 781 | `doc_target` | `btreeset_text_new` |
+| 789 | `doc_target` | `btreeset_text_insert` |
+| 797 | `doc_target` | `btreeset_text_contains` |
+| 805 | `doc_target` | `btreeset_text_remove` |
+| 813 | `doc_target` | `btreeset_text_len` |
+| 821 | `doc_target` | `btreeset_text_is_empty` |
 
 #### `stdlib/zdoc/std/format.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.format` |
-| 5 | `doc_target` | `BytesStyle` |
-| 12 | `doc_target` | `style_binary` |
-| 18 | `doc_target` | `style_decimal` |
-| 24 | `doc_target` | `hex` |
-| 31 | `doc_target` | `bin` |
-| 38 | `doc_target` | `bytes` |
-| 47 | `doc_target` | `bytes_binary` |
-| 55 | `doc_target` | `bytes_decimal` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `BytesStyle` |
+| 21 | `doc_target` | `number` |
+| 33 | `doc_target` | `percent` |
+| 46 | `doc_target` | `date` |
+| 58 | `doc_target` | `datetime` |
+| 72 | `doc_target` | `date_pattern` |
+| 84 | `doc_target` | `datetime_pattern` |
+| 96 | `doc_target` | `bytes` |
+| 109 | `doc_target` | `hex` |
+| 120 | `doc_target` | `bin` |
 
 #### `stdlib/zdoc/std/fs.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.fs` |
-| 5 | `doc_target` | `read_text` |
-| 12 | `doc_target` | `write_text` |
-| 20 | `doc_target` | `exists` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `Error` |
+| 26 | `doc_target` | `Metadata` |
+| 41 | `doc_target` | `read_text` |
+| 52 | `doc_target` | `write_text` |
+| 64 | `doc_target` | `append_text` |
+| 76 | `doc_target` | `exists` |
+| 88 | `doc_target` | `is_file` |
+| 96 | `doc_target` | `is_dir` |
+| 104 | `doc_target` | `create_dir` |
+| 112 | `doc_target` | `create_dir_all` |
+| 120 | `doc_target` | `list` |
+| 131 | `doc_target` | `remove_file` |
+| 139 | `doc_target` | `remove_dir` |
+| 147 | `doc_target` | `remove_dir_all` |
+| 155 | `doc_target` | `copy_file` |
+| 166 | `doc_target` | `move` |
+| 177 | `doc_target` | `metadata` |
+| 185 | `doc_target` | `size` |
+| 193 | `doc_target` | `modified_at` |
+| 201 | `doc_target` | `created_at` |
 
 #### `stdlib/zdoc/std/fs/path.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.fs.path` |
-| 5 | `doc_target` | `join` |
-| 13 | `doc_target` | `normalize` |
-| 20 | `doc_target` | `is_absolute` |
-| 27 | `doc_target` | `is_relative` |
-| 34 | `doc_target` | `absolute` |
-| 42 | `doc_target` | `relative` |
-| 50 | `doc_target` | `base` |
-| 57 | `doc_target` | `dir` |
-| 64 | `doc_target` | `ext` |
-| 71 | `doc_target` | `name_without_extension` |
-| 78 | `doc_target` | `has_ext` |
-| 86 | `doc_target` | `change_ext` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `join` |
+| 20 | `doc_target` | `base_name` |
+| 31 | `doc_target` | `name_without_extension` |
+| 39 | `doc_target` | `extension` |
+| 50 | `doc_target` | `parent` |
+| 61 | `doc_target` | `normalize` |
+| 69 | `doc_target` | `absolute` |
+| 82 | `doc_target` | `relative` |
+| 90 | `doc_target` | `is_absolute` |
+| 98 | `doc_target` | `is_relative` |
+| 106 | `doc_target` | `has_extension` |
+| 119 | `doc_target` | `change_extension` |
 
 #### `stdlib/zdoc/std/io.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.io` |
-| 5 | `doc_target` | `read_line` |
-| 12 | `doc_target` | `read_all` |
-| 19 | `doc_target` | `write` |
-| 27 | `doc_target` | `print` |
-| 35 | `doc_target` | `print_line` |
-| 43 | `doc_target` | `eprint` |
-| 50 | `doc_target` | `eprint_line` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `Input` |
+| 20 | `doc_target` | `Output` |
+| 31 | `doc_target` | `Error` |
+| 43 | `doc_target` | `input` |
+| 51 | `doc_target` | `output` |
+| 59 | `doc_target` | `err` |
+| 68 | `doc_target` | `read_line` |
+| 81 | `doc_target` | `read_all` |
+| 92 | `doc_target` | `write` |
+| 105 | `doc_target` | `print` |
 
 #### `stdlib/zdoc/std/json.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.json` |
-| 5 | `doc_target` | `parse` |
-| 12 | `doc_target` | `stringify` |
-| 19 | `doc_target` | `pretty` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `Value` |
+| 19 | `doc_target` | `Object` |
+| 30 | `doc_target` | `Array` |
+| 40 | `doc_target` | `Kind` |
+| 56 | `doc_target` | `Error` |
+| 70 | `doc_target` | `parse` |
+| 81 | `doc_target` | `stringify` |
+| 89 | `doc_target` | `pretty` |
+| 101 | `doc_target` | `read` |
+| 113 | `doc_target` | `write` |
+| 126 | `doc_target` | `kind` |
+| 134 | `doc_target` | `has_key` |
+| 142 | `doc_target` | `get_key` |
+| 150 | `doc_target` | `as_text` |
+| 158 | `doc_target` | `as_int` |
+| 166 | `doc_target` | `as_float` |
+| 174 | `doc_target` | `as_bool` |
+| 182 | `doc_target` | `as_array` |
+| 190 | `doc_target` | `as_object` |
 
 #### `stdlib/zdoc/std/math.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `PI` |
-| 5 | `doc_target` | `E` |
-| 9 | `doc_target` | `TAU` |
-| 13 | `doc_target` | `pi` |
-| 17 | `doc_target` | `e` |
-| 21 | `doc_target` | `tau` |
-| 25 | `doc_target` | `abs` |
-| 32 | `doc_target` | `min` |
-| 40 | `doc_target` | `max` |
-| 48 | `doc_target` | `clamp` |
-| 57 | `doc_target` | `pow` |
-| 65 | `doc_target` | `sqrt` |
-| 72 | `doc_target` | `floor` |
-| 79 | `doc_target` | `ceil` |
-| 86 | `doc_target` | `round` |
-| 93 | `doc_target` | `trunc` |
-| 100 | `doc_target` | `deg_to_rad` |
-| 107 | `doc_target` | `rad_to_deg` |
-| 114 | `doc_target` | `approx_equal` |
-| 123 | `doc_target` | `sin` |
-| 130 | `doc_target` | `cos` |
-| 137 | `doc_target` | `tan` |
-| 144 | `doc_target` | `asin` |
-| 151 | `doc_target` | `acos` |
-| 158 | `doc_target` | `atan` |
-| 165 | `doc_target` | `atan2` |
-| 173 | `doc_target` | `ln` |
-| 180 | `doc_target` | `log_ten` |
-| 187 | `doc_target` | `log2` |
-| 194 | `doc_target` | `log` |
-| 202 | `doc_target` | `exp` |
-| 209 | `doc_target` | `is_nan` |
-| 216 | `doc_target` | `is_infinite` |
-| 223 | `doc_target` | `is_finite` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `pi` |
+| 16 | `doc_target` | `e` |
+| 24 | `doc_target` | `tau` |
+| 32 | `doc_target` | `infinity` |
+| 40 | `doc_target` | `nan` |
+| 48 | `doc_target` | `abs` |
+| 59 | `doc_target` | `min` |
+| 67 | `doc_target` | `max` |
+| 75 | `doc_target` | `clamp` |
+| 88 | `doc_target` | `pow` |
+| 96 | `doc_target` | `sqrt` |
+| 104 | `doc_target` | `floor` |
+| 112 | `doc_target` | `ceil` |
+| 120 | `doc_target` | `round` |
+| 128 | `doc_target` | `trunc` |
+| 136 | `doc_target` | `deg_to_rad` |
+| 144 | `doc_target` | `rad_to_deg` |
+| 152 | `doc_target` | `approx_equal` |
+| 165 | `doc_target` | `sin` |
+| 173 | `doc_target` | `cos` |
+| 181 | `doc_target` | `tan` |
+| 189 | `doc_target` | `asin` |
+| 197 | `doc_target` | `acos` |
+| 205 | `doc_target` | `atan` |
+| 213 | `doc_target` | `atan2` |
+| 225 | `doc_target` | `ln` |
+| 233 | `doc_target` | `log10` |
+| 241 | `doc_target` | `log2` |
+| 249 | `doc_target` | `log` |
+| 261 | `doc_target` | `exp` |
+| 269 | `doc_target` | `is_nan` |
+| 277 | `doc_target` | `is_infinite` |
+| 285 | `doc_target` | `is_finite` |
 
 #### `stdlib/zdoc/std/net.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `connect` |
-| 6 | `doc_target` | `read_some` |
-| 11 | `doc_target` | `write_all` |
-| 16 | `doc_target` | `close` |
-| 21 | `doc_target` | `is_closed` |
-| 26 | `doc_target` | `kind` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `Error` |
+| 28 | `doc_target` | `Connection` |
+| 39 | `doc_target` | `connect` |
+| 57 | `doc_target` | `read_some` |
+| 75 | `doc_target` | `write_all` |
+| 92 | `doc_target` | `close` |
+| 103 | `doc_target` | `is_closed` |
+| 114 | `doc_target` | `kind` |
 
 #### `stdlib/zdoc/std/os.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `current_dir` |
-| 10 | `doc_target` | `change_dir` |
-| 21 | `doc_target` | `env` |
-| 35 | `doc_target` | `pid` |
-| 44 | `doc_target` | `platform` |
-| 53 | `doc_target` | `arch` |
-| 62 | `doc_target` | `platform_text` |
-| 71 | `doc_target` | `arch_text` |
-| 80 | `doc_target` | `is_platform` |
-| 92 | `doc_target` | `is_arch` |
-| 104 | `doc_target` | `is_windows` |
-| 113 | `doc_target` | `is_linux` |
-| 122 | `doc_target` | `is_macos` |
-| 131 | `doc_target` | `os.Error` |
-| 142 | `doc_target` | `os.Platform` |
-| 151 | `doc_target` | `os.Arch` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `Platform` |
+| 22 | `doc_target` | `Arch` |
+| 36 | `doc_target` | `Error` |
+| 49 | `doc_target` | `args` |
+| 57 | `doc_target` | `env` |
+| 69 | `doc_target` | `pid` |
+| 77 | `doc_target` | `platform` |
+| 85 | `doc_target` | `arch` |
+| 93 | `doc_target` | `current_dir` |
+| 101 | `doc_target` | `change_dir` |
 
 #### `stdlib/zdoc/std/os/process.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.os.process` |
-| 5 | `doc_target` | `run` |
-| 19 | `doc_target` | `run_program` |
-| 31 | `doc_target` | `from_code` |
-| 43 | `doc_target` | `exit_code` |
-| 55 | `doc_target` | `is_success` |
-| 67 | `doc_target` | `is_failure` |
-| 79 | `doc_target` | `process.ExitStatus` |
-| 85 | `doc_target` | `process.Error` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `ExitStatus` |
+| 20 | `doc_target` | `CapturedRun` |
+| 32 | `doc_target` | `Error` |
+| 47 | `doc_target` | `run` |
+| 61 | `doc_target` | `run_capture` |
 
 #### `stdlib/zdoc/std/random.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `seed` |
-| 12 | `doc_target` | `next` |
-| 23 | `doc_target` | `between` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `seed` |
+| 19 | `doc_target` | `next` |
+| 29 | `doc_target` | `between` |
 
 #### `stdlib/zdoc/std/test.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `std.test` |
-| 6 | `doc_target` | `fail` |
-| 13 | `doc_target` | `skip` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `fail` |
+| 20 | `doc_target` | `skip` |
 
 #### `stdlib/zdoc/std/text.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `to_utf8` |
-| 7 | `doc_target` | `from_utf8` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `Error` |
+| 14 | `doc_target` | `to_utf8` |
+| 26 | `doc_target` | `from_utf8` |
+| 38 | `doc_target` | `trim` |
+| 49 | `doc_target` | `trim_start` |
+| 60 | `doc_target` | `trim_end` |
+| 71 | `doc_target` | `contains` |
+| 83 | `doc_target` | `starts_with` |
+| 95 | `doc_target` | `ends_with` |
+| 107 | `doc_target` | `has_prefix` |
+| 119 | `doc_target` | `has_suffix` |
+| 131 | `doc_target` | `has_whitespace` |
+| 142 | `doc_target` | `is_empty` |
+| 153 | `doc_target` | `is_digits` |
+| 164 | `doc_target` | `index_of` |
+| 176 | `doc_target` | `last_index_of` |
+| 188 | `doc_target` | `replace_all` |
+| 201 | `doc_target` | `replace_first` |
+| 214 | `doc_target` | `split` |
+| 226 | `doc_target` | `split_lines` |
+| 237 | `doc_target` | `join` |
+| 249 | `doc_target` | `to_lower` |
+| 260 | `doc_target` | `to_upper` |
+| 271 | `doc_target` | `capitalize` |
+| 282 | `doc_target` | `title_case` |
+| 293 | `doc_target` | `pad_left` |
+| 306 | `doc_target` | `pad_right` |
+| 319 | `doc_target` | `mask` |
+| 333 | `doc_target` | `limit` |
+| 345 | `doc_target` | `truncate` |
 
 #### `stdlib/zdoc/std/time.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `now` |
-| 10 | `doc_target` | `sleep` |
-| 24 | `doc_target` | `since` |
-| 36 | `doc_target` | `until` |
-| 48 | `doc_target` | `diff` |
-| 61 | `doc_target` | `add` |
-| 71 | `doc_target` | `sub` |
-| 81 | `doc_target` | `seconds` |
-| 90 | `doc_target` | `minutes` |
-| 96 | `doc_target` | `from_unix` |
-| 102 | `doc_target` | `to_unix` |
+| 1 | `doc_target` | `namespace` |
+| 9 | `doc_target` | `Instant` |
+| 19 | `doc_target` | `Duration` |
+| 29 | `doc_target` | `Error` |
+| 40 | `doc_target` | `now` |
+| 48 | `doc_target` | `sleep` |
+| 59 | `doc_target` | `since` |
+| 67 | `doc_target` | `until` |
+| 75 | `doc_target` | `diff` |
+| 83 | `doc_target` | `add` |
+| 91 | `doc_target` | `sub` |
+| 99 | `doc_target` | `from_unix` |
+| 107 | `doc_target` | `from_unix_ms` |
+| 115 | `doc_target` | `to_unix` |
+| 123 | `doc_target` | `to_unix_ms` |
+| 131 | `doc_target` | `milliseconds` |
+| 139 | `doc_target` | `seconds` |
+| 147 | `doc_target` | `minutes` |
+| 155 | `doc_target` | `hours` |
 
 #### `stdlib/zdoc/std/validate.zdoc`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 1 | `doc_target` | `between` |
-| 7 | `doc_target` | `positive` |
-| 13 | `doc_target` | `non_negative` |
-| 19 | `doc_target` | `negative` |
-| 25 | `doc_target` | `non_zero` |
-| 31 | `doc_target` | `one_of` |
-| 37 | `doc_target` | `not_empty` |
-| 43 | `doc_target` | `min_length` |
-| 49 | `doc_target` | `max_length` |
-| 55 | `doc_target` | `length_between` |
-| 61 | `doc_target` | `no_whitespace` |
-| 67 | `doc_target` | `has_whitespace` |
+| 1 | `doc_target` | `namespace` |
+| 8 | `doc_target` | `between` |
+| 21 | `doc_target` | `positive` |
+| 29 | `doc_target` | `non_negative` |
+| 37 | `doc_target` | `negative` |
+| 45 | `doc_target` | `non_zero` |
+| 53 | `doc_target` | `one_of` |
+| 65 | `doc_target` | `not_empty` |
+| 73 | `doc_target` | `min_length` |
+| 85 | `doc_target` | `max_length` |
+| 97 | `doc_target` | `length_between` |
 
 ### Manual Notes
 

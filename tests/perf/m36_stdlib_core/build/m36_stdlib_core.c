@@ -2,6 +2,14 @@
 #include <stdio.h>
 
 
+typedef struct zt_app_main__io_Input {
+    zt_int handle;
+} zt_app_main__io_Input;
+
+typedef struct zt_app_main__io_Output {
+    zt_int handle;
+} zt_app_main__io_Output;
+
 typedef enum zt_app_main__format_BytesStyle_tag {
     zt_app_main__format_BytesStyle__Binary,
     zt_app_main__format_BytesStyle__Decimal
@@ -10,31 +18,41 @@ typedef enum zt_app_main__format_BytesStyle_tag {
 typedef struct zt_app_main__format_BytesStyle {
     zt_app_main__format_BytesStyle_tag tag;
 } zt_app_main__format_BytesStyle;
+
+typedef enum zt_app_main__io_Error_tag {
+    zt_app_main__io_Error__ReadFailed,
+    zt_app_main__io_Error__WriteFailed,
+    zt_app_main__io_Error__Unknown
+} zt_app_main__io_Error_tag;
+
+typedef struct zt_app_main__io_Error {
+    zt_app_main__io_Error_tag tag;
+} zt_app_main__io_Error;
 static zt_outcome_void_core_error zt_app_main__main(void);
-static zt_app_main__format_BytesStyle zt_app_main__format_style_binary(void);
-static zt_app_main__format_BytesStyle zt_app_main__format_style_decimal(void);
+static zt_text *zt_app_main__format_number(zt_float value, zt_int decimals);
+static zt_text *zt_app_main__format_percent(zt_float value, zt_int decimals);
+static zt_text *zt_app_main__format_date(zt_int millis, zt_text *style);
+static zt_text *zt_app_main__format_datetime(zt_int millis, zt_text *style, zt_text *locale);
+static zt_text *zt_app_main__format_date_pattern(zt_int millis, zt_text *pattern);
+static zt_text *zt_app_main__format_datetime_pattern(zt_int millis, zt_text *pattern);
+static zt_text *zt_app_main__format_bytes(zt_int value, zt_app_main__format_BytesStyle style, zt_int decimals);
 static zt_text *zt_app_main__format_hex(zt_int value);
 static zt_text *zt_app_main__format_bin(zt_int value);
-static zt_text *zt_app_main__format_bytes(zt_int value, zt_app_main__format_BytesStyle style, zt_int decimals);
-static zt_text *zt_app_main__format_bytes_binary(zt_int value, zt_int decimals);
-static zt_text *zt_app_main__format_bytes_decimal(zt_int value, zt_int decimals);
-static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_bool from);
-static zt_outcome_text_core_error zt_app_main__io_read_all(zt_bool from);
-static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_print_line(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_eprint(zt_text *value);
-static zt_outcome_void_core_error zt_app_main__io_eprint_line(zt_text *value);
+static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_app_main__io_Input from);
+static zt_outcome_text_core_error zt_app_main__io_read_all(zt_app_main__io_Input from);
+static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_app_main__io_Output to);
+static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_app_main__io_Output to);
 static zt_outcome_map_text_text_core_error zt_app_main__json_parse(zt_text *input);
 static zt_text *zt_app_main__json_stringify(zt_map_text_text *value);
 static zt_text *zt_app_main__json_pretty(zt_map_text_text *value, zt_int indent);
-static zt_float zt_app_main__math_pi(void);
-static zt_float zt_app_main__math_e(void);
-static zt_float zt_app_main__math_tau(void);
-static zt_int zt_app_main__math_abs(zt_int value);
-static zt_int zt_app_main__math_min(zt_int a, zt_int b);
-static zt_int zt_app_main__math_max(zt_int a, zt_int b);
-static zt_int zt_app_main__math_clamp(zt_int value, zt_int min, zt_int max);
+static zt_outcome_map_text_text_core_error zt_app_main__json_read(zt_text *file_path);
+static zt_outcome_void_core_error zt_app_main__json_write(zt_text *file_path, zt_map_text_text *value);
+static zt_float zt_app_main__math_infinity(void);
+static zt_float zt_app_main__math_nan(void);
+static zt_float zt_app_main__math_abs(zt_float value);
+static zt_float zt_app_main__math_min(zt_float a, zt_float b);
+static zt_float zt_app_main__math_max(zt_float a, zt_float b);
+static zt_float zt_app_main__math_clamp(zt_float value, zt_float min, zt_float max);
 static zt_float zt_app_main__math_pow(zt_float base, zt_float exponent);
 static zt_float zt_app_main__math_sqrt(zt_float value);
 static zt_float zt_app_main__math_floor(zt_float value);
@@ -72,8 +90,6 @@ static zt_bool zt_app_main__validate_not_empty(zt_text *value);
 static zt_bool zt_app_main__validate_min_length(zt_text *value, zt_int min);
 static zt_bool zt_app_main__validate_max_length(zt_text *value, zt_int max);
 static zt_bool zt_app_main__validate_length_between(zt_text *value, zt_int min, zt_int max);
-static zt_bool zt_app_main__validate_no_whitespace(zt_text *value);
-static zt_bool zt_app_main__validate_has_whitespace(zt_text *value);
 
 static zt_outcome_void_core_error zt_app_main__main(void) {
     zt_text *raw = NULL;
@@ -90,6 +106,7 @@ static zt_outcome_void_core_error zt_app_main__main(void) {
     zt_int rv_mod;
     zt_bool between_ok;
     zt_outcome_void_core_error __zt_try_result_1 = {0};
+    zt_outcome_void_core_error __zt_try_result_2 = {0};
     zt_outcome_void_core_error zt_return_value = {0};
     goto zt_block_entry;
 
@@ -161,7 +178,7 @@ zt_block_if_else_7:
 
 zt_block_if_join_8:
     zt_outcome_void_core_error_dispose(&__zt_try_result_1);
-    __zt_try_result_1 = zt_app_main__io_print_line(zt_text_from_utf8_literal("m36-stdlib-core-ok"), false);
+    __zt_try_result_1 = zt_app_main__io_write(zt_text_from_utf8_literal("m36-stdlib-core-ok"), ((zt_app_main__io_Output){.handle = 1}));
     if (zt_outcome_void_core_error_is_success(__zt_try_result_1)) goto zt_block_try_success_3;
     goto zt_block_try_failure_4;
 
@@ -173,6 +190,19 @@ zt_block_try_success_3:
     goto zt_block_try_after_5;
 
 zt_block_try_after_5:
+    zt_outcome_void_core_error_dispose(&__zt_try_result_2);
+    __zt_try_result_2 = zt_app_main__io_write(zt_text_from_utf8_literal("\n"), ((zt_app_main__io_Output){.handle = 1}));
+    if (zt_outcome_void_core_error_is_success(__zt_try_result_2)) goto zt_block_try_success_6;
+    goto zt_block_try_failure_7;
+
+zt_block_try_failure_7:
+    zt_return_value = zt_outcome_void_core_error_propagate(__zt_try_result_2);
+    goto zt_cleanup;
+
+zt_block_try_success_6:
+    goto zt_block_try_after_8;
+
+zt_block_try_after_8:
     zt_return_value = zt_outcome_void_core_error_success();
     goto zt_cleanup;
 
@@ -186,35 +216,89 @@ zt_cleanup:
     if (bn != NULL) { zt_release(bn); bn = NULL; }
     if (by != NULL) { zt_release(by); by = NULL; }
     zt_outcome_void_core_error_dispose(&__zt_try_result_1);
+    zt_outcome_void_core_error_dispose(&__zt_try_result_2);
     return zt_return_value;
 }
 
-static zt_app_main__format_BytesStyle zt_app_main__format_style_binary(void) {
+static zt_text *zt_app_main__format_number(zt_float value, zt_int decimals) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return ((zt_app_main__format_BytesStyle){.tag = zt_app_main__format_BytesStyle__Binary});
+    return zt_format_number(value, decimals);
 }
 
-static zt_app_main__format_BytesStyle zt_app_main__format_style_decimal(void) {
+static zt_text *zt_app_main__format_percent(zt_float value, zt_int decimals) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return ((zt_app_main__format_BytesStyle){.tag = zt_app_main__format_BytesStyle__Decimal});
+    return zt_format_percent(value, decimals);
 }
 
-static zt_text *zt_app_main__format_hex(zt_int value) {
+static zt_text *zt_app_main__format_date(zt_int millis, zt_text *style) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return zt_format_hex_i64(value);
+    {
+        zt_text *zt_ffi_return_value = NULL;
+    {
+        zt_text *zt_ffi_arg1 = style;
+        if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }
+        zt_ffi_return_value = zt_format_date(millis, zt_ffi_arg1);
+        if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }
+    }
+        return zt_ffi_return_value;
+    }
 }
 
-static zt_text *zt_app_main__format_bin(zt_int value) {
+static zt_text *zt_app_main__format_datetime(zt_int millis, zt_text *style, zt_text *locale) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return zt_format_bin_i64(value);
+    {
+        zt_text *zt_ffi_return_value = NULL;
+    {
+        zt_text *zt_ffi_arg1 = style;
+        if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }
+        zt_text *zt_ffi_arg2 = locale;
+        if (zt_ffi_arg2 != NULL) { zt_retain(zt_ffi_arg2); }
+        zt_ffi_return_value = zt_format_datetime(millis, zt_ffi_arg1, zt_ffi_arg2);
+        if (zt_ffi_arg2 != NULL) { zt_release(zt_ffi_arg2); }
+        if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }
+    }
+        return zt_ffi_return_value;
+    }
+}
+
+static zt_text *zt_app_main__format_date_pattern(zt_int millis, zt_text *pattern) {
+    goto zt_block_entry;
+
+zt_block_entry:
+    {
+        zt_text *zt_ffi_return_value = NULL;
+    {
+        zt_text *zt_ffi_arg1 = pattern;
+        if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }
+        zt_ffi_return_value = zt_format_date_pattern(millis, zt_ffi_arg1);
+        if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }
+    }
+        return zt_ffi_return_value;
+    }
+}
+
+static zt_text *zt_app_main__format_datetime_pattern(zt_int millis, zt_text *pattern) {
+    goto zt_block_entry;
+
+zt_block_entry:
+    {
+        zt_text *zt_ffi_return_value = NULL;
+    {
+        zt_text *zt_ffi_arg1 = pattern;
+        if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }
+        zt_ffi_return_value = zt_format_datetime_pattern(millis, zt_ffi_arg1);
+        if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }
+    }
+        return zt_ffi_return_value;
+    }
 }
 
 static zt_text *zt_app_main__format_bytes(zt_int value, zt_app_main__format_BytesStyle style, zt_int decimals) {
@@ -246,59 +330,39 @@ zt_block_match_after_0:
     zt_panic("unreachable");
 }
 
-static zt_text *zt_app_main__format_bytes_binary(zt_int value, zt_int decimals) {
+static zt_text *zt_app_main__format_hex(zt_int value) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return zt_app_main__format_bytes(value, zt_app_main__format_style_binary(), decimals);
+    return zt_format_hex_i64(value);
 }
 
-static zt_text *zt_app_main__format_bytes_decimal(zt_int value, zt_int decimals) {
+static zt_text *zt_app_main__format_bin(zt_int value) {
     goto zt_block_entry;
 
 zt_block_entry:
-    return zt_app_main__format_bytes(value, zt_app_main__format_style_decimal(), decimals);
+    return zt_format_bin_i64(value);
 }
 
-static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_bool from) {
+static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_app_main__io_Input from) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (from) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    return zt_host_read_line_stdin();
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
     return zt_host_read_line_stdin();
 }
 
-static zt_outcome_text_core_error zt_app_main__io_read_all(zt_bool from) {
+static zt_outcome_text_core_error zt_app_main__io_read_all(zt_app_main__io_Input from) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (from) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    return zt_host_read_all_stdin();
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
     return zt_host_read_all_stdin();
 }
 
-static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_bool to) {
+static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_app_main__io_Output to) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (to) goto zt_block_if_then_0;
+    if (((to.handle) == 2)) goto zt_block_if_then_0;
     goto zt_block_if_else_1;
 
 zt_block_if_then_0:
@@ -311,52 +375,11 @@ zt_block_if_join_2:
     return zt_host_write_stdout(value);
 }
 
-static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_bool to) {
+static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_app_main__io_Output to) {
     goto zt_block_entry;
 
 zt_block_entry:
     return zt_app_main__io_write(value, to);
-}
-
-static zt_outcome_void_core_error zt_app_main__io_print_line(zt_text *value, zt_bool to) {
-    zt_outcome_void_core_error __zt_try_result_0 = {0};
-    zt_outcome_void_core_error zt_return_value = {0};
-    goto zt_block_entry;
-
-zt_block_entry:
-    zt_outcome_void_core_error_dispose(&__zt_try_result_0);
-    __zt_try_result_0 = zt_app_main__io_print(value, to);
-    if (zt_outcome_void_core_error_is_success(__zt_try_result_0)) goto zt_block_try_success_0;
-    goto zt_block_try_failure_1;
-
-zt_block_try_failure_1:
-    zt_return_value = zt_outcome_void_core_error_propagate(__zt_try_result_0);
-    goto zt_cleanup;
-
-zt_block_try_success_0:
-    goto zt_block_try_after_2;
-
-zt_block_try_after_2:
-    zt_return_value = zt_app_main__io_print(zt_text_from_utf8_literal("\n"), to);
-    goto zt_cleanup;
-
-zt_cleanup:
-    zt_outcome_void_core_error_dispose(&__zt_try_result_0);
-    return zt_return_value;
-}
-
-static zt_outcome_void_core_error zt_app_main__io_eprint(zt_text *value) {
-    goto zt_block_entry;
-
-zt_block_entry:
-    return zt_app_main__io_write(value, true);
-}
-
-static zt_outcome_void_core_error zt_app_main__io_eprint_line(zt_text *value) {
-    goto zt_block_entry;
-
-zt_block_entry:
-    return zt_app_main__io_print_line(value, true);
 }
 
 static zt_outcome_map_text_text_core_error zt_app_main__json_parse(zt_text *input) {
@@ -398,36 +421,85 @@ zt_block_entry:
     }
 }
 
-static zt_float zt_app_main__math_pi(void) {
+static zt_outcome_map_text_text_core_error zt_app_main__json_read(zt_text *file_path) {
+    zt_outcome_text_core_error __zt_try_result_0 = {0};
+    zt_text *raw = NULL;
+    zt_outcome_map_text_text_core_error zt_return_value = {0};
     goto zt_block_entry;
 
 zt_block_entry:
-    return 3.141592653589793;
+    zt_outcome_text_core_error_dispose(&__zt_try_result_0);
+    {
+        zt_text *zt_ffi_arg0 = file_path;
+        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }
+        __zt_try_result_0 = zt_host_read_file(zt_ffi_arg0);
+        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
+    }
+    if (zt_outcome_text_core_error_is_success(__zt_try_result_0)) goto zt_block_try_success_0;
+    goto zt_block_try_failure_1;
+
+zt_block_try_failure_1:
+    zt_return_value = zt_outcome_map_text_text_core_error_failure((__zt_try_result_0).error);
+    goto zt_cleanup;
+
+zt_block_try_success_0:
+    if (raw != NULL) { zt_release(raw); raw = NULL; }
+    raw = zt_outcome_text_core_error_value(__zt_try_result_0);
+    goto zt_block_try_after_2;
+
+zt_block_try_after_2:
+    zt_return_value = zt_app_main__json_parse(raw);
+    goto zt_cleanup;
+
+zt_cleanup:
+    zt_outcome_text_core_error_dispose(&__zt_try_result_0);
+    if (raw != NULL) { zt_release(raw); raw = NULL; }
+    return zt_return_value;
 }
 
-static zt_float zt_app_main__math_e(void) {
+static zt_outcome_void_core_error zt_app_main__json_write(zt_text *file_path, zt_map_text_text *value) {
+    zt_text *raw = NULL;
+    zt_outcome_void_core_error zt_return_value = {0};
     goto zt_block_entry;
 
 zt_block_entry:
-    return 2.718281828459045;
+    if (raw != NULL) { zt_release(raw); raw = NULL; }
+    raw = zt_app_main__json_stringify(value);
+    zt_return_value = zt_host_write_file(file_path, raw);
+    goto zt_cleanup;
+
+zt_cleanup:
+    if (raw != NULL) { zt_release(raw); raw = NULL; }
+    return zt_return_value;
 }
 
-static zt_float zt_app_main__math_tau(void) {
+static zt_float zt_app_main__math_infinity(void) {
+    zt_float zero;
     goto zt_block_entry;
 
 zt_block_entry:
-    return 6.283185307179586;
+    zero = 0.0;
+    return zt_div_i64(1.0, zero);
 }
 
-static zt_int zt_app_main__math_abs(zt_int value) {
+static zt_float zt_app_main__math_nan(void) {
+    zt_float zero;
     goto zt_block_entry;
 
 zt_block_entry:
-    if ((value < 0)) goto zt_block_if_then_0;
+    zero = 0.0;
+    return zt_div_i64(zero, zero);
+}
+
+static zt_float zt_app_main__math_abs(zt_float value) {
+    goto zt_block_entry;
+
+zt_block_entry:
+    if ((value < 0.0)) goto zt_block_if_then_0;
     goto zt_block_if_else_1;
 
 zt_block_if_then_0:
-    return zt_sub_i64(0, value);
+    return zt_sub_i64(0.0, value);
 
 zt_block_if_else_1:
     goto zt_block_if_join_2;
@@ -436,7 +508,7 @@ zt_block_if_join_2:
     return value;
 }
 
-static zt_int zt_app_main__math_min(zt_int a, zt_int b) {
+static zt_float zt_app_main__math_min(zt_float a, zt_float b) {
     goto zt_block_entry;
 
 zt_block_entry:
@@ -453,7 +525,7 @@ zt_block_if_join_2:
     return b;
 }
 
-static zt_int zt_app_main__math_max(zt_int a, zt_int b) {
+static zt_float zt_app_main__math_max(zt_float a, zt_float b) {
     goto zt_block_entry;
 
 zt_block_entry:
@@ -470,7 +542,7 @@ zt_block_if_join_2:
     return b;
 }
 
-static zt_int zt_app_main__math_clamp(zt_int value, zt_int min, zt_int max) {
+static zt_float zt_app_main__math_clamp(zt_float value, zt_float min, zt_float max) {
     goto zt_block_entry;
 
 zt_block_entry:
@@ -841,156 +913,6 @@ zt_block_entry:
         if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
     }
     return ((count >= min) && (count <= max));
-}
-
-static zt_bool zt_app_main__validate_no_whitespace(zt_text *value) {
-    zt_text *space = NULL;
-    zt_text *tab = NULL;
-    zt_text *newline = NULL;
-    zt_text *carriage = NULL;
-    zt_text *__zt_for_iter_0 = NULL;
-    zt_int __zt_for_index_1;
-    zt_int __zt_for_len_2;
-    zt_text *ch = NULL;
-    zt_bool zt_return_value;
-    goto zt_block_entry;
-
-zt_block_entry:
-    if (space != NULL) { zt_release(space); space = NULL; }
-    space = zt_text_from_utf8_literal(" ");
-    if (tab != NULL) { zt_release(tab); tab = NULL; }
-    tab = zt_text_from_utf8_literal("\t");
-    if (newline != NULL) { zt_release(newline); newline = NULL; }
-    newline = zt_text_from_utf8_literal("\n");
-    if (carriage != NULL) { zt_release(carriage); carriage = NULL; }
-    carriage = zt_text_from_utf8_literal("\r");
-    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
-    __zt_for_iter_0 = (zt_retain(value), value);
-    __zt_for_index_1 = 0;
-    {
-        zt_text *zt_ffi_arg0 = __zt_for_iter_0;
-        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }
-        __zt_for_len_2 = zt_text_len(zt_ffi_arg0);
-        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
-    }
-    goto zt_block_for_cond_0;
-
-zt_block_for_cond_0:
-    if ((__zt_for_index_1 < __zt_for_len_2)) goto zt_block_for_body_1;
-    goto zt_block_for_exit_3;
-
-zt_block_for_body_1:
-    if (ch != NULL) { zt_release(ch); ch = NULL; }
-    {
-        zt_text *zt_ffi_arg0 = __zt_for_iter_0;
-        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }
-        ch = zt_text_index(zt_ffi_arg0, __zt_for_index_1);
-        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
-    }
-    if ((((zt_text_eq(ch, space) || zt_text_eq(ch, tab)) || zt_text_eq(ch, newline)) || zt_text_eq(ch, carriage))) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    zt_return_value = false;
-    goto zt_cleanup;
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
-    goto zt_block_for_step_2;
-
-zt_block_for_step_2:
-    __zt_for_index_1 = zt_add_i64(__zt_for_index_1, 1);
-    goto zt_block_for_cond_0;
-
-zt_block_for_exit_3:
-    zt_return_value = true;
-    goto zt_cleanup;
-
-zt_cleanup:
-    if (space != NULL) { zt_release(space); space = NULL; }
-    if (tab != NULL) { zt_release(tab); tab = NULL; }
-    if (newline != NULL) { zt_release(newline); newline = NULL; }
-    if (carriage != NULL) { zt_release(carriage); carriage = NULL; }
-    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
-    if (ch != NULL) { zt_release(ch); ch = NULL; }
-    return zt_return_value;
-}
-
-static zt_bool zt_app_main__validate_has_whitespace(zt_text *value) {
-    zt_text *space = NULL;
-    zt_text *tab = NULL;
-    zt_text *newline = NULL;
-    zt_text *carriage = NULL;
-    zt_text *__zt_for_iter_0 = NULL;
-    zt_int __zt_for_index_1;
-    zt_int __zt_for_len_2;
-    zt_text *ch = NULL;
-    zt_bool zt_return_value;
-    goto zt_block_entry;
-
-zt_block_entry:
-    if (space != NULL) { zt_release(space); space = NULL; }
-    space = zt_text_from_utf8_literal(" ");
-    if (tab != NULL) { zt_release(tab); tab = NULL; }
-    tab = zt_text_from_utf8_literal("\t");
-    if (newline != NULL) { zt_release(newline); newline = NULL; }
-    newline = zt_text_from_utf8_literal("\n");
-    if (carriage != NULL) { zt_release(carriage); carriage = NULL; }
-    carriage = zt_text_from_utf8_literal("\r");
-    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
-    __zt_for_iter_0 = (zt_retain(value), value);
-    __zt_for_index_1 = 0;
-    {
-        zt_text *zt_ffi_arg0 = __zt_for_iter_0;
-        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }
-        __zt_for_len_2 = zt_text_len(zt_ffi_arg0);
-        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
-    }
-    goto zt_block_for_cond_0;
-
-zt_block_for_cond_0:
-    if ((__zt_for_index_1 < __zt_for_len_2)) goto zt_block_for_body_1;
-    goto zt_block_for_exit_3;
-
-zt_block_for_body_1:
-    if (ch != NULL) { zt_release(ch); ch = NULL; }
-    {
-        zt_text *zt_ffi_arg0 = __zt_for_iter_0;
-        if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }
-        ch = zt_text_index(zt_ffi_arg0, __zt_for_index_1);
-        if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }
-    }
-    if ((((zt_text_eq(ch, space) || zt_text_eq(ch, tab)) || zt_text_eq(ch, newline)) || zt_text_eq(ch, carriage))) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    zt_return_value = true;
-    goto zt_cleanup;
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
-    goto zt_block_for_step_2;
-
-zt_block_for_step_2:
-    __zt_for_index_1 = zt_add_i64(__zt_for_index_1, 1);
-    goto zt_block_for_cond_0;
-
-zt_block_for_exit_3:
-    zt_return_value = false;
-    goto zt_cleanup;
-
-zt_cleanup:
-    if (space != NULL) { zt_release(space); space = NULL; }
-    if (tab != NULL) { zt_release(tab); tab = NULL; }
-    if (newline != NULL) { zt_release(newline); newline = NULL; }
-    if (carriage != NULL) { zt_release(carriage); carriage = NULL; }
-    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
-    if (ch != NULL) { zt_release(ch); ch = NULL; }
-    return zt_return_value;
 }
 
 int main(void) {

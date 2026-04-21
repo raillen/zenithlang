@@ -3,6 +3,24 @@
 #include <string.h>
 
 
+typedef struct zt_app_main__io_Input {
+    zt_int handle;
+} zt_app_main__io_Input;
+
+typedef struct zt_app_main__io_Output {
+    zt_int handle;
+} zt_app_main__io_Output;
+
+typedef enum zt_app_main__io_Error_tag {
+    zt_app_main__io_Error__ReadFailed,
+    zt_app_main__io_Error__WriteFailed,
+    zt_app_main__io_Error__Unknown
+} zt_app_main__io_Error_tag;
+
+typedef struct zt_app_main__io_Error {
+    zt_app_main__io_Error_tag tag;
+} zt_app_main__io_Error;
+
 typedef struct zt_generated_outcome_bool_core_error_ {
     zt_bool is_success;
     zt_bool value;
@@ -206,13 +224,10 @@ static zt_generated_outcome_void_bool_ zt_app_main__bool_guard(zt_int seed);
 static zt_generated_outcome_text_bool_ zt_app_main__bool_text(zt_int seed);
 static zt_generated_outcome_int_bool_ zt_app_main__bool_batch(zt_int iterations);
 static zt_outcome_void_core_error zt_app_main__main(void);
-static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_bool from);
-static zt_outcome_text_core_error zt_app_main__io_read_all(zt_bool from);
-static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_print_line(zt_text *value, zt_bool to);
-static zt_outcome_void_core_error zt_app_main__io_eprint(zt_text *value);
-static zt_outcome_void_core_error zt_app_main__io_eprint_line(zt_text *value);
+static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_app_main__io_Input from);
+static zt_outcome_text_core_error zt_app_main__io_read_all(zt_app_main__io_Input from);
+static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_app_main__io_Output to);
+static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_app_main__io_Output to);
 
 static zt_outcome_text_core_error zt_app_main__managed_text(zt_int seed) {
     zt_text *even_label = NULL;
@@ -469,6 +484,7 @@ static zt_outcome_void_core_error zt_app_main__main(void) {
     zt_outcome_void_core_error __zt_try_result_3 = {0};
     zt_outcome_void_core_error __zt_try_result_4 = {0};
     zt_outcome_void_core_error __zt_try_result_5 = {0};
+    zt_outcome_void_core_error __zt_try_result_6 = {0};
     zt_outcome_void_core_error zt_return_value = {0};
     goto zt_block_entry;
 
@@ -523,7 +539,7 @@ zt_block_if_join_2:
 
 zt_block_if_then_3:
     zt_outcome_void_core_error_dispose(&__zt_try_result_2);
-    __zt_try_result_2 = zt_app_main__io_print(zt_text_from_utf8_literal(""), false);
+    __zt_try_result_2 = zt_app_main__io_print(zt_text_from_utf8_literal(""), ((zt_app_main__io_Output){.handle = 1}));
     if (zt_outcome_void_core_error_is_success(__zt_try_result_2)) goto zt_block_try_success_6;
     goto zt_block_try_failure_7;
 
@@ -542,7 +558,7 @@ zt_block_if_else_4:
 
 zt_block_if_join_5:
     zt_outcome_void_core_error_dispose(&__zt_try_result_3);
-    __zt_try_result_3 = zt_app_main__io_print(zt_text_from_utf8_literal(""), false);
+    __zt_try_result_3 = zt_app_main__io_print(zt_text_from_utf8_literal(""), ((zt_app_main__io_Output){.handle = 1}));
     if (zt_outcome_void_core_error_is_success(__zt_try_result_3)) goto zt_block_try_success_9;
     goto zt_block_try_failure_10;
 
@@ -555,7 +571,7 @@ zt_block_try_success_9:
 
 zt_block_try_after_11:
     zt_outcome_void_core_error_dispose(&__zt_try_result_4);
-    __zt_try_result_4 = zt_app_main__io_print(zt_text_from_utf8_literal(""), false);
+    __zt_try_result_4 = zt_app_main__io_print(zt_text_from_utf8_literal(""), ((zt_app_main__io_Output){.handle = 1}));
     if (zt_outcome_void_core_error_is_success(__zt_try_result_4)) goto zt_block_try_success_12;
     goto zt_block_try_failure_13;
 
@@ -568,7 +584,7 @@ zt_block_try_success_12:
 
 zt_block_try_after_14:
     zt_outcome_void_core_error_dispose(&__zt_try_result_5);
-    __zt_try_result_5 = zt_app_main__io_print_line(zt_text_from_utf8_literal("m37-result-generic-ok"), false);
+    __zt_try_result_5 = zt_app_main__io_write(zt_text_from_utf8_literal("m37-result-generic-ok"), ((zt_app_main__io_Output){.handle = 1}));
     if (zt_outcome_void_core_error_is_success(__zt_try_result_5)) goto zt_block_try_success_15;
     goto zt_block_try_failure_16;
 
@@ -580,6 +596,19 @@ zt_block_try_success_15:
     goto zt_block_try_after_17;
 
 zt_block_try_after_17:
+    zt_outcome_void_core_error_dispose(&__zt_try_result_6);
+    __zt_try_result_6 = zt_app_main__io_write(zt_text_from_utf8_literal("\n"), ((zt_app_main__io_Output){.handle = 1}));
+    if (zt_outcome_void_core_error_is_success(__zt_try_result_6)) goto zt_block_try_success_18;
+    goto zt_block_try_failure_19;
+
+zt_block_try_failure_19:
+    zt_return_value = zt_outcome_void_core_error_propagate(__zt_try_result_6);
+    goto zt_cleanup;
+
+zt_block_try_success_18:
+    goto zt_block_try_after_20;
+
+zt_block_try_after_20:
     zt_return_value = zt_outcome_void_core_error_success();
     goto zt_cleanup;
 
@@ -593,48 +622,29 @@ zt_cleanup:
     zt_outcome_void_core_error_dispose(&__zt_try_result_3);
     zt_outcome_void_core_error_dispose(&__zt_try_result_4);
     zt_outcome_void_core_error_dispose(&__zt_try_result_5);
+    zt_outcome_void_core_error_dispose(&__zt_try_result_6);
     return zt_return_value;
 }
 
-static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_bool from) {
+static zt_outcome_optional_text_core_error zt_app_main__io_read_line(zt_app_main__io_Input from) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (from) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    return zt_host_read_line_stdin();
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
     return zt_host_read_line_stdin();
 }
 
-static zt_outcome_text_core_error zt_app_main__io_read_all(zt_bool from) {
+static zt_outcome_text_core_error zt_app_main__io_read_all(zt_app_main__io_Input from) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (from) goto zt_block_if_then_0;
-    goto zt_block_if_else_1;
-
-zt_block_if_then_0:
-    return zt_host_read_all_stdin();
-
-zt_block_if_else_1:
-    goto zt_block_if_join_2;
-
-zt_block_if_join_2:
     return zt_host_read_all_stdin();
 }
 
-static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_bool to) {
+static zt_outcome_void_core_error zt_app_main__io_write(zt_text *value, zt_app_main__io_Output to) {
     goto zt_block_entry;
 
 zt_block_entry:
-    if (to) goto zt_block_if_then_0;
+    if (((to.handle) == 2)) goto zt_block_if_then_0;
     goto zt_block_if_else_1;
 
 zt_block_if_then_0:
@@ -647,52 +657,11 @@ zt_block_if_join_2:
     return zt_host_write_stdout(value);
 }
 
-static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_bool to) {
+static zt_outcome_void_core_error zt_app_main__io_print(zt_text *value, zt_app_main__io_Output to) {
     goto zt_block_entry;
 
 zt_block_entry:
     return zt_app_main__io_write(value, to);
-}
-
-static zt_outcome_void_core_error zt_app_main__io_print_line(zt_text *value, zt_bool to) {
-    zt_outcome_void_core_error __zt_try_result_0 = {0};
-    zt_outcome_void_core_error zt_return_value = {0};
-    goto zt_block_entry;
-
-zt_block_entry:
-    zt_outcome_void_core_error_dispose(&__zt_try_result_0);
-    __zt_try_result_0 = zt_app_main__io_print(value, to);
-    if (zt_outcome_void_core_error_is_success(__zt_try_result_0)) goto zt_block_try_success_0;
-    goto zt_block_try_failure_1;
-
-zt_block_try_failure_1:
-    zt_return_value = zt_outcome_void_core_error_propagate(__zt_try_result_0);
-    goto zt_cleanup;
-
-zt_block_try_success_0:
-    goto zt_block_try_after_2;
-
-zt_block_try_after_2:
-    zt_return_value = zt_app_main__io_print(zt_text_from_utf8_literal("\n"), to);
-    goto zt_cleanup;
-
-zt_cleanup:
-    zt_outcome_void_core_error_dispose(&__zt_try_result_0);
-    return zt_return_value;
-}
-
-static zt_outcome_void_core_error zt_app_main__io_eprint(zt_text *value) {
-    goto zt_block_entry;
-
-zt_block_entry:
-    return zt_app_main__io_write(value, true);
-}
-
-static zt_outcome_void_core_error zt_app_main__io_eprint_line(zt_text *value) {
-    goto zt_block_entry;
-
-zt_block_entry:
-    return zt_app_main__io_print_line(value, true);
 }
 
 int main(void) {

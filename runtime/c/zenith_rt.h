@@ -855,6 +855,12 @@ zt_outcome_map_text_text_core_error zt_json_parse_map_text_text(const zt_text *i
 zt_text *zt_json_stringify_map_text_text(const zt_map_text_text *value);
 zt_text *zt_json_pretty_map_text_text(const zt_map_text_text *value, zt_int indent);
 
+zt_text *zt_format_number(zt_float value, zt_int decimals);
+zt_text *zt_format_percent(zt_float value, zt_int decimals);
+zt_text *zt_format_date(zt_int millis, const zt_text *style);
+zt_text *zt_format_datetime(zt_int millis, const zt_text *style, const zt_text *locale);
+zt_text *zt_format_date_pattern(zt_int millis, const zt_text *pattern);
+zt_text *zt_format_datetime_pattern(zt_int millis, const zt_text *pattern);
 zt_text *zt_format_hex_i64(zt_int value);
 zt_text *zt_format_bin_i64(zt_int value);
 zt_text *zt_format_bytes_binary(zt_int value, zt_int decimals);

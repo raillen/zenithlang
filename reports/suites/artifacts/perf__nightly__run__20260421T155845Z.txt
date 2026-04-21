@@ -1,0 +1,127 @@
+micro_frontend_small_check: fail
+micro_frontend_medium_check: pass
+micro_frontend_large_check: pass
+micro_lowering_small_emit_c: warn
+micro_lowering_large_emit_c: pass
+micro_runtime_core: fail
+micro_stdlib_core: warn
+macro_small_check: fail
+macro_small_build_cold: fail
+perf error: exit invalido em macro_small_build_warm: 1
+stdout:
+
+stderr:
+In file included from runtime/c/zenith_rt.c:2:
+runtime/c/zenith_rt.c: In function 'zt_outcome_i64_text_failure':
+./runtime/c/zenith_rt_templates.h:2098:83: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                   ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:84: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                    ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:85: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                     ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:87: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                       ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:86: error: unknown type name 'r'
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                      ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:96: error: expected '=', ',', ';', 'asm' or '__attribute__' before '.' token
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:166: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                      ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:167: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                       ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:168: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                        ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:170: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                          ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:169: error: unknown type name 'r'
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                         ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:179: error: expected '=', ',', ';', 'asm' or '__attribute__' before '.' token
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                                                                                                   ^
+runtime/c/zenith_rt.c:2271:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2271 | ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+runtime/c/zenith_rt.c: In function 'zt_outcome_text_text_failure':
+./runtime/c/zenith_rt_templates.h:2098:83: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                   ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:84: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                    ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:85: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                     ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:87: error: stray '`' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                       ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:86: error: unknown type name 'r'
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                      ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:96: error: expected '=', ',', ';', 'asm' or '__attribute__' before '.' token
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                                 \\`r`noutcome.error = error;                                                        \
+      |                                                                                                ^
+runtime/c/zenith_rt.c:2272:1: note: in expansion of macro 'ZT_DEFINE_OUTCOME_IMPL'
+ 2272 | ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
+      | ^~~~~~~~~~~~~~~~~~~~~~
+./runtime/c/zenith_rt_templates.h:2098:166: error: stray '\' in program
+ 2098 |     outcome.is_success = false;                                                   \\`r`noutcome.value = (VAL_TYPE)0;                                         
+...[truncated]...

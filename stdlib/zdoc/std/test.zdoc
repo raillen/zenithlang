@@ -1,8 +1,9 @@
 --- @target: namespace
-# std.test — Utilitários de Teste
+# std.test — Helpers de Teste
 
-Módulo para sinalizar estados de teste ao runner `zt test`.
-Usado em conjunto com `attr test` para marcar funções como testes.
+Módulo complementar para testes.
+Testes são declarados com `attr test`. Asserções usam `check(...)`.
+`std.test` fornece `fail` e `skip` para casos que `check` não cobre.
 ---
 
 --- @target: fail
@@ -10,10 +11,10 @@ Usado em conjunto com `attr test` para marcar funções como testes.
 public func fail(message: text = "test failed") -> void
 ```
 
-Sinaliza que o teste atual falhou com uma mensagem descritiva.
-O runner `zt test` interpreta essa chamada como falha do caso de teste.
+Marca o teste atual como falho imediatamente.
+Útil em branches de controle de fluxo (ex: `match` sobre `result`).
 
-@param message — Mensagem de falha (padrão: `"test failed"`).
+@param message — Mensagem de falha.
 ---
 
 --- @target: skip
@@ -21,8 +22,9 @@ O runner `zt test` interpreta essa chamada como falha do caso de teste.
 public func skip(reason: text = "") -> void
 ```
 
-Sinaliza que o teste atual deve ser ignorado (skip).
-O runner `zt test` marca o caso como "skipped" em vez de "passed" ou "failed".
+Marca o teste atual como pulado (skipped).
+Skip é um resultado distinto — não é passing nem failing.
+O runner deve exibir testes skipped separadamente.
 
-@param reason — Motivo para pular o teste (opcional).
+@param reason — Motivo do skip.
 ---
