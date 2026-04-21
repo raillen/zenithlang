@@ -197,8 +197,8 @@ Evidencia R2.M0 (2026-04-21):
 - Entrada de governanca: `docs/governance/README.md`
 - Baseline qualidade congelado: `docs/governance/baselines/quality-baseline.json`
 - Baseline performance congelado: `docs/governance/baselines/perf-baseline.json` + `tests/perf/baselines/windows-AMD64/*.json`
-- Template de bug: `.github/ISSUE_TEMPLATE/bug-report.yml`
-- Checklist de PR: `.github/PULL_REQUEST_TEMPLATE.md`
+- Template de bug: ver secao de bug report em `CONTRIBUTING.md`
+- Checklist de PR: ver secao de PR checklist em `CONTRIBUTING.md`
 - Comando unico de triagem: `python tools/triage_cycle.py`
 - Evidencia de execucao real: `docs/reports/triage/latest.md`
 - Evidencia de freeze baseline: `docs/reports/triage/triage-20260421-130834Z.md`
@@ -227,8 +227,8 @@ Evidencia R2.M1 (2026-04-21):
 - Gate PR: `tests/perf/gate_pr.ps1` (`python run_suite.py pr_gate`)
 - Gate nightly: `tests/perf/gate_nightly.ps1` (`python run_suite.py nightly`)
 - Gate stress: `tests/perf/gate_stress.ps1` (`python run_suite.py stress`)
-- PR template atualizado: `.github/PULL_REQUEST_TEMPLATE.md`
-- Relatorio de execucao smoke: `reports/suites/smoke__latest.json` (9/9 pass, 2405ms)
+- PR template atualizado no ciclo R2.M1 (arquivo nao mantido no repositorio atual).
+- Relatorio de execucao smoke registrado no ciclo R2.M1 (9/9 pass, 2405ms).
 
 ## R2.M2 - Robustez de frontend (fuzzing)
 
@@ -528,7 +528,7 @@ Evidencia R2.M11 (2026-04-21):
   - `python run_suite.py pr_gate` -> pass (`112/112`)
   - `python run_suite.py nightly` -> pass (`114/114`)
   - `python run_suite.py stress` -> pass (`21/21`)
-  - relatorios: `reports/suites/*__latest.json`
+  - relatorios locais/CI validados no corte (artefatos efemeros nao versionados)
 - Performance:
   - `reports/perf/summary-nightly.json` -> `status=pass`, `benchmark_count=23`
 - P0/P1:
@@ -571,9 +571,9 @@ Evidencias R2.M12:
 - `python tests/fuzz/replay.py --verbose` -> `{"seeds":0,"failures":0}`
 - `python tests/fuzz/fuzz_lexer.py --iters 200 --seed 20260421 --verbose` -> `{"crashes":0,"timeouts":0}`
 - `python tests/fuzz/fuzz_parser.py --iters 200 --seed 20260421 --verbose` -> `{"crashes":0,"timeouts":0}`
-- Artefato: `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.zip`
-- Hashes: `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
-- Install limpo + hello world: `docs/reports/release/artifacts/hello-world-clean-install.log`
+- Artefato: publicado como release asset (`zenith-0.3.0-alpha.1-windows-amd64.zip`)
+- Hashes: publicados como release asset (`zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`)
+- Install limpo + hello world: validado no corte R2.M12 (log local de validacao)
 - Notas de alpha: `docs/reports/release/0.3.0-alpha.1-notes.md`
 - Relatorio de release: `docs/reports/release/R2.M12-alpha-release-report.md`
 - Compatibilidade: `docs/reports/compatibility/R2.M12-alpha-compatibility.md`
@@ -595,6 +595,4 @@ Evidencias R2.M12:
 
 Evidencias de processo (R2.M12+):
 
-- `CONTRIBUTING.md` (secoes 1.1 e 1.2)
-- `.github/PULL_REQUEST_TEMPLATE.md` (regression flow, validation e evidencia minima)
-- `.github/ISSUE_TEMPLATE/bug-report.yml` (severidade + plano de regressao obrigatorio)
+- `CONTRIBUTING.md` (secoes 1.1, 1.2 e checklist de PR)

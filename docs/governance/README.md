@@ -22,8 +22,7 @@ python tools/triage_cycle.py --freeze-baseline
 - `docs/governance/baselines/quality-baseline.json`: frozen quality baseline.
 - `docs/governance/baselines/perf-baseline.json`: frozen perf baseline snapshot.
 - `tests/perf/baselines/<platform>/*.json`: per-benchmark perf baselines.
-- `.github/ISSUE_TEMPLATE/bug-report.yml`: mandatory bug template.
-- `.github/PULL_REQUEST_TEMPLATE.md`: mandatory regression checklist.
+- `CONTRIBUTING.md`: mandatory bug report fields and regression checklist.
 - `tools/triage_cycle.py`: single triage command.
 
 ## Triage artifacts

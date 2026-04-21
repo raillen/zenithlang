@@ -1,4 +1,7 @@
 .gemini/
+.agents/
+.github/
+.idea/
 node_modules/
 dist/
 bin/
@@ -30,6 +33,15 @@ output.txt
 reports/perf/*.json
 reports/perf/*.md
 !reports/perf/.gitkeep
+reports/suites/
+reproduce/
+docs/reports/release/artifacts/
+tests/perf/*/build/
+compiler/driver/zt-next-v2.exe
+std_fs_basic.emit.c
+test_optional_null.zt
+test_r2m3_simple.zt
+doc_errors.txt
 
 # Local/generated docs artifacts
 doc_check_output.txt

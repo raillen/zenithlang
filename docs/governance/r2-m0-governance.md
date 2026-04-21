@@ -71,7 +71,7 @@ Time targets are counted in calendar time.
 
 All bug reports must use:
 
-- `.github/ISSUE_TEMPLATE/bug-report.yml`
+- `CONTRIBUTING.md` (bug report required fields)
 
 Minimum required fields:
 

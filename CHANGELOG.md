@@ -6,8 +6,8 @@ Todos os marcos do desenvolvimento da linguagem Zenith.
 
 ### Added
 - alpha release package for Windows AMD64:
-  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.zip`
-  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+  - published as GitHub Release asset (outside source repository)
+  - file names: `zenith-0.3.0-alpha.1-windows-amd64.zip` and `zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
 - alpha release notes and gate evidence:
   - `docs/reports/release/0.3.0-alpha.1-notes.md`
   - `docs/reports/release/R2.M12-alpha-release-report.md`

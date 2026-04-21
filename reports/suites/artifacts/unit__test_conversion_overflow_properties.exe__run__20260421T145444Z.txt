@@ -1,8 +1,0 @@
-Running conversion/overflow property tests...
-
-
-Conversion/Overflow property tests: 12/14 passed
-FAIL: narrowing should fail without cast: expected diag code 30, not found
-FAIL: uint_to_int_explicit type: diagnostics=2
-  diag: unknown type 'uint'
-  diag: explicit conversion 'int(...)' requires a numeric source and target
