@@ -69,6 +69,7 @@ amespace` nao corresponde ao caminho do arquivo.
 - `where_contract_field_assign_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em atribuicao de campo.
 - `std_net_basic/`: projeto valido. Exercita `std.net` no baseline atual via loopback TCP local. O script `run-loopback.ps1` sobe um servidor local em `127.0.0.1:41234`, executa o binario e fecha o listener automaticamente.
 - `std_collections_managed_arc/`: projeto valido. Exercita copy/mutate isolation em `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>`.
+- `edge_boundaries_empty/`: projeto valido. Exercita valores-limite (`u8/u16/u32/u64`, `int` proximo ao limite) e estruturas vazias (`text/list/map/bytes`).
 - `std_test_basic/`: projeto valido. Exercita `std.test` diretamente via `main`, validando os desfechos de `skip(...)` e `fail(...)` no comando `zt test`.
 - `std_test_attr_pass_skip/`: projeto valido. Exercita o harness real de `zt test` com funcoes marcadas por `attr test`, cobrindo 1 caso pass e 1 caso skip.
 - `std_test_attr_fail/`: projeto invalido para o runner. Exercita o harness real de `zt test` com funcoes marcadas por `attr test`, cobrindo 1 caso pass, 1 caso skip e 1 caso fail.

@@ -1,0 +1,3 @@
+error[control_flow.invalid_condition]
+where condition must be bool
+stage: type

@@ -52,6 +52,7 @@ Legend:
 one`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
 | `optional_question_basic` | `optional<T>` `?` propagation with `none` short-circuit in const initialization | `0` |
+| `edge_boundaries_empty` | Edge values: `u8/u16/u32/u64` bounds, near `int` limits, and empty `text/list/map/bytes` invariants | `0` |
 | `bytes_hex_literal` | `hex bytes "..."`, `len(bytes)`, byte indexing and byte slicing | `9` |
 | `std_bytes_utf8` | `std.bytes.empty`, `std.text.to_utf8`, `std.text.from_utf8` and UTF-8 failure path | `14` |
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |

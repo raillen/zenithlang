@@ -7,7 +7,7 @@ end
 
 func get_area(s: Shape) -> int
     match s
-        case Shape.Circle(r)
+        case Shape.Circle(r) ->
             return r * r
     end
 end

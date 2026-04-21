@@ -1,0 +1,3 @@
+error[semantic.param_ordering]
+parameter 'b' is required but comes after a parameter with a default value
+stage: binding

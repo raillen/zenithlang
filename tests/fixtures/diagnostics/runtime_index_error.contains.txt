@@ -1,2 +1,2 @@
 error[runtime.index]
-list<int> index out of bounds
+index out of bounds

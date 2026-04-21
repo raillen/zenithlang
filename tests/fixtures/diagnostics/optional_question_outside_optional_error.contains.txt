@@ -1,0 +1,3 @@
+error[type.invalid_operator]
+'?' on optional<T> requires an enclosing function that returns optional<U>
+stage: type

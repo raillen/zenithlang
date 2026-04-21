@@ -8,14 +8,28 @@ Goals:
 """
 
 import os
+import re
 import subprocess
 import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "tests" / "suites"))
+from suite_definitions import (  # noqa: E402
+    BEHAVIOR_CHECK_FAIL,
+    BEHAVIOR_BUILD_FAIL,
+    BEHAVIOR_RUN_FAIL,
+    BEHAVIOR_RUN_PASS,
+    BEHAVIOR_DIAGNOSTIC_FRAGMENT_FILES,
+)
 
 
 ZT_EXE = os.path.abspath("zt.exe")
 ZT_OLD = os.path.abspath(os.path.join("compiler", "driver", "zt-next-v2.exe"))
 BEHAVIOR_DIR = os.path.join("tests", "behavior")
 TOOLING_GATE_PROJECT = os.path.join("tests", "behavior", "tooling_gate_smoke")
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 RESULTS = {"pass": [], "fail": [], "skip": []}
 
@@ -62,6 +76,33 @@ def mark(passed, key, detail=None):
     else:
         entry = key if detail is None else f"{key}: {detail}"
         RESULTS["fail"].append(entry)
+
+
+def normalize_for_match(text):
+    clean = ANSI_RE.sub("", text or "")
+    clean = clean.replace("\r\n", "\n")
+    clean = clean.replace("\\", "/")
+    return clean
+
+
+def behavior_diag_expectation(name, output):
+    rel_path = BEHAVIOR_DIAGNOSTIC_FRAGMENT_FILES.get(name)
+    if not rel_path:
+        return True, []
+
+    frag_path = ROOT / rel_path
+    if not frag_path.exists():
+        return False, [f"diagnostic fragment file not found: {rel_path}"]
+
+    hay = normalize_for_match(output)
+    missing = []
+    for raw in frag_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        frag = raw.strip()
+        if not frag:
+            continue
+        if frag.replace("\\", "/") not in hay:
+            missing.append(frag)
+    return len(missing) == 0, missing
 
 
 def print_behavior_status(name, mode, ok):
@@ -116,6 +157,12 @@ def print_contributor_next_steps():
             emitted.add(key)
             continue
 
+        if key.startswith("hardening/"):
+            script = key.split("/", 1)[1]
+            print(f"    - Re-run hardening check: python tests/hardening/test_{script}.py")
+            emitted.add(key)
+            continue
+
 
 def test_behavior_project(name, path):
     """
@@ -126,47 +173,15 @@ def test_behavior_project(name, path):
     - run-fail: check/build must pass, run must fail.
     - run-pass: check/build/run must pass.
     """
-    check_fail = {
-        "check_intrinsic_type_error",
-        "enum_match_non_exhaustive_error",
-        "error_syntax",
-        "error_type_mismatch",
-        "fmt_interpolation_type_error",
-        "functions_invalid_call_error",
-        "functions_param_ordering_error",
-        "multifile_duplicate_symbol",
-        "multifile_import_cycle",
-        "multifile_missing_import",
-        "multifile_namespace_mismatch",
-        "mutability_const_reassign_error",
-        "optional_question_outside_optional_error",
-        "project_unknown_key_manifest",
-        "monomorphization_limit_error",
-        "where_contract_param_where_invalid_error",
-        "where_contract_param_where_non_bool_error",
-    }
-
-    build_fail = {
-        "functions_main_signature_error",
-        "result_optional_propagation_error",
-    }
-
-    run_fail = {
-        "where_contract_construct_error",
-        "where_contract_field_assign_error",
-        "where_contract_param_error",
-    }
-
-    run_pass = {
-        "extern_c_puts_e2e",
-        "fmt_interpolation_basic",
-        "optional_question_basic",
-    }
-
     rc, out = run_cmd(f"check:{name}", [ZT_EXE, "check", path], timeout=45)
 
-    if name in check_fail:
+    if name in BEHAVIOR_CHECK_FAIL:
         ok = rc != 0
+        if ok:
+            diag_ok, missing = behavior_diag_expectation(name, out)
+            if not diag_ok:
+                ok = False
+                out = out + "\n\nmissing diagnostic fragments:\n" + "\n".join(missing)
         print_behavior_status(name, "check-fail", ok)
         mark(ok, f"behavior/{name}", out[:160] if not ok else None)
         return
@@ -176,14 +191,19 @@ def test_behavior_project(name, path):
         mark(False, f"behavior/{name}", out[:160])
         return
 
-    if name in build_fail:
+    if name in BEHAVIOR_BUILD_FAIL:
         rc_build, out_build = run_cmd(f"build:{name}", [ZT_EXE, "build", path], timeout=120)
         ok = rc_build != 0
+        if ok:
+            diag_ok, missing = behavior_diag_expectation(name, out_build)
+            if not diag_ok:
+                ok = False
+                out_build = out_build + "\n\nmissing diagnostic fragments:\n" + "\n".join(missing)
         print_behavior_status(name, "build-fail", ok)
         mark(ok, f"behavior/{name}", out_build[:160] if not ok else None)
         return
 
-    if name in run_fail:
+    if name in BEHAVIOR_RUN_FAIL:
         rc_build, out_build = run_cmd(f"build:{name}", [ZT_EXE, "build", path], timeout=120)
         if rc_build != 0:
             print_behavior_status(name, "run-fail", False)
@@ -191,11 +211,16 @@ def test_behavior_project(name, path):
             return
         rc_run, out_run = run_cmd(f"run:{name}", [ZT_EXE, "run", path], timeout=45)
         ok = rc_run != 0
+        if ok:
+            diag_ok, missing = behavior_diag_expectation(name, out_run)
+            if not diag_ok:
+                ok = False
+                out_run = out_run + "\n\nmissing diagnostic fragments:\n" + "\n".join(missing)
         print_behavior_status(name, "run-fail", ok)
         mark(ok, f"behavior/{name}", out_run[:160] if not ok else None)
         return
 
-    if name in run_pass:
+    if name in BEHAVIOR_RUN_PASS:
         ok_check = "verification ok" in out or "check ok" in out
         if not ok_check:
             print_behavior_status(name, "run-pass", False)
@@ -325,7 +350,24 @@ def main():
         print("  [SKIP] formatter golden runner not found")
         RESULTS["skip"].append("formatter/golden_missing")
 
-    section("7. Stdlib Modules")
+    section("7. Hardening Tests")
+    hardening_scripts = [
+        ("hardening/determinism", os.path.join("tests", "hardening", "test_determinism.py"), 120),
+        ("hardening/roundtrip_emit_c", os.path.join("tests", "hardening", "test_roundtrip_emit_c.py"), 180),
+        ("hardening/differential_validate_between", os.path.join("tests", "hardening", "test_differential_validate_between.py"), 240),
+        ("hardening/runtime_sanitizers", os.path.join("tests", "hardening", "test_runtime_sanitizers.py"), 600),
+    ]
+    for key, script_path, timeout in hardening_scripts:
+        if not os.path.exists(script_path):
+            print(f"  [SKIP] {key} (missing)")
+            RESULTS["skip"].append(key)
+            continue
+        rc, out = run_cmd(key, [sys.executable, script_path], timeout=timeout)
+        ok = rc == 0
+        print(f"  [{'OK' if ok else 'FAIL':<4}] {key}")
+        mark(ok, key, out[:400] if not ok else None)
+
+    section("8. Stdlib Modules")
     if os.path.isdir("stdlib"):
         for root, _dirs, files in os.walk("stdlib"):
             for filename in sorted(files):

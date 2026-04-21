@@ -102,6 +102,7 @@ Use `--seed N` para sobrescrever em execucoes pontuais.
 | `runtime`   | runtime C, run-pass, run-fail                         |
 | `stdlib`    | stdlib modules                                        |
 | `tooling`   | formatter golden, driver                              |
+| `hardening` | determinism, roundtrip emit-c, differential, sanitizer |
 | `perf`      | benchmarks de performance                             |
 
 ## Fluxo de PR (R2.M1)
@@ -120,5 +121,6 @@ Use `--seed N` para sobrescrever em execucoes pontuais.
 - `tests/perf/gate_pr.ps1`            — gate PR
 - `tests/perf/gate_nightly.ps1`       — gate nightly
 - `tests/perf/gate_stress.ps1`        — gate stress
+- `tests/hardening/*.py`              — hardening gates
 - `reports/suites/`                   — relatorios JSON
 - `reports/suites/artifacts/`         — artifacts de falha
