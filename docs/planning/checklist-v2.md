@@ -580,15 +580,21 @@ Evidencias R2.M12:
 
 ## Regras continuas
 
-- [ ] Todo bug novo gera teste de regressao
-- [ ] Toda feature nova entra com teste positivo e negativo
-- [ ] Toda mudanca de comportamento atualiza docs no mesmo PR
-- [ ] Toda regressao critica de performance bloqueia merge
-- [ ] Toda divergencia spec x codigo recebe classificacao P0/P1/P2
+- [x] Todo bug novo gera teste de regressao
+- [x] Toda feature nova entra com teste positivo e negativo
+- [x] Toda mudanca de comportamento atualiza docs no mesmo PR
+- [x] Toda regressao critica de performance bloqueia merge
+- [x] Toda divergencia spec x codigo recebe classificacao P0/P1/P2
 
 ## Evidencia minima para marcar item como concluido
 
-- [ ] Comando executado + resultado
-- [ ] Arquivo de teste novo ou alterado
-- [ ] Commit/PR de fechamento
-- [ ] Risco residual (se houver)
+- [x] Comando executado + resultado
+- [x] Arquivo de teste novo ou alterado
+- [x] Commit/PR de fechamento
+- [x] Risco residual (se houver)
+
+Evidencias de processo (R2.M12+):
+
+- `CONTRIBUTING.md` (secoes 1.1 e 1.2)
+- `.github/PULL_REQUEST_TEMPLATE.md` (regression flow, validation e evidencia minima)
+- `.github/ISSUE_TEMPLATE/bug-report.yml` (severidade + plano de regressao obrigatorio)

@@ -12,15 +12,35 @@ Este arquivo cobre 3 pontos:
 
 1. Abra issue (bug/feature) com contexto minimo.
 2. Faca branch com foco unico.
-3. Adicione teste para bug fix ou feature.
+3. Adicione testes obrigatorios:
+   - bugfix: teste de regressao;
+   - feature: teste positivo e teste negativo.
 4. Rode os gates do projeto antes de abrir PR.
-5. Abra PR com descricao curta e objetiva.
+5. Atualize docs no mesmo PR quando houver mudanca de comportamento.
+6. Abra PR com descricao curta e objetiva.
 
 Gate minimo oficial (local):
 
 - `python run_all_tests.py`
 - `./zt.exe fmt tests/behavior/tooling_gate_smoke --check`
 - `./zt.exe doc check tests/behavior/tooling_gate_smoke`
+
+## 1.1) Regras continuas obrigatorias (R2)
+
+- todo bug novo deve incluir teste de regressao;
+- toda feature nova deve incluir teste positivo e negativo;
+- toda mudanca de comportamento deve atualizar docs no mesmo PR;
+- regressao critica de performance bloqueia merge sem override documentado;
+- divergencia spec x codigo deve ser classificada em P0/P1/P2.
+
+## 1.2) Evidencia minima de fechamento
+
+Todo PR de fechamento deve registrar:
+
+- comando executado + resultado;
+- arquivo de teste novo ou alterado;
+- commit/PR de fechamento;
+- risco residual (se houver).
 
 ## 2) Licenca de contribuicoes
 
