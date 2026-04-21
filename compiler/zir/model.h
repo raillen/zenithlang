@@ -92,7 +92,8 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_OUTCOME_FAILURE,
     ZIR_EXPR_OUTCOME_IS_SUCCESS,
     ZIR_EXPR_OUTCOME_VALUE,
-    ZIR_EXPR_TRY_PROPAGATE
+    ZIR_EXPR_TRY_PROPAGATE,
+    ZIR_EXPR_OPTIONAL_VALUE
 } zir_expr_kind;
 
 struct zir_expr {
@@ -296,6 +297,7 @@ zir_expr *zir_expr_make_outcome_failure(zir_expr *value);
 zir_expr *zir_expr_make_outcome_is_success(zir_expr *value);
 zir_expr *zir_expr_make_outcome_value(zir_expr *value);
 zir_expr *zir_expr_make_try_propagate(zir_expr *value);
+zir_expr *zir_expr_make_optional_value(zir_expr *value);
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg);
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value);
 void zir_expr_make_list_add_item(zir_expr *expr, zir_expr *item);

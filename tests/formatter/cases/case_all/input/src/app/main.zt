@@ -17,9 +17,9 @@ attr test
 func calc(value:int where value > 0,label:text)->int
     const r:Result= Result.Ok
 match r
-case Result.Ok
+case Result.Ok ->
 return pick(1,bonus: 2,extra:3)
-case Result.Err(message)
+case Result.Err(message) ->
 return 0
 end
 end

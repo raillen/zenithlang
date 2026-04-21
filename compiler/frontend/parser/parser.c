@@ -331,6 +331,248 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p);
 static zt_ast_node_list zt_parser_parse_params(zt_parser *p);
 static zt_ast_node_list zt_parser_parse_generic_constraints(zt_parser *p);
 
+static void zt_parser_push_fmt_text_part(
+        zt_parser *p,
+        zt_ast_node_list *parts,
+        zt_source_span span,
+        const char *text,
+        size_t len) {
+    zt_ast_node *node;
+    if (p == NULL || parts == NULL || text == NULL || len == 0) return;
+    node = zt_parser_ast_make(p, ZT_AST_STRING_EXPR, span);
+    if (node == NULL) return;
+    node->as.string_expr.value = zt_parser_intern_unescaped(p, text, len);
+    zt_ast_node_list_push(p->arena, parts, node);
+}
+
+static int zt_parser_find_fmt_expr_end(const char *text, size_t length, size_t start, size_t *out_end) {
+    size_t i = start;
+    int depth = 1;
+    int in_string = 0;
+    int in_triple = 0;
+    int escaped = 0;
+
+    if (out_end != NULL) *out_end = 0;
+    if (text == NULL || start >= length) return 0;
+
+    while (i < length) {
+        char ch = text[i];
+
+        if (in_string) {
+            if (escaped) {
+                escaped = 0;
+                i += 1;
+                continue;
+            }
+            if (ch == '\\') {
+                escaped = 1;
+                i += 1;
+                continue;
+            }
+            if (in_triple) {
+                if (ch == '"' && i + 2 < length && text[i + 1] == '"' && text[i + 2] == '"') {
+                    in_string = 0;
+                    in_triple = 0;
+                    i += 3;
+                    continue;
+                }
+                i += 1;
+                continue;
+            }
+            if (ch == '"') {
+                in_string = 0;
+                i += 1;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+
+        if (ch == '"') {
+            if (i + 2 < length && text[i + 1] == '"' && text[i + 2] == '"') {
+                in_string = 1;
+                in_triple = 1;
+                i += 3;
+                continue;
+            }
+            in_string = 1;
+            in_triple = 0;
+            i += 1;
+            continue;
+        }
+
+        if (ch == '{') {
+            depth += 1;
+            i += 1;
+            continue;
+        }
+
+        if (ch == '}') {
+            depth -= 1;
+            if (depth == 0) {
+                if (out_end != NULL) *out_end = i;
+                return 1;
+            }
+            i += 1;
+            continue;
+        }
+
+        i += 1;
+    }
+
+    return 0;
+}
+
+static zt_ast_node *zt_parser_parse_expression_fragment(
+        zt_parser *p,
+        const char *source_name,
+        const char *text,
+        size_t length,
+        zt_source_span fallback_span) {
+    zt_lexer *lexer;
+    zt_parser sub;
+    zt_ast_node *expr;
+
+    if (p == NULL || text == NULL || length == 0) return NULL;
+
+    lexer = zt_lexer_make(source_name != NULL ? source_name : "<fmt>", text, length);
+    if (lexer == NULL) return NULL;
+
+    zt_lexer_set_diagnostics(lexer, &p->result->diagnostics);
+    memset(&sub, 0, sizeof(sub));
+    sub.lexer = lexer;
+    sub.result = p->result;
+    sub.arena = p->arena;
+    sub.pool = p->pool;
+    sub.current = zt_parser_next_non_comment_token(&sub);
+    expr = zt_parser_parse_expression(&sub);
+
+    if (expr == NULL || sub.current.kind != ZT_TOKEN_EOF) {
+        zt_diag_list_add(
+            &p->result->diagnostics,
+            ZT_DIAG_SYNTAX_ERROR,
+            fallback_span,
+            "invalid expression inside fmt interpolation");
+    }
+
+    zt_lexer_dispose(lexer);
+    return expr;
+}
+
+static zt_ast_node *zt_parser_parse_fmt_expr_from_token(zt_parser *p, zt_token fmt_tok, zt_token text_tok) {
+    const char *content = NULL;
+    size_t content_len = 0;
+    zt_ast_node *fmt_node;
+    zt_ast_node_list parts = zt_ast_node_list_make();
+    char *literal_buf = NULL;
+    size_t literal_len = 0;
+    size_t i = 0;
+
+    if (p == NULL) return NULL;
+
+    if (text_tok.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT && text_tok.length >= 6) {
+        content = text_tok.text + 3;
+        content_len = text_tok.length - 6;
+    } else if (text_tok.length >= 2) {
+        content = text_tok.text + 1;
+        content_len = text_tok.length - 2;
+    } else {
+        content = text_tok.text;
+        content_len = text_tok.length;
+    }
+
+    fmt_node = zt_parser_ast_make(p, ZT_AST_FMT_EXPR, fmt_tok.span);
+    if (fmt_node == NULL) return NULL;
+    fmt_node->as.fmt_expr.parts = parts;
+
+    literal_buf = (char *)malloc(content_len + 1);
+    if (literal_buf == NULL) {
+        zt_diag_list_add(&p->result->diagnostics, ZT_DIAG_SYNTAX_ERROR, fmt_tok.span, "out of memory while parsing fmt expression");
+        return fmt_node;
+    }
+
+    while (i < content_len) {
+        char ch = content[i];
+
+        if (ch == '{') {
+            size_t expr_start;
+            size_t expr_end;
+            size_t trimmed_start;
+            size_t trimmed_end;
+            zt_ast_node *expr_node;
+
+            if (i + 1 < content_len && content[i + 1] == '{') {
+                literal_buf[literal_len++] = '{';
+                i += 2;
+                continue;
+            }
+
+            zt_parser_push_fmt_text_part(p, &fmt_node->as.fmt_expr.parts, text_tok.span, literal_buf, literal_len);
+            literal_len = 0;
+
+            expr_start = i + 1;
+            if (!zt_parser_find_fmt_expr_end(content, content_len, expr_start, &expr_end)) {
+                zt_diag_list_add(
+                    &p->result->diagnostics,
+                    ZT_DIAG_SYNTAX_ERROR,
+                    text_tok.span,
+                    "unterminated fmt interpolation expression");
+                break;
+            }
+
+            trimmed_start = expr_start;
+            trimmed_end = expr_end;
+            while (trimmed_start < trimmed_end && isspace((unsigned char)content[trimmed_start])) trimmed_start += 1;
+            while (trimmed_end > trimmed_start && isspace((unsigned char)content[trimmed_end - 1])) trimmed_end -= 1;
+
+            if (trimmed_start >= trimmed_end) {
+                zt_diag_list_add(
+                    &p->result->diagnostics,
+                    ZT_DIAG_SYNTAX_ERROR,
+                    text_tok.span,
+                    "fmt interpolation expression cannot be empty");
+            } else {
+                expr_node = zt_parser_parse_expression_fragment(
+                    p,
+                    text_tok.span.source_name,
+                    content + trimmed_start,
+                    trimmed_end - trimmed_start,
+                    text_tok.span);
+                if (expr_node != NULL) {
+                    expr_node->span = text_tok.span;
+                    zt_ast_node_list_push(p->arena, &fmt_node->as.fmt_expr.parts, expr_node);
+                }
+            }
+
+            i = expr_end + 1;
+            continue;
+        }
+
+        if (ch == '}') {
+            if (i + 1 < content_len && content[i + 1] == '}') {
+                literal_buf[literal_len++] = '}';
+                i += 2;
+                continue;
+            }
+            zt_diag_list_add(
+                &p->result->diagnostics,
+                ZT_DIAG_SYNTAX_ERROR,
+                text_tok.span,
+                "unescaped '}' in fmt literal; use '}}' for a literal brace");
+            literal_buf[literal_len++] = '}';
+            i += 1;
+            continue;
+        }
+
+        literal_buf[literal_len++] = ch;
+        i += 1;
+    }
+
+    zt_parser_push_fmt_text_part(p, &fmt_node->as.fmt_expr.parts, text_tok.span, literal_buf, literal_len);
+    free(literal_buf);
+    return fmt_node;
+}
+
 static int zt_parser_is_type_name(zt_token_kind kind) {
     return kind == ZT_TOKEN_IDENTIFIER ||
            kind == ZT_TOKEN_OPTIONAL ||
@@ -455,15 +697,10 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
     if (zt_parser_token_is_identifier_literal(&tok, "fmt", 3)) {
         zt_parser_fill_peek(p);
         if (p->peek.kind == ZT_TOKEN_STRING_LITERAL || p->peek.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
-            zt_diag_list_add(
-                &p->result->diagnostics,
-                ZT_DIAG_SYNTAX_ERROR,
-                tok.span,
-                "fmt interpolation is deferred in this implementation cut (planned for v2). Use explicit to_text(...) concatenation for now");
-
+            zt_token fmt_tok = tok;
             zt_parser_advance(p);
             tok = zt_parser_advance(p);
-            return zt_parser_make_string_expr_from_token(p, tok);
+            return zt_parser_parse_fmt_expr_from_token(p, fmt_tok, tok);
         }
     }
 
@@ -998,6 +1235,25 @@ static zt_ast_node *zt_parser_parse_repeat_stmt(zt_parser *p) {
     return node;
 }
 
+static zt_ast_node *zt_parser_parse_match_pattern(zt_parser *p) {
+    zt_token tok = p->current;
+    if (zt_parser_token_is_identifier_literal(&tok, "value", 5)) {
+        zt_parser_fill_peek(p);
+        if (p->peek.kind == ZT_TOKEN_IDENTIFIER) {
+            zt_token name_tok = p->peek;
+            zt_parser_advance(p);
+            zt_parser_advance(p);
+            zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_VALUE_BINDING, tok.span);
+            if (node != NULL) {
+                node->as.value_binding.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                node->as.value_binding.type_node = NULL;
+            }
+            return node;
+        }
+    }
+    return zt_parser_parse_expression(p);
+}
+
 static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
     zt_token match_tok = p->current;
     zt_parser_advance(p);
@@ -1014,12 +1270,13 @@ static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
         if (zt_parser_match(p, ZT_TOKEN_DEFAULT)) {
             is_default = 1;
         } else {
-            zt_ast_node_list_push(p->arena, &patterns, zt_parser_parse_expression(p));
+            zt_ast_node_list_push(p->arena, &patterns, zt_parser_parse_match_pattern(p));
             while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
-                zt_ast_node_list_push(p->arena, &patterns, zt_parser_parse_expression(p));
+                zt_ast_node_list_push(p->arena, &patterns, zt_parser_parse_match_pattern(p));
             }
         }
 
+        zt_parser_expect(p, ZT_TOKEN_ARROW);
         zt_ast_node *body = zt_parser_parse_block_ex(p, 1);
         zt_ast_node *case_node = zt_parser_ast_make(p, ZT_AST_MATCH_CASE, case_tok.span);
         if (case_node != NULL) {

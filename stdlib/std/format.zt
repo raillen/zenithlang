@@ -51,11 +51,11 @@ end
 
 public func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binary, decimals: int = 1) -> text
     match style
-        case format.BytesStyle.Binary
+        case format.BytesStyle.Binary ->
             return format.zt_format_bytes_binary(value, decimals)
-        case format.BytesStyle.Decimal
+        case format.BytesStyle.Decimal ->
             return format.zt_format_bytes_decimal(value, decimals)
-        case default
+        case default ->
             return format.zt_format_bytes_binary(value, decimals)
     end
 end

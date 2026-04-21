@@ -204,6 +204,10 @@ static zt_type_kind zt_builtin_kind(const char *name, int *is_builtin) {
     if (zt_text_eq(name, "int16")) return ZT_TYPE_INT16;
     if (zt_text_eq(name, "int32")) return ZT_TYPE_INT32;
     if (zt_text_eq(name, "int64")) return ZT_TYPE_INT64;
+    if (zt_text_eq(name, "u8")) return ZT_TYPE_UINT8;
+    if (zt_text_eq(name, "u16")) return ZT_TYPE_UINT16;
+    if (zt_text_eq(name, "u32")) return ZT_TYPE_UINT32;
+    if (zt_text_eq(name, "u64")) return ZT_TYPE_UINT64;
     if (zt_text_eq(name, "uint8")) return ZT_TYPE_UINT8;
     if (zt_text_eq(name, "uint16")) return ZT_TYPE_UINT16;
     if (zt_text_eq(name, "uint32")) return ZT_TYPE_UINT32;
@@ -746,6 +750,140 @@ static zt_hir_expr_list zt_lower_call_args(
     return out;
 }
 
+static zt_hir_expr *zt_make_text_literal_expr(zt_source_span span, const char *value) {
+    zt_hir_expr *expr = zt_make_expr(ZT_HIR_STRING_EXPR, span, zt_type_make(ZT_TYPE_TEXT));
+    if (expr != NULL) {
+        expr->as.string_expr.value = zt_lower_strdup(value != NULL ? value : "");
+    }
+    return expr;
+}
+
+static zt_hir_expr *zt_make_text_concat_expr(zt_source_span span, zt_hir_expr *left, zt_hir_expr *right) {
+    zt_hir_expr *call = zt_make_expr(ZT_HIR_CALL_EXPR, span, zt_type_make(ZT_TYPE_TEXT));
+    zt_hir_expr_list args = zt_hir_expr_list_make();
+    if (call == NULL) {
+        zt_hir_expr_dispose(left);
+        zt_hir_expr_dispose(right);
+        return NULL;
+    }
+    zt_hir_expr_list_push(&args, left);
+    zt_hir_expr_list_push(&args, right);
+    call->as.call_expr.callee_name = zt_lower_strdup("path.zt_text_concat");
+    call->as.call_expr.args = args;
+    return call;
+}
+
+static zt_type *zt_make_dyn_textrepresentable_type(void) {
+    zt_type_list args = zt_type_list_make();
+    zt_type_list_push(&args, zt_type_make_named(ZT_TYPE_USER, "TextRepresentable"));
+    return zt_type_make_with_args(ZT_TYPE_DYN, "dyn", args);
+}
+
+static zt_hir_expr *zt_make_fmt_to_text_expr(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *part) {
+    zt_hir_expr *value_expr = zt_lower_expr(ctx, scope, part, NULL);
+    zt_hir_expr *boxed_expr = NULL;
+    zt_hir_expr *to_text_call = NULL;
+    zt_hir_expr_list boxed_args = zt_hir_expr_list_make();
+    zt_hir_expr_list to_text_args = zt_hir_expr_list_make();
+    zt_source_span span = part != NULL ? part->span : zt_source_span_unknown();
+    const char *box_callee = NULL;
+    zt_type_kind value_kind;
+
+    if (value_expr == NULL) {
+        return zt_make_text_literal_expr(span, "");
+    }
+
+    if (value_expr->type != NULL && value_expr->type->kind == ZT_TYPE_TEXT) {
+        return value_expr;
+    }
+
+    if (value_expr->type == NULL) {
+        zt_hir_expr_dispose(value_expr);
+        zt_add_diag(ctx, span, "fmt interpolation could not infer expression type");
+        return zt_make_text_literal_expr(span, "");
+    }
+
+    value_kind = value_expr->type->kind;
+    if (value_kind == ZT_TYPE_DYN) {
+        boxed_expr = value_expr;
+    } else {
+        if (value_kind == ZT_TYPE_BOOL) {
+            box_callee = "core.fmt_box_bool";
+        } else if (value_kind == ZT_TYPE_FLOAT || value_kind == ZT_TYPE_FLOAT32 || value_kind == ZT_TYPE_FLOAT64) {
+            box_callee = "core.fmt_box_float";
+        } else if (zt_type_is_integral(value_expr->type)) {
+            box_callee = "core.fmt_box_i64";
+        } else if (value_kind == ZT_TYPE_TEXT) {
+            box_callee = "core.fmt_box_text";
+        } else {
+            char type_name[256];
+            char message[320];
+            zt_type_format(value_expr->type, type_name, sizeof(type_name));
+            snprintf(message, sizeof(message), "fmt interpolation does not support type '%s' in this backend cut", type_name);
+            zt_add_diag(ctx, span, message);
+            zt_hir_expr_dispose(value_expr);
+            return zt_make_text_literal_expr(span, "");
+        }
+
+        boxed_expr = zt_make_expr(ZT_HIR_CALL_EXPR, span, zt_make_dyn_textrepresentable_type());
+        if (boxed_expr == NULL) {
+            zt_hir_expr_dispose(value_expr);
+            return zt_make_text_literal_expr(span, "");
+        }
+
+        zt_hir_expr_list_push(&boxed_args, value_expr);
+        boxed_expr->as.call_expr.callee_name = zt_lower_strdup(box_callee);
+        boxed_expr->as.call_expr.args = boxed_args;
+    }
+
+    to_text_call = zt_make_expr(ZT_HIR_CALL_EXPR, span, zt_type_make(ZT_TYPE_TEXT));
+    if (to_text_call == NULL) {
+        zt_hir_expr_dispose(boxed_expr);
+        return zt_make_text_literal_expr(span, "");
+    }
+    zt_hir_expr_list_push(&to_text_args, boxed_expr);
+    to_text_call->as.call_expr.callee_name = zt_lower_strdup("core.dyn_text_repr_to_text");
+    to_text_call->as.call_expr.args = to_text_args;
+    return to_text_call;
+}
+
+static zt_hir_expr *zt_lower_fmt_expr(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *expr) {
+    zt_hir_expr *acc = NULL;
+    size_t i;
+    if (expr == NULL || expr->kind != ZT_AST_FMT_EXPR) return zt_make_text_literal_expr(zt_source_span_unknown(), "");
+
+    for (i = 0; i < expr->as.fmt_expr.parts.count; i += 1) {
+        const zt_ast_node *part = expr->as.fmt_expr.parts.items[i];
+        zt_hir_expr *piece = NULL;
+        if (part == NULL) continue;
+
+        if (part->kind == ZT_AST_STRING_EXPR) {
+            piece = zt_lower_expr(ctx, scope, part, zt_type_make(ZT_TYPE_TEXT));
+        } else {
+            piece = zt_make_fmt_to_text_expr(ctx, scope, part);
+        }
+
+        if (piece == NULL) continue;
+        if (acc == NULL) {
+            acc = piece;
+            continue;
+        }
+
+        acc = zt_make_text_concat_expr(expr->span, acc, piece);
+    }
+
+    if (acc == NULL) {
+        acc = zt_make_text_literal_expr(expr->span, "");
+    }
+    return acc;
+}
+
 static zt_hir_expr *zt_lower_struct_constructor(
         zt_lower_ctx *ctx,
         zt_scope *scope,
@@ -1248,6 +1386,9 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             if (out != NULL) out->as.string_expr.value = zt_lower_strdup(expr->as.string_expr.value);
             return out;
 
+        case ZT_AST_FMT_EXPR:
+            return zt_lower_fmt_expr(ctx, scope, expr);
+
         case ZT_AST_BYTES_EXPR:
             out = zt_make_expr(ZT_HIR_BYTES_EXPR, expr->span, zt_type_make(ZT_TYPE_BYTES));
             if (out != NULL) out->as.bytes_expr.value = zt_lower_strdup(expr->as.bytes_expr.value);
@@ -1534,6 +1675,15 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
 
         case ZT_AST_GROUPED_EXPR:
             return zt_lower_expr(ctx, scope, expr->as.grouped_expr.inner, expected);
+
+        case ZT_AST_VALUE_BINDING: {
+            zt_type *binding_type = expected != NULL && expected->kind == ZT_TYPE_OPTIONAL && expected->args.count > 0
+                ? zt_type_clone(expected->args.items[0])
+                : zt_unknown_type();
+            out = zt_make_expr(ZT_HIR_VALUE_BINDING_EXPR, expr->span, binding_type);
+            if (out != NULL) out->as.value_binding_expr.name = zt_lower_strdup(expr->as.value_binding.name);
+            return out;
+        }
 
         default:
             zt_add_diag(ctx, expr->span, "unsupported expression during AST->HIR lowering");

@@ -86,6 +86,7 @@ static zt_bool zt_app_main__validate_non_negative(zt_int value);
 static zt_bool zt_app_main__validate_negative(zt_int value);
 static zt_bool zt_app_main__validate_non_zero(zt_int value);
 static zt_bool zt_app_main__validate_one_of(zt_int value, zt_list_i64 *candidates);
+static zt_bool zt_app_main__validate_one_of_text(zt_text *value, zt_list_text *candidates);
 static zt_bool zt_app_main__validate_not_empty(zt_text *value);
 static zt_bool zt_app_main__validate_min_length(zt_text *value, zt_int min);
 static zt_bool zt_app_main__validate_max_length(zt_text *value, zt_int max);
@@ -877,6 +878,55 @@ zt_block_for_exit_3:
 
 zt_cleanup:
     if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
+    return zt_return_value;
+}
+
+static zt_bool zt_app_main__validate_one_of_text(zt_text *value, zt_list_text *candidates) {
+    zt_list_text *__zt_for_iter_0 = NULL;
+    zt_int __zt_for_index_1;
+    zt_int __zt_for_len_2;
+    zt_text *item = NULL;
+    zt_bool zt_return_value;
+    goto zt_block_entry;
+
+zt_block_entry:
+    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
+    __zt_for_iter_0 = (zt_retain(candidates), candidates);
+    __zt_for_index_1 = 0;
+    __zt_for_len_2 = zt_list_text_len(__zt_for_iter_0);
+    goto zt_block_for_cond_0;
+
+zt_block_for_cond_0:
+    if ((__zt_for_index_1 < __zt_for_len_2)) goto zt_block_for_body_1;
+    goto zt_block_for_exit_3;
+
+zt_block_for_body_1:
+    if (item != NULL) { zt_release(item); item = NULL; }
+    item = zt_list_text_get(__zt_for_iter_0, __zt_for_index_1);
+    if (zt_text_eq(item, value)) goto zt_block_if_then_0;
+    goto zt_block_if_else_1;
+
+zt_block_if_then_0:
+    zt_return_value = true;
+    goto zt_cleanup;
+
+zt_block_if_else_1:
+    goto zt_block_if_join_2;
+
+zt_block_if_join_2:
+    goto zt_block_for_step_2;
+
+zt_block_for_step_2:
+    __zt_for_index_1 = zt_add_i64(__zt_for_index_1, 1);
+    goto zt_block_for_cond_0;
+
+zt_block_for_exit_3:
+    zt_return_value = false;
+    goto zt_cleanup;
+
+zt_cleanup:
+    if (__zt_for_iter_0 != NULL) { zt_release(__zt_for_iter_0); __zt_for_iter_0 = NULL; }
+    if (item != NULL) { zt_release(item); item = NULL; }
     return zt_return_value;
 }
 

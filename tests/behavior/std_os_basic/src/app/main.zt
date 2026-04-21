@@ -4,18 +4,18 @@ import std.os as os
 
 func platform_is_known(value: os.Platform) -> bool
     match value
-        case os.Platform.Unknown
+        case os.Platform.Unknown ->
             return false
-        case default
+        case default ->
             return true
     end
 end
 
 func arch_is_known(value: os.Arch) -> bool
     match value
-        case os.Arch.Unknown
+        case os.Arch.Unknown ->
             return false
-        case default
+        case default ->
             return true
     end
 end

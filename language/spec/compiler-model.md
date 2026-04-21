@@ -265,4 +265,3 @@ Out of scope:
 - JS backend
 - cross-compilation policy
 - native package installer generation
-- `fmt "..."` interpolation lowering/emission in this cut (deferred to v2; parser reports explicit diagnostic)

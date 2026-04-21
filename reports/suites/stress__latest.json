@@ -1,0 +1,297 @@
+{
+  "suite": "stress",
+  "timestamp": "20260421T210242Z",
+  "elapsed_ms": 79703,
+  "total": 21,
+  "pass": 21,
+  "fail": 0,
+  "by_layer": {
+    "other": {
+      "pass": 6,
+      "fail": 0
+    },
+    "frontend": {
+      "pass": 4,
+      "fail": 0
+    },
+    "runtime": {
+      "pass": 1,
+      "fail": 0
+    },
+    "semantic": {
+      "pass": 3,
+      "fail": 0
+    },
+    "hir_zir": {
+      "pass": 3,
+      "fail": 0
+    },
+    "backend": {
+      "pass": 2,
+      "fail": 0
+    },
+    "tooling": {
+      "pass": 1,
+      "fail": 0
+    },
+    "perf": {
+      "pass": 1,
+      "fail": 0
+    }
+  },
+  "by_fail_class": {},
+  "entries": [
+    {
+      "test_id": "unit/test_m9.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 1453,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_zdoc.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 15,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_lexer.exe",
+      "layer": "frontend",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 16,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_parser_error_recovery.exe",
+      "layer": "frontend",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_runtime.exe",
+      "layer": "runtime",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 14,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_binder.exe",
+      "layer": "semantic",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 15,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_constraints.exe",
+      "layer": "semantic",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_conversion_overflow_properties.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 16,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_hir_lowering.exe",
+      "layer": "hir_zir",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_optional_result_properties.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_types.exe",
+      "layer": "semantic",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 16,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_where_contract_properties.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_emitter.exe",
+      "layer": "backend",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 14,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_legalization.exe",
+      "layer": "backend",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 15,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_lowering.exe",
+      "layer": "hir_zir",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 0,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_printer.exe",
+      "layer": "other",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 16,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "unit/test_verifier.exe",
+      "layer": "hir_zir",
+      "kind": "unit",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 14,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "formatter/golden",
+      "layer": "tooling",
+      "kind": "formatter",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 78,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "perf/nightly",
+      "layer": "perf",
+      "kind": "perf",
+      "suite": "stress",
+      "stage": "run",
+      "passed": true,
+      "elapsed_ms": 56765,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "stress/fuzz_lexer",
+      "layer": "frontend",
+      "kind": "fuzz",
+      "suite": "stress",
+      "stage": "fuzz",
+      "passed": true,
+      "elapsed_ms": 10234,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    },
+    {
+      "test_id": "stress/fuzz_parser",
+      "layer": "frontend",
+      "kind": "fuzz",
+      "suite": "stress",
+      "stage": "fuzz",
+      "passed": true,
+      "elapsed_ms": 10985,
+      "fail_class": null,
+      "detail": null,
+      "artifact": null
+    }
+  ]
+}

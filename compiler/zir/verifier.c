@@ -362,6 +362,7 @@ static int zir_is_reserved_identifier(const char *token, size_t token_len, char 
         "optional_present",
         "optional_empty",
         "optional_is_present",
+        "optional_value",
         "outcome_success",
         "outcome_failure",
         "outcome_is_success",
@@ -643,6 +644,7 @@ static int zir_verify_expr(
         case ZIR_EXPR_OUTCOME_IS_SUCCESS:
         case ZIR_EXPR_OUTCOME_VALUE:
         case ZIR_EXPR_TRY_PROPAGATE:
+        case ZIR_EXPR_OPTIONAL_VALUE:
             return zir_verify_expr(expr->as.single.value, defined, context, span, result);
 
         case ZIR_EXPR_UNARY:

@@ -16,6 +16,12 @@ Este arquivo cobre 3 pontos:
 4. Rode os gates do projeto antes de abrir PR.
 5. Abra PR com descricao curta e objetiva.
 
+Gate minimo oficial (local):
+
+- `python run_all_tests.py`
+- `./zt.exe fmt tests/behavior/tooling_gate_smoke --check`
+- `./zt.exe doc check tests/behavior/tooling_gate_smoke`
+
 ## 2) Licenca de contribuicoes
 
 Ao enviar codigo para este repositorio, voce concorda que sua contribuicao e licenciada como:

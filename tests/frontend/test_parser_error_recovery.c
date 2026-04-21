@@ -620,8 +620,8 @@ static void test_error_recovery_empty_block(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
-/* Test 46: `fmt "..."` interpolation is deferred in this implementation cut */
-static void test_error_fmt_interpolation_deferred(void) {    zt_arena test_arena;
+/* Test 46: `fmt "..."` interpolation parses as a first-class expression */
+static void test_fmt_interpolation_supported(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
@@ -633,10 +633,18 @@ static void test_error_fmt_interpolation_deferred(void) {    zt_arena test_arena
         "    const ok: text = \"fallback\"\n"
         "end";
     zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    ASSERT_GT((int)r.diagnostics.count, 0, "fmt interpolation reports deferred diagnostic");
+    const zt_ast_node *func = NULL;
+    const zt_ast_node *stmt = NULL;
+    ASSERT_EQ((int)r.diagnostics.count, 0, "fmt interpolation parses without deferred diagnostic");
     ASSERT_NOT_NULL(r.root, "root exists after fmt deferred diagnostic");
     ASSERT_EQ((int)r.root->as.file.declarations.count, 1, "function still parsed");
     ASSERT_EQ((int)r.root->as.file.declarations.items[0]->as.func_decl.body->as.block.statements.count, 2, "parser recovers and continues after fmt deferred");
+    func = r.root->as.file.declarations.items[0];
+    stmt = func->as.func_decl.body->as.block.statements.items[0];
+    ASSERT_EQ((int)stmt->kind, (int)ZT_AST_CONST_DECL, "first statement is const msg");
+    ASSERT_NOT_NULL(stmt->as.const_decl.init_value, "fmt expression exists");
+    ASSERT_EQ((int)stmt->as.const_decl.init_value->kind, (int)ZT_AST_FMT_EXPR, "const msg init is fmt expr");
+    ASSERT_GT((int)stmt->as.const_decl.init_value->as.fmt_expr.parts.count, 1, "fmt expression keeps literal and interpolation parts");
     zt_parser_result_dispose(&r);
     zt_arena_dispose(&test_arena);
 }
@@ -689,7 +697,7 @@ int main(void) {
     test_error_recovery_unclosed_string();
     test_error_recovery_deep_nesting();
     test_error_recovery_empty_block();
-    test_error_fmt_interpolation_deferred();
+    test_fmt_interpolation_supported();
 
     printf("\nError recovery tests: %d/%d passed\n", tests_passed, tests_run);
     return (tests_passed == tests_run) ? 0 : 1;

@@ -1,53 +1,48 @@
 --- @target: namespace
-# std.validate — Predicados de Validação
+# std.validate - Validation Predicates
 
-Módulo de predicados booleanos puros para uso em cláusulas `where` e condições.
-Não realiza I/O, transformação, parsing ou validação de domínio.
+Small pure bool helpers for `where` and regular conditions.
+No IO, no parsing, no transforms.
 ---
 
 --- @target: between
 ```zt
-public func between(value: float, min: float, max: float) -> bool
+public func between(value: int, min: int, max: int) -> bool
 ```
 
-Verifica se o valor está no intervalo `[min, max]` (inclusivo).
-
-@param value — Valor a verificar.
-@param min — Limite inferior (inclusivo).
-@param max — Limite superior (inclusivo).
-@return `true` se `min <= value <= max`.
+Inclusive range check.
 ---
 
 --- @target: positive
 ```zt
-public func positive(value: float) -> bool
+public func positive(value: int) -> bool
 ```
 
-Verifica se o valor é estritamente positivo (`> 0`).
+`true` when value is `> 0`.
 ---
 
 --- @target: non_negative
 ```zt
-public func non_negative(value: float) -> bool
+public func non_negative(value: int) -> bool
 ```
 
-Verifica se o valor é não-negativo (`>= 0`).
+`true` when value is `>= 0`.
 ---
 
 --- @target: negative
 ```zt
-public func negative(value: float) -> bool
+public func negative(value: int) -> bool
 ```
 
-Verifica se o valor é estritamente negativo (`< 0`).
+`true` when value is `< 0`.
 ---
 
 --- @target: non_zero
 ```zt
-public func non_zero(value: float) -> bool
+public func non_zero(value: int) -> bool
 ```
 
-Verifica se o valor é diferente de zero.
+`true` when value is not zero.
 ---
 
 --- @target: one_of
@@ -55,11 +50,15 @@ Verifica se o valor é diferente de zero.
 public func one_of(value: int, candidates: list<int>) -> bool
 ```
 
-Verifica se o valor está na lista de candidatos.
+`true` when `value` is inside `candidates`.
+---
 
-@param value — Valor a verificar.
-@param candidates — Lista de valores aceitos.
-@return `true` se `value` está em `candidates`.
+--- @target: one_of_text
+```zt
+public func one_of_text(value: text, candidates: list<text>) -> bool
+```
+
+`true` when text value is inside `candidates`.
 ---
 
 --- @target: not_empty
@@ -67,7 +66,7 @@ Verifica se o valor está na lista de candidatos.
 public func not_empty(value: text) -> bool
 ```
 
-Verifica se o texto não é vazio.
+`true` when text length is `> 0`.
 ---
 
 --- @target: min_length
@@ -75,11 +74,7 @@ Verifica se o texto não é vazio.
 public func min_length(value: text, min: int) -> bool
 ```
 
-Verifica se o texto tem comprimento mínimo.
-
-@param value — Texto a verificar.
-@param min — Comprimento mínimo.
-@return `true` se `len(value) >= min`.
+`true` when `len(value) >= min`.
 ---
 
 --- @target: max_length
@@ -87,11 +82,7 @@ Verifica se o texto tem comprimento mínimo.
 public func max_length(value: text, max: int) -> bool
 ```
 
-Verifica se o texto tem comprimento máximo.
-
-@param value — Texto a verificar.
-@param max — Comprimento máximo.
-@return `true` se `len(value) <= max`.
+`true` when `len(value) <= max`.
 ---
 
 --- @target: length_between
@@ -99,10 +90,5 @@ Verifica se o texto tem comprimento máximo.
 public func length_between(value: text, min: int, max: int) -> bool
 ```
 
-Verifica se o comprimento do texto está no intervalo `[min, max]`.
-
-@param value — Texto a verificar.
-@param min — Comprimento mínimo (inclusivo).
-@param max — Comprimento máximo (inclusivo).
-@return `true` se `min <= len(value) <= max`.
+`true` when text length is in `[min, max]`.
 ---

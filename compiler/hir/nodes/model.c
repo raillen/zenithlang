@@ -54,6 +54,7 @@ const char *zt_hir_expr_kind_name(zt_hir_expr_kind kind) {
         case ZT_HIR_CALL_EXPR: return "call_expr";
         case ZT_HIR_METHOD_CALL_EXPR: return "method_call_expr";
         case ZT_HIR_CONSTRUCT_EXPR: return "construct_expr";
+        case ZT_HIR_VALUE_BINDING_EXPR: return "value_binding_expr";
         default: return "unknown";
     }
 }
@@ -291,6 +292,9 @@ void zt_hir_expr_dispose(zt_hir_expr *expr) {
         case ZT_HIR_CONSTRUCT_EXPR:
             free(expr->as.construct_expr.type_name);
             zt_hir_field_init_list_dispose(&expr->as.construct_expr.fields);
+            break;
+        case ZT_HIR_VALUE_BINDING_EXPR:
+            free(expr->as.value_binding_expr.name);
             break;
         default: break;
     }

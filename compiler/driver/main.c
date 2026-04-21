@@ -1073,6 +1073,9 @@ static int zt_handle_doc_check(const char *input_path) {
         } else {
             printf("doc check ok (%zu warnings)\n", warning_count);
         }
+    } else if (!zt_ci_mode_enabled) {
+        printf("action: run `zt doc check <project>` and fix malformed or unresolved @target blocks\n");
+        printf("why: doc checker found %zu error(s)\n", error_count);
     }
 
     zt_diag_list_dispose(&rendered);
@@ -1145,7 +1148,13 @@ static int zt_handle_fmt(const char *input_path, int check_only) {
 
     if (check_only) {
         if (diff_count > 0) {
-            printf("%s", zt_ci_mode_enabled ? "fmt check failed\n" : "fmt check failed: differences found\n");
+            if (zt_ci_mode_enabled) {
+                printf("fmt check failed\n");
+            } else {
+                printf("fmt check failed: differences found (%d file(s))\n", diff_count);
+                printf("action: run `zt fmt <project>` and commit the formatted files\n");
+                printf("why: source differs from the canonical formatter output\n");
+            }
             return 1;
         } else {
             printf("%s", zt_ci_mode_enabled ? "fmt ok\n" : "fmt check ok\n");

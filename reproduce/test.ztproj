@@ -1,0 +1,10 @@
+[project]
+name = "test"
+version = "0.1.0"
+kind = "app"
+
+[app]
+entry = "app.main"
+
+[source]
+root = "."

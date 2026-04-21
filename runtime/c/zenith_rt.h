@@ -645,21 +645,25 @@ zt_optional_i64 zt_optional_i64_present(zt_int value);
 zt_optional_i64 zt_optional_i64_empty(void);
 zt_bool zt_optional_i64_is_present(zt_optional_i64 value);
 zt_int zt_optional_i64_coalesce(zt_optional_i64 value, zt_int fallback);
+zt_int zt_optional_i64_value(zt_optional_i64 value);
 
 zt_optional_text zt_optional_text_present(zt_text *value);
 zt_optional_text zt_optional_text_empty(void);
 zt_bool zt_optional_text_is_present(zt_optional_text value);
 zt_text *zt_optional_text_coalesce(zt_optional_text value, zt_text *fallback);
+zt_text *zt_optional_text_value(zt_optional_text value);
 
 zt_optional_bytes zt_optional_bytes_present(zt_bytes *value);
 zt_optional_bytes zt_optional_bytes_empty(void);
 zt_bool zt_optional_bytes_is_present(zt_optional_bytes value);
 zt_bytes *zt_optional_bytes_coalesce(zt_optional_bytes value, zt_bytes *fallback);
+zt_bytes *zt_optional_bytes_value(zt_optional_bytes value);
 
 zt_optional_list_i64 zt_optional_list_i64_present(zt_list_i64 *value);
 zt_optional_list_i64 zt_optional_list_i64_empty(void);
 zt_bool zt_optional_list_i64_is_present(zt_optional_list_i64 value);
 zt_list_i64 *zt_optional_list_i64_coalesce(zt_optional_list_i64 value, zt_list_i64 *fallback);
+zt_list_i64 *zt_optional_list_i64_value(zt_optional_list_i64 value);
 
 zt_optional_list_text zt_optional_list_text_present(zt_list_text *value);
 zt_optional_list_text zt_optional_list_text_empty(void);

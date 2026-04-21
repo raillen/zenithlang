@@ -57,7 +57,8 @@ typedef enum zt_hir_expr_kind {
     ZT_HIR_SLICE_EXPR,
     ZT_HIR_CALL_EXPR,
     ZT_HIR_METHOD_CALL_EXPR,
-    ZT_HIR_CONSTRUCT_EXPR
+    ZT_HIR_CONSTRUCT_EXPR,
+    ZT_HIR_VALUE_BINDING_EXPR
 } zt_hir_expr_kind;
 
 typedef struct zt_hir_string_list {
@@ -290,6 +291,7 @@ struct zt_hir_expr {
         struct { char *callee_name; zt_hir_expr_list args; } call_expr;
         struct { zt_hir_expr *receiver; char *method_name; zt_hir_expr_list args; } method_call_expr;
         struct { char *type_name; zt_hir_field_init_list fields; } construct_expr;
+        struct { char *name; } value_binding_expr;
     } as;
 };
 

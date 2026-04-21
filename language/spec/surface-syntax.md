@@ -240,12 +240,6 @@ const message: text = fmt "Player {player.name} has {player.hp} HP"
 const report: text = "Coordinates: X=" + to_text(x) + ", Y=" + to_text(y)
 ```
 
-Implementation note for this compiler cut (2026-04-21):
-
-- `fmt "..."` interpolation is a canonical language direction, but codegen support is deferred to v2.
-- the parser emits a clear diagnostic when `fmt` interpolation is used.
-- use explicit `to_text(...)` concatenation until v2 interpolation lowering lands.
-
 Rules:
 
 - ordinary text literals do not interpolate.
@@ -333,17 +327,21 @@ case none:
 end
 ```
 
-Result propagation uses `?`.
+Propagation uses `?` for `optional<T>` and `result<T, E>`.
 
 ```zt
 const user: User = load_user(id)?
+```
+
+```zt
+const value: int = read_cached_score()?
 ```
 
 Rules:
 
 - `some(value)` is not required in MVP user code
 - `case value name` binds an optional present value
-- `?` is reserved for propagation/early return
+- `?` is reserved for propagation/early return in functions that return `optional<...>` or `result<...>`
 - `?` is not safe navigation
 - panic is not caught by result/optional flow
 

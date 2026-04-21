@@ -85,6 +85,7 @@ static int zt_is_builtin_type_name(const char *name) {
     static const char *builtin_names[] = {
         "bool",
         "int", "int8", "int16", "int32", "int64",
+        "u8", "u16", "u32", "u64",
         "uint8", "uint16", "uint32", "uint64",
         "float", "float32", "float64",
         "text",
@@ -111,6 +112,13 @@ static int zt_is_builtin_type_name(const char *name) {
         if (strcmp(name, builtin_names[i]) == 0) return 1;
     }
     return 0;
+}
+
+static int zt_is_intrinsic_name(const char *name) {
+    return name != NULL &&
+           (strcmp(name, "len") == 0 ||
+            strcmp(name, "check") == 0 ||
+            strcmp(name, "panic") == 0);
 }
 
 static const char *zt_import_local_name(const char *path) {
@@ -244,7 +252,7 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
         case ZT_AST_CALL_EXPR:
             if (!(node->as.call_expr.callee != NULL &&
                     node->as.call_expr.callee->kind == ZT_AST_IDENT_EXPR &&
-                    strcmp(node->as.call_expr.callee->as.ident_expr.name, "len") == 0)) {
+                    zt_is_intrinsic_name(node->as.call_expr.callee->as.ident_expr.name))) {
                 zt_bind_expression(binder, node->as.call_expr.callee, scope);
             }
             zt_bind_expr_list(binder, &node->as.call_expr.positional_args, scope);
@@ -253,6 +261,13 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
             }
             break;
         case ZT_AST_FIELD_EXPR:
+            if (node->as.field_expr.object != NULL &&
+                node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
+                node->as.field_expr.field_name != NULL &&
+                strcmp(node->as.field_expr.object->as.ident_expr.name, "core") == 0 &&
+                strcmp(node->as.field_expr.field_name, "Error") == 0) {
+                return;
+            }
             /* Try to resolve as a qualified name (e.g. bytes.empty) */
             if (node->as.field_expr.object != NULL && node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
                 char qualified[512];
@@ -296,6 +311,11 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
                 zt_bind_expression(binder, node->as.map_expr.entries.items[i].value, scope);
             }
             break;
+        case ZT_AST_FMT_EXPR:
+            for (i = 0; i < node->as.fmt_expr.parts.count; i++) {
+                zt_bind_expression(binder, node->as.fmt_expr.parts.items[i], scope);
+            }
+            break;
         default:
             break;
     }
@@ -333,13 +353,17 @@ static void zt_bind_match_pattern(zt_binder *binder, const zt_ast_node *pattern,
     }
 
     if (pattern->kind == ZT_AST_IDENT_EXPR) {
-        /* Could be a variant name (resolve) or a binding (declare) */
         zt_symbol *existing = zt_scope_lookup(case_scope, pattern->as.ident_expr.name);
         if (existing != NULL) {
             zt_bind_expression(binder, pattern, case_scope);
         } else {
             zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, pattern->as.ident_expr.name, pattern->span, 0);
         }
+        return;
+    }
+
+    if (pattern->kind == ZT_AST_VALUE_BINDING) {
+        zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, pattern->as.value_binding.name, pattern->span, 0);
         return;
     }
 
@@ -641,7 +665,7 @@ static void zt_bind_declare_top_level(zt_binder *binder, const zt_ast_node *decl
 }
 
 zt_bind_result zt_bind_file(const zt_ast_node *root) {
-    static const char *core_traits[] = { "Equatable", "Hashable", "TextRepresentable", NULL };
+    static const char *core_traits[] = { "Equatable", "Hashable", "TextRepresentable", "Comparable", NULL };
     zt_bind_result result;
     zt_binder binder;
     size_t i;

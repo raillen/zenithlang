@@ -1,7 +1,5 @@
--- Zenith Standard Library — Validate Module
--- Pure boolean predicates for where clauses and conditions (Decision 061).
--- 🔢 NUMERIC PREDICATES
--- 📝 TEXT LENGTH PREDICATES
+-- Zenith std.validate
+-- Pure bool predicates for where clauses and conditions.
 namespace std.validate
 
 public func between(value: int, min: int, max: int) -> bool
@@ -25,6 +23,15 @@ public func non_zero(value: int) -> bool
 end
 
 public func one_of(value: int, candidates: list<int>) -> bool
+    for item in candidates
+        if item == value
+            return true
+        end
+    end
+    return false
+end
+
+public func one_of_text(value: text, candidates: list<text>) -> bool
     for item in candidates
         if item == value
             return true

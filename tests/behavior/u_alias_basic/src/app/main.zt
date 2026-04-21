@@ -1,0 +1,12 @@
+namespace app.main
+
+func main() -> int
+    const a: u8 = 7
+    const b: u16 = 9
+    const c: u32 = 11
+    const d: u64 = 13
+    if a == 7 and b == 9 and c == 11 and d == 13
+        return 0
+    end
+    return 1
+end

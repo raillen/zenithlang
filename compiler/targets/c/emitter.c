@@ -2808,6 +2808,32 @@ static int c_emit_expr(
                c_buffer_append(&emitter->buffer, ")");
     }
 
+    if (strncmp(trimmed, "optional_value ", 15) == 0) {
+        const char *optional_expr = trimmed + 15;
+
+        if (c_expression_is_materialized_optional_list_i64_ref(function_decl, optional_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_optional_list_i64_value(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<list<int>>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_expression_is_materialized_optional_bytes_ref(function_decl, optional_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_optional_bytes_value(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<bytes>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (c_expression_is_materialized_optional_text_ref(function_decl, optional_expr)) {
+            return c_buffer_append(&emitter->buffer, "zt_optional_text_value(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<text>", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        return c_buffer_append(&emitter->buffer, "zt_optional_i64_value(") &&
+               c_emit_expr(emitter, module_decl, function_decl, optional_expr, "Optional<int>", result) &&
+               c_buffer_append(&emitter->buffer, ")");
+    }
+
     if (strncmp(trimmed, "coalesce ", 9) == 0) {
         char optional_value[128];
         char fallback_value[128];
@@ -3584,6 +3610,8 @@ static int c_zir_expr_is_materialized_optional_list_i64_ref(const zir_function *
     return c_type_is(type_name, "optional<list<int>>");
 }
 
+static const char *c_extern_call_expected_arg_type(const char *callee, size_t index);
+
 static int c_emit_zir_call_expr(
         c_emitter *emitter,
         const zir_module *module_decl,
@@ -3689,11 +3717,8 @@ static int c_emit_zir_call_expr(
                 callee_function != NULL &&
                 index < callee_function->param_count) {
             expected_arg_type = callee_function->params[index].type_name;
-        } else if (!direct_call &&
-                index == 0 &&
-                (strcmp(callee, "c.zt_host_write_stdout") == 0 ||
-                 strcmp(callee, "c.zt_host_write_stderr") == 0)) {
-            expected_arg_type = "text";
+        } else if (!direct_call) {
+            expected_arg_type = c_extern_call_expected_arg_type(callee, index);
         }
 
         if (direct_call &&
@@ -3746,10 +3771,43 @@ static const char *c_extern_call_expected_arg_type(const char *callee, size_t in
         return NULL;
     }
 
+    if (strcmp(callee, "c.zt_check") == 0 && index == 0) {
+        return "bool";
+    }
+
+    if (strcmp(callee, "c.zt_text_concat") == 0 && (index == 0 || index == 1)) {
+        return "text";
+    }
+
+    if (strcmp(callee, "c.zt_dyn_text_repr_from_i64") == 0 && index == 0) {
+        return "int";
+    }
+
+    if (strcmp(callee, "c.zt_dyn_text_repr_from_float") == 0 && index == 0) {
+        return "float";
+    }
+
+    if (strcmp(callee, "c.zt_dyn_text_repr_from_bool") == 0 && index == 0) {
+        return "bool";
+    }
+
+    if (strcmp(callee, "c.zt_dyn_text_repr_from_text") == 0 && index == 0) {
+        return "text";
+    }
+
     if (index == 0 &&
             (strcmp(callee, "c.zt_host_write_stdout") == 0 ||
              strcmp(callee, "c.zt_host_write_stderr") == 0)) {
         return "text";
+    }
+
+    if (strcmp(callee, "c.zt_core_error_make") == 0) {
+        if (index == 0 || index == 1) {
+            return "text";
+        }
+        if (index == 2) {
+            return "optional<text>";
+        }
     }
 
     return NULL;
@@ -3878,6 +3936,24 @@ static int c_emit_zir_ffi_call_arg(
         }
     }
 
+    if (strcmp(callee, "c.zt_check") == 0 && index == 1) {
+        if (override_name != NULL && c_type_is(override_type_name, "text")) {
+            return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
+                   c_buffer_append(&emitter->buffer, override_name) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (override_name == NULL && arg != NULL && arg->kind == ZIR_EXPR_STRING) {
+            return c_emit_c_string_literal(emitter, arg->as.text.text);
+        }
+
+        if (override_name == NULL && c_zir_expr_is_text(function_decl, arg)) {
+            return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, arg, "text", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+    }
+
     if (override_name != NULL) {
         return c_buffer_append(&emitter->buffer, override_name);
     }
@@ -3898,6 +3974,24 @@ static int c_emit_legacy_ffi_call_arg(
     const char *expected_arg_type = c_extern_call_expected_arg_type(callee, index);
 
     if (strcmp(callee, "c.puts") == 0) {
+        if (override_name != NULL && c_type_is(override_type_name, "text")) {
+            return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
+                   c_buffer_append(&emitter->buffer, override_name) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+
+        if (override_name == NULL && strncmp(arg_text, "const \"", 7) == 0) {
+            return c_buffer_append(&emitter->buffer, arg_text + 6);
+        }
+
+        if (override_name == NULL && c_expression_is_text(function_decl, arg_text)) {
+            return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
+                   c_emit_expr(emitter, module_decl, function_decl, arg_text, "text", result) &&
+                   c_buffer_append(&emitter->buffer, ")");
+        }
+    }
+
+    if (strcmp(callee, "c.zt_check") == 0 && index == 1) {
         if (override_name != NULL && c_type_is(override_type_name, "text")) {
             return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
                    c_buffer_append(&emitter->buffer, override_name) &&
@@ -5118,6 +5212,7 @@ static int c_emit_zir_expr(
                    c_buffer_append(&emitter->buffer, ")");
 
         case ZIR_EXPR_COALESCE:
+        case ZIR_EXPR_OPTIONAL_VALUE:
         case ZIR_EXPR_OUTCOME_SUCCESS:
         case ZIR_EXPR_OUTCOME_FAILURE:
         case ZIR_EXPR_OUTCOME_IS_SUCCESS:
@@ -6459,6 +6554,12 @@ static int c_emit_terminator(
             if (!c_is_blank(block->terminator.message_text) &&
                     block->terminator.message_text[0] == '"') {
                 return c_buffer_append_format(&emitter->buffer, "    zt_panic(%s);", block->terminator.message_text);
+            }
+
+            if (block->terminator.message != NULL) {
+                return c_buffer_append(&emitter->buffer, "    zt_panic(zt_text_data(") &&
+                       c_emit_zir_expr(emitter, module_decl, function_decl, block->terminator.message, "text", result) &&
+                       c_buffer_append(&emitter->buffer, "));");
             }
 
             return c_buffer_append(&emitter->buffer, "    zt_panic(\"panic\");");

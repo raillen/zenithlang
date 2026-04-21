@@ -15,6 +15,7 @@ import sys
 ZT_EXE = os.path.abspath("zt.exe")
 ZT_OLD = os.path.abspath(os.path.join("compiler", "driver", "zt-next-v2.exe"))
 BEHAVIOR_DIR = os.path.join("tests", "behavior")
+TOOLING_GATE_PROJECT = os.path.join("tests", "behavior", "tooling_gate_smoke")
 
 RESULTS = {"pass": [], "fail": [], "skip": []}
 
@@ -68,6 +69,54 @@ def print_behavior_status(name, mode, ok):
     print(f"  [{status:<4}] {name.ljust(45)} [{mode}]")
 
 
+def print_contributor_next_steps():
+    if not RESULTS["fail"]:
+        return
+
+    print("\n  Next steps (contributor-friendly):")
+    emitted = set()
+
+    for failure in RESULTS["fail"]:
+        key = failure.split(": ", 1)[0]
+
+        if key in emitted:
+            continue
+
+        if key == "compiler_rebuild":
+            print("    - Rebuild compiler: python build.py")
+            emitted.add(key)
+            continue
+
+        if key == "tooling/fmt_check":
+            print(f"    - Fix formatting gate: {ZT_EXE} fmt {TOOLING_GATE_PROJECT} --check")
+            print(f"      If failing: {ZT_EXE} fmt {TOOLING_GATE_PROJECT}")
+            emitted.add(key)
+            continue
+
+        if key == "tooling/doc_check":
+            print(f"    - Fix docs gate: {ZT_EXE} doc check {TOOLING_GATE_PROJECT}")
+            emitted.add(key)
+            continue
+
+        if key.startswith("behavior/"):
+            behavior_name = key.split("/", 1)[1]
+            project_path = os.path.join(BEHAVIOR_DIR, behavior_name)
+            print(f"    - Recheck behavior: {ZT_EXE} check {project_path}")
+            print(f"      Rerun behavior:  {ZT_EXE} run {project_path}")
+            emitted.add(key)
+            continue
+
+        if key == "formatter/golden":
+            print("    - Re-run formatter golden: python tests/formatter/run_formatter_golden.py")
+            emitted.add(key)
+            continue
+
+        if key.startswith("unit/"):
+            print(f"    - Re-run unit binary: {key.split('/', 1)[1]}")
+            emitted.add(key)
+            continue
+
+
 def test_behavior_project(name, path):
     """
     Modes:
@@ -78,9 +127,11 @@ def test_behavior_project(name, path):
     - run-pass: check/build/run must pass.
     """
     check_fail = {
+        "check_intrinsic_type_error",
         "enum_match_non_exhaustive_error",
         "error_syntax",
         "error_type_mismatch",
+        "fmt_interpolation_type_error",
         "functions_invalid_call_error",
         "functions_param_ordering_error",
         "multifile_duplicate_symbol",
@@ -88,6 +139,7 @@ def test_behavior_project(name, path):
         "multifile_missing_import",
         "multifile_namespace_mismatch",
         "mutability_const_reassign_error",
+        "optional_question_outside_optional_error",
         "project_unknown_key_manifest",
         "monomorphization_limit_error",
         "where_contract_param_where_invalid_error",
@@ -107,6 +159,8 @@ def test_behavior_project(name, path):
 
     run_pass = {
         "extern_c_puts_e2e",
+        "fmt_interpolation_basic",
+        "optional_question_basic",
     }
 
     rc, out = run_cmd(f"check:{name}", [ZT_EXE, "check", path], timeout=45)
@@ -181,7 +235,30 @@ def main():
     print(f"  [{'OK' if rebuild_ok else 'FAIL':<4}] compiler rebuild")
     mark(rebuild_ok, "compiler_rebuild", out[:200] if not rebuild_ok else None)
 
-    section("2. Behavior Tests")
+    section("2. Tooling Gates (fmt/doc)")
+    if os.path.isdir(TOOLING_GATE_PROJECT):
+        rc_fmt, out_fmt = run_cmd(
+            "fmt-check",
+            [ZT_EXE, "fmt", TOOLING_GATE_PROJECT, "--check"],
+            timeout=60,
+        )
+        fmt_ok = rc_fmt == 0 and ("fmt check ok" in out_fmt or "fmt ok" in out_fmt)
+        print(f"  [{'OK' if fmt_ok else 'FAIL':<4}] fmt --check ({TOOLING_GATE_PROJECT})")
+        mark(fmt_ok, "tooling/fmt_check", out_fmt[:200] if not fmt_ok else None)
+
+        rc_doc, out_doc = run_cmd(
+            "doc-check",
+            [ZT_EXE, "doc", "check", TOOLING_GATE_PROJECT],
+            timeout=60,
+        )
+        doc_ok = rc_doc == 0 and "doc check ok" in out_doc
+        print(f"  [{'OK' if doc_ok else 'FAIL':<4}] doc check ({TOOLING_GATE_PROJECT})")
+        mark(doc_ok, "tooling/doc_check", out_doc[:200] if not doc_ok else None)
+    else:
+        print("  [SKIP] tooling gate project not found")
+        RESULTS["skip"].append("tooling/gate_project_missing")
+
+    section("3. Behavior Tests")
     if not os.path.isdir(BEHAVIOR_DIR):
         print("  [FAIL] tests/behavior not found")
         RESULTS["fail"].append("behavior_root_missing")
@@ -195,7 +272,7 @@ def main():
                 continue
             test_behavior_project(test_name, test_path)
 
-    section("3. Cross Validation (new vs old driver)")
+    section("4. Cross Validation (new vs old driver)")
     if os.path.exists(ZT_OLD):
         for test_name in ["std_io_basic", "simple_app", "result_question_basic", "optional_result_basic"]:
             test_path = os.path.join(BEHAVIOR_DIR, test_name)
@@ -211,7 +288,7 @@ def main():
         print("  [SKIP] old driver not found (compiler/driver/zt-next-v2.exe)")
         RESULTS["skip"].append("crossval/old_driver_missing")
 
-    section("4. Unit Test Binaries")
+    section("5. Unit Test Binaries")
     unit_bins = []
     for root, _dirs, files in os.walk("tests"):
         for filename in files:
@@ -234,7 +311,7 @@ def main():
             print(f"  [{'OK' if ok else 'FAIL':<4}] {name}")
             mark(ok, f"unit/{name}", out[:160] if not ok else None)
 
-    section("5. Formatter Golden Tests")
+    section("6. Formatter Golden Tests")
     if os.path.exists(os.path.join("tests", "formatter", "run_formatter_golden.py")):
         rc, out = run_cmd(
             "formatter-golden",
@@ -248,7 +325,7 @@ def main():
         print("  [SKIP] formatter golden runner not found")
         RESULTS["skip"].append("formatter/golden_missing")
 
-    section("6. Stdlib Modules")
+    section("7. Stdlib Modules")
     if os.path.isdir("stdlib"):
         for root, _dirs, files in os.walk("stdlib"):
             for filename in sorted(files):
@@ -271,6 +348,7 @@ def main():
         safe_print("\n  Failures:")
         for failure in RESULTS["fail"]:
             safe_print(f"    - {failure}")
+        print_contributor_next_steps()
         return 1
 
     print("\n  All checks passed.")

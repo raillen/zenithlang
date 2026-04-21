@@ -150,6 +150,13 @@ Main validation:
 python run_all_tests.py
 ```
 
+`run_all_tests.py` now includes official tooling gates:
+
+```bash
+./zt.exe fmt tests/behavior/tooling_gate_smoke --check
+./zt.exe doc check tests/behavior/tooling_gate_smoke
+```
+
 Performance:
 
 - `tests/perf/gate_pr.ps1`
@@ -171,6 +178,7 @@ Compatibility policy:
 
 - before `1.0.0`, breaking changes are allowed between pre-releases
 - deferred items are tracked in `docs/planning/roadmap-v2.md` and `docs/planning/checklist-v2.md`
+- per-milestone compatibility log: `docs/reports/compatibility/`
 
 ## Licensing package
 

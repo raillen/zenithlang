@@ -169,6 +169,7 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_OUTCOME_IS_SUCCESS: return "outcome_is_success";
         case ZIR_EXPR_OUTCOME_VALUE: return "outcome_value";
         case ZIR_EXPR_TRY_PROPAGATE: return "try_propagate";
+        case ZIR_EXPR_OPTIONAL_VALUE: return "optional_value";
         default: return "unknown";
     }
 }
@@ -493,6 +494,13 @@ zir_expr *zir_expr_make_try_propagate(zir_expr *value) {
     return expr;
 }
 
+zir_expr *zir_expr_make_optional_value(zir_expr *value) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_OPTIONAL_VALUE);
+    if (expr == NULL) return NULL;
+    expr->as.single.value = value;
+    return expr;
+}
+
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg) {
     if (expr == NULL) return;
     if (expr->kind != ZIR_EXPR_CALL_DIRECT && expr->kind != ZIR_EXPR_CALL_EXTERN && expr->kind != ZIR_EXPR_CALL_RUNTIME_INTRINSIC) return;
@@ -662,6 +670,8 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
             return zir_string_buffer_append(buffer, "outcome_value ") && zir_render_expr(buffer, expr->as.single.value);
         case ZIR_EXPR_TRY_PROPAGATE:
             return zir_string_buffer_append(buffer, "try_propagate ") && zir_render_expr(buffer, expr->as.single.value);
+        case ZIR_EXPR_OPTIONAL_VALUE:
+            return zir_string_buffer_append(buffer, "optional_value ") && zir_render_expr(buffer, expr->as.single.value);
         default:
             return zir_string_buffer_append(buffer, "<unsupported>");
     }

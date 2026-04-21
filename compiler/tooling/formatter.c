@@ -76,6 +76,26 @@ static void sb_append_string_value(sb_t *sb, const char *value) {
     sb_append(sb, "\"");
 }
 
+static void sb_append_fmt_literal_value(sb_t *sb, const char *value) {
+    if (!value) return;
+    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+        switch (*p) {
+            case '\n': sb_append(sb, "\\n"); break;
+            case '\r': sb_append(sb, "\\r"); break;
+            case '\t': sb_append(sb, "\\t"); break;
+            case '"': sb_append(sb, "\\\""); break;
+            case '\\': sb_append(sb, "\\\\"); break;
+            case '{': sb_append(sb, "{{"); break;
+            case '}': sb_append(sb, "}}"); break;
+            default: {
+                char ch[2] = {(char)*p, '\0'};
+                sb_append(sb, ch);
+                break;
+            }
+        }
+    }
+}
+
 static void sb_indent(sb_t *sb) {
     for (int i = 0; i < sb->indent_level; i++) {
         sb_append(sb, "    ");
@@ -597,6 +617,21 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
         case ZT_AST_IDENT_EXPR:
             sb_append(sb, node->as.ident_expr.name);
             break;
+        case ZT_AST_FMT_EXPR:
+            sb_append(sb, "fmt \"");
+            for (size_t i = 0; i < node->as.fmt_expr.parts.count; i++) {
+                const zt_ast_node *part = node->as.fmt_expr.parts.items[i];
+                if (part == NULL) continue;
+                if (part->kind == ZT_AST_STRING_EXPR) {
+                    sb_append_fmt_literal_value(sb, part->as.string_expr.value);
+                } else {
+                    sb_append(sb, "{");
+                    format_node(sb, part);
+                    sb_append(sb, "}");
+                }
+            }
+            sb_append(sb, "\"");
+            break;
         case ZT_AST_GROUPED_EXPR:
             sb_append(sb, "(");
             format_node(sb, node->as.grouped_expr.inner);
@@ -609,7 +644,11 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             format_node(sb, node->as.where_clause.condition);
             break;
         case ZT_AST_MATCH_BINDING:
-            sb_append(sb, "todo_match_binding");
+            sb_append(sb, node->as.match_binding.param_name);
+            break;
+        case ZT_AST_VALUE_BINDING:
+            sb_append(sb, "value ");
+            sb_append(sb, node->as.value_binding.name);
             break;
     }
 }

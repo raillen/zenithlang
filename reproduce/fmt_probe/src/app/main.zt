@@ -1,0 +1,7 @@
+namespace app.main
+
+func main() -> int
+    const a: text = to_text(1)
+    const b: text = 1.to_text()
+    return 0
+end

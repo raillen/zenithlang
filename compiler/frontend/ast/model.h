@@ -61,9 +61,11 @@ typedef enum zt_ast_kind {
     ZT_AST_LIST_EXPR,
     ZT_AST_MAP_EXPR,
     ZT_AST_IDENT_EXPR,
+    ZT_AST_FMT_EXPR,
     ZT_AST_GROUPED_EXPR,
     ZT_AST_WHERE_CLAUSE,
-    ZT_AST_MATCH_BINDING
+    ZT_AST_MATCH_BINDING,
+    ZT_AST_VALUE_BINDING
 } zt_ast_kind;
 
 typedef struct zt_ast_node zt_ast_node;
@@ -371,6 +373,10 @@ struct zt_ast_node {
         } ident_expr;
 
         struct {
+            zt_ast_node_list parts;
+        } fmt_expr;
+
+        struct {
             zt_ast_node *inner;
         } grouped_expr;
 
@@ -378,6 +384,15 @@ struct zt_ast_node {
             const char *param_name;
             zt_ast_node *condition;
         } where_clause;
+
+        struct {
+            const char *param_name;
+        } match_binding;
+
+        struct {
+            const char *name;
+            zt_ast_node *type_node;
+        } value_binding;
     } as;
 };
 

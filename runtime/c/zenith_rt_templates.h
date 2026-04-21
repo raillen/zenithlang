@@ -2067,6 +2067,12 @@ ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                                      
     ELEM_TYPE selected = opt.is_present ? opt.value : fallback;                  \
     if (IS_PTR && (const void *)selected != NULL) { zt_retain((void *)selected); }                                \
     return selected;                                                             \
+}                                                                                \
+                                                                                 \
+ELEM_TYPE zt_optional_##SUFFIX##_value(zt_optional_##SUFFIX opt) {               \
+    ELEM_TYPE val = opt.value;                                                     \
+    if (IS_PTR && (const void *)val != NULL) { zt_retain((void *)val); }          \
+    return val;                                                                   \
 }
 
 /* --------------------------------------------------------------------------

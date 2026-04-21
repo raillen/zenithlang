@@ -399,6 +399,10 @@ static zt_type *zt_builtin_type_by_name(const char *name) {
     if (strcmp(name, "int16") == 0) return zt_type_make(ZT_TYPE_INT16);
     if (strcmp(name, "int32") == 0) return zt_type_make(ZT_TYPE_INT32);
     if (strcmp(name, "int64") == 0) return zt_type_make(ZT_TYPE_INT64);
+    if (strcmp(name, "u8") == 0) return zt_type_make(ZT_TYPE_UINT8);
+    if (strcmp(name, "u16") == 0) return zt_type_make(ZT_TYPE_UINT16);
+    if (strcmp(name, "u32") == 0) return zt_type_make(ZT_TYPE_UINT32);
+    if (strcmp(name, "u64") == 0) return zt_type_make(ZT_TYPE_UINT64);
     if (strcmp(name, "uint8") == 0) return zt_type_make(ZT_TYPE_UINT8);
     if (strcmp(name, "uint16") == 0) return zt_type_make(ZT_TYPE_UINT16);
     if (strcmp(name, "uint32") == 0) return zt_type_make(ZT_TYPE_UINT32);
@@ -550,7 +554,8 @@ static int zt_type_is_core_trait_name(const char *name) {
     return name != NULL &&
            (strcmp(name, "Equatable") == 0 ||
             strcmp(name, "Hashable") == 0 ||
-            strcmp(name, "TextRepresentable") == 0);
+            strcmp(name, "TextRepresentable") == 0 ||
+            strcmp(name, "Comparable") == 0);
 }
 
 static int zt_type_param_has_trait(zt_binding_scope *scope, const char *type_param_name, const char *trait_name) {
@@ -744,6 +749,9 @@ static int zt_checker_type_implements_trait(zt_checker *checker, zt_binding_scop
 
     switch (type->kind) {
         case ZT_TYPE_BOOL:
+            return strcmp(trait_name, "Equatable") == 0 ||
+                   strcmp(trait_name, "Hashable") == 0 ||
+                   strcmp(trait_name, "TextRepresentable") == 0;
         case ZT_TYPE_INT:
         case ZT_TYPE_INT8:
         case ZT_TYPE_INT16:
@@ -755,16 +763,19 @@ static int zt_checker_type_implements_trait(zt_checker *checker, zt_binding_scop
         case ZT_TYPE_UINT64:
             return strcmp(trait_name, "Equatable") == 0 ||
                    strcmp(trait_name, "Hashable") == 0 ||
-                   strcmp(trait_name, "TextRepresentable") == 0;
+                   strcmp(trait_name, "TextRepresentable") == 0 ||
+                   strcmp(trait_name, "Comparable") == 0;
         case ZT_TYPE_FLOAT:
         case ZT_TYPE_FLOAT32:
         case ZT_TYPE_FLOAT64:
             return strcmp(trait_name, "Equatable") == 0 ||
-                   strcmp(trait_name, "TextRepresentable") == 0;
+                   strcmp(trait_name, "TextRepresentable") == 0 ||
+                   strcmp(trait_name, "Comparable") == 0;
         case ZT_TYPE_TEXT:
             return strcmp(trait_name, "Equatable") == 0 ||
                    strcmp(trait_name, "Hashable") == 0 ||
-                   strcmp(trait_name, "TextRepresentable") == 0;
+                   strcmp(trait_name, "TextRepresentable") == 0 ||
+                   strcmp(trait_name, "Comparable") == 0;
         case ZT_TYPE_CORE_ERROR:
             return strcmp(trait_name, "Equatable") == 0 ||
                    strcmp(trait_name, "TextRepresentable") == 0;
@@ -1218,6 +1229,44 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             return result;
         }
 
+        if (name != NULL && strcmp(name, "check") == 0) {
+            zt_type *expected_bool = zt_type_make(ZT_TYPE_BOOL);
+            zt_expr_info arg_info;
+            zt_type_dispose(result.type);
+            result.type = zt_type_make(ZT_TYPE_VOID);
+            if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "check(...) expects exactly one positional argument");
+                zt_type_dispose(expected_bool);
+                return result;
+            }
+            arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, expected_bool);
+            if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_BOOL) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "check(...) requires a bool argument");
+            }
+            zt_expr_info_dispose(&arg_info);
+            zt_type_dispose(expected_bool);
+            return result;
+        }
+
+        if (name != NULL && strcmp(name, "panic") == 0) {
+            zt_type *expected_text = zt_type_make(ZT_TYPE_TEXT);
+            zt_expr_info arg_info;
+            zt_type_dispose(result.type);
+            result.type = zt_type_make(ZT_TYPE_VOID);
+            if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "panic(...) expects exactly one positional argument");
+                zt_type_dispose(expected_text);
+                return result;
+            }
+            arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, expected_text);
+            if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_TEXT) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "panic(...) requires a text argument");
+            }
+            zt_expr_info_dispose(&arg_info);
+            zt_type_dispose(expected_text);
+            return result;
+        }
+
         if (decl != NULL && decl->kind == ZT_AST_STRUCT_DECL) {
             const zt_ast_node *struct_decl = decl;
             size_t positional_count = node->as.call_expr.positional_args.count;
@@ -1381,6 +1430,39 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             }
             return result;
         }
+    }
+
+    if (callee->kind == ZT_AST_FIELD_EXPR &&
+        callee->as.field_expr.object != NULL &&
+        callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
+        callee->as.field_expr.field_name != NULL &&
+        strcmp(callee->as.field_expr.object->as.ident_expr.name, "core") == 0 &&
+        strcmp(callee->as.field_expr.field_name, "Error") == 0) {
+        zt_type *expected_text = zt_type_make(ZT_TYPE_TEXT);
+        zt_expr_info arg_info;
+        zt_type_dispose(result.type);
+        result.type = zt_type_make(ZT_TYPE_CORE_ERROR);
+
+        if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 2) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "core.Error(...) expects exactly two positional arguments: code, message");
+            zt_type_dispose(expected_text);
+            return result;
+        }
+
+        arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, expected_text);
+        if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_TEXT) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->as.call_expr.positional_args.items[0]->span, "core.Error code must be text");
+        }
+        zt_expr_info_dispose(&arg_info);
+
+        arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[1], scope, fn_ctx, expected_text);
+        if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_TEXT) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->as.call_expr.positional_args.items[1]->span, "core.Error message must be text");
+        }
+        zt_expr_info_dispose(&arg_info);
+
+        zt_type_dispose(expected_text);
+        return result;
     }
 
     if (callee->kind == ZT_AST_FIELD_EXPR) {
@@ -1857,6 +1939,31 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
             zt_type_dispose(info.type);
             info.type = zt_type_make(ZT_TYPE_TEXT);
             return info;
+        case ZT_AST_FMT_EXPR: {
+            size_t i;
+            zt_type_dispose(info.type);
+            info.type = zt_type_make(ZT_TYPE_TEXT);
+            for (i = 0; i < node->as.fmt_expr.parts.count; i++) {
+                const zt_ast_node *part = node->as.fmt_expr.parts.items[i];
+                zt_expr_info part_info;
+                char part_type_buf[256];
+                if (part == NULL || part->kind == ZT_AST_STRING_EXPR) continue;
+                part_info = zt_checker_check_expression(checker, part, scope, fn_ctx, NULL);
+                if (part_info.type != NULL &&
+                    part_info.type->kind != ZT_TYPE_UNKNOWN &&
+                    !zt_checker_type_implements_trait(checker, scope, part_info.type, "TextRepresentable")) {
+                    zt_type_describe(part_info.type, part_type_buf, sizeof(part_type_buf));
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_INVALID_TYPE,
+                        part->span,
+                        "fmt interpolation requires TextRepresentable<T>; got '%s'",
+                        part_type_buf);
+                }
+                zt_expr_info_dispose(&part_info);
+            }
+            return info;
+        }
         case ZT_AST_BYTES_EXPR:
             zt_type_dispose(info.type);
             info.type = zt_type_make(ZT_TYPE_BYTES);
@@ -2084,6 +2191,16 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                 break;
             case ZT_TOKEN_QUESTION:
                 if (operand_info.type->kind == ZT_TYPE_OPTIONAL && operand_info.type->args.count == 1) {
+                    if (fn_ctx == NULL ||
+                            fn_ctx->return_type == NULL ||
+                            fn_ctx->return_type->kind != ZT_TYPE_OPTIONAL ||
+                            fn_ctx->return_type->args.count != 1) {
+                        zt_diag_list_add(
+                            &checker->result->diagnostics,
+                            ZT_DIAG_INVALID_OPERATOR,
+                            node->span,
+                            "'?' on optional<T> requires an enclosing function that returns optional<U>");
+                    }
                     zt_type_dispose(info.type);
                     info.type = zt_type_clone(operand_info.type->args.items[0]);
                 } else if (operand_info.type->kind == ZT_TYPE_RESULT && operand_info.type->args.count == 2) {
@@ -2224,14 +2341,14 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
             case ZT_TOKEN_LTE:
             case ZT_TOKEN_GT:
             case ZT_TOKEN_GTE:
-                if ((zt_type_is_numeric(left_info.type) && zt_type_equals(left_info.type, right_info.type)) ||
-                    (zt_type_is_integral(left_info.type) && zt_expr_matches_integral_type(&right_info, left_info.type)) ||
-                    (zt_type_is_integral(right_info.type) && zt_expr_matches_integral_type(&left_info, right_info.type)) ||
-                    (left_info.type->kind == ZT_TYPE_TEXT && right_info.type->kind == ZT_TYPE_TEXT)) {
+                if (zt_checker_type_implements_trait(checker, scope, left_info.type, "Comparable") &&
+                    (zt_checker_same_or_contextually_assignable(checker, scope, left_info.type, &right_info, node->as.binary_expr.right->span) ||
+                     (zt_type_is_integral(right_info.type) && zt_expr_matches_integral_type(&left_info, right_info.type)) ||
+                     (zt_type_is_integral(left_info.type) && zt_expr_matches_integral_type(&right_info, left_info.type)))) {
                     zt_type_dispose(info.type);
                     info.type = zt_type_make(ZT_TYPE_BOOL);
                 } else {
-                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_OPERATOR, node->span, "comparison requires two equal numeric operands or two text operands");
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_OPERATOR, node->span, "comparison requires compatible Comparable operands");
                 }
                 break;
             case ZT_TOKEN_AND:
@@ -2568,6 +2685,47 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                     continue;
                 }
 
+                if (subject_info.type != NULL && subject_info.type->kind == ZT_TYPE_OPTIONAL) {
+                    int case_has_value = 0;
+                    int case_has_none = 0;
+                    for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
+                        const zt_ast_node *pattern = case_node->as.match_case.patterns.items[p];
+                        if (pattern == NULL) continue;
+
+                        if (pattern->kind == ZT_AST_VALUE_BINDING) {
+                            case_has_value = 1;
+                            if (subject_info.type->args.count > 0 && subject_info.type->args.items[0] != NULL) {
+                                zt_type *inner_type = zt_type_clone(subject_info.type->args.items[0]);
+                                if (zt_binding_scope_lookup(&case_scope, pattern->as.value_binding.name, ZT_BINDING_VALUE) != NULL) {
+                                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, pattern->span, "duplicate or shadowed binding '%s' in match case", pattern->as.value_binding.name);
+                                    zt_type_dispose(inner_type);
+                                } else {
+                                    zt_binding_scope_declare(&case_scope, ZT_BINDING_VALUE, pattern->as.value_binding.name, inner_type, 0);
+                                }
+                            } else {
+                                zt_type *inner_type = zt_type_make(ZT_TYPE_UNKNOWN);
+                                zt_binding_scope_declare(&case_scope, ZT_BINDING_VALUE, pattern->as.value_binding.name, inner_type, 0);
+                            }
+                            continue;
+                        }
+
+                        if (pattern->kind == ZT_AST_NONE_EXPR) {
+                            case_has_none = 1;
+                            continue;
+                        }
+
+                        zt_expr_info pattern_info = zt_checker_check_expression(checker, pattern, &case_scope, fn_ctx, subject_info.type);
+                        if (!zt_checker_same_or_contextually_assignable(checker, &case_scope, subject_info.type, &pattern_info, pattern->span)) {
+                            zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, pattern->span, "match pattern type mismatch", subject_info.type, pattern_info.type);
+                        }
+                        zt_expr_info_dispose(&pattern_info);
+                    }
+
+                    zt_checker_check_block(checker, case_node->as.match_case.body, &case_scope, fn_ctx);
+                    zt_binding_scope_dispose(&case_scope);
+                    continue;
+                }
+
                 for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
                     zt_expr_info pattern_info = zt_checker_check_expression(checker, case_node->as.match_case.patterns.items[p], &case_scope, fn_ctx, subject_info.type);
                     if (!zt_checker_same_or_contextually_assignable(checker, &case_scope, subject_info.type, &pattern_info, case_node->as.match_case.patterns.items[p]->span)) {
@@ -2592,6 +2750,28 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 if (!all_covered) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on enum '%s' is not exhaustive", subject_decl->as.enum_decl.name);
                     zt_diag_list_add_severity(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, ZT_DIAG_SEVERITY_NOTE, stmt->span, "add missing variants or a 'default' case");
+                }
+            }
+
+            if (!subject_is_enum && subject_info.type != NULL && subject_info.type->kind == ZT_TYPE_OPTIONAL && !has_default) {
+                int has_value_case = 0;
+                int has_none_case = 0;
+                for (c = 0; c < stmt->as.match_stmt.cases.count; c++) {
+                    const zt_ast_node *case_node = stmt->as.match_stmt.cases.items[c];
+                    size_t p;
+                    if (case_node == NULL || case_node->as.match_case.is_default) continue;
+                    for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
+                        const zt_ast_node *pattern = case_node->as.match_case.patterns.items[p];
+                        if (pattern == NULL) continue;
+                        if (pattern->kind == ZT_AST_VALUE_BINDING) has_value_case = 1;
+                        if (pattern->kind == ZT_AST_NONE_EXPR) has_none_case = 1;
+                    }
+                }
+                if (!has_value_case) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on optional is not exhaustive: missing 'case value' pattern");
+                }
+                if (!has_none_case) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on optional is not exhaustive: missing 'case none' pattern");
                 }
             }
 
