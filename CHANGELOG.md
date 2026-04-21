@@ -2,6 +2,32 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [0.3.0-alpha.1] - 2026-04-21
+
+### Added
+- alpha release package for Windows AMD64:
+  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.zip`
+  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+- alpha release notes and gate evidence:
+  - `docs/reports/release/0.3.0-alpha.1-notes.md`
+  - `docs/reports/release/R2.M12-alpha-release-report.md`
+- compatibility record for alpha cut:
+  - `docs/reports/compatibility/R2.M12-alpha-compatibility.md`
+
+### Quality And Validation
+- PR gate green:
+  - `tests/perf/gate_pr.ps1` (`117/117`)
+- fuzz/corpus without new crashes:
+  - `python tests/fuzz/replay.py --verbose` -> `seeds=0`, `failures=0`
+  - `python tests/fuzz/fuzz_lexer.py --iters 200 --seed 20260421 --verbose` -> `crashes=0`, `timeouts=0`
+  - `python tests/fuzz/fuzz_parser.py --iters 200 --seed 20260421 --verbose` -> `crashes=0`, `timeouts=0`
+- clean install and hello world from packaged artifact:
+  - `zt check`/`zt build`/`zt run` all with exit `0`
+
+### Known Limits
+- `stdlib/platform/` remains internal placeholder and not a public API.
+- pre-`1.0.0` compatibility policy remains "breaking changes allowed between pre-releases".
+
 ## [0.3.0-rc.1] - 2026-04-21
 
 ### Adicionado

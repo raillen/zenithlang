@@ -544,24 +544,39 @@ Evidencia R2.M11 (2026-04-21):
 
 ## R2.M12 - Alpha pre-release (0.3.0-alpha.1)
 
-- [ ] Confirmar versao de release como 0.3.0-alpha.1
+- [x] Confirmar versao de release como 0.3.0-alpha.1
 - [x] Fechar P0 de coerencia (check/panic, Comparable/Order, operadores relacionais, core.Error, u8..u64)
 - [x] Rodar python build.py com resultado verde
 - [x] Rodar python run_all_tests.py com resultado verde
-- [ ] Rodar tests/perf/gate_pr.ps1 com resultado verde
-- [ ] Validar ausencia de crash novo em fuzz/corpus
-- [ ] Gerar pacote de distribuicao de zt.exe
-- [ ] Publicar checksum e hash do artefato
-- [ ] Validar instalacao limpa em ambiente sem residuos
-- [ ] Validar hello world (check/build/run) no pacote publicado
-- [ ] Publicar notas de alpha com limites conhecidos
-- [ ] Registrar compatibilidade: platform/ continua interno e vazio
+- [x] Rodar tests/perf/gate_pr.ps1 com resultado verde
+- [x] Validar ausencia de crash novo em fuzz/corpus
+- [x] Gerar pacote de distribuicao de zt.exe
+- [x] Publicar checksum e hash do artefato
+- [x] Validar instalacao limpa em ambiente sem residuos
+- [x] Validar hello world (check/build/run) no pacote publicado
+- [x] Publicar notas de alpha com limites conhecidos
+- [x] Registrar compatibilidade: platform/ continua interno e vazio
 
 Criterio de aceite:
 
-- [ ] Artefatos de 0.3.0-alpha.1 publicados e verificaveis
-- [ ] Nenhum P0 aberto sem aceite formal
-- [ ] Fluxo de instalacao e primeiro build reproduzivel
+- [x] Artefatos de 0.3.0-alpha.1 publicados e verificaveis
+- [x] Nenhum P0 aberto sem aceite formal
+- [x] Fluxo de instalacao e primeiro build reproduzivel
+
+Evidencias R2.M12:
+
+- `python build.py` -> `SUCCESS`
+- `python run_all_tests.py` -> `140 pass / 0 fail / 1 skip`
+- `tests/perf/gate_pr.ps1` -> `117/117`
+- `python tests/fuzz/replay.py --verbose` -> `{"seeds":0,"failures":0}`
+- `python tests/fuzz/fuzz_lexer.py --iters 200 --seed 20260421 --verbose` -> `{"crashes":0,"timeouts":0}`
+- `python tests/fuzz/fuzz_parser.py --iters 200 --seed 20260421 --verbose` -> `{"crashes":0,"timeouts":0}`
+- Artefato: `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.zip`
+- Hashes: `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+- Install limpo + hello world: `docs/reports/release/artifacts/hello-world-clean-install.log`
+- Notas de alpha: `docs/reports/release/0.3.0-alpha.1-notes.md`
+- Relatorio de release: `docs/reports/release/R2.M12-alpha-release-report.md`
+- Compatibilidade: `docs/reports/compatibility/R2.M12-alpha-compatibility.md`
 
 ## Regras continuas
 

@@ -165,9 +165,12 @@ Performance:
 
 ## Distribution model
 
-Current distribution is source-first.
+Current distribution for pre-release `0.3.0-alpha.1` includes a published package:
 
-Planned alpha package (`0.3.0-alpha.1`) includes:
+- `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.zip`
+- `docs/reports/release/artifacts/zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+
+Alpha package includes:
 
 - `zt.exe`
 - runtime and stdlib required for execution
