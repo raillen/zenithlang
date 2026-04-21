@@ -1,92 +1,153 @@
---- @target: std.fs.path
-Path manipulation utilities for constructing, parsing, and normalizing filesystem paths.
+--- @target: namespace
+# std.fs.path — Manipulação de Caminhos
+
+Módulo para operações lexicais sobre caminhos de arquivo: junção, normalização, extração de partes e conversão entre absoluto e relativo.
+Funciona de forma cross-platform, tratando barras `/` e `\` internamente.
 ---
 
 --- @target: join
-Joins two path segments with a forward slash separator.
+```zt
+public func join(base: text, child: text) -> text
+```
 
-@param base The base path segment.
-@param child The child path segment to append.
-@return The joined path string.
+Une dois segmentos de caminho, adicionando separador `/` quando necessário.
+Se `base` estiver vazio, retorna `child`. Se `child` estiver vazio, retorna `base`.
+
+@param base — Caminho base (diretório).
+@param child — Segmento filho a ser adicionado.
+@return Caminho unido.
 ---
 
 --- @target: normalize
-Normalizes a path by resolving dot segments and standardizing separators.
+```zt
+public func normalize(value: text) -> text
+```
 
-@param value The path to normalize.
-@return The normalized path string.
+Normaliza um caminho resolvendo `.`, `..` e barras duplicadas.
+Converte `\` para `/` e remove redundâncias.
+
+@param value — Caminho a ser normalizado.
+@return Caminho limpo e normalizado.
 ---
 
 --- @target: is_absolute
-Checks whether a path is absolute (starts from root).
+```zt
+public func is_absolute(value: text) -> bool
+```
 
-@param value The path to check.
-@return True if the path is absolute.
+Verifica se o caminho é absoluto (inicia com `/` ou letra de drive no Windows).
+
+@param value — Caminho a verificar.
+@return `true` se for absoluto.
 ---
 
 --- @target: is_relative
-Checks whether a path is relative (does not start from root).
+```zt
+public func is_relative(value: text) -> bool
+```
 
-@param value The path to check.
-@return True if the path is relative.
+Verifica se o caminho é relativo (não é absoluto).
+
+@param value — Caminho a verificar.
+@return `true` se for relativo.
 ---
 
 --- @target: absolute
-Converts a relative path to an absolute path relative to a given base directory.
+```zt
+public func absolute(value: text, base: text) -> text
+```
 
-@param value The relative path.
-@param base The base directory to resolve against.
-@return The absolute path string.
+Converte um caminho relativo em absoluto usando `base` como referência.
+
+@param value — Caminho a resolver.
+@param base — Diretório base para resolver caminhos relativos.
+@return Caminho absoluto resultante.
 ---
 
 --- @target: relative
-Computes the relative path from a base directory to a target path.
+```zt
+public func relative(value: text, from: text) -> text
+```
 
-@param value The target path.
-@param from The base directory.
-@return The relative path string.
+Calcula o caminho relativo de `value` em relação a `from`.
+
+@param value — Caminho alvo.
+@param from — Diretório de referência.
+@return Caminho relativo de `from` até `value`.
 ---
 
 --- @target: base
-Extracts the filename (last segment) from a path.
+```zt
+public func base(value: text) -> text
+```
 
-@param value The full path.
-@return The filename part without directory.
+Extrai o nome do arquivo (com extensão) do final do caminho.
+Exemplo: `base("src/app/main.zt")` retorna `"main.zt"`.
+
+@param value — Caminho completo.
+@return Nome do arquivo final.
 ---
 
 --- @target: dir
-Extracts the directory part of a path (everything before the last slash).
+```zt
+public func dir(value: text) -> text
+```
 
-@param value The full path.
-@return The directory part.
+Extrai o diretório pai do caminho, removendo o último segmento.
+Exemplo: `dir("src/app/main.zt")` retorna `"src/app"`.
+
+@param value — Caminho completo.
+@return Caminho do diretório pai.
 ---
 
 --- @target: ext
-Extracts the file extension (the part after the last dot in the filename).
+```zt
+public func ext(value: text) -> text
+```
 
-@param value The path to extract extension from.
-@return The extension without the leading dot, or empty string if none.
+Extrai a extensão do arquivo (sem o ponto).
+Exemplo: `ext("main.zt")` retorna `"zt"`.
+Retorna `""` se o arquivo não tiver extensão.
+
+@param value — Caminho ou nome do arquivo.
+@return Extensão do arquivo.
 ---
 
 --- @target: name_without_extension
-Extracts the filename without its extension.
+```zt
+public func name_without_extension(value: text) -> text
+```
 
-@param value The full path.
-@return The filename without the extension part.
+Retorna o nome do arquivo sem a extensão.
+Exemplo: `name_without_extension("src/main.zt")` retorna `"main"`.
+
+@param value — Caminho completo.
+@return Nome base sem extensão.
 ---
 
 --- @target: has_ext
-Checks whether a path has a specific file extension.
+```zt
+public func has_ext(value: text, expected_ext: text) -> bool
+```
 
-@param value The path to check.
-@param expected_ext The extension to check for (with or without leading dot).
-@return True if the path has the expected extension.
+Verifica se o arquivo tem a extensão esperada.
+O ponto inicial no `expected_ext` é opcional: `has_ext("x.zt", ".zt")` e `has_ext("x.zt", "zt")` são equivalentes.
+
+@param value — Caminho ou nome do arquivo.
+@param expected_ext — Extensão esperada (com ou sem ponto).
+@return `true` se a extensão corresponder.
 ---
 
 --- @target: change_ext
-Replaces or removes the extension of a filename in a path.
+```zt
+public func change_ext(value: text, new_ext: text) -> text
+```
 
-@param value The full path.
-@param new_ext The new extension to set (with or without leading dot). Empty string removes extension.
-@return The path with the extension changed.
+Substitui a extensão do arquivo por uma nova.
+Exemplo: `change_ext("main.zt", "lua")` retorna `"main.lua"`.
+Se `new_ext` for vazio, remove a extensão.
+
+@param value — Caminho original.
+@param new_ext — Nova extensão (com ou sem ponto).
+@return Caminho com a extensão substituída.
 ---

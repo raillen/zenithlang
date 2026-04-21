@@ -95,7 +95,7 @@ const Home = ({ onNavigate }) => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   data-z-id="home-hero-btn-docs"
-                  onClick={() => onNavigate('start')}
+                  onClick={() => onNavigate('narrative')}
                   className="group flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#111111] px-7 py-3.5 text-[15px] font-medium tracking-wide text-white transition-all hover:bg-[#333333] hover:shadow-xl hover:shadow-black/10"
                 >
                   {t.readVision}
@@ -112,7 +112,7 @@ const Home = ({ onNavigate }) => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   data-z-id="home-hero-btn-compilers"
-                  onClick={() => onNavigate('compiler')}
+                  onClick={() => onNavigate('learn')}
                   className="group flex w-full items-center justify-center gap-2 rounded-[8px] border border-[#EAEAEA] bg-white/50 px-7 py-3.5 text-[15px] font-medium tracking-wide text-[#111111] backdrop-blur-sm transition-all hover:border-[#D1D1D1] hover:bg-white hover:shadow-lg hover:shadow-black/5"
                 >
                   {t.viewCompilers}

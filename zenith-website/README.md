@@ -1,31 +1,51 @@
 # Zenith Site
 
-Aplicacao web oficial do projeto Zenith.
+Aplicação web oficial do projeto Zenith.
 
-## O que esta pasta contem
+## O que esta pasta contém
 
-- a homepage editorial do projeto
-- o visualizador de documentacao
-- a busca semantica do portal
-- o playground e as paginas auxiliares do site
+- Homepage com apresentação da linguagem
+- Sistema de documentação completo (4 pilares)
+- Visualizador de documentação markdown
+- Playground interativo
+- Theme Lab para experimentação visual
 
-## Fonte da verdade
+## Estrutura de Documentação
 
-O conteudo editorial nao mora aqui.
+O site implementa 4 pilares de documentação:
 
-A fonte oficial fica em `../docs`. O site consome essa biblioteca por meio de:
+1. **Narrativa** - História e filosofia da linguagem
+2. **Roadmap** - Estado atual e futuro do projeto
+3. **Aprender** - Trilha educativa sobre compiladores
+4. **Referência** - Documentação técnica completa
 
-- `docs/site-manifest.json`
-- `zenith-website/scripts/sync-docs.mjs`
+## Fonte da Verdade
 
-O fluxo atual do portal reflete o estado self-hosted oficial da linguagem, incluindo current-core, current e os roadmaps historicos ja marcados como superados quando necessario.
+O conteúdo de documentação fica em `public/docs-content/`:
+
+- `public/docs-content/pt/` - Conteúdo em português
+- `public/docs-content/en/` - Conteúdo em inglês
+- `public/docs-manifest.json` - Índice de toda documentação
+
+O script `scripts/sync-docs.mjs` sincroniza conteúdo do projeto principal quando necessário.
 
 ## Comandos
 
 ```bash
-npm run dev
-npm run build
-npm run sync:docs
+npm run dev          # Servidor de desenvolvimento
+npm run build        # Build de produção
+npm run sync:docs    # Sincronizar documentação
+npm run preview      # Preview do build
 ```
 
 `npm run dev` e `npm run build` executam o sync automaticamente antes do Vite.
+
+## Tecnologias
+
+- React 18 + Vite
+- Framer Motion (animações)
+- Tailwind CSS + DaisyUI
+- Marked (markdown parsing)
+- Prism.js (syntax highlighting)
+- React Router (navegação)
+

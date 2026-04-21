@@ -1,107 +1,167 @@
+--- @target: namespace
+# std.time — Medição de Tempo
+
+Módulo para cronometragem, durações e conversões de timestamps Unix.
+Usa tipos tipados `Instant` e `Duration` para evitar confusão de unidades.
+---
+
+--- @target: Instant
+```zt
+public struct Instant
+    millis: int
+end
+```
+
+Representa um ponto no tempo absoluto (timestamp em milissegundos desde a epoch Unix).
+---
+
+--- @target: Duration
+```zt
+public struct Duration
+    millis: int
+end
+```
+
+Representa uma diferença entre dois instantes (duração em milissegundos).
+
+## Funções de Instant
+---
+
 --- @target: now
-Pega exatamente o número atual de Milissegundos Unix (Tempo percorrido desde 1 de Janeiro de 1970) consultando o Relógio Interno Real do OS de forma super rápida.
+```zt
+public func now() -> time.Instant
+```
 
-⚡ **Sintaxe**
-`func now() -> int`
+Captura o instante atual do relógio do sistema como timestamp Unix em milissegundos.
 
-🎯 **Retorno**
-`int` representando estritamente Milissegundos passados do Epic Unix.
+@return Instant representando o momento da chamada.
 ---
---- @target: sleep
-Pausa o avanço do bloco atual (E trava a Thread nativa do sistema) por completo num coma temporário da Duração informada em Milissegundos por ti!
 
-Ótimo e comum no gamedev (Game Loops) e redes.
-
-⚡ **Sintaxe**
-`func sleep(duration_ms: int) -> result<void, text>`
-
-📌 **Parâmetros**
-- `duration_ms`: Inteiro. Duração explícita obrigatoriamente medida em `ms`.
-
-💡 **Dica**
-Melhore a legibilidade visual acoplando um ajudante explícito da formatação: `sleep(time.seconds(5))` ao invés de `sleep(5000)`.
----
 --- @target: since
-Faz uma continha Delta retroativa subtraindo o número Unix MS que você passou, revelando rapidamente "Quanto tempo se passou desse ponto antigo até a contagem DO EXATO SEGUNDO em que essa instrução foi processada".
+```zt
+public func since(start: time.Instant) -> time.Duration
+```
 
-⚡ **Sintaxe**
-`func since(start_unix_ms: int) -> int`
+Calcula quanto tempo se passou desde `start` até agora.
 
-📌 **Parâmetros**
-- `start_unix_ms`: Relógio ancorado do passado distante (Ou milissegundos crus iterados).
-
-🎯 **Retorno**
-A diferença resultante e viva do percurso em ms.
+@param start — Instante de início.
+@return Duração decorrida.
 ---
+
 --- @target: until
-O inverso cronológico do `@link since`. Recebe um momento futuro na fita e revela quantos milissegundos de delta estão faltando para a agulha atual do Presente chegar até ela, fazendo as faturas de `time.diff(time.now(), futuro)`.
+```zt
+public func until(target: time.Instant) -> time.Duration
+```
 
-⚡ **Sintaxe**
-`func until(end_unix_ms: int) -> int`
+Calcula quanto tempo falta de agora até `target`.
 
-📌 **Parâmetros**
-- `end_unix_ms`: Ponteiro no futuro do Time Epoch do terminal.
-
-🎯 **Retorno**
-Os ms entre o seu dedo que executou essa linha e a estaca no futuro injetada.
+@param target — Instante alvo no futuro.
+@return Duração restante.
 ---
+
 --- @target: diff
-Encontra o vazio não preenchido entre 2 pontas literais no arame.
+```zt
+public func diff(a: time.Instant, b: time.Instant) -> time.Duration
+```
 
-⚡ **Sintaxe**
-`func diff(a_unix_ms: int, b_unix_ms: int) -> int`
+Calcula a diferença `b - a` entre dois instantes.
 
-📌 **Parâmetros**
-- `a_unix_ms`: Posição menor.
-- `b_unix_ms`: Posição maior à frente.
-
-🎯 **Retorno**
-`b` esvaziando o `a`. O resultado positivo matemático.
+@param a — Instante inicial.
+@param b — Instante final.
+@return Duração entre os dois instantes.
 ---
+
 --- @target: add
-Move a barra virtual e injeta uma extensão de ms retornando esse futuro literal cravado para salvar num DB temporário de "expiração" em Caching ou Session de Games.
+```zt
+public func add(at: time.Instant, duration: time.Duration) -> time.Instant
+```
 
-⚡ **Sintaxe**
-`func add(at_unix_ms: int, duration_ms: int) -> int`
-
-📌 **Parâmetros**
-- `at_unix_ms`: Anchor (Geralmente `now()`).
-- `duration_ms`: Tempo de voo positivo no relógio.
+Adiciona uma duração a um instante, retornando um novo instante futuro.
 ---
+
 --- @target: sub
-Recua posições e destrói o tempo injetado para voltar ao passado numa fita virtual simulada.
+```zt
+public func sub(at: time.Instant, duration: time.Duration) -> time.Instant
+```
 
-⚡ **Sintaxe**
-`func sub(at_unix_ms: int, duration_ms: int) -> int`
-
-📌 **Parâmetros**
-- `at_unix_ms`: O momento alvo.
-- `duration_ms`: Duração do castigo ou do recuo.
+Subtrai uma duração de um instante, retornando um novo instante passado.
 ---
---- @target: seconds
-Açúcar Sintático visual para deixar a passagem explícita no Zenith. Ex: `sleep(time.seconds(5))` ao invés de decorar milésimos.
 
-⚡ **Sintaxe**
-`func seconds(n: int) -> int`
+--- @target: sleep
+```zt
+public func sleep(duration: time.Duration) -> result<void, core.Error>
+```
 
-🎯 **Retorno**
-Conversão cravada `n * 1000`. Veja @link hours e @link minutes.
+Suspende a execução pelo tempo indicado na duração.
+
+@param duration — Quanto tempo pausar.
+@return `void` em sucesso, ou erro do sistema.
+
+## Conversões Unix
 ---
---- @target: minutes
-Converte o Inteiro pra MS instantâneo (Matemática `n * 60000`).
 
-⚡ **Sintaxe**
-`func minutes(n: int) -> int`
----
 --- @target: from_unix
-Garante coerência ao receber carimbos Web Unix normais (Não-MS) transformando pro modelo MS do Zenith base Kernel via mutação base-10 clássica (`ts * 1000`).
+```zt
+public func from_unix(ts: int) -> time.Instant
+```
 
-⚡ **Sintaxe**
-`func from_unix(ts: int) -> int`
+Cria um Instant a partir de um timestamp Unix em **segundos**.
 ---
---- @target: to_unix
-Corta a precisão bruta do Zenith de MS em puro Unix Carimbo Tradicional (Corta os ultimos 3 digitos e resgata `unix_ms / 1000`).
 
-⚡ **Sintaxe**
-`func to_unix(unix_ms: int) -> int`
+--- @target: from_unix_ms
+```zt
+public func from_unix_ms(ts: int) -> time.Instant
+```
+
+Cria um Instant a partir de um timestamp Unix em **milissegundos**.
+---
+
+--- @target: to_unix
+```zt
+public func to_unix(at: time.Instant) -> int
+```
+
+Converte um Instant para timestamp Unix em **segundos** (truncado).
+---
+
+--- @target: to_unix_ms
+```zt
+public func to_unix_ms(at: time.Instant) -> int
+```
+
+Converte um Instant para timestamp Unix em **milissegundos**.
+
+## Construtores de Duration
+---
+
+--- @target: milliseconds
+```zt
+public func milliseconds(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` milissegundos.
+---
+
+--- @target: seconds
+```zt
+public func seconds(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` segundos (`n * 1000` ms).
+---
+
+--- @target: minutes
+```zt
+public func minutes(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` minutos (`n * 60_000` ms).
+---
+
+--- @target: hours
+```zt
+public func hours(n: int) -> time.Duration
+```
+
+Cria uma Duration de `n` horas (`n * 3_600_000` ms).
 ---

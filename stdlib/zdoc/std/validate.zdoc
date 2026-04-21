@@ -1,72 +1,110 @@
+--- @target: namespace
+# std.validate — Predicados de Validação
+
+Módulo com funções puras que retornam `bool` para validação de inteiros e texto.
+Projetado para uso em cláusulas `where` e verificações de entrada.
+---
+
 --- @target: between
-Valida se `value` esta no intervalo fechado `[min, max]`.
+```zt
+public func between(value: int, min: int, max: int) -> bool
+```
 
-**Sintaxe**
-`func between(value: int, min: int, max: int) -> bool`
+Verifica se `value` está no intervalo fechado `[min, max]`.
 ---
+
 --- @target: positive
-Valida inteiro positivo.
+```zt
+public func positive(value: int) -> bool
+```
 
-**Sintaxe**
-`func positive(value: int) -> bool`
+Retorna `true` se `value > 0`.
 ---
+
 --- @target: non_negative
-Valida inteiro maior ou igual a zero.
+```zt
+public func non_negative(value: int) -> bool
+```
 
-**Sintaxe**
-`func non_negative(value: int) -> bool`
+Retorna `true` se `value >= 0`.
 ---
+
 --- @target: negative
-Valida inteiro negativo.
+```zt
+public func negative(value: int) -> bool
+```
 
-**Sintaxe**
-`func negative(value: int) -> bool`
+Retorna `true` se `value < 0`.
 ---
+
 --- @target: non_zero
-Valida inteiro diferente de zero.
+```zt
+public func non_zero(value: int) -> bool
+```
 
-**Sintaxe**
-`func non_zero(value: int) -> bool`
+Retorna `true` se `value != 0`.
 ---
+
 --- @target: one_of
-Valida se `value` pertence a `candidates`.
+```zt
+public func one_of(value: int, candidates: list<int>) -> bool
+```
 
-**Sintaxe**
-`func one_of(value: int, candidates: list<int>) -> bool`
+Verifica se `value` está presente na lista de candidatos.
+Percorre a lista linearmente.
+
+@param value — Valor a procurar.
+@param candidates — Lista de valores válidos.
+@return `true` se `value` for encontrado na lista.
+
+## Validação de Texto
 ---
+
 --- @target: not_empty
-Valida texto nao vazio.
+```zt
+public func not_empty(value: text) -> bool
+```
 
-**Sintaxe**
-`func not_empty(value: text) -> bool`
+Retorna `true` se o texto tiver pelo menos 1 caractere (`len(value) > 0`).
 ---
+
 --- @target: min_length
-Valida tamanho minimo de texto.
+```zt
+public func min_length(value: text, min: int) -> bool
+```
 
-**Sintaxe**
-`func min_length(value: text, min: int) -> bool`
+Retorna `true` se `len(value) >= min`.
 ---
+
 --- @target: max_length
-Valida tamanho maximo de texto.
+```zt
+public func max_length(value: text, max: int) -> bool
+```
 
-**Sintaxe**
-`func max_length(value: text, max: int) -> bool`
+Retorna `true` se `len(value) <= max`.
 ---
+
 --- @target: length_between
-Valida faixa de tamanho de texto.
+```zt
+public func length_between(value: text, min: int, max: int) -> bool
+```
 
-**Sintaxe**
-`func length_between(value: text, min: int, max: int) -> bool`
+Retorna `true` se o comprimento do texto estiver no intervalo `[min, max]`.
 ---
+
 --- @target: no_whitespace
-Valida ausencia de whitespace ASCII (`space`, `tab`, `\n`, `\r`).
+```zt
+public func no_whitespace(value: text) -> bool
+```
 
-**Sintaxe**
-`func no_whitespace(value: text) -> bool`
+Retorna `true` se o texto não contiver nenhum caractere de espaço em branco (espaço, tab, `\n`, `\r`).
+Percorre cada caractere do texto.
 ---
---- @target: has_whitespace
-Valida presenca de ao menos um whitespace ASCII.
 
-**Sintaxe**
-`func has_whitespace(value: text) -> bool`
+--- @target: has_whitespace
+```zt
+public func has_whitespace(value: text) -> bool
+```
+
+Retorna `true` se o texto contiver pelo menos um caractere de espaço em branco (espaço, tab, `\n`, `\r`).
 ---

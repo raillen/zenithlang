@@ -1,15 +1,178 @@
 -- Zenith Standard Library - std.text
 namespace std.text
 
+public enum Error
+    invalid_utf8
+end
+
 extern c
     func zt_text_to_utf8_bytes(value: text) -> bytes
-    func zt_text_from_utf8_bytes(value: bytes) -> result<text, text>
+    func zt_text_from_utf8_bytes(value: bytes) -> result<text, text.Error>
+    
+    func zt_text_trim(value: text) -> text
+    func zt_text_trim_start(value: text) -> text
+    func zt_text_trim_end(value: text) -> text
+    
+    func zt_text_contains(value: text, needle: text) -> bool
+    func zt_text_starts_with(value: text, prefix: text) -> bool
+    func zt_text_ends_with(value: text, suffix: text) -> bool
+    func zt_text_has_whitespace(value: text) -> bool
+    
+    func zt_text_index_of(value: text, needle: text) -> int
+    func zt_text_last_index_of(value: text, needle: text) -> int
+    
+    func zt_text_replace_all(value: text, search: text, replacement: text) -> text
+    func zt_text_replace_first(value: text, search: text, replacement: text) -> text
+    
+    func zt_text_split(value: text, separator: text) -> list<text>
+    func zt_text_split_lines(value: text) -> list<text>
+    func zt_text_join(values: list<text>, separator: text) -> text
+    
+    func zt_text_is_empty(value: text) -> bool
+    
+    func zt_text_to_lower(value: text) -> text
+    func zt_text_to_upper(value: text) -> text
+    func zt_text_capitalize(value: text) -> text
+    func zt_text_title_case(value: text) -> text
+    
+    func zt_text_is_digits(value: text) -> bool
+    
+    func zt_text_pad_left(value: text, width: int, fill: text) -> text
+    func zt_text_pad_right(value: text, width: int, fill: text) -> text
+    
+    func zt_text_mask(value: text, visible_start: int, visible_end: int, char_fill: text) -> text
+    func zt_text_limit(value: text, max_len: int) -> text
+    func zt_text_truncate(value: text, max_len: int, suffix: text) -> text
 end
+
+-- UTF-8
 
 public func to_utf8(value: text) -> bytes
     return text.zt_text_to_utf8_bytes(value)
 end
 
-public func from_utf8(value: bytes) -> result<text, text>
+public func from_utf8(value: bytes) -> result<text, text.Error>
     return text.zt_text_from_utf8_bytes(value)
+end
+
+-- Trim
+
+public func trim(value: text) -> text
+    return text.zt_text_trim(value)
+end
+
+public func trim_start(value: text) -> text
+    return text.zt_text_trim_start(value)
+end
+
+public func trim_end(value: text) -> text
+    return text.zt_text_trim_end(value)
+end
+
+-- Predicates
+
+public func contains(value: text, needle: text) -> bool
+    return text.zt_text_contains(value, needle)
+end
+
+public func starts_with(value: text, prefix: text) -> bool
+    return text.zt_text_starts_with(value, prefix)
+end
+
+public func ends_with(value: text, suffix: text) -> bool
+    return text.zt_text_ends_with(value, suffix)
+end
+
+public func has_prefix(value: text, prefix: text) -> bool
+    return text.zt_text_starts_with(value, prefix)
+end
+
+public func has_suffix(value: text, suffix: text) -> bool
+    return text.zt_text_ends_with(value, suffix)
+end
+
+public func has_whitespace(value: text) -> bool
+    return text.zt_text_has_whitespace(value)
+end
+
+public func is_empty(value: text) -> bool
+    return text.zt_text_is_empty(value)
+end
+
+public func is_digits(value: text) -> bool
+    return text.zt_text_is_digits(value)
+end
+
+-- Search
+
+public func index_of(value: text, needle: text) -> int
+    return text.zt_text_index_of(value, needle)
+end
+
+public func last_index_of(value: text, needle: text) -> int
+    return text.zt_text_last_index_of(value, needle)
+end
+
+-- Replace
+
+public func replace_all(value: text, search: text, replacement: text) -> text
+    return text.zt_text_replace_all(value, search, replacement)
+end
+
+public func replace_first(value: text, search: text, replacement: text) -> text
+    return text.zt_text_replace_first(value, search, replacement)
+end
+
+-- Split and Join
+
+public func split(value: text, separator: text) -> list<text>
+    return text.zt_text_split(value, separator)
+end
+
+public func split_lines(value: text) -> list<text>
+    return text.zt_text_split_lines(value)
+end
+
+public func join(values: list<text>, separator: text = "") -> text
+    return text.zt_text_join(values, separator)
+end
+
+-- Casing
+
+public func to_lower(value: text) -> text
+    return text.zt_text_to_lower(value)
+end
+
+public func to_upper(value: text) -> text
+    return text.zt_text_to_upper(value)
+end
+
+public func capitalize(value: text) -> text
+    return text.zt_text_capitalize(value)
+end
+
+public func title_case(value: text) -> text
+    return text.zt_text_title_case(value)
+end
+
+-- Padding, Masking, Limiting
+
+public func pad_left(value: text, width: int, fill: text = " ") -> text
+    return text.zt_text_pad_left(value, width, fill)
+end
+
+public func pad_right(value: text, width: int, fill: text = " ") -> text
+    return text.zt_text_pad_right(value, width, fill)
+end
+
+public func mask(value: text, visible_start: int = 0, visible_end: int = 0, fill: text = "*") -> text
+    return text.zt_text_mask(value, visible_start, visible_end, fill)
+end
+
+public func limit(value: text, max_len: int) -> text
+    return text.zt_text_limit(value, max_len)
+end
+
+public func truncate(value: text, max_len: int, suffix: text = "...") -> text
+    return text.zt_text_truncate(value, max_len, suffix)
 end

@@ -1,25 +1,41 @@
---- @target: std.json
-JSON parsing and serialization for map text-to-text structures.
+--- @target: namespace
+# std.json — Parse e Serialização JSON
+
+Módulo para converter texto JSON em estruturas Zenith e vice-versa.
+No MVP atual, opera sobre `map<text, text>` (objetos JSON flat com valores string).
 ---
 
 --- @target: parse
-Parses a JSON string into a map of text keys to text values.
+```zt
+public func parse(input: text) -> result<map<text, text>, core.Error>
+```
 
-@param input A JSON-formatted text string.
-@return A result containing the parsed @link map, or an error if parsing fails.
+Converte texto JSON em um mapa de chaves e valores textuais.
+Retorna erro se o JSON for inválido ou não puder ser representado como `map<text, text>`.
+
+@param input — Texto contendo JSON válido.
+@return Mapa resultante, ou erro de parsing.
 ---
 
 --- @target: stringify
-Serializes a map of text keys to text values into a compact JSON string.
+```zt
+public func stringify(value: map<text, text>) -> text
+```
 
-@param value The map to serialize.
-@return A JSON text string representation.
+Serializa um mapa em texto JSON compacto (sem formatação).
+
+@param value — Mapa a ser serializado.
+@return Texto JSON compactado em uma única linha.
 ---
 
 --- @target: pretty
-Serializes a map of text keys to text values into a pretty-printed JSON string with indentation.
+```zt
+public func pretty(value: map<text, text>, indent: int = 2) -> text
+```
 
-@param value The map to serialize.
-@param indent Number of spaces per indentation level. Defaults to 2.
-@return A formatted JSON text string with indentation and line breaks.
+Serializa um mapa em texto JSON formatado com indentação para legibilidade.
+
+@param value — Mapa a ser serializado.
+@param indent — Número de espaços por nível de indentação (padrão: 2).
+@return Texto JSON formatado com quebras de linha e indentação.
 ---

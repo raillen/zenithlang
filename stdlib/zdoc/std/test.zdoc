@@ -1,18 +1,28 @@
---- @target: std.test
-Helpers complementares para testes Zenith.
-`attr test` continua sendo a forma canonica de declarar testes, enquanto `std.test` fornece operacoes explicitas de falha e skip.
+--- @target: namespace
+# std.test — Utilitários de Teste
+
+Módulo para sinalizar estados de teste ao runner `zt test`.
+Usado em conjunto com `attr test` para marcar funções como testes.
 ---
 
 --- @target: fail
-Marca o teste atual como falho imediatamente.
+```zt
+public func fail(message: text = "test failed") -> void
+```
 
-**Sintaxe**
-`func fail(message: text = "test failed") -> void`
+Sinaliza que o teste atual falhou com uma mensagem descritiva.
+O runner `zt test` interpreta essa chamada como falha do caso de teste.
+
+@param message — Mensagem de falha (padrão: `"test failed"`).
 ---
 
 --- @target: skip
-Marca o teste atual como ignorado imediatamente.
+```zt
+public func skip(reason: text = "") -> void
+```
 
-**Sintaxe**
-`func skip(reason: text = "") -> void`
+Sinaliza que o teste atual deve ser ignorado (skip).
+O runner `zt test` marca o caso como "skipped" em vez de "passed" ou "failed".
+
+@param reason — Motivo para pular o teste (opcional).
 ---

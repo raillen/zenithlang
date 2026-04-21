@@ -1,120 +1,203 @@
 <p align="center">
-  <img src="branding/logo-with-text.svg" width="400" alt="Zenith Logo" />
+  <img src="branding/logo-with-text.svg" width="420" alt="Zenith Language" />
 </p>
 
 # Zenith Language
 
-> Uma linguagem de programação legível, explícita, estável visualmente e cognitivamente acessível.
+Zenith is a reading-first language with explicit semantics and a native compilation pipeline.
 
-> Estado atual: compilador nativo v2 com backend C, pipeline completo (lex → parse → AST → semantic → HIR → ZIR → C → native).
-> Arquitetura: `.zt` → C → executável nativo via GCC/Clang.
+## Current state
 
-**Versão:** v2 (desenvolvimento ativo)
-**Target:** Executável nativo via C backend
-**Compilador:** `zt.exe` — implementado em C, auto-compilável via `build.py`
-**Pipeline:** Lexer → Parser → AST → Binder → Type Checker → HIR → ZIR → C Emitter → GCC
-**Foco:** Jogos, UI, desktop e automação
+- Status: active development (v2 compiler track)
+- Baseline: `0.2.x`
+- Pre-release target: `0.3.0-alpha.1`
+- Milestones M0-M38: completed
 
-## O que é Zenith?
+What is intentionally deferred to the next cycle:
 
-Zenith é uma linguagem com sintaxe própria, sistema de tipos explícito e compilação nativa via C. Combina legibilidade ("reading-first"), acessibilidade cognitiva e performance nativa.
+- full interpolation lowering (`FORMAT_STRING_EXPR` is parsed, but HIR/ZIR/emitter are not finalized for it)
+- Compass LSP productization
 
-## Estado técnico atual
+## Philosophy
 
-- Pipeline completo: lex, parse, bind, check, HIR, ZIR, C emit, native compile
-- 115/118 testes de conformidade passando
-- Runtime nativo em C (`zenith_rt.c`) com text, list, map, RC
-- Standard library em `.zt` com carregamento automático de módulos
-- Driver modular: `driver_internal.h`, `paths.c`, `main.c`
-- LSP integrado
-- Formatter e doc-check funcionais
+Zenith follows four practical rules:
 
+1. Readability before clever syntax.
+2. Explicit behavior over implicit magic.
+3. Stable formatter and diagnostics as language contracts.
+4. Cognitive accessibility as a first-class requirement.
 
-## Recursos estaveis
+Core references:
 
-- Variaveis e constantes: `var`, `const`, tipagem explicita e inferencia basica
-- Controle de fluxo: `if/elif/else`, `while`, `for in`, `repeat`, `match`
-- Funcoes: `pub func`, parametros tipados, retorno `-> T`, async/await
-- Structs: campos tipados, defaults, contratos `where` e `validate`
-- Enums: membros simples e sum types
-- Traits e `apply`
-- Genericos reais
-- UFCS
-- Interpolacao de string
-- `Optional` / `Outcome` e operador `?`
-- Atributos com `#[...]`
-- Sugar de self com `@campo`
-- Indexacao 1-based para sequencias com `ZT-W002` e `ZT-R011`
-- Diagnosticos com arquivo, linha, coluna e trecho de codigo
+- `language/spec/surface-syntax.md`
+- `language/spec/cognitive-accessibility.md`
+- `language/spec/formatter-model.md`
+- `language/spec/diagnostics-model.md`
+- `language/spec/implementation-status.md`
 
-## Exemplo moderno
+## What is implemented
 
-```zt
-import std.validation as validation
+- Compiler executable: `zt.exe`
+- End-to-end pipeline: lexer -> parser -> AST -> semantic -> HIR -> ZIR -> C emitter -> native binary
+- Project manifest: `zenith.ztproj`
+- Runtime: `runtime/c/`
+- Standard library: `stdlib/std/`
+- Tooling: check, build, run, test, format, docs, summaries, perf gates
 
-trait Greetable
-    pub func greet() -> text
-        return "Ola!"
-    end
-end
+## Quick start
 
-struct Player
-    pub nome: text validate validation.non_empty
-    pub vida: int = 100 where it >= 0
-end
+Requirements:
 
-apply Greetable to Player
-    pub func greet() -> text
-        return "Oi, eu sou " + @nome + "!"
-    end
-end
+- Python 3
+- GCC or Clang in `PATH`
+- PowerShell, bash, or equivalent shell
 
-pub func main() -> int
-    var player: Player = Player { nome: "Rafael" }
-
-    print(player.greet().len())
-
-    var Player { nome } = player
-    print("Capturado: " + nome)
-
-    return 0
-end
-```
-
-## Uso
+Build:
 
 ```bash
-lua ztc.lua build <arquivo.zt>             # Compila para out.lua
-lua ztc.lua build <arquivo.zt> saida.lua   # Compila com saida explicita
-lua ztc.lua run <arquivo.zt>               # Compila e executa
-lua ztc.lua check <arquivo.zt>             # Analisa sem gerar codigo
-
-lua ztc.lua zpm help
-lua ztc.lua zman list
-lua ztc.lua ztest --help
+python build.py
 ```
 
-## Documentacao recomendada
+Help:
 
-- `docs/language/current.md`: linha correta da linguagem atual
-- `docs/specification/current-core.md`: contrato curto do core atual
-- `docs/roadmap/selfhost-pos100.md`: fechamento do residual pos-100
-- `docs/specification/selfhost-abi.md`: contrato de host ABI do corte self-hosted
-- `docs/specification/selfhost-artifacts.md`: politica de artefatos
-- `docs/roadmap/MASTER.md`: mapa editorial/historico da evolucao
-
-## Estrutura do projeto
-
-```
-src/
-  lowering/       # IR, otimizacao e desugaring
-  syntax/         # Lexer, parser e AST
-  semantic/       # Binder, tipos e simbolos
-  backend/lua/    # Codegen e runtime
-  stdlib/         # Modulos padrao
-  compiler/       # Core self-hosted canonico
+```bash
+./zt.exe
 ```
 
-## Licenca
+## First app
 
-MIT
+Project layout:
+
+```text
+my_app/
+  zenith.ztproj
+  src/
+    app/
+      main.zt
+```
+
+`my_app/zenith.ztproj`:
+
+```toml
+[project]
+name = "my-app"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "app.main"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"
+```
+
+`my_app/src/app/main.zt`:
+
+```zt
+namespace app.main
+
+import std.io as io
+
+func main() -> result<void, core.Error>
+    io.write("Hello from Zenith\n")?
+    return success()
+end
+```
+
+Run:
+
+```bash
+./zt.exe check my_app/zenith.ztproj
+./zt.exe build my_app/zenith.ztproj
+./zt.exe run my_app/zenith.ztproj
+```
+
+## CLI
+
+- `zt check [project|zenith.ztproj]`
+- `zt build [project|zenith.ztproj] [-o <output>]`
+- `zt run [project|zenith.ztproj] [-o <output>]`
+- `zt test [project|zenith.ztproj]`
+- `zt fmt [project|zenith.ztproj] [--check]`
+- `zt doc check [project|zenith.ztproj]`
+- `zt doc show [symbol]`
+- `zt summary [project|zenith.ztproj]`
+- `zt resume [project|zenith.ztproj]`
+- `zt perf [quick|nightly|scenario]`
+
+## Quality and performance gates
+
+Main validation:
+
+```bash
+python run_all_tests.py
+```
+
+Performance:
+
+- `tests/perf/gate_pr.ps1`
+- `tests/perf/gate_nightly.ps1`
+- `tests/perf/run_perf.py`
+
+## Distribution model
+
+Current distribution is source-first.
+
+Planned alpha package (`0.3.0-alpha.1`) includes:
+
+- `zt.exe`
+- runtime and stdlib required for execution
+- quick-start and compatibility notes
+- complete licensing package
+
+Compatibility policy:
+
+- before `1.0.0`, breaking changes are allowed between pre-releases
+- deferred items are tracked in `IMPLEMENTATION_ROADMAP_2_0.md` and `IMPLEMENTATION_CHECKLIST_2_0.md`
+
+## Licensing package
+
+Zenith source code is dual-licensed:
+
+- Apache-2.0
+- MIT
+
+You can choose either license (`Apache-2.0 OR MIT`).
+
+License files:
+
+- `LICENSE`
+- `LICENSE-APACHE`
+- `LICENSE-MIT`
+
+Governance and contribution:
+
+- `CONTRIBUTING.md`
+- `TRADEMARK_POLICY.md`
+- `docs/licensing/README.md`
+
+Notes:
+
+- contribution terms follow the same dual-license model
+- code license does not grant trademark rights automatically
+
+## Repository map
+
+- `compiler/` -> frontend, semantic, IR, backend, driver, tooling
+- `runtime/c/` -> runtime primitives and memory model
+- `stdlib/` -> public standard library and docs
+- `tests/` -> behavior, semantic, runtime, targets, perf
+- `language/spec/` -> canonical language and tooling specs
+- `docs/licensing/` -> practical licensing guide
+
+## Roadmap and operational docs
+
+- `IMPLEMENTATION_ROADMAP_2_0.md`
+- `IMPLEMENTATION_CHECKLIST_2_0.md`
+- `IMPLEMENTATION_CASCADE_2_0.md`
+- `IMPLEMENTATION_CASCADE.md`

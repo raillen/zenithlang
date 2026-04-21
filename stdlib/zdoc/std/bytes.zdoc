@@ -1,42 +1,88 @@
+--- @target: namespace
+# std.bytes — Manipulação de Bytes Brutos
+
+Módulo para criação, inspeção e composição de sequências de bytes.
+Usado para protocolos binários, manipulação de arquivos e conversões de baixo nível.
+---
+
 --- @target: empty
-Retorna `bytes` vazio.
+```zt
+public func empty() -> bytes
+```
 
-**Sintaxe**
-`func empty() -> bytes`
+Cria uma sequência de bytes vazia (tamanho zero).
+
+@return Sequência de bytes vazia.
 ---
+
 --- @target: from_list
-Converte `list<int>` para `bytes` (cada item deve estar em `0..255`).
+```zt
+public func from_list(values: list<int>) -> bytes
+```
 
-**Sintaxe**
-`func from_list(values: list<int>) -> bytes`
+Converte uma lista de inteiros em uma sequência de bytes.
+Cada inteiro representa o valor de um byte (0–255).
+
+@param values — Lista de inteiros representando bytes individuais.
+@return Sequência de bytes construída a partir da lista.
 ---
+
 --- @target: to_list
-Converte `bytes` para `list<int>`.
+```zt
+public func to_list(value: bytes) -> list<int>
+```
 
-**Sintaxe**
-`func to_list(value: bytes) -> list<int>`
+Converte uma sequência de bytes em uma lista de inteiros.
+Cada byte vira um inteiro na lista.
+
+@param value — Sequência de bytes a ser convertida.
+@return Lista de inteiros com os valores de cada byte.
 ---
+
 --- @target: join
-Concatena dois blocos de bytes.
+```zt
+public func join(left: bytes, right: bytes) -> bytes
+```
 
-**Sintaxe**
-`func join(left: bytes, right: bytes) -> bytes`
+Concatena duas sequências de bytes em uma só.
+
+@param left — Primeira sequência.
+@param right — Segunda sequência, adicionada ao final.
+@return Nova sequência resultante da concatenação.
 ---
+
 --- @target: starts_with
-Valida prefixo binario.
+```zt
+public func starts_with(value: bytes, prefix: bytes) -> bool
+```
 
-**Sintaxe**
-`func starts_with(value: bytes, prefix: bytes) -> bool`
+Verifica se a sequência de bytes começa com o prefixo indicado.
+
+@param value — Sequência a ser verificada.
+@param prefix — Prefixo esperado.
+@return `true` se `value` iniciar com `prefix`.
 ---
+
 --- @target: ends_with
-Valida sufixo binario.
+```zt
+public func ends_with(value: bytes, suffix: bytes) -> bool
+```
 
-**Sintaxe**
-`func ends_with(value: bytes, suffix: bytes) -> bool`
+Verifica se a sequência de bytes termina com o sufixo indicado.
+
+@param value — Sequência a ser verificada.
+@param suffix — Sufixo esperado.
+@return `true` se `value` terminar com `suffix`.
 ---
---- @target: contains
-Valida se `part` aparece dentro de `value`.
 
-**Sintaxe**
-`func contains(value: bytes, part: bytes) -> bool`
+--- @target: contains
+```zt
+public func contains(value: bytes, part: bytes) -> bool
+```
+
+Verifica se a sequência de bytes contém a subsequência indicada em qualquer posição.
+
+@param value — Sequência onde buscar.
+@param part — Subsequência procurada.
+@return `true` se `part` for encontrada dentro de `value`.
 ---

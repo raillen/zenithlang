@@ -67,6 +67,22 @@ static int zt_path_char_equal(char left, char right) {
 #endif
 }
 
+static int zt_path_equal(const char *left, const char *right) {
+    size_t i = 0;
+    size_t j = 0;
+    if (left == NULL || right == NULL) return 0;
+    
+    while (left[i] == '.' && (left[i+1] == '/' || left[i+1] == '\\')) i += 2;
+    while (right[j] == '.' && (right[j+1] == '/' || right[j+1] == '\\')) j += 2;
+    
+    while (left[i] != '\0' && right[j] != '\0') {
+        if (!zt_path_char_equal(left[i], right[j])) return 0;
+        i += 1;
+        j += 1;
+    }
+    return left[i] == '\0' && right[j] == '\0';
+}
+
 static int zt_join_path(char *dest, size_t capacity, const char *left, const char *right) {
     size_t left_len;
     size_t right_len;
@@ -318,7 +334,7 @@ static int zt_discover_zdoc_files(const char *directory, zt_zdoc_file_list *file
 
 static int zt_symbol_equal(const zt_zdoc_symbol_item *symbol, const char *name, const char *source_path) {
     if (symbol == NULL || name == NULL || source_path == NULL) return 0;
-    return strcmp(symbol->name, name) == 0 && strcmp(symbol->source_path, source_path) == 0;
+    return strcmp(symbol->name, name) == 0 && zt_path_equal(symbol->source_path, source_path);
 }
 
 static int zt_zdoc_symbol_list_push(zt_zdoc_symbol_list *list, const char *name, const char *source_path, int is_public) {
@@ -365,7 +381,7 @@ static int zt_zdoc_public_symbol_equal(
         const char *name,
         const char *source_path) {
     if (item == NULL || name == NULL || source_path == NULL) return 0;
-    return strcmp(item->name, name) == 0 && strcmp(item->source_path, source_path) == 0;
+    return strcmp(item->name, name) == 0 && zt_path_equal(item->source_path, source_path);
 }
 
 static int zt_zdoc_public_symbol_list_push(
@@ -421,7 +437,7 @@ static void zt_mark_public_symbol_documented(
 
     for (i = 0; i < list->count; i += 1) {
         zt_zdoc_public_symbol_item *item = &list->items[i];
-        if (strcmp(item->source_path, source_path) != 0) continue;
+        if (!zt_path_equal(item->source_path, source_path)) continue;
         if (strcmp(item->name, target) == 0 || strcmp(item->qualified_name, target) == 0) {
             item->documented = 1;
         }
@@ -472,7 +488,7 @@ static int zt_symbol_exists(
         if (strcmp(symbol->name, name) != 0) continue;
 
         if (symbol->source_path[0] == '\0') return 1;
-        if (allow_local && source_path != NULL && strcmp(symbol->source_path, source_path) == 0) return 1;
+        if (allow_local && source_path != NULL && zt_path_equal(symbol->source_path, source_path)) return 1;
     }
 
     return 0;
@@ -489,7 +505,7 @@ static int zt_symbol_exists_local(
     for (i = 0; i < symbols->count; i += 1) {
         const zt_zdoc_symbol_item *symbol = &symbols->items[i];
         if (strcmp(symbol->name, name) != 0) continue;
-        if (strcmp(symbol->source_path, source_path) == 0) return 1;
+        if (zt_path_equal(symbol->source_path, source_path)) return 1;
     }
 
     return 0;

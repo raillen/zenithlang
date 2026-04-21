@@ -1,55 +1,91 @@
---- @target: std.io
-Input and output operations for terminal and standard streams.
+--- @target: namespace
+# std.io — Entrada e Saída Padrão
+
+Módulo responsável pela comunicação com stdin, stdout e stderr.
+Todas as funções de escrita e leitura retornam `result` para tratamento seguro de erros.
 ---
 
 --- @target: read_line
-Reads a single line of text from standard input.
+```zt
+public func read_line(from: bool = false) -> result<optional<text>, core.Error>
+```
 
-@param from If true, reads from the beginning of stdin buffer. Defaults to false.
-@return A result containing the line as @link optional text, or an error. Returns none on EOF.
+Lê uma única linha da entrada padrão (stdin).
+Retorna `none` se o fim do arquivo (EOF) for atingido antes de qualquer conteúdo.
+
+@param from — Reservado para uso futuro (seleção de fonte de entrada).
+@return Linha lida como `optional<text>`, ou erro de I/O.
 ---
 
 --- @target: read_all
-Reads all remaining text from standard input until EOF.
+```zt
+public func read_all(from: bool = false) -> result<text, core.Error>
+```
 
-@param from If true, reads from the beginning of stdin buffer. Defaults to false.
-@return A result containing the text, or an error.
+Lê todo o conteúdo disponível na entrada padrão até o fim do arquivo (EOF).
+
+@param from — Reservado para uso futuro.
+@return Todo o texto lido de uma vez, ou erro de I/O.
 ---
 
 --- @target: write
-Writes text to a standard output stream.
+```zt
+public func write(value: text, to: bool = false) -> result<void, core.Error>
+```
 
-@param value The text to write.
-@param to If true, writes to stderr. Defaults to false (stdout).
-@return A result indicating success or error.
+Escreve texto bruto em stdout (padrão) ou stderr (quando `to: true`).
+Não adiciona quebra de linha.
+
+@param value — Texto a ser escrito.
+@param to — Se `true`, escreve em stderr em vez de stdout.
+@return `void` em sucesso, ou erro de I/O.
 ---
 
 --- @target: print
-Writes text to the output stream (alias for @link write).
+```zt
+public func print(value: text, to: bool = false) -> result<void, core.Error>
+```
 
-@param value The text to print.
-@param to If true, prints to stderr. Defaults to false (stdout).
-@return A result indicating success or error.
+Alias para `write`. Imprime texto sem quebra de linha.
+
+@param value — Texto a ser impresso.
+@param to — Se `true`, imprime em stderr.
+@return `void` em sucesso, ou erro de I/O.
 ---
 
 --- @target: print_line
-Writes text followed by a newline to the output stream.
+```zt
+public func print_line(value: text, to: bool = false) -> result<void, core.Error>
+```
 
-@param value The text to print.
-@param to If true, prints to stderr. Defaults to false (stdout).
-@return A result indicating success or error.
+Imprime texto seguido de uma quebra de linha (`\n`).
+Usa propagação `?` internamente — se a primeira escrita falhar, retorna o erro imediatamente.
+
+@param value — Texto a ser impresso.
+@param to — Se `true`, imprime em stderr.
+@return `void` em sucesso, ou erro de I/O.
 ---
 
 --- @target: eprint
-Writes text to the standard error stream.
+```zt
+public func eprint(value: text) -> result<void, core.Error>
+```
 
-@param value The text to write.
-@return A result indicating success or error.
+Imprime texto na saída de erro padrão (stderr) sem quebra de linha.
+Equivalente a `print(value, to: true)`.
+
+@param value — Texto a ser escrito em stderr.
+@return `void` em sucesso, ou erro de I/O.
 ---
 
 --- @target: eprint_line
-Writes text followed by a newline to the standard error stream.
+```zt
+public func eprint_line(value: text) -> result<void, core.Error>
+```
 
-@param value The text to print.
-@return A result indicating success or error.
+Imprime texto na saída de erro padrão (stderr) com quebra de linha.
+Equivalente a `print_line(value, to: true)`.
+
+@param value — Texto a ser escrito em stderr.
+@return `void` em sucesso, ou erro de I/O.
 ---

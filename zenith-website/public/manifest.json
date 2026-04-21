@@ -1,11 +1,11 @@
 {
   "name": "Zenith Language",
   "short_name": "Zenith",
-  "description": "Performance & Cognição. A linguagem para o cérebro moderno.",
+  "description": "Linguagem de programação acessível e cognitivamente amigável",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ECEEEE",
-  "theme_color": "#FF4F00",
+  "theme_color": "#0f766e",
   "icons": [
     {
       "src": "/logo-only.svg",
@@ -15,5 +15,5 @@
     }
   ],
   "orientation": "portrait-primary",
-  "categories": ["education", "developer tools", "games"]
+  "categories": ["education", "developer tools", "accessibility"]
 }

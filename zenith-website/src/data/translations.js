@@ -1,16 +1,16 @@
 export const UI_STRINGS = {
   pt: {
     home: {
-      title: "Clareza.\nCognicao.\nZenith.",
-      description: "Produto 100% self-hosted, com compilador oficial em Zenith e documentacao alinhada de ponta a ponta.",
-      readVision: "Ler a Visao",
-      viewCompilers: "Ver Compiladores",
-      feature1Title: "Produto 100% self-hosted",
-      feature1Desc: "O caminho oficial compila com Zenith, fecha bootstrap, release e CLI sem fallback legado no fluxo normal.",
-      feature2Title: "Cognicao em primeiro lugar",
-      feature2Desc: "Menos ruido sintatico, retomada de contexto mais suave e previsibilidade para ciclos longos de leitura e escrita.",
-      feature3Title: "Superficie oficial unica",
-      feature3Desc: "A experiencia oficial prioriza o compilador self-hosted, sem rotas legadas na superficie principal."
+      title: "Legibilidade.\nAcessibilidade.\nZenith.",
+      description: "Uma linguagem de programação projetada para acessibilidade cognitiva, com sintaxe clara e documentação educativa completa.",
+      readVision: "Ler a Narrativa",
+      viewCompilers: "Aprender Compiladores",
+      feature1Title: "Acessibilidade Cognitiva",
+      feature1Desc: "Projetada para pessoas neurodivergentes com TDAH e dislexia. Sintaxe clara, baixa densidade simbólica e comportamento previsível.",
+      feature2Title: "Aprenda Compiladores",
+      feature2Desc: "Trilha educativa completa sobre como construir um compilador do zero, usando Zenith como exemplo real e funcional.",
+      feature3Title: "Documentação Completa",
+      feature3Desc: "Narrativa do projeto, roadmap técnico, trilha educativa e referência completa da linguagem e APIs."
     },
     nav: {
       home: "Inicio",
@@ -27,16 +27,16 @@ export const UI_STRINGS = {
   },
   en: {
     home: {
-      title: "Clarity.\nCognition.\nZenith.",
-      description: "A 100% self-hosted language with an official compiler written in Zenith and end-to-end aligned documentation.",
-      readVision: "Read the Vision",
-      viewCompilers: "View Compilers",
-      feature1Title: "100% self-hosted product",
-      feature1Desc: "The official path compiles with Zenith and closes bootstrap, release, and CLI without legacy fallback in the normal flow.",
-      feature2Title: "Cognition first",
-      feature2Desc: "Less syntactic noise, smoother context recovery, and predictable long-form reading and writing loops.",
-      feature3Title: "Single official surface",
-      feature3Desc: "The official experience is centered on the self-hosted compiler without legacy routes in the main surface."
+      title: "Readability.\nAccessibility.\nZenith.",
+      description: "A programming language designed for cognitive accessibility, with clear syntax and complete educational documentation.",
+      readVision: "Read the Narrative",
+      viewCompilers: "Learn Compilers",
+      feature1Title: "Cognitive Accessibility",
+      feature1Desc: "Designed for neurodivergent people with ADHD and dyslexia. Clear syntax, low symbolic density, and predictable behavior.",
+      feature2Title: "Learn Compilers",
+      feature2Desc: "Complete educational path on how to build a compiler from scratch, using Zenith as a real and functional example.",
+      feature3Title: "Complete Documentation",
+      feature3Desc: "Project narrative, technical roadmap, educational path, and complete language and API reference."
     },
     nav: {
       home: "Home",
@@ -53,16 +53,16 @@ export const UI_STRINGS = {
   },
   ja: {
     home: {
-      title: "Clarity.\nCognition.\nZenith.",
-      description: "Zenith is now a 100% self-hosted product, with the official compiler written in Zenith.",
-      readVision: "Read the Vision",
-      viewCompilers: "View Compilers",
-      feature1Title: "100% self-hosted product",
-      feature1Desc: "The official path compiles with Zenith and closes bootstrap, release, and CLI without legacy fallback in the normal flow.",
-      feature2Title: "Cognition first",
-      feature2Desc: "Less syntactic noise, smoother context recovery, and predictable long-form reading and writing loops.",
-      feature3Title: "Single official surface",
-      feature3Desc: "The official experience is centered on the self-hosted compiler without legacy routes in the main surface."
+      title: "可読性.\n認知的\nアクセシビリティ.\nZenith.",
+      description: "認知的アクセシビリティのために設計されたプログラミング言語。明確な構文と完全な教育ドキュメント。",
+      readVision: "物語を読む",
+      viewCompilers: "コンパイラを学ぶ",
+      feature1Title: "認知的アクセシビリティ",
+      feature1Desc: "ADHDや失読症のある神経多様性のある人々のために設計されています。明確な構文、低いシンボル密度、予測可能な動作。",
+      feature2Title: "コンパイラを学ぶ",
+      feature2Desc: "ゼロからコンパイラを構築する方法についての完全な教育パス。Zenithを実際の機能的な例として使用します。",
+      feature3Title: "完全なドキュメント",
+      feature3Desc: "プロジェクトの物語、技術的なロードマップ、教育パス、言語とAPIの完全なリファレンス。"
     },
     nav: {
       home: "Home",
@@ -79,16 +79,16 @@ export const UI_STRINGS = {
   },
   es: {
     home: {
-      title: "Claridad.\nCognicion.\nZenith.",
-      description: "Un producto 100% self-hosted, con compilador oficial escrito en Zenith y documentacion alineada de punta a punta.",
-      readVision: "Leer la Vision",
-      viewCompilers: "Ver Compiladores",
-      feature1Title: "Producto 100% self-hosted",
-      feature1Desc: "La ruta oficial compila con Zenith y cierra bootstrap, release y CLI sin fallback legado en el flujo normal.",
-      feature2Title: "Cognicion primero",
-      feature2Desc: "Menos ruido sintactico, recuperacion de contexto mas suave y previsibilidad para ciclos largos de lectura y escritura.",
-      feature3Title: "Superficie oficial unica",
-      feature3Desc: "La experiencia oficial prioriza el compilador self-hosted, sin rutas legadas en la superficie principal."
+      title: "Legibilidad.\nAccesibilidad.\nZenith.",
+      description: "Un lenguaje de programación diseñado para la accesibilidad cognitiva, con sintaxis clara y documentación educativa completa.",
+      readVision: "Leer la Narrativa",
+      viewCompilers: "Aprender Compiladores",
+      feature1Title: "Accesibilidad Cognitiva",
+      feature1Desc: "Diseñado para personas neurodivergentes con TDAH y dislexia. Sintaxis clara, baja densidad simbólica y comportamiento predecible.",
+      feature2Title: "Aprender Compiladores",
+      feature2Desc: "Ruta educativa completa sobre cómo construir un compilador desde cero, usando Zenith como ejemplo real y funcional.",
+      feature3Title: "Documentación Completa",
+      feature3Desc: "Narrativa del proyecto, hoja de ruta técnica, ruta educativa y referencia completa del lenguaje y APIs."
     },
     nav: {
       home: "Inicio",

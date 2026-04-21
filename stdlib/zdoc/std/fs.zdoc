@@ -1,25 +1,40 @@
---- @target: std.fs
-Filesystem operations for reading, writing, and checking file paths.
+--- @target: namespace
+# std.fs — Sistema de Arquivos
+
+Módulo para operações de leitura, escrita e verificação de arquivos no disco.
+Todas as operações de I/O retornam `result` para tratamento seguro de erros.
 ---
 
 --- @target: read_text
-Reads the entire contents of a file as text.
+```zt
+public func read_text(file_path: text) -> result<text, core.Error>
+```
 
-@param path The file path to read from.
-@return A result containing the file contents as text, or an error if the file cannot be read.
+Lê o conteúdo completo de um arquivo como texto.
+
+@param file_path — Caminho absoluto ou relativo do arquivo.
+@return Conteúdo do arquivo como texto, ou erro de I/O (arquivo não encontrado, permissão negada, etc).
 ---
 
 --- @target: write_text
-Writes text content to a file, replacing its existing contents.
+```zt
+public func write_text(file_path: text, value: text) -> result<void, core.Error>
+```
 
-@param path The file path to write to.
-@param value The text content to write.
-@return A result indicating success or an error if writing fails.
+Escreve texto em um arquivo, criando-o se não existir e sobrescrevendo se já existir.
+
+@param file_path — Caminho do arquivo destino.
+@param value — Conteúdo de texto a ser escrito.
+@return `void` em sucesso, ou erro de I/O.
 ---
 
 --- @target: exists
-Checks whether a file or directory exists at the given path.
+```zt
+public func exists(file_path: text) -> bool
+```
 
-@param path The file path to check.
-@return True if the path exists, false otherwise.
+Verifica se um arquivo ou diretório existe no caminho indicado.
+
+@param file_path — Caminho a ser verificado.
+@return `true` se o caminho existir no sistema de arquivos.
 ---

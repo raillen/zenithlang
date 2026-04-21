@@ -1,643 +1,827 @@
---- @target: std.collections
-Collection types including Queue, Stack, Grid2D, PriorityQueue, CircularBuffer, BTreeMap, BTreeSet, and Grid3D.
+--- @target: namespace
+# std.collections — Estruturas de Dados Avançadas
+
+Módulo com 8 tipos de estruturas de dados além dos `list` e `map` nativos: Queue, Stack, Grid2D, Grid3D, PriorityQueue, CircularBuffer, BTreeMap e BTreeSet.
+Todas as variantes existem para `int` e `text`. Mutações retornam cópias novas (COW — Copy-on-Write) via operações `*_owned` no runtime C.
 ---
 
 --- @target: queue_int_new
-Creates a new empty queue of integers using a list internally with FIFO semantics.
-@return An empty queue.
----
+```zt
+public func queue_int_new() -> list<int>
+public func queue_text_new() -> list<text>
+```
 
---- @target: queue_int_enqueue
-Adds an integer to the back of the queue.
-@param queue The queue to enqueue into.
-@param value The integer value to add.
-@return A new queue with the value appended.
----
-
---- @target: queue_int_dequeue
-Removes and returns the integer at the front of the queue.
-@param queue The queue to dequeue from.
-@return The front value wrapped in @link optional, or none if empty.
----
-
---- @target: queue_int_peek
-Returns the integer at the front of the queue without removing it.
-@param queue The queue to peek at.
-@return The front value wrapped in @link optional, or none if empty.
+Cria uma fila vazia.
 ---
 
 --- @target: queue_text_new
-Creates a new empty queue of text using a list internally with FIFO semantics.
-@return An empty text queue.
+```zt
+public func queue_int_new() -> list<int>
+public func queue_text_new() -> list<text>
+```
+
+Cria uma fila vazia.
+---
+
+--- @target: queue_int_enqueue
+```zt
+public func queue_int_enqueue(queue: list<int>, value: int) -> list<int>
+public func queue_text_enqueue(queue: list<text>, value: text) -> list<text>
+```
+
+Adiciona um elemento ao final da fila. Retorna a fila atualizada.
 ---
 
 --- @target: queue_text_enqueue
-Adds text to the back of the queue.
-@param queue The queue to enqueue into.
-@param value The text value to add.
-@return A new queue with the value appended.
+```zt
+public func queue_int_enqueue(queue: list<int>, value: int) -> list<int>
+public func queue_text_enqueue(queue: list<text>, value: text) -> list<text>
+```
+
+Adiciona um elemento ao final da fila. Retorna a fila atualizada.
+---
+
+--- @target: queue_int_dequeue
+```zt
+public func queue_int_dequeue(queue: list<int>) -> optional<int>
+public func queue_text_dequeue(queue: list<text>) -> optional<text>
+```
+
+Remove e retorna o elemento da frente. Retorna `none` se a fila estiver vazia.
 ---
 
 --- @target: queue_text_dequeue
-Removes and returns the text at the front of the queue.
-@param queue The queue to dequeue from.
-@return The front value wrapped in @link optional, or none if empty.
+```zt
+public func queue_int_dequeue(queue: list<int>) -> optional<int>
+public func queue_text_dequeue(queue: list<text>) -> optional<text>
+```
+
+Remove e retorna o elemento da frente. Retorna `none` se a fila estiver vazia.
+---
+
+--- @target: queue_int_peek
+```zt
+public func queue_int_peek(queue: list<int>) -> optional<int>
+public func queue_text_peek(queue: list<text>) -> optional<text>
+```
+
+Retorna o elemento da frente sem removê-lo.
+
+## Stack (Pilha LIFO)
 ---
 
 --- @target: queue_text_peek
-Returns the text at the front of the queue without removing it.
-@param queue The queue to peek at.
-@return The front value wrapped in @link optional, or none if empty.
+```zt
+public func queue_int_peek(queue: list<int>) -> optional<int>
+public func queue_text_peek(queue: list<text>) -> optional<text>
+```
+
+Retorna o elemento da frente sem removê-lo.
+
+## Stack (Pilha LIFO)
 ---
 
 --- @target: stack_int_new
-Creates a new empty stack of integers using a list internally with LIFO semantics.
-@return An empty stack.
----
+```zt
+public func stack_int_new() -> list<int>
+public func stack_text_new() -> list<text>
+```
 
---- @target: stack_int_push
-Pushes an integer onto the top of the stack.
-@param stack The stack to push onto.
-@param value The integer value to push.
-@return A new stack with the value on top.
----
-
---- @target: stack_int_pop
-Removes and returns the integer at the top of the stack.
-@param stack The stack to pop from.
-@return The top value wrapped in @link optional, or none if empty.
----
-
---- @target: stack_int_peek
-Returns the integer at the top of the stack without removing it.
-@param stack The stack to peek at.
-@return The top value wrapped in @link optional, or none if empty.
+Cria uma pilha vazia.
 ---
 
 --- @target: stack_text_new
-Creates a new empty stack of text using a list internally with LIFO semantics.
-@return An empty text stack.
+```zt
+public func stack_int_new() -> list<int>
+public func stack_text_new() -> list<text>
+```
+
+Cria uma pilha vazia.
+---
+
+--- @target: stack_int_push
+```zt
+public func stack_int_push(stack: list<int>, value: int) -> list<int>
+public func stack_text_push(stack: list<text>, value: text) -> list<text>
+```
+
+Empilha um elemento no topo.
 ---
 
 --- @target: stack_text_push
-Pushes text onto the top of the stack.
-@param stack The stack to push onto.
-@param value The text value to push.
-@return A new stack with the value on top.
+```zt
+public func stack_int_push(stack: list<int>, value: int) -> list<int>
+public func stack_text_push(stack: list<text>, value: text) -> list<text>
+```
+
+Empilha um elemento no topo.
+---
+
+--- @target: stack_int_pop
+```zt
+public func stack_int_pop(stack: list<int>) -> optional<int>
+public func stack_text_pop(stack: list<text>) -> optional<text>
+```
+
+Remove e retorna o elemento do topo. Retorna `none` se vazia.
 ---
 
 --- @target: stack_text_pop
-Removes and returns the text at the top of the stack.
-@param stack The stack to pop from.
-@return The top value wrapped in @link optional, or none if empty.
+```zt
+public func stack_int_pop(stack: list<int>) -> optional<int>
+public func stack_text_pop(stack: list<text>) -> optional<text>
+```
+
+Remove e retorna o elemento do topo. Retorna `none` se vazia.
+---
+
+--- @target: stack_int_peek
+```zt
+public func stack_int_peek(stack: list<int>) -> optional<int>
+public func stack_text_peek(stack: list<text>) -> optional<text>
+```
+
+Consulta o topo sem remover.
+
+## Grid2D (Matriz Bidimensional)
 ---
 
 --- @target: stack_text_peek
-Returns the text at the top of the stack without removing it.
-@param stack The stack to peek at.
-@return The top value wrapped in @link optional, or none if empty.
+```zt
+public func stack_int_peek(stack: list<int>) -> optional<int>
+public func stack_text_peek(stack: list<text>) -> optional<text>
+```
+
+Consulta o topo sem remover.
+
+## Grid2D (Matriz Bidimensional)
 ---
 
 --- @target: grid2d_int_new
-Creates a new 2D grid of integers with the specified dimensions.
+```zt
+public func grid2d_int_new(rows: int, cols: int) -> grid2d<int>
+public func grid2d_text_new(rows: int, cols: int) -> grid2d<text>
+```
 
-@param rows Number of rows.
-@param cols Number of columns.
-@return A new grid initialized with zero values.
----
-
---- @target: grid2d_int_get
-Gets the integer value at the specified grid coordinates.
-
-@param grid The grid to read from.
-@param row The row index (0-based).
-@param col The column index (0-based).
-@return The value at the specified position.
----
-
---- @target: grid2d_int_set
-Sets the integer value at the specified grid coordinates.
-
-@param grid The grid to modify.
-@param row The row index (0-based).
-@param col The column index (0-based).
-@param value The new value.
-@return A new grid with the value set (uses copy-on-write).
----
-
---- @target: grid2d_int_fill
-Fills the entire grid with a single integer value.
-
-@param grid The grid to fill.
-@param value The value to fill with.
-@return A new grid with all cells set to value.
----
-
---- @target: grid2d_int_rows
-Returns the number of rows in the grid.
-
-@param grid The grid to query.
-@return The row count.
----
-
---- @target: grid2d_int_cols
-Returns the number of columns in the grid.
-
-@param grid The grid to query.
-@return The column count.
+Cria uma grade 2D com `rows` linhas e `cols` colunas. Valores iniciam zerados/vazios.
 ---
 
 --- @target: grid2d_text_new
-Creates a new 2D grid of text with the specified dimensions.
+```zt
+public func grid2d_int_new(rows: int, cols: int) -> grid2d<int>
+public func grid2d_text_new(rows: int, cols: int) -> grid2d<text>
+```
 
-@param rows Number of rows.
-@param cols Number of columns.
-@return A new grid initialized with empty text values.
+Cria uma grade 2D com `rows` linhas e `cols` colunas. Valores iniciam zerados/vazios.
+---
+
+--- @target: grid2d_int_get
+```zt
+public func grid2d_int_get(grid: grid2d<int>, row: int, col: int) -> int
+public func grid2d_text_get(grid: grid2d<text>, row: int, col: int) -> text
+```
+
+Lê o valor na posição `[row, col]`.
 ---
 
 --- @target: grid2d_text_get
-Gets the text value at the specified grid coordinates.
+```zt
+public func grid2d_int_get(grid: grid2d<int>, row: int, col: int) -> int
+public func grid2d_text_get(grid: grid2d<text>, row: int, col: int) -> text
+```
 
-@param grid The grid to read from.
-@param row The row index (0-based).
-@param col The column index (0-based).
-@return The value at the specified position.
+Lê o valor na posição `[row, col]`.
+---
+
+--- @target: grid2d_int_set
+```zt
+public func grid2d_int_set(grid: grid2d<int>, row: int, col: int, value: int) -> grid2d<int>
+public func grid2d_text_set(grid: grid2d<text>, row: int, col: int, value: text) -> grid2d<text>
+```
+
+Define o valor na posição `[row, col]`. Retorna a grid atualizada (COW).
 ---
 
 --- @target: grid2d_text_set
-Sets the text value at the specified grid coordinates.
+```zt
+public func grid2d_int_set(grid: grid2d<int>, row: int, col: int, value: int) -> grid2d<int>
+public func grid2d_text_set(grid: grid2d<text>, row: int, col: int, value: text) -> grid2d<text>
+```
 
-@param grid The grid to modify.
-@param row The row index (0-based).
-@param col The column index (0-based).
-@param value The new text value.
-@return A new grid with the value set (uses copy-on-write).
+Define o valor na posição `[row, col]`. Retorna a grid atualizada (COW).
+---
+
+--- @target: grid2d_int_fill
+```zt
+public func grid2d_int_fill(grid: grid2d<int>, value: int) -> grid2d<int>
+public func grid2d_text_fill(grid: grid2d<text>, value: text) -> grid2d<text>
+```
+
+Preenche todas as células com o mesmo valor. Retorna a grid atualizada.
 ---
 
 --- @target: grid2d_text_fill
-Fills the entire grid with a single text value.
+```zt
+public func grid2d_int_fill(grid: grid2d<int>, value: int) -> grid2d<int>
+public func grid2d_text_fill(grid: grid2d<text>, value: text) -> grid2d<text>
+```
 
-@param grid The grid to fill.
-@param value The text value to fill with.
-@return A new grid with all cells set to value.
+Preenche todas as células com o mesmo valor. Retorna a grid atualizada.
+---
+
+--- @target: grid2d_int_rows
+```zt
+public func grid2d_int_rows(grid: grid2d<int>) -> int
+public func grid2d_text_rows(grid: grid2d<text>) -> int
+```
+
+Retorna o número de linhas.
 ---
 
 --- @target: grid2d_text_rows
-Returns the number of rows in the text grid.
+```zt
+public func grid2d_int_rows(grid: grid2d<int>) -> int
+public func grid2d_text_rows(grid: grid2d<text>) -> int
+```
 
-@param grid The grid to query.
-@return The row count.
+Retorna o número de linhas.
+---
+
+--- @target: grid2d_int_cols
+```zt
+public func grid2d_int_cols(grid: grid2d<int>) -> int
+public func grid2d_text_cols(grid: grid2d<text>) -> int
+```
+
+Retorna o número de colunas.
 ---
 
 --- @target: grid2d_text_cols
-Returns the number of columns in the text grid.
-
-@param grid The grid to query.
-@return The column count.
----
-
---- @target: pqueue_int_new
-Creates a new empty minimum priority queue of integers.
-@return An empty priority queue.
----
-
---- @target: pqueue_int_push
-Inserts an integer into the priority queue.
-
-@param heap The priority queue to insert into.
-@param value The integer value to insert.
-@return A new priority queue with the value inserted.
----
-
---- @target: pqueue_int_pop
-Removes and returns the smallest integer from the priority queue.
-
-@param heap The priority queue to pop from.
-@return The smallest value wrapped in @link optional, or none if empty.
----
-
---- @target: pqueue_int_peek
-Returns the smallest integer without removing it from the priority queue.
-
-@param heap The priority queue to peek at.
-@return The smallest value wrapped in @link optional, or none if empty.
----
-
---- @target: pqueue_int_len
-Returns the number of elements in the integer priority queue.
-
-@param heap The priority queue to query.
-@return The element count.
----
-
---- @target: pqueue_text_new
-Creates a new empty minimum priority queue of text.
-@return An empty text priority queue.
----
-
---- @target: pqueue_text_push
-Inserts text into the priority queue using lexicographic ordering.
-
-@param heap The priority queue to insert into.
-@param value The text value to insert.
-@return A new priority queue with the value inserted.
----
-
---- @target: pqueue_text_pop
-Removes and returns the smallest text from the priority queue.
-
-@param heap The priority queue to pop from.
-@return The smallest value wrapped in @link optional, or none if empty.
----
-
---- @target: pqueue_text_peek
-Returns the smallest text without removing it from the priority queue.
-
-@param heap The priority queue to peek at.
-@return The smallest value wrapped in @link optional, or none if empty.
----
-
---- @target: pqueue_text_len
-Returns the number of elements in the text priority queue.
-
-@param heap The priority queue to query.
-@return The element count.
----
-
---- @target: circbuf_int_new
-Creates a new circular buffer of integers with a fixed capacity.
-
-@param capacity The maximum number of elements the buffer can hold.
-@return A new circular buffer with the specified capacity.
----
-
---- @target: circbuf_int_push
-Pushes an integer into the circular buffer. If the buffer is full, the oldest element is overwritten.
-
-@param buf The circular buffer to push into.
-@param value The integer value to push.
-@return A new circular buffer with the value added.
----
-
---- @target: circbuf_int_pop
-Removes and returns the oldest integer from the circular buffer.
-
-@param buf The circular buffer to pop from.
-@return The oldest value wrapped in @link optional, or none if empty.
----
-
---- @target: circbuf_int_peek
-Returns the oldest integer without removing it from the circular buffer.
-
-@param buf The circular buffer to peek at.
-@return The oldest value wrapped in @link optional, or none if empty.
----
-
---- @target: circbuf_int_len
-Returns the current number of elements in the circular buffer.
-
-@param buf The circular buffer to query.
-@return The element count (between 0 and capacity).
----
-
---- @target: circbuf_int_capacity
-Returns the maximum capacity of the circular buffer.
-
-@param buf The circular buffer to query.
-@return The capacity.
----
-
---- @target: circbuf_int_is_full
-Checks whether the circular buffer is at full capacity.
-
-@param buf The circular buffer to check.
-@return True if the buffer is full.
----
-
---- @target: circbuf_text_new
-Creates a new circular buffer of text with a fixed capacity.
-
-@param capacity The maximum number of elements the buffer can hold.
-@return A new text circular buffer with the specified capacity.
----
-
---- @target: circbuf_text_push
-Pushes text into the circular buffer. If the buffer is full, the oldest element is overwritten.
-
-@param buf The circular buffer to push into.
-@param value The text value to push.
-@return A new circular buffer with the value added.
----
-
---- @target: circbuf_text_pop
-Removes and returns the oldest text from the circular buffer.
-
-@param buf The circular buffer to pop from.
-@return The oldest value wrapped in @link optional, or none if empty.
----
-
---- @target: circbuf_text_peek
-Returns the oldest text without removing it from the circular buffer.
-
-@param buf The circular buffer to peek at.
-@return The oldest value wrapped in @link optional, or none if empty.
----
-
---- @target: circbuf_text_len
-Returns the current number of elements in the text circular buffer.
-
-@param buf The circular buffer to query.
-@return The element count.
----
-
---- @target: circbuf_text_capacity
-Returns the maximum capacity of the text circular buffer.
-
-@param buf The circular buffer to query.
-@return The capacity.
----
-
---- @target: circbuf_text_is_full
-Checks whether the text circular buffer is at full capacity.
-
-@param buf The circular buffer to check.
-@return True if the buffer is full.
----
-
---- @target: btreemap_text_new
-Creates a new empty ordered map from text keys to text values.
-
-@return An empty BTreeMap.
----
-
---- @target: btreemap_text_set
-Inserts or updates a key-value pair in the map.
-
-@param self_map The map to modify.
-@param key The text key.
-@param value The text value.
-@return A new map with the key set (uses copy-on-write).
----
-
---- @target: btreemap_text_get
-Retrieves the value associated with a key.
-
-@param self_map The map to query.
-@param key The text key to look up.
-@return The associated value.
----
-
---- @target: btreemap_text_get_optional
-Retrieves the value associated with a key, or none if the key is not present.
-
-@param self_map The map to query.
-@param key The text key to look up.
-@return The value wrapped in @link optional, or none if not found.
----
-
---- @target: btreemap_text_contains
-Checks whether a key exists in the map.
-
-@param self_map The map to query.
-@param key The text key to check.
-@return True if the key is present.
----
-
---- @target: btreemap_text_remove
-Removes a key-value pair from the map.
-
-@param self_map The map to modify.
-@param key The text key to remove.
-@return A new map with the key removed.
----
-
---- @target: btreemap_text_len
-Returns the number of key-value pairs in the map.
-
-@param self_map The map to query.
-@return The pair count.
----
-
---- @target: btreeset_text_new
-Creates a new empty ordered set of text values.
-@return An empty BTreeSet.
----
-
---- @target: btreeset_text_insert
-Inserts a value into the set.
-
-@param set The set to modify.
-@param value The text value to insert.
-@return A new set with the value inserted.
----
-
---- @target: btreeset_text_contains
-Checks whether a value exists in the set.
-
-@param set The set to query.
-@param value The text value to check.
-@return True if the value is present.
----
-
---- @target: btreeset_text_remove
-Removes a value from the set.
-
-@param set The set to modify.
-@param value The text value to remove.
-@return A new set with the value removed.
----
-
---- @target: btreeset_text_len
-Returns the number of values in the set.
-
-@param set The set to query.
-@return The value count.
----
-
---- @target: grid3d_int_new
-Creates a new 3D grid of integers with the specified dimensions.
-
-@param depth Number of layers (depth).
-@param rows Number of rows per layer.
-@param cols Number of columns per layer.
-@return A new 3D grid initialized with zero values.
----
-
---- @target: grid3d_int_get
-Gets the integer value at the specified 3D coordinates.
-
-@param grid The 3D grid to read from.
-@param layer The layer index (0-based).
-@param row The row index (0-based).
-@param col The column index (0-based).
-@return The value at the specified position.
----
-
---- @target: grid3d_int_set
-Sets the integer value at the specified 3D coordinates.
-
-@param grid The 3D grid to modify.
-@param layer The layer index (0-based).
-@param row The row index (0-based).
-@param col The column index (0-based).
-@param value The new value.
-@return A new 3D grid with the value set (uses copy-on-write).
----
-
---- @target: grid3d_int_fill
-Fills the entire 3D grid with a single integer value.
-
-@param grid The 3D grid to fill.
-@param value The value to fill with.
-@return A new 3D grid with all cells set to value.
----
-
---- @target: grid3d_int_depth
-Returns the number of layers in the 3D grid.
-
-@param grid The 3D grid to query.
-@return The depth (layer count).
----
-
---- @target: grid3d_int_rows
-Returns the number of rows per layer in the 3D grid.
-
-@param grid The 3D grid to query.
-@return The row count.
----
-
---- @target: grid3d_int_cols
-Returns the number of columns per layer in the 3D grid.
-
-@param grid The 3D grid to query.
-@return The column count.
----
-
---- @target: grid3d_text_new
-Creates a new 3D grid of text with the specified dimensions.
-
-@param depth Number of layers (depth).
-@param rows Number of rows per layer.
-@param cols Number of columns per layer.
-@return A new 3D text grid initialized with empty text values.
----
-
---- @target: grid3d_text_get
-Gets the text value at the specified 3D coordinates.
-
-@param grid The 3D grid to read from.
-@param layer The layer index (0-based).
-@param row The row index (0-based).
-@param col The column index (0-based).
-@return The value at the specified position.
----
-
---- @target: grid3d_text_set
-Sets the text value at the specified 3D coordinates.
-
-@param grid The 3D grid to modify.
-@param layer The layer index (0-based).
-@param row The row index (0-based).
-@param col The column index (0-based).
-@param value The new text value.
-@return A new 3D grid with the value set (uses copy-on-write).
----
-
---- @target: grid3d_text_fill
-Fills the entire 3D text grid with a single text value.
-
-@param grid The 3D grid to fill.
-@param value The text value to fill with.
-@return A new 3D grid with all cells set to value.
----
-
---- @target: grid3d_text_depth
-Returns the number of layers in the 3D text grid.
-
-@param grid The 3D grid to query.
-@return The depth (layer count).
----
-
---- @target: grid3d_text_rows
-Returns the number of rows per layer in the 3D text grid.
-
-@param grid The 3D grid to query.
-@return The row count.
----
-
---- @target: grid3d_text_cols
-Returns the number of columns per layer in the 3D text grid.
-
-@param grid The 3D grid to query.
-@return The column count.
----
-
---- @target: pqueue_int_is_empty
-Checks whether the integer priority queue has no elements.
-
-@param heap The priority queue to check.
-@return True if the queue is empty.
----
-
---- @target: pqueue_text_is_empty
-Checks whether the text priority queue has no elements.
-
-@param heap The priority queue to check.
-@return True if the queue is empty.
----
-
---- @target: circbuf_int_is_empty
-Checks whether the integer circular buffer has no elements.
-
-@param buf The circular buffer to check.
-@return True if the buffer is empty.
----
-
---- @target: circbuf_text_is_empty
-Checks whether the text circular buffer has no elements.
-
-@param buf The circular buffer to check.
-@return True if the buffer is empty.
----
-
---- @target: btreemap_text_is_empty
-Checks whether the BTreeMap has no key-value pairs.
-
-@param self_map The map to check.
-@return True if the map is empty.
----
-
---- @target: btreeset_text_is_empty
-Checks whether the BTreeSet has no values.
-
-@param set The set to check.
-@return True if the set is empty.
+```zt
+public func grid2d_int_cols(grid: grid2d<int>) -> int
+public func grid2d_text_cols(grid: grid2d<text>) -> int
+```
+
+Retorna o número de colunas.
 ---
 
 --- @target: grid2d_int_size
-Returns the total number of cells in the 2D integer grid (rows * cols).
+```zt
+public func grid2d_int_size(grid: grid2d<int>) -> int
+public func grid2d_text_size(grid: grid2d<text>) -> int
+```
 
-@param grid The grid to query.
-@return The total cell count.
+Retorna o total de células (`rows * cols`).
+
+## Grid3D (Matriz Tridimensional)
 ---
 
 --- @target: grid2d_text_size
-Returns the total number of cells in the 2D text grid (rows * cols).
+```zt
+public func grid2d_int_size(grid: grid2d<int>) -> int
+public func grid2d_text_size(grid: grid2d<text>) -> int
+```
 
-@param grid The grid to query.
-@return The total cell count.
+Retorna o total de células (`rows * cols`).
+
+## Grid3D (Matriz Tridimensional)
 ---
 
---- @target: grid3d_int_size
-Returns the total number of cells in the 3D integer grid (depth * rows * cols).
+--- @target: grid3d_int_new
+```zt
+public func grid3d_int_new(depth: int, rows: int, cols: int) -> grid3d<int>
+public func grid3d_text_new(depth: int, rows: int, cols: int) -> grid3d<text>
+```
 
-@param grid The 3D grid to query.
-@return The total cell count.
+Cria uma grade 3D de dimensões `depth × rows × cols`.
 ---
 
---- @target: grid3d_text_size
-Returns the total number of cells in the 3D text grid (depth * rows * cols).
+--- @target: grid3d_text_new
+```zt
+public func grid3d_int_new(depth: int, rows: int, cols: int) -> grid3d<int>
+public func grid3d_text_new(depth: int, rows: int, cols: int) -> grid3d<text>
+```
 
-@param grid The 3D grid to query.
-@return The total cell count.
+Cria uma grade 3D de dimensões `depth × rows × cols`.
+---
+
+--- @target: grid3d_int_get
+```zt
+public func grid3d_int_get(grid: grid3d<int>, layer: int, row: int, col: int) -> int
+public func grid3d_text_get(grid: grid3d<text>, layer: int, row: int, col: int) -> text
+```
+
+Lê o valor na posição `[layer, row, col]`.
+---
+
+--- @target: grid3d_text_get
+```zt
+public func grid3d_int_get(grid: grid3d<int>, layer: int, row: int, col: int) -> int
+public func grid3d_text_get(grid: grid3d<text>, layer: int, row: int, col: int) -> text
+```
+
+Lê o valor na posição `[layer, row, col]`.
+---
+
+--- @target: grid3d_int_set
+```zt
+public func grid3d_int_set(grid: grid3d<int>, layer: int, row: int, col: int, value: int) -> grid3d<int>
+public func grid3d_text_set(grid: grid3d<text>, layer: int, row: int, col: int, value: text) -> grid3d<text>
+```
+
+Define valor na posição `[layer, row, col]`. Retorna grid atualizada (COW).
+---
+
+--- @target: grid3d_text_set
+```zt
+public func grid3d_int_set(grid: grid3d<int>, layer: int, row: int, col: int, value: int) -> grid3d<int>
+public func grid3d_text_set(grid: grid3d<text>, layer: int, row: int, col: int, value: text) -> grid3d<text>
+```
+
+Define valor na posição `[layer, row, col]`. Retorna grid atualizada (COW).
+---
+
+--- @target: grid3d_int_fill
+```zt
+public func grid3d_int_fill(grid: grid3d<int>, value: int) -> grid3d<int>
+public func grid3d_text_fill(grid: grid3d<text>, value: text) -> grid3d<text>
+```
+
+Preenche todas as células com o mesmo valor.
+---
+
+--- @target: grid3d_text_fill
+```zt
+public func grid3d_int_fill(grid: grid3d<int>, value: int) -> grid3d<int>
+public func grid3d_text_fill(grid: grid3d<text>, value: text) -> grid3d<text>
+```
+
+Preenche todas as células com o mesmo valor.
+---
+
+--- @target: grid3d_int_depth
+```zt
+public func grid3d_int_depth(grid: grid3d<int>) -> int
+public func grid3d_text_depth(grid: grid3d<text>) -> int
+```
+
+Retorna o número de camadas (profundidade).
+---
+
+--- @target: grid3d_text_depth
+```zt
+public func grid3d_int_depth(grid: grid3d<int>) -> int
+public func grid3d_text_depth(grid: grid3d<text>) -> int
+```
+
+Retorna o número de camadas (profundidade).
+---
+
+--- @target: grid3d_int_rows
+```zt
+public func grid3d_int_rows(grid: grid3d<int>) -> int
+public func grid3d_int_cols(grid: grid3d<int>) -> int
+public func grid3d_int_size(grid: grid3d<int>) -> int
+public func grid3d_text_rows(grid: grid3d<text>) -> int
+public func grid3d_text_cols(grid: grid3d<text>) -> int
+public func grid3d_text_size(grid: grid3d<text>) -> int
+```
+
+Dimensões e total de células (`depth * rows * cols`).
+
+## PriorityQueue (Fila de Prioridade — Min-Heap)
+---
+
+--- @target: cols
+```zt
+public func grid3d_int_rows(grid: grid3d<int>) -> int
+public func grid3d_int_cols(grid: grid3d<int>) -> int
+public func grid3d_int_size(grid: grid3d<int>) -> int
+public func grid3d_text_rows(grid: grid3d<text>) -> int
+public func grid3d_text_cols(grid: grid3d<text>) -> int
+public func grid3d_text_size(grid: grid3d<text>) -> int
+```
+
+Dimensões e total de células (`depth * rows * cols`).
+
+## PriorityQueue (Fila de Prioridade — Min-Heap)
+---
+
+--- @target: size e grid3d_text_rows
+```zt
+public func grid3d_int_rows(grid: grid3d<int>) -> int
+public func grid3d_int_cols(grid: grid3d<int>) -> int
+public func grid3d_int_size(grid: grid3d<int>) -> int
+public func grid3d_text_rows(grid: grid3d<text>) -> int
+public func grid3d_text_cols(grid: grid3d<text>) -> int
+public func grid3d_text_size(grid: grid3d<text>) -> int
+```
+
+Dimensões e total de células (`depth * rows * cols`).
+
+## PriorityQueue (Fila de Prioridade — Min-Heap)
+---
+
+--- @target: cols
+```zt
+public func grid3d_int_rows(grid: grid3d<int>) -> int
+public func grid3d_int_cols(grid: grid3d<int>) -> int
+public func grid3d_int_size(grid: grid3d<int>) -> int
+public func grid3d_text_rows(grid: grid3d<text>) -> int
+public func grid3d_text_cols(grid: grid3d<text>) -> int
+public func grid3d_text_size(grid: grid3d<text>) -> int
+```
+
+Dimensões e total de células (`depth * rows * cols`).
+
+## PriorityQueue (Fila de Prioridade — Min-Heap)
+---
+
+--- @target: size
+```zt
+public func grid3d_int_rows(grid: grid3d<int>) -> int
+public func grid3d_int_cols(grid: grid3d<int>) -> int
+public func grid3d_int_size(grid: grid3d<int>) -> int
+public func grid3d_text_rows(grid: grid3d<text>) -> int
+public func grid3d_text_cols(grid: grid3d<text>) -> int
+public func grid3d_text_size(grid: grid3d<text>) -> int
+```
+
+Dimensões e total de células (`depth * rows * cols`).
+
+## PriorityQueue (Fila de Prioridade — Min-Heap)
+---
+
+--- @target: pqueue_int_new
+```zt
+public func pqueue_int_new() -> pqueue<int>
+public func pqueue_text_new() -> pqueue<text>
+```
+
+Cria um min-heap vazio. Elementos menores têm maior prioridade.
+---
+
+--- @target: pqueue_text_new
+```zt
+public func pqueue_int_new() -> pqueue<int>
+public func pqueue_text_new() -> pqueue<text>
+```
+
+Cria um min-heap vazio. Elementos menores têm maior prioridade.
+---
+
+--- @target: pqueue_int_push
+```zt
+public func pqueue_int_push(heap: pqueue<int>, value: int) -> pqueue<int>
+public func pqueue_text_push(heap: pqueue<text>, value: text) -> pqueue<text>
+```
+
+Insere um elemento mantendo a propriedade do heap.
+---
+
+--- @target: pqueue_text_push
+```zt
+public func pqueue_int_push(heap: pqueue<int>, value: int) -> pqueue<int>
+public func pqueue_text_push(heap: pqueue<text>, value: text) -> pqueue<text>
+```
+
+Insere um elemento mantendo a propriedade do heap.
+---
+
+--- @target: pqueue_int_pop
+```zt
+public func pqueue_int_pop(heap: pqueue<int>) -> optional<int>
+public func pqueue_text_pop(heap: pqueue<text>) -> optional<text>
+```
+
+Remove e retorna o menor elemento. Retorna `none` se vazio.
+---
+
+--- @target: pqueue_text_pop
+```zt
+public func pqueue_int_pop(heap: pqueue<int>) -> optional<int>
+public func pqueue_text_pop(heap: pqueue<text>) -> optional<text>
+```
+
+Remove e retorna o menor elemento. Retorna `none` se vazio.
+---
+
+--- @target: pqueue_int_peek
+```zt
+public func pqueue_int_peek(heap: pqueue<int>) -> optional<int>
+public func pqueue_text_peek(heap: pqueue<text>) -> optional<text>
+```
+
+Consulta o menor elemento sem removê-lo.
+---
+
+--- @target: pqueue_text_peek
+```zt
+public func pqueue_int_peek(heap: pqueue<int>) -> optional<int>
+public func pqueue_text_peek(heap: pqueue<text>) -> optional<text>
+```
+
+Consulta o menor elemento sem removê-lo.
+---
+
+--- @target: pqueue_int_len
+```zt
+public func pqueue_int_len(heap: pqueue<int>) -> int
+public func pqueue_text_len(heap: pqueue<text>) -> int
+```
+
+Retorna o número de elementos no heap.
+---
+
+--- @target: pqueue_text_len
+```zt
+public func pqueue_int_len(heap: pqueue<int>) -> int
+public func pqueue_text_len(heap: pqueue<text>) -> int
+```
+
+Retorna o número de elementos no heap.
+---
+
+--- @target: pqueue_int_is_empty
+```zt
+public func pqueue_int_is_empty(heap: pqueue<int>) -> bool
+public func pqueue_text_is_empty(heap: pqueue<text>) -> bool
+```
+
+Retorna `true` se o heap estiver vazio.
+
+## CircularBuffer (Buffer Circular)
+---
+
+--- @target: pqueue_text_is_empty
+```zt
+public func pqueue_int_is_empty(heap: pqueue<int>) -> bool
+public func pqueue_text_is_empty(heap: pqueue<text>) -> bool
+```
+
+Retorna `true` se o heap estiver vazio.
+
+## CircularBuffer (Buffer Circular)
+---
+
+--- @target: circbuf_int_new
+```zt
+public func circbuf_int_new(capacity: int) -> circbuf<int>
+public func circbuf_text_new(capacity: int) -> circbuf<text>
+```
+
+Cria um ring buffer com capacidade fixa. Ao encher, novos `push` sobrescrevem os mais antigos.
+---
+
+--- @target: circbuf_text_new
+```zt
+public func circbuf_int_new(capacity: int) -> circbuf<int>
+public func circbuf_text_new(capacity: int) -> circbuf<text>
+```
+
+Cria um ring buffer com capacidade fixa. Ao encher, novos `push` sobrescrevem os mais antigos.
+---
+
+--- @target: circbuf_int_push
+```zt
+public func circbuf_int_push(buf: circbuf<int>, value: int) -> circbuf<int>
+public func circbuf_text_push(buf: circbuf<text>, value: text) -> circbuf<text>
+```
+
+Insere um elemento. Se cheio, sobrescreve o mais antigo.
+---
+
+--- @target: circbuf_text_push
+```zt
+public func circbuf_int_push(buf: circbuf<int>, value: int) -> circbuf<int>
+public func circbuf_text_push(buf: circbuf<text>, value: text) -> circbuf<text>
+```
+
+Insere um elemento. Se cheio, sobrescreve o mais antigo.
+---
+
+--- @target: circbuf_int_pop
+```zt
+public func circbuf_int_pop(buf: circbuf<int>) -> optional<int>
+public func circbuf_text_pop(buf: circbuf<text>) -> optional<text>
+```
+
+Remove e retorna o elemento mais antigo. Retorna `none` se vazio.
+---
+
+--- @target: circbuf_text_pop
+```zt
+public func circbuf_int_pop(buf: circbuf<int>) -> optional<int>
+public func circbuf_text_pop(buf: circbuf<text>) -> optional<text>
+```
+
+Remove e retorna o elemento mais antigo. Retorna `none` se vazio.
+---
+
+--- @target: circbuf_int_peek
+```zt
+public func circbuf_int_peek(buf: circbuf<int>) -> optional<int>
+public func circbuf_text_peek(buf: circbuf<text>) -> optional<text>
+```
+
+Consulta o mais antigo sem remover.
+---
+
+--- @target: circbuf_text_peek
+```zt
+public func circbuf_int_peek(buf: circbuf<int>) -> optional<int>
+public func circbuf_text_peek(buf: circbuf<text>) -> optional<text>
+```
+
+Consulta o mais antigo sem remover.
+---
+
+--- @target: circbuf_int_len
+```zt
+public func circbuf_int_len(buf: circbuf<int>) -> int
+public func circbuf_text_len(buf: circbuf<text>) -> int
+```
+
+Número de elementos armazenados atualmente.
+---
+
+--- @target: circbuf_text_len
+```zt
+public func circbuf_int_len(buf: circbuf<int>) -> int
+public func circbuf_text_len(buf: circbuf<text>) -> int
+```
+
+Número de elementos armazenados atualmente.
+---
+
+--- @target: circbuf_int_capacity
+```zt
+public func circbuf_int_capacity(buf: circbuf<int>) -> int
+public func circbuf_text_capacity(buf: circbuf<text>) -> int
+```
+
+Capacidade máxima do buffer.
+---
+
+--- @target: circbuf_text_capacity
+```zt
+public func circbuf_int_capacity(buf: circbuf<int>) -> int
+public func circbuf_text_capacity(buf: circbuf<text>) -> int
+```
+
+Capacidade máxima do buffer.
+---
+
+--- @target: circbuf_int_is_full
+```zt
+public func circbuf_int_is_full(buf: circbuf<int>) -> bool
+public func circbuf_text_is_full(buf: circbuf<text>) -> bool
+```
+
+Retorna `true` se `len == capacity`.
+---
+
+--- @target: circbuf_text_is_full
+```zt
+public func circbuf_int_is_full(buf: circbuf<int>) -> bool
+public func circbuf_text_is_full(buf: circbuf<text>) -> bool
+```
+
+Retorna `true` se `len == capacity`.
+---
+
+--- @target: circbuf_int_is_empty
+```zt
+public func circbuf_int_is_empty(buf: circbuf<int>) -> bool
+public func circbuf_text_is_empty(buf: circbuf<text>) -> bool
+```
+
+Retorna `true` se vazio.
+
+## BTreeMap (Mapa Ordenado por Chave)
+---
+
+--- @target: circbuf_text_is_empty
+```zt
+public func circbuf_int_is_empty(buf: circbuf<int>) -> bool
+public func circbuf_text_is_empty(buf: circbuf<text>) -> bool
+```
+
+Retorna `true` se vazio.
+
+## BTreeMap (Mapa Ordenado por Chave)
+---
+
+--- @target: btreemap_text_new
+```zt
+public func btreemap_text_new() -> btreemap<text, text>
+```
+
+Cria um mapa ordenado vazio. Implementado com sorted array + busca binária.
+---
+
+--- @target: btreemap_text_set
+```zt
+public func btreemap_text_set(self_map: btreemap<text, text>, key: text, value: text) -> btreemap<text, text>
+```
+
+Insere ou atualiza um par chave-valor. Retorna mapa atualizado (COW).
+---
+
+--- @target: btreemap_text_get
+```zt
+public func btreemap_text_get(self_map: btreemap<text, text>, key: text) -> text
+```
+
+Busca assertiva: retorna o valor ou causa panic se a chave não existir.
+---
+
+--- @target: btreemap_text_get_optional
+```zt
+public func btreemap_text_get_optional(self_map: btreemap<text, text>, key: text) -> optional<text>
+```
+
+Busca segura: retorna `none` se a chave não existir.
+---
+
+--- @target: btreemap_text_contains
+```zt
+public func btreemap_text_contains(self_map: btreemap<text, text>, key: text) -> bool
+```
+
+Verifica se uma chave existe no mapa.
+---
+
+--- @target: btreemap_text_remove
+```zt
+public func btreemap_text_remove(self_map: btreemap<text, text>, key: text) -> btreemap<text, text>
+```
+
+Remove uma chave. Retorna o mapa atualizado (COW).
+---
+
+--- @target: btreemap_text_len
+```zt
+public func btreemap_text_len(self_map: btreemap<text, text>) -> int
+```
+
+Retorna o número de pares chave-valor.
+---
+
+--- @target: btreemap_text_is_empty
+```zt
+public func btreemap_text_is_empty(self_map: btreemap<text, text>) -> bool
+```
+
+Retorna `true` se o mapa estiver vazio.
+
+## BTreeSet (Conjunto Ordenado)
+---
+
+--- @target: btreeset_text_new
+```zt
+public func btreeset_text_new() -> btreeset<text>
+```
+
+Cria um conjunto ordenado vazio. Não permite duplicatas.
+---
+
+--- @target: btreeset_text_insert
+```zt
+public func btreeset_text_insert(set: btreeset<text>, value: text) -> btreeset<text>
+```
+
+Insere um elemento. Se já existir, o conjunto não muda.
+---
+
+--- @target: btreeset_text_contains
+```zt
+public func btreeset_text_contains(set: btreeset<text>, value: text) -> bool
+```
+
+Verifica se o elemento está presente.
+---
+
+--- @target: btreeset_text_remove
+```zt
+public func btreeset_text_remove(set: btreeset<text>, value: text) -> btreeset<text>
+```
+
+Remove um elemento. Retorna o conjunto atualizado.
+---
+
+--- @target: btreeset_text_len
+```zt
+public func btreeset_text_len(set: btreeset<text>) -> int
+```
+
+Retorna o número de elementos.
+---
+
+--- @target: btreeset_text_is_empty
+```zt
+public func btreeset_text_is_empty(set: btreeset<text>) -> bool
+```
+
+Retorna `true` se o conjunto estiver vazio.
 ---

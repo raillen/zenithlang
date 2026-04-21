@@ -1,37 +1,40 @@
+--- @target: namespace
+# std.random — Geração de Números Pseudo-Aleatórios
+
+Módulo para geração determinística de números aleatórios usando PRNG do host.
+Permite definir semente para reprodutibilidade em testes.
+---
+
 --- @target: seed
-Planta uma base inicial explícita baseada num Inteiro para o gerador pseudoaleatório (PRNG) focado na fórmula de Xoshiro/PCG estipulada pela Stdlib do Zenith.
+```zt
+public func seed(seed: int) -> void
+```
 
-Sementes dão luz à "Aleatoriade Determinística": Com o MESMO Seed as chamadas geradas seguirão a mesmíssima sequencia perfeita de números sorteados. Ótimo para compartilhar Seeds de mapas em Mundos (Games). No caso geral, a plataforma o sementeia com o relógio nativo (`std.time.now()`) no topo do programa para ti.
+Define a semente do gerador pseudo-aleatório.
+Usar a mesma semente produz sempre a mesma sequência de números, útil para testes determinísticos.
 
-⚡ **Sintaxe**
-`func seed(seed: int) -> void`
-
-📌 **Parâmetros**
-- `seed`: O Inteiro âncora a basear.
+@param seed — Valor inteiro usado como semente do PRNG.
 ---
+
 --- @target: next
-Rola o maquinário pseudoaleatório do Zenith pra próxima casa (PRNG Algoritmo Xoshiro/PCG) cuspindo o próximo estado contido nele descontroladamente, gerando por resultado o Inteiro imprevisível resultante.
+```zt
+public func next() -> int
+```
 
-É o esqueleto gerador mais puro numérico do projeto.
+Gera o próximo número pseudo-aleatório da sequência.
 
-⚡ **Sintaxe**
-`func next() -> int`
-
-🎯 **Retorno**
-`int` inteiro sorteado (Podendo englobar imensos números negativos nativos da base i64 do C backend). Use `@link between` na maioria da vida de uso prático.
+@return Inteiro pseudo-aleatório.
 ---
+
 --- @target: between
-Sorteia roletando e devolve um número seguro entre as colunas passadas, de maneira altamente controlável, mitigando o lixo descontrolado que a @link next provém.
+```zt
+public func between(min: int, max: int) -> result<int, text>
+```
 
-Engloba inclusive a casa final (Inclusivo).
+Gera um número pseudo-aleatório no intervalo fechado `[min, max]`.
+Retorna erro se `max < min`.
 
-⚡ **Sintaxe**
-`func between(min: int, max: int) -> result<int, text>`
-
-📌 **Parâmetros**
-- `min`: Piso Inferior do sorteio (Pode cair nesse).
-- `max`: Teto Superior Máximo (Pode cair nesse também - Inclusivo).
-
-🎯 **Retorno**
-`result<int, text>` com sucesso na rolagem em `int`. Devolve um `text` diagnosticando via erro caso você cometa o deslize fatal de especificar um `min` mais alto que seu `max` e trave as engrenagens de Span do PCG C backend.
+@param min — Limite inferior (inclusivo).
+@param max — Limite superior (inclusivo).
+@return Inteiro aleatório no intervalo, ou mensagem de erro se `max < min`.
 ---

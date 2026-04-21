@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CaretDown, Palette } from '@phosphor-icons/react';
+import { X, CaretDown } from '@phosphor-icons/react';
 
-const MobileMenu = ({ isOpen, onClose, categories, activeSection, setActiveSection, labels }) => {
-  const [expandedCat, setExpandedCat] = useState(null);
+const MobileMenu = ({ isOpen, onClose, docsItems, activeSection, setActiveSection, labels }) => {
+  const [expandedDocs, setExpandedDocs] = useState(false);
   const logoUrl = `${import.meta.env.BASE_URL}logo-only.svg`;
-
-  const handleToggle = (id) => {
-    setExpandedCat(expandedCat === id ? null : id);
-  };
 
   const handleNavigate = (id) => {
     setActiveSection(id);
@@ -23,6 +19,8 @@ const MobileMenu = ({ isOpen, onClose, categories, activeSection, setActiveSecti
       transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
     }
   };
+
+  const isDocsActive = ['narrative', 'roadmap', 'learn', 'reference'].includes(activeSection);
 
   return (
     <motion.div
@@ -53,46 +51,43 @@ const MobileMenu = ({ isOpen, onClose, categories, activeSection, setActiveSecti
           {labels.home}
         </button>
 
-        {/* Categories Accordion */}
-        {categories.map((cat) => (
-          <div key={cat.id} className="flex flex-col border-b border-black/[0.03] py-2">
-            <button
-              onClick={() => handleToggle(cat.id)}
-              className="flex items-center justify-between w-full py-4 text-left"
-            >
-              <span className={`text-2xl font-bold ${cat.items.some(i => i.id === activeSection) ? 'text-primary' : 'text-neutral/80'}`}>
-                {cat.label}
-              </span>
-              <CaretDown size={20} className={`transition-transform duration-300 ${expandedCat === cat.id ? 'rotate-180' : ''}`} />
-            </button>
-            
-            <AnimatePresence>
-              {expandedCat === cat.id && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden flex flex-col gap-1 pl-4 pb-4"
-                >
-                  {cat.items.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigate(item.id)}
-                      className={`text-left py-3 text-lg font-bold flex items-center justify-between ${activeSection === item.id ? 'text-primary' : 'text-neutral/40'}`}
-                    >
-                      <span>{item.label}</span>
-                      {item.id === 'theme' && <Palette size={16} />}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        ))}
+        {/* Docs Accordion */}
+        <div className="flex flex-col border-b border-black/[0.03] py-2">
+          <button
+            onClick={() => setExpandedDocs(!expandedDocs)}
+            className="flex items-center justify-between w-full py-4 text-left"
+          >
+            <span className={`text-2xl font-bold ${isDocsActive ? 'text-primary' : 'text-neutral/80'}`}>
+              {labels.docs}
+            </span>
+            <CaretDown size={20} className={`transition-transform duration-300 ${expandedDocs ? 'rotate-180' : ''}`} />
+          </button>
+          
+          <AnimatePresence>
+            {expandedDocs && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden flex flex-col gap-1 pl-4 pb-4"
+              >
+                {docsItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigate(item.id)}
+                    className={`text-left py-3 text-lg font-bold ${activeSection === item.id ? 'text-primary' : 'text-neutral/40'}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </nav>
 
       <div className="mt-auto pt-10 flex flex-col items-center gap-2 opacity-20">
-        <span className="text-[10px] font-black uppercase tracking-[0.4em]">Sovereign Web Core</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.4em]">Zenith Language</span>
       </div>
     </motion.div>
   );
