@@ -1,0 +1,11 @@
+namespace borealis.game
+
+public struct GameLayerStatus
+    name: text = "game"
+    ready: bool = false
+    note: text = "easy layer scaffold; function names will be decided next"
+end
+
+public func status() -> game.GameLayerStatus
+    return game.GameLayerStatus()
+end

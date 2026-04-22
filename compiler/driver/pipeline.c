@@ -799,11 +799,16 @@ static int zt_compile_runtime_object(const char *runtime_obj_path) {
     return 1;
 }
 
-int zt_compile_c_file(const char *c_path, const char *exe_path) {
+int zt_compile_c_file(const char *c_path, const char *exe_path, const zt_project_manifest *manifest) {
     char compile_cmd[2048];
     const char *runtime_obj_path = ".ztc-tmp/runtime/zenith_rt.o";
     char runtime_root[768];
+    const char *extra_linker_flags = "";
     int compile_result;
+
+    if (manifest != NULL && manifest->build_linker_flags[0] != '\0') {
+        extra_linker_flags = manifest->build_linker_flags;
+    }
 
     if (zt_runtime_object_is_stale(runtime_obj_path)) {
         if (!zt_compile_runtime_object(runtime_obj_path)) {
@@ -814,13 +819,25 @@ int zt_compile_c_file(const char *c_path, const char *exe_path) {
     zt_runtime_root(runtime_root, sizeof(runtime_root));
 
 #ifdef _WIN32
-    snprintf(compile_cmd, sizeof(compile_cmd),
-             "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lws2_32",
-             runtime_root, exe_path, c_path, runtime_obj_path);
+    if (extra_linker_flags[0] != '\0') {
+        snprintf(compile_cmd, sizeof(compile_cmd),
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" %s -lws2_32",
+                 runtime_root, exe_path, c_path, runtime_obj_path, extra_linker_flags);
+    } else {
+        snprintf(compile_cmd, sizeof(compile_cmd),
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lws2_32",
+                 runtime_root, exe_path, c_path, runtime_obj_path);
+    }
 #else
-    snprintf(compile_cmd, sizeof(compile_cmd),
-             "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lm",
-             runtime_root, exe_path, c_path, runtime_obj_path);
+    if (extra_linker_flags[0] != '\0') {
+        snprintf(compile_cmd, sizeof(compile_cmd),
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" %s -lm",
+                 runtime_root, exe_path, c_path, runtime_obj_path, extra_linker_flags);
+    } else {
+        snprintf(compile_cmd, sizeof(compile_cmd),
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lm",
+                 runtime_root, exe_path, c_path, runtime_obj_path);
+    }
 #endif
 
     if (!zt_ci_mode_enabled) {

@@ -1,0 +1,11 @@
+namespace borealis.engine
+
+public struct EngineLayerStatus
+    name: text = "engine"
+    ready: bool = false
+    note: text = "provisional layer; detailed API naming is pending"
+end
+
+public func status() -> engine.EngineLayerStatus
+    return engine.EngineLayerStatus()
+end

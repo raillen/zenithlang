@@ -13,6 +13,8 @@ Executar e validar as entregas do roadmap 3.0 com evidencias objetivas.
 
 - Upstream:
   - `docs/planning/roadmap-v3.md`
+  - `docs/planning/borealis-roadmap-v1.md`
+  - `docs/planning/borealis-checklist-v1.md`
 - Downstream:
   - `docs/reports/*`
   - `docs/reports/release/*`
@@ -56,6 +58,7 @@ Para release:
 - [ ] Congelar baseline de performance do ciclo
 - [ ] Publicar matriz de riscos R3 (P0/P1/P2) com owner e prazo
 - [ ] Abrir relatorio de kickoff do ciclo
+- [ ] Publicar checkpoint inicial de alinhamento com Borealis
 
 Criterio de aceite:
 
@@ -167,6 +170,7 @@ Criterio de aceite:
 - [ ] Gerar pacote de release + checksum
 - [ ] Validar install limpo em ambiente sem residuos
 - [ ] Publicar limites conhecidos e risco residual
+- [ ] Publicar checkpoint final de alinhamento R3 x Borealis
 
 Criterio de aceite:
 
@@ -186,6 +190,14 @@ Criterio de aceite:
 - [ ] Toda mudanca de comportamento atualiza docs no mesmo PR
 - [ ] Toda regressao critica de performance bloqueia merge
 - [ ] Toda divergencia spec x codigo recebe classificacao P0/P1/P2
+
+## Trilha paralela Borealis (controle de alinhamento)
+
+- [ ] Manter `borealis-roadmap-v1` e `borealis-checklist-v1` sincronizados com decisoes do R3
+- [ ] Executar checkpoint de alinhamento Borealis no fechamento de `R3.M0`
+- [ ] Executar checkpoint de alinhamento Borealis no fechamento de `R3.M5`
+- [ ] Executar checkpoint de alinhamento Borealis no fechamento de `R3.M9`
+- [ ] Registrar divergencias entre trilha R3 e trilha Borealis com owner e prazo
 
 ## Evidencia minima para marcar item como concluido
 

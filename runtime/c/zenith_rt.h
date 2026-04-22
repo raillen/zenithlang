@@ -900,6 +900,33 @@ zt_outcome_void_core_error zt_net_close(zt_net_connection *connection);
 zt_bool zt_net_is_closed(const zt_net_connection *connection);
 zt_int zt_net_error_kind_index(zt_core_error error);
 
+zt_outcome_i64_core_error zt_borealis_open_window(const zt_text *title, zt_int width, zt_int height, zt_int target_fps, zt_int backend_id);
+zt_outcome_void_core_error zt_borealis_close_window(zt_int window_id);
+zt_bool zt_borealis_window_should_close(zt_int window_id);
+zt_outcome_void_core_error zt_borealis_begin_frame(zt_int window_id, zt_int clear_r, zt_int clear_g, zt_int clear_b, zt_int clear_a);
+zt_outcome_void_core_error zt_borealis_end_frame(zt_int window_id);
+zt_outcome_void_core_error zt_borealis_draw_rect(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float width,
+    zt_float height,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_draw_text(
+    zt_int window_id,
+    const zt_text *value,
+    zt_int x,
+    zt_int y,
+    zt_int size,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_bool zt_borealis_is_key_down(zt_int window_id, zt_int input_code);
+
 zt_text *zt_path_normalize(const zt_text *value);
 zt_bool zt_path_is_absolute(const zt_text *value);
 zt_text *zt_path_absolute(const zt_text *value, const zt_text *base);

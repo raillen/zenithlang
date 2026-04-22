@@ -13,6 +13,7 @@ Foco do ciclo:
 ## Escopo
 
 - Planejamento do ciclo R3 (R3.M0 ate R3.M9).
+- Coordenacao de uma trilha paralela Borealis (R3.B0 ate R3.B9).
 - Entregas orientadas a producao, nao a experimento isolado.
 - Regras explicitas do que entra e do que nao entra.
 
@@ -24,6 +25,8 @@ Foco do ciclo:
   - `language/spec/*`
 - Downstream:
   - `docs/planning/checklist-v3.md`
+  - `docs/planning/borealis-roadmap-v1.md`
+  - `docs/planning/borealis-checklist-v1.md`
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
 
@@ -70,6 +73,7 @@ Entregas:
 - sincronizar roadmap/checklist/status para um estado unico;
 - congelar baseline de qualidade/performance do inicio do ciclo;
 - publicar matriz de riscos R3 (P0/P1/P2) com owner e prazo.
+- publicar checkpoint inicial da trilha Borealis em paralelo.
 
 ## R3.M1 - M34 hardening final
 
@@ -194,6 +198,22 @@ Entregas:
 - relatorio final de qualidade/performance/compatibilidade;
 - pacote, checksum e validacao de install limpo;
 - limite conhecido e risco residual publicados.
+- checkpoint final de alinhamento R3 x Borealis publicado.
+
+## Trilha paralela Borealis (R3.B0 ate R3.B9)
+
+R3 inclui uma trilha paralela para a game lib Borealis, sem mover Borealis para `stdlib` neste ciclo.
+
+Referencias oficiais da trilha:
+
+- `docs/planning/borealis-roadmap-v1.md`
+- `docs/planning/borealis-checklist-v1.md`
+
+Checkpoint obrigatorio de alinhamento:
+
+1. no fechamento de `R3.M0`;
+2. no fechamento de `R3.M5`;
+3. no fechamento de `R3.M9`.
 
 ## Fora de escopo do R3
 

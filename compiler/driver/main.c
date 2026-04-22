@@ -1214,6 +1214,9 @@ static int zt_handle_project_info(const char *input_path) {
     printf("  build.profile: %s\n", project.manifest.build_profile);
     printf("  build.monomorphization_limit: %zu\n", project.manifest.build_monomorphization_limit);
     printf("  build.output: %s\n", project.manifest.build_output);
+    if (project.manifest.build_linker_flags[0] != '\0') {
+        printf("  build.linker_flags: %s\n", project.manifest.build_linker_flags);
+    }
     printf("  test.root: %s\n", project.manifest.test_root);
     printf("  zdoc.root: %s\n", project.manifest.zdoc_root);
     printf("  dependencies: %zu\n", project.manifest.dependency_count);
@@ -1343,7 +1346,7 @@ static int zt_handle_project_command(const char *command, const char *input_path
 
     c_emitter_dispose(&emitter);
 
-    if (!zt_compile_c_file(c_path, exe_path)) {
+    if (!zt_compile_c_file(c_path, exe_path, &compiled.manifest)) {
         zt_project_compile_result_dispose(&compiled);
         return 1;
     }
@@ -1699,7 +1702,7 @@ static int zt_handle_zir_command(const char *command, const char *input_path, co
 
         c_emitter_dispose(&emitter);
 
-        if (!zt_compile_c_file(c_path, exe_path)) {
+        if (!zt_compile_c_file(c_path, exe_path, NULL)) {
             zir_parse_result_dispose(&parse_result);
             free(input_text);
             return 1;

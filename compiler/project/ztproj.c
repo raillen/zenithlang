@@ -509,6 +509,9 @@ static int zt_project_assign_value(
         if (strcmp(key, "output") == 0) return zt_project_parse_string_value(value, manifest->build_output, sizeof(manifest->build_output), result, line_number);
         if (strcmp(key, "profile") == 0) return zt_project_parse_string_value(value, manifest->build_profile, sizeof(manifest->build_profile), result, line_number);
         if (strcmp(key, "monomorphization_limit") == 0) return zt_project_parse_positive_size_value(value, &manifest->build_monomorphization_limit, result, line_number);
+        if (strcmp(key, "linker_flags") == 0) return zt_project_parse_string_value(value, manifest->build_linker_flags, sizeof(manifest->build_linker_flags), result, line_number);
+        if (strcmp(key, "link_flags") == 0) return zt_project_parse_string_value(value, manifest->build_linker_flags, sizeof(manifest->build_linker_flags), result, line_number);
+        if (strcmp(key, "link") == 0) return zt_project_parse_string_value(value, manifest->build_linker_flags, sizeof(manifest->build_linker_flags), result, line_number);
         zt_project_set_unknown_key(result, section, key, line_number);
         return 0;
     }

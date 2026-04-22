@@ -54,6 +54,7 @@ typedef struct zt_project_manifest {
     char build_profile[32];
     char build_output[256];
     size_t build_monomorphization_limit;
+    char build_linker_flags[512];
 
     size_t dependency_count;
     zt_project_dependency_entry dependencies[ZT_PROJECT_MAX_DEPENDENCIES];

@@ -4924,6 +4924,134 @@ zt_int zt_net_error_kind_index(zt_core_error error) {
     if (zt_text_eq(code, zt_text_from_utf8_literal("net.SystemLimit"))) return 10;
     return 0;
 }
+
+#define ZT_BOREALIS_BACKEND_STUB 0
+#define ZT_BOREALIS_STUB_WINDOW_ID 1
+
+static zt_core_error zt_borealis_backend_missing_error(void) {
+    return zt_core_error_from_message(
+        "borealis.backend_not_linked",
+        "Borealis backend not linked. Configure [build].linker_flags in zenith.ztproj.");
+}
+
+static zt_outcome_i64_core_error zt_borealis_backend_missing_i64(void) {
+    zt_core_error error = zt_borealis_backend_missing_error();
+    zt_outcome_i64_core_error outcome = zt_outcome_i64_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_void_core_error zt_borealis_backend_missing_void(void) {
+    zt_core_error error = zt_borealis_backend_missing_error();
+    zt_outcome_void_core_error outcome = zt_outcome_void_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_bool zt_borealis_is_stub_window(zt_int window_id) {
+    return window_id == ZT_BOREALIS_STUB_WINDOW_ID;
+}
+
+zt_outcome_i64_core_error zt_borealis_open_window(const zt_text *title, zt_int width, zt_int height, zt_int target_fps, zt_int backend_id) {
+    (void)title;
+    (void)width;
+    (void)height;
+    (void)target_fps;
+
+    if (backend_id == ZT_BOREALIS_BACKEND_STUB) {
+        return zt_outcome_i64_core_error_success(ZT_BOREALIS_STUB_WINDOW_ID);
+    }
+
+    return zt_borealis_backend_missing_i64();
+}
+
+zt_outcome_void_core_error zt_borealis_close_window(zt_int window_id) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_borealis_backend_missing_void();
+}
+
+zt_bool zt_borealis_window_should_close(zt_int window_id) {
+    (void)window_id;
+    return true;
+}
+
+zt_outcome_void_core_error zt_borealis_begin_frame(zt_int window_id, zt_int clear_r, zt_int clear_g, zt_int clear_b, zt_int clear_a) {
+    (void)clear_r;
+    (void)clear_g;
+    (void)clear_b;
+    (void)clear_a;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_end_frame(zt_int window_id) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_rect(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    (void)x;
+    (void)y;
+    (void)width;
+    (void)height;
+    (void)color_r;
+    (void)color_g;
+    (void)color_b;
+    (void)color_a;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_text(
+        zt_int window_id,
+        const zt_text *value,
+        zt_int x,
+        zt_int y,
+        zt_int size,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    (void)value;
+    (void)x;
+    (void)y;
+    (void)size;
+    (void)color_r;
+    (void)color_g;
+    (void)color_b;
+    (void)color_a;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_borealis_backend_missing_void();
+}
+
+zt_bool zt_borealis_is_key_down(zt_int window_id, zt_int input_code) {
+    (void)window_id;
+    (void)input_code;
+    return false;
+}
+
 static zt_bool zt_path_is_separator_char(char value) {
     return value == '/' || value == '\\';
 }

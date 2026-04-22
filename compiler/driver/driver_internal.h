@@ -189,8 +189,7 @@ int zt_emit_module_to_c(
         const zir_module *module_decl,
         c_emitter *emitter,
         c_emit_result *out_error);
-int zt_compile_c_file(const char *c_path, const char *exe_path);
+int zt_compile_c_file(const char *c_path, const char *exe_path, const zt_project_manifest *manifest);
 int zt_run_executable(const char *exe_path);
 
 #endif /* ZT_DRIVER_INTERNAL_H */
-
