@@ -24,16 +24,20 @@ Este diretorio concentra documentacao operacional e tecnica que nao deve ficar s
 ## Ordem de leitura recomendada
 
 1. `README.md` (raiz)
-2. `docs/planning/roadmap-v2.md`
-3. `docs/planning/checklist-v2.md`
-4. `docs/planning/cascade-v2.md`
-5. `language/spec/README.md`
-6. `compiler/CODE_MAP.md`
+2. `docs/planning/roadmap-v4.md`
+3. `docs/planning/checklist-v4.md`
+4. `docs/planning/roadmap-v2.md`
+5. `docs/planning/checklist-v2.md`
+6. `docs/planning/cascade-v2.md`
+7. `language/spec/README.md`
+8. `compiler/CODE_MAP.md`
 
 ## Matriz de dependencias entre documentos
 
 | Documento | Depende de | Alimenta |
 | --- | --- | --- |
+| `docs/planning/roadmap-v4.md` | `docs/planning/roadmap-v2.md`, `docs/planning/checklist-v2.md`, `language/spec/*` | `docs/planning/checklist-v4.md`, `docs/reports/release/*` |
+| `docs/planning/checklist-v4.md` | `docs/planning/roadmap-v4.md` | Execucao por milestone e validacao de entrega R4 |
 | `docs/planning/roadmap-v2.md` | `docs/planning/checklist-v1.md`, `language/spec/*` | `docs/planning/checklist-v2.md`, `docs/planning/cascade-v2.md` |
 | `docs/planning/checklist-v2.md` | `docs/planning/roadmap-v2.md` | Execucao por milestone e validacao de entrega |
 | `docs/planning/cascade-v2.md` | `roadmap-v2.md`, `checklist-v2.md`, `compiler/*_MAP.md` | Implementacao no codigo e suites de teste |

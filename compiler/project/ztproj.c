@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
 
 typedef enum zt_project_section {
     ZT_PROJECT_SECTION_NONE = 0,

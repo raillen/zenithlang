@@ -1,6 +1,9 @@
 .gemini/
 .agents/
-.github/
+!.github/
+.github/*
+!.github/workflows/
+!.github/workflows/*.yml
 .idea/
 node_modules/
 dist/
@@ -28,6 +31,11 @@ src/compiler/syntax.lua.map
 *.o
 *.exe
 *.py
+zt-linux
+*.deb
+*.rpm
+*.pkg.tar.*
+.artifacts/
 build_errors.txt
 output.txt
 reports/perf/*.json
@@ -37,6 +45,7 @@ reports/suites/
 reproduce/
 docs/reports/release/artifacts/
 tests/perf/*/build/
+examples/*/build/
 compiler/driver/zt-next-v2.exe
 std_fs_basic.emit.c
 test_optional_null.zt
@@ -52,3 +61,4 @@ zenith-website/
 
 # Keep tracked project scripts
 !tools/triage_cycle.py
+!tools/build_linux_packages.py

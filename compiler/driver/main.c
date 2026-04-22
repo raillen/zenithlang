@@ -41,6 +41,8 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "                                        Build app executable with gcc\n");
     fprintf(stderr, "  run [project|zenith.ztproj] [-o <output>]\n");
     fprintf(stderr, "                                        Build and execute app executable\n");
+    fprintf(stderr, "  create [path|.] [--app|--lib] [--force]\n");
+    fprintf(stderr, "                                        Create a new Zenith project scaffold\n");
     fprintf(stderr, "  test [project|zenith.ztproj]          Bootstrap alias to check\n");
     fprintf(stderr, "  fmt [project|zenith.ztproj] [--check] Bootstrap formatter gate\n");
     fprintf(stderr, "  doc check [project|zenith.ztproj]     Validate .zdoc files and links\n");
@@ -67,6 +69,9 @@ static void zt_print_usage(const char *program) {
     fprintf(stderr, "  --focus <path>       Check only files matching the given path or module\n");
     fprintf(stderr, "  --since <git-ref>    Check only diagnostics in files changed since <git-ref>\n");
     fprintf(stderr, "  --lang <lang>        Override language (en, pt, es, ja)\n");
+    fprintf(stderr, "  --app                Project template kind for create (default)\n");
+    fprintf(stderr, "  --lib                Library template kind for create\n");
+    fprintf(stderr, "  --force              Allow create inside non-empty/existing directories\n");
 }
 
 void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics);
@@ -2077,6 +2082,478 @@ static int zt_handle_perf(const char *target) {
     return 1;
 #endif
 }
+
+static int zt_dir_is_empty(const char *directory) {
+#ifdef _WIN32
+    WIN32_FIND_DATAA data;
+    HANDLE find_handle;
+    char pattern[1024];
+
+    if (directory == NULL || directory[0] == '\0') return 0;
+    if (snprintf(pattern, sizeof(pattern), "%s\\*", directory) >= (int)sizeof(pattern)) {
+        return 0;
+    }
+
+    find_handle = FindFirstFileA(pattern, &data);
+    if (find_handle == INVALID_HANDLE_VALUE) return 0;
+
+    do {
+        if (strcmp(data.cFileName, ".") != 0 && strcmp(data.cFileName, "..") != 0) {
+            FindClose(find_handle);
+            return 0;
+        }
+    } while (FindNextFileA(find_handle, &data));
+
+    FindClose(find_handle);
+    return 1;
+#else
+    DIR *dir;
+    struct dirent *entry;
+
+    if (directory == NULL || directory[0] == '\0') return 0;
+    dir = opendir(directory);
+    if (dir == NULL) return 0;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            closedir(dir);
+            return 0;
+        }
+    }
+
+    closedir(dir);
+    return 1;
+#endif
+}
+
+static void zt_sanitize_project_name(const char *input, char *out, size_t out_capacity) {
+    size_t in_i = 0;
+    size_t out_i = 0;
+    int wrote_dash = 0;
+
+    if (out == NULL || out_capacity == 0) return;
+    out[0] = '\0';
+    if (input == NULL) input = "";
+
+    while (input[in_i] != '\0' && out_i + 1 < out_capacity) {
+        unsigned char ch = (unsigned char)input[in_i];
+        char lowered = (char)tolower(ch);
+
+        if (isalnum(ch)) {
+            out[out_i++] = lowered;
+            wrote_dash = 0;
+        } else if (ch == '-' || ch == '_' || ch == '.' || isspace(ch)) {
+            if (out_i > 0 && !wrote_dash) {
+                out[out_i++] = '-';
+                wrote_dash = 1;
+            }
+        }
+
+        in_i += 1;
+    }
+
+    while (out_i > 0 && out[out_i - 1] == '-') {
+        out_i -= 1;
+    }
+
+    if (out_i == 0) {
+        snprintf(out, out_capacity, "zenith-app");
+        return;
+    }
+
+    out[out_i] = '\0';
+    if (isdigit((unsigned char)out[0])) {
+        char prefixed[256];
+        snprintf(prefixed, sizeof(prefixed), "app-%s", out);
+        snprintf(out, out_capacity, "%s", prefixed);
+    }
+}
+
+static void zt_sanitize_namespace_root(const char *input, char *out, size_t out_capacity) {
+    size_t in_i = 0;
+    size_t out_i = 0;
+    int wrote_sep = 0;
+
+    if (out == NULL || out_capacity == 0) return;
+    out[0] = '\0';
+    if (input == NULL) input = "";
+
+    while (input[in_i] != '\0' && out_i + 1 < out_capacity) {
+        unsigned char ch = (unsigned char)input[in_i];
+        char lowered = (char)tolower(ch);
+
+        if (isalnum(ch)) {
+            out[out_i++] = lowered;
+            wrote_sep = 0;
+        } else if (ch == '-' || ch == '_' || ch == '.' || isspace(ch)) {
+            if (out_i > 0 && !wrote_sep) {
+                out[out_i++] = '_';
+                wrote_sep = 1;
+            }
+        }
+
+        in_i += 1;
+    }
+
+    while (out_i > 0 && out[out_i - 1] == '_') {
+        out_i -= 1;
+    }
+
+    if (out_i == 0) {
+        snprintf(out, out_capacity, "app");
+        return;
+    }
+
+    out[out_i] = '\0';
+    if (isdigit((unsigned char)out[0])) {
+        char prefixed[256];
+        snprintf(prefixed, sizeof(prefixed), "app_%s", out);
+        snprintf(out, out_capacity, "%s", prefixed);
+    }
+}
+
+static void zt_project_name_from_target(const char *target_path, char *project_name, size_t capacity) {
+    char resolved[512];
+    const char *segment = NULL;
+    size_t len;
+
+    if (project_name == NULL || capacity == 0) return;
+    project_name[0] = '\0';
+
+    if (target_path == NULL || target_path[0] == '\0' || strcmp(target_path, ".") == 0) {
+        if (!zt_get_current_dir(resolved, sizeof(resolved))) {
+            snprintf(project_name, capacity, "zenith-app");
+            return;
+        }
+    } else {
+        if (!zt_copy_text(resolved, sizeof(resolved), target_path)) {
+            snprintf(project_name, capacity, "zenith-app");
+            return;
+        }
+    }
+
+    zt_normalize_path_inplace(resolved);
+    len = strlen(resolved);
+    while (len > 0 && resolved[len - 1] == '/') {
+        resolved[len - 1] = '\0';
+        len -= 1;
+    }
+
+    if (len == 0) {
+        snprintf(project_name, capacity, "zenith-app");
+        return;
+    }
+
+    {
+        const char *slash = strrchr(resolved, '/');
+        segment = slash != NULL ? slash + 1 : resolved;
+    }
+
+    if (segment == NULL || segment[0] == '\0') {
+        snprintf(project_name, capacity, "zenith-app");
+        return;
+    }
+
+    zt_sanitize_project_name(segment, project_name, capacity);
+}
+
+static int zt_create_write_scaffold_file(
+        const char *path,
+        const char *content,
+        int force,
+        const char *label) {
+    if (path == NULL || content == NULL) return 0;
+
+    if (zt_path_is_dir(path)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "create: %s path points to a directory: %s",
+            label,
+            path);
+        return 0;
+    }
+
+    if (!force && zt_path_is_file(path)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "create: %s already exists (use --force to overwrite): %s",
+            label,
+            path);
+        return 0;
+    }
+
+    if (!zt_write_file(path, content)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "create: failed to write %s: %s",
+            label,
+            path);
+        return 0;
+    }
+
+    return 1;
+}
+
+static int zt_handle_create(const char *target_path, int create_lib, int force) {
+    const char *target = target_path;
+    char root_dir[512];
+    char project_name[128];
+    char namespace_root[128];
+    char manifest_path[768];
+    char readme_path[768];
+    char src_dir[768];
+    char module_dir[768];
+    char module_file_path[768];
+    char module_namespace[256];
+    char manifest_content[1024];
+    char source_content[1024];
+    char readme_content[1024];
+    const char *kind_label = create_lib ? "lib" : "app";
+
+    if (target == NULL || target[0] == '\0') target = ".";
+    if (!zt_copy_text(root_dir, sizeof(root_dir), target)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "create: target path is too long");
+        return 1;
+    }
+    zt_normalize_path_inplace(root_dir);
+    if (root_dir[0] == '\0') {
+        snprintf(root_dir, sizeof(root_dir), ".");
+    }
+
+    if (zt_path_is_file(root_dir)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "create: target exists and is a file: %s",
+            root_dir);
+        return 1;
+    }
+
+    if (zt_path_is_dir(root_dir)) {
+        if (!force && !zt_dir_is_empty(root_dir)) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_INVALID_INPUT,
+                zt_source_span_unknown(),
+                "create: target directory is not empty (use --force): %s",
+                root_dir);
+            return 1;
+        }
+    } else {
+        if (!zt_make_dirs(root_dir)) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_INVALID_INPUT,
+                zt_source_span_unknown(),
+                "create: failed to create target directory: %s",
+                root_dir);
+            return 1;
+        }
+    }
+
+    zt_project_name_from_target(root_dir, project_name, sizeof(project_name));
+    zt_sanitize_namespace_root(project_name, namespace_root, sizeof(namespace_root));
+
+    if (!zt_join_path(src_dir, sizeof(src_dir), root_dir, "src")) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "create: src path is too long");
+        return 1;
+    }
+    if (!zt_make_dirs(src_dir)) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "create: failed to create source directory: %s",
+            src_dir);
+        return 1;
+    }
+
+    if (create_lib) {
+        if (!zt_join_path(module_dir, sizeof(module_dir), src_dir, namespace_root)) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_PATH_TOO_LONG,
+                zt_source_span_unknown(),
+                "create: library module directory path is too long");
+            return 1;
+        }
+        if (!zt_make_dirs(module_dir)) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_INVALID_INPUT,
+                zt_source_span_unknown(),
+                "create: failed to create library module directory: %s",
+                module_dir);
+            return 1;
+        }
+        if (!zt_join_path(module_file_path, sizeof(module_file_path), module_dir, "core.zt")) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_PATH_TOO_LONG,
+                zt_source_span_unknown(),
+                "create: library module path is too long");
+            return 1;
+        }
+        snprintf(module_namespace, sizeof(module_namespace), "%s.core", namespace_root);
+    } else {
+        if (!zt_join_path(module_dir, sizeof(module_dir), src_dir, "app")) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_PATH_TOO_LONG,
+                zt_source_span_unknown(),
+                "create: app module directory path is too long");
+            return 1;
+        }
+        if (!zt_make_dirs(module_dir)) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_INVALID_INPUT,
+                zt_source_span_unknown(),
+                "create: failed to create app module directory: %s",
+                module_dir);
+            return 1;
+        }
+        if (!zt_join_path(module_file_path, sizeof(module_file_path), module_dir, "main.zt")) {
+            zt_print_single_diag(
+                "project",
+                ZT_DIAG_PROJECT_PATH_TOO_LONG,
+                zt_source_span_unknown(),
+                "create: app module path is too long");
+            return 1;
+        }
+        snprintf(module_namespace, sizeof(module_namespace), "app.main");
+    }
+
+    if (!zt_join_path(manifest_path, sizeof(manifest_path), root_dir, "zenith.ztproj")) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "create: manifest path is too long");
+        return 1;
+    }
+    if (!zt_join_path(readme_path, sizeof(readme_path), root_dir, "README.md")) {
+        zt_print_single_diag(
+            "project",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "create: README path is too long");
+        return 1;
+    }
+
+    if (create_lib) {
+        snprintf(
+            manifest_content,
+            sizeof(manifest_content),
+            "[project]\n"
+            "name = \"%s\"\n"
+            "kind = \"lib\"\n"
+            "version = \"0.1.0\"\n"
+            "\n"
+            "[source]\n"
+            "root = \"src\"\n"
+            "\n"
+            "[lib]\n"
+            "root_namespace = \"%s\"\n"
+            "\n"
+            "[build]\n"
+            "target = \"native\"\n"
+            "output = \"build\"\n"
+            "profile = \"debug\"\n",
+            project_name,
+            namespace_root);
+
+        snprintf(
+            source_content,
+            sizeof(source_content),
+            "namespace %s\n"
+            "\n"
+            "public func version() -> text\n"
+            "    return \"0.1.0\"\n"
+            "end\n",
+            module_namespace);
+    } else {
+        snprintf(
+            manifest_content,
+            sizeof(manifest_content),
+            "[project]\n"
+            "name = \"%s\"\n"
+            "kind = \"app\"\n"
+            "version = \"0.1.0\"\n"
+            "\n"
+            "[source]\n"
+            "root = \"src\"\n"
+            "\n"
+            "[app]\n"
+            "entry = \"app.main\"\n"
+            "\n"
+            "[build]\n"
+            "target = \"native\"\n"
+            "output = \"build\"\n"
+            "profile = \"debug\"\n",
+            project_name);
+
+        snprintf(
+            source_content,
+            sizeof(source_content),
+            "namespace %s\n"
+            "\n"
+            "import std.io as io\n"
+            "\n"
+            "func main() -> result<void, core.Error>\n"
+            "    io.write(\"Hello from %s\\n\")?\n"
+            "    return success()\n"
+            "end\n",
+            module_namespace,
+            project_name);
+    }
+
+    snprintf(
+        readme_content,
+        sizeof(readme_content),
+        "# %s\n"
+        "\n"
+        "Scaffold generated by `zt create`.\n"
+        "\n"
+        "## Next Steps\n"
+        "\n"
+        "1. `zt check zenith.ztproj`\n"
+        "2. `zt build zenith.ztproj`\n"
+        "%s",
+        project_name,
+        create_lib ? "" : "3. `zt run zenith.ztproj`\n");
+
+    if (!zt_create_write_scaffold_file(manifest_path, manifest_content, force, "manifest")) return 1;
+    if (!zt_create_write_scaffold_file(module_file_path, source_content, force, "source")) return 1;
+    if (!zt_create_write_scaffold_file(readme_path, readme_content, force, "README")) return 1;
+
+    printf("created %s project scaffold at %s\n", kind_label, root_dir);
+    printf("next:\n");
+    printf("  cd %s\n", strcmp(root_dir, ".") == 0 ? "." : root_dir);
+    printf("  zt check zenith.ztproj\n");
+    if (!create_lib) {
+        printf("  zt run zenith.ztproj\n");
+    } else {
+        printf("  zt build zenith.ztproj\n");
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
@@ -2124,6 +2601,45 @@ int main(int argc, char *argv[]) {
             zt_print_usage(argv[0]);
             return 1;
         }
+    }
+
+    if (strcmp(command, "create") == 0) {
+        const char *target = NULL;
+        int create_lib = 0;
+        int create_force = 0;
+
+        for (i = 2; i < argc; i += 1) {
+            if (strcmp(argv[i], "--lib") == 0) {
+                create_lib = 1;
+            } else if (strcmp(argv[i], "--app") == 0) {
+                create_lib = 0;
+            } else if (strcmp(argv[i], "--force") == 0) {
+                create_force = 1;
+            } else if (argv[i][0] == '-') {
+                zt_print_single_diag(
+                    "project",
+                    ZT_DIAG_PROJECT_INVALID_INPUT,
+                    zt_source_span_unknown(),
+                    "unknown option for create: %s",
+                    argv[i]);
+                zt_print_usage(argv[0]);
+                return 1;
+            } else if (target == NULL) {
+                target = argv[i];
+            } else {
+                zt_print_single_diag(
+                    "project",
+                    ZT_DIAG_PROJECT_INVALID_INPUT,
+                    zt_source_span_unknown(),
+                    "unexpected positional argument for create: %s",
+                    argv[i]);
+                zt_print_usage(argv[0]);
+                return 1;
+            }
+        }
+
+        if (target == NULL) target = ".";
+        return zt_handle_create(target, create_lib, create_force);
     }
 
     if (strcmp(effective_command, "check") == 0) {

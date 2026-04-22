@@ -1,0 +1,99 @@
+namespace borealis.backend
+
+extern c
+    func zt_borealis_open_window(title: text, width: int, height: int, target_fps: int, backend_id: int) -> result<int, core.Error>
+    func zt_borealis_close_window(window_id: int) -> result<void, core.Error>
+    func zt_borealis_window_should_close(window_id: int) -> bool
+
+    func zt_borealis_begin_frame(window_id: int, clear_r: int, clear_g: int, clear_b: int, clear_a: int) -> result<void, core.Error>
+    func zt_borealis_end_frame(window_id: int) -> result<void, core.Error>
+
+    func zt_borealis_draw_rect(
+        window_id: int,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
+    func zt_borealis_draw_text(
+        window_id: int,
+        value: text,
+        x: int,
+        y: int,
+        size: int,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
+
+    func zt_borealis_is_key_down(window_id: int, input_code: int) -> bool
+end
+
+public func open_window(
+    title: text,
+    width: int,
+    height: int,
+    target_fps: int,
+    backend_id: int
+) -> result<int, core.Error>
+    return backend.zt_borealis_open_window(title, width, height, target_fps, backend_id)
+end
+
+public func close_window(window_id: int) -> result<void, core.Error>
+    return backend.zt_borealis_close_window(window_id)
+end
+
+public func window_should_close(window_id: int) -> bool
+    return backend.zt_borealis_window_should_close(window_id)
+end
+
+public func begin_frame(
+    window_id: int,
+    clear_r: int,
+    clear_g: int,
+    clear_b: int,
+    clear_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_begin_frame(window_id, clear_r, clear_g, clear_b, clear_a)
+end
+
+public func end_frame(window_id: int) -> result<void, core.Error>
+    return backend.zt_borealis_end_frame(window_id)
+end
+
+public func draw_rect(
+    window_id: int,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_rect(window_id, x, y, width, height, color_r, color_g, color_b, color_a)
+end
+
+public func draw_text(
+    window_id: int,
+    value: text,
+    x: int,
+    y: int,
+    size: int,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_text(window_id, value, x, y, size, color_r, color_g, color_b, color_a)
+end
+
+public func key_down(window_id: int, input_code: int) -> bool
+    return backend.zt_borealis_is_key_down(window_id, input_code)
+end

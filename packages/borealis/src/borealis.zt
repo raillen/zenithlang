@@ -1,0 +1,138 @@
+namespace borealis
+
+import borealis.backend as backend
+
+public enum Backend
+    Stub
+    Raylib
+end
+
+public struct WindowConfig
+    title: text = "Zenith Game"
+    width: int = 960
+    height: int = 540
+    target_fps: int = 60
+    backend: Backend = Backend.Stub
+end
+
+public struct Window
+    id: int
+end
+
+public struct Color
+    r: int = 0
+    g: int = 0
+    b: int = 0
+    a: int = 255
+end
+
+public struct Rect
+    x: float
+    y: float
+    width: float
+    height: float
+end
+
+public enum Key
+    Left
+    Right
+    Up
+    Down
+    Space
+    Escape
+end
+
+public func open_window(config: WindowConfig = WindowConfig()) -> result<Window, core.Error>
+    const backend_id: int = backend_code(config.backend)
+    const window_id: int = backend.open_window(
+        config.title,
+        config.width,
+        config.height,
+        config.target_fps,
+        backend_id
+    )?
+    return success(Window(id: window_id))
+end
+
+public func close_window(window: Window) -> result<void, core.Error>
+    return backend.close_window(window.id)
+end
+
+public func window_should_close(window: Window) -> bool
+    return backend.window_should_close(window.id)
+end
+
+public func begin_frame(window: Window, clear: Color) -> result<void, core.Error>
+    return backend.begin_frame(window.id, clear.r, clear.g, clear.b, clear.a)
+end
+
+public func end_frame(window: Window) -> result<void, core.Error>
+    return backend.end_frame(window.id)
+end
+
+public func draw_rect(window: Window, area: Rect, color: Color) -> result<void, core.Error>
+    return backend.draw_rect(
+        window.id,
+        area.x,
+        area.y,
+        area.width,
+        area.height,
+        color.r,
+        color.g,
+        color.b,
+        color.a
+    )
+end
+
+public func draw_text(
+    window: Window,
+    value: text,
+    x: int,
+    y: int,
+    size: int,
+    color: Color
+) -> result<void, core.Error>
+    return backend.draw_text(window.id, value, x, y, size, color.r, color.g, color.b, color.a)
+end
+
+public func key_down(window: Window, key: Key) -> bool
+    return backend.key_down(window.id, key_code(key))
+end
+
+public func backend_code(value: Backend) -> int
+    match value
+        case Backend.Stub ->
+            return 0
+        case Backend.Raylib ->
+            return 1
+    end
+end
+
+public func key_code(key: Key) -> int
+    match key
+        case Key.Left ->
+            return 263
+        case Key.Right ->
+            return 262
+        case Key.Up ->
+            return 265
+        case Key.Down ->
+            return 264
+        case Key.Space ->
+            return 32
+        case Key.Escape ->
+            return 256
+    end
+end
+
+public func rgb(r: int, g: int, b: int) -> Color
+    return Color(r: r, g: g, b: b, a: 255)
+end
+
+public func rgba(r: int, g: int, b: int, a: int) -> Color
+    return Color(r: r, g: g, b: b, a: a)
+end
+
+public func rect(x: float, y: float, width: float, height: float) -> Rect
+    return Rect(x: x, y: y, width: width, height: height)
+end

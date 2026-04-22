@@ -1,0 +1,23 @@
+namespace app.main
+
+import std.io as io
+import std.json as json
+
+func main() -> result<void, core.Error>
+    const source: text = "{\"name\":\"Zenith\",\"mode\":\"debug\",\"version\":\"2\"}"
+    const parsed: map<text, text> = json.parse(source)?
+    const compact: text = json.stringify(parsed)
+    const pretty_text: text = json.pretty(parsed, indent: 2)
+
+    if len(compact) == 0
+        return error("compact json is empty")
+    end
+
+    if len(pretty_text) == 0
+        return error("pretty json is empty")
+    end
+
+    io.write("json parse/stringify/pretty ok\n")?
+    return success()
+end
+

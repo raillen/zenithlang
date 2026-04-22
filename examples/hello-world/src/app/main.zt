@@ -1,0 +1,9 @@
+namespace app.main
+
+import std.io as io
+
+func main() -> result<void, core.Error>
+    io.write("Hello from Zenith\n")?
+    return success()
+end
+

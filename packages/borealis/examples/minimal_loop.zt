@@ -1,0 +1,40 @@
+namespace app.main
+
+import borealis as bo
+
+func main() -> result<void, core.Error>
+    const config: bo.WindowConfig = bo.WindowConfig(
+        title: "Zenith Borealis Skeleton",
+        width: 960,
+        height: 540,
+        target_fps: 60,
+        backend: bo.Backend.Stub
+    )
+
+    var window: bo.Window = bo.open_window(config)?
+    var x: float = 80.0
+    const speed: float = 4.0
+
+    while bo.window_should_close(window) == false
+        x = x + speed
+
+        bo.begin_frame(window, clear: bo.rgb(24, 28, 36))?
+        bo.draw_rect(
+            window,
+            bo.rect(x, 180.0, 96.0, 96.0),
+            bo.rgb(255, 170, 40)
+        )?
+        bo.draw_text(
+            window,
+            "Borealis package skeleton (ZPM-ready)",
+            x: 24,
+            y: 24,
+            size: 20,
+            color: bo.rgb(230, 230, 230)
+        )?
+        bo.end_frame(window)?
+    end
+
+    bo.close_window(window)?
+    return success()
+end

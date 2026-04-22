@@ -1,0 +1,16 @@
+namespace app.main
+
+import std.io as io
+import app.math as math
+import app.messages as messages
+
+func main() -> result<void, core.Error>
+    const sum: int = math.add(19, 23)
+    if sum != 42
+        return error("unexpected sum")
+    end
+
+    io.write(messages.ready())?
+    return success()
+end
+

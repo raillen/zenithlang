@@ -1,0 +1,33 @@
+namespace app.main
+
+import std.io as io
+
+enum JobState
+    Pending
+    Running
+    Failed(message: text)
+end
+
+struct Job
+    id: int
+    state: JobState
+end
+
+func describe(state: JobState) -> text
+    match state
+        case JobState.Pending ->
+            return "pending"
+        case JobState.Running ->
+            return "running"
+        case JobState.Failed(message) ->
+            return message
+    end
+end
+
+func main() -> result<void, core.Error>
+    const job: Job = Job(id: 7, state: JobState.Running)
+    io.write(describe(job.state))?
+    io.write("\n")?
+    return success()
+end
+

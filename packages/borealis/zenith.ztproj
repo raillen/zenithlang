@@ -1,0 +1,21 @@
+[project]
+name = "borealis"
+version = "0.1.0"
+kind = "lib"
+
+[lib]
+root_namespace = "borealis"
+
+[source]
+root = "src"
+
+[build]
+target = "native"
+profile = "debug"
+
+[zdoc]
+root = "zdoc"
+
+[accessibility]
+profile = "beginner"
+telemetry = true

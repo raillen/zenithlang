@@ -422,16 +422,6 @@ static int zt_enforce_monomorphization_limit(
     return 1;
 }
 
-typedef struct zt_project_compile_result {
-    zt_project_manifest manifest;
-    char project_root[512];
-    char manifest_path[512];
-    char entry_path[512];
-    zt_project_source_file_list source_files;
-    zir_lower_result zir;
-    int has_zir;
-} zt_project_compile_result;
-
 void zt_project_compile_result_init(zt_project_compile_result *result) {
     memset(result, 0, sizeof(*result));
 }
@@ -712,6 +702,26 @@ static int zt_get_file_mtime(const char *path, time_t *out_mtime) {
     return 1;
 }
 
+static void zt_runtime_root(char *buffer, size_t capacity) {
+    const char *zenith_home;
+
+    if (buffer == NULL || capacity == 0) return;
+    zenith_home = getenv("ZENITH_HOME");
+    if (zenith_home != NULL && zenith_home[0] != '\0') {
+        zt_copy_text(buffer, capacity, zenith_home);
+        return;
+    }
+
+    zt_copy_text(buffer, capacity, ".");
+}
+
+static int zt_join_runtime_dep(char *buffer, size_t capacity, const char *relative_dep) {
+    char runtime_root[768];
+    if (buffer == NULL || capacity == 0 || relative_dep == NULL) return 0;
+    zt_runtime_root(runtime_root, sizeof(runtime_root));
+    return zt_join_path(buffer, capacity, runtime_root, relative_dep);
+}
+
 static int zt_runtime_object_is_stale(const char *runtime_obj_path) {
     static const char *deps[] = {
         "runtime/c/zenith_rt.c",
@@ -720,12 +730,16 @@ static int zt_runtime_object_is_stale(const char *runtime_obj_path) {
     };
     size_t i;
     time_t obj_mtime;
+    char dep_path[1024];
 
     if (!zt_get_file_mtime(runtime_obj_path, &obj_mtime)) return 1;
 
     for (i = 0; i < (sizeof(deps) / sizeof(deps[0])); i += 1) {
         time_t dep_mtime;
-        if (!zt_get_file_mtime(deps[i], &dep_mtime) || dep_mtime > obj_mtime) {
+        if (!zt_join_runtime_dep(dep_path, sizeof(dep_path), deps[i])) {
+            return 1;
+        }
+        if (!zt_get_file_mtime(dep_path, &dep_mtime) || dep_mtime > obj_mtime) {
             return 1;
         }
     }
@@ -735,6 +749,8 @@ static int zt_runtime_object_is_stale(const char *runtime_obj_path) {
 
 static int zt_compile_runtime_object(const char *runtime_obj_path) {
     char compile_cmd[2048];
+    char runtime_c_path[1024];
+    char runtime_root[768];
     int compile_result;
 
     if (!zt_make_dirs(".ztc-tmp/runtime")) {
@@ -746,10 +762,23 @@ static int zt_compile_runtime_object(const char *runtime_obj_path) {
         return 0;
     }
 
+    if (!zt_join_runtime_dep(runtime_c_path, sizeof(runtime_c_path), "runtime/c/zenith_rt.c")) {
+        zt_print_single_diag(
+            "backend.c.emit",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "runtime source path is too long");
+        return 0;
+    }
+
+    zt_runtime_root(runtime_root, sizeof(runtime_root));
+
     snprintf(
         compile_cmd,
         sizeof(compile_cmd),
-        "gcc -Wall -Wextra -Wno-unused-function -I. -c runtime/c/zenith_rt.c -o \"%s\"",
+        "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -c \"%s\" -o \"%s\"",
+        runtime_root,
+        runtime_c_path,
         runtime_obj_path);
 
     if (!zt_ci_mode_enabled) {
@@ -761,7 +790,7 @@ static int zt_compile_runtime_object(const char *runtime_obj_path) {
         zt_print_single_diag(
             "backend.c.emit",
             ZT_DIAG_BACKEND_C_EMIT_ERROR,
-            zt_source_span_make("runtime/c/zenith_rt.c", 1, 1, 1),
+            zt_source_span_make(runtime_c_path, 1, 1, 1),
             "runtime object compilation failed with code %d",
             compile_result);
         return 0;
@@ -773,6 +802,7 @@ static int zt_compile_runtime_object(const char *runtime_obj_path) {
 int zt_compile_c_file(const char *c_path, const char *exe_path) {
     char compile_cmd[2048];
     const char *runtime_obj_path = ".ztc-tmp/runtime/zenith_rt.o";
+    char runtime_root[768];
     int compile_result;
 
     if (zt_runtime_object_is_stale(runtime_obj_path)) {
@@ -781,14 +811,16 @@ int zt_compile_c_file(const char *c_path, const char *exe_path) {
         }
     }
 
+    zt_runtime_root(runtime_root, sizeof(runtime_root));
+
 #ifdef _WIN32
     snprintf(compile_cmd, sizeof(compile_cmd),
-             "gcc -Wall -Wextra -Wno-unused-function -I. -o \"%s\" \"%s\" \"%s\" -lws2_32",
-             exe_path, c_path, runtime_obj_path);
+             "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lws2_32",
+             runtime_root, exe_path, c_path, runtime_obj_path);
 #else
     snprintf(compile_cmd, sizeof(compile_cmd),
-             "gcc -Wall -Wextra -Wno-unused-function -I. -o \"%s\" \"%s\" \"%s\" -lm",
-             exe_path, c_path, runtime_obj_path);
+             "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lm",
+             runtime_root, exe_path, c_path, runtime_obj_path);
 #endif
 
     if (!zt_ci_mode_enabled) {

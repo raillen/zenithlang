@@ -128,11 +128,27 @@ Run:
 ./zt.exe run my_app/zenith.ztproj
 ```
 
+## Example projects (GitHub demo)
+
+Curated runnable examples live in `examples/`:
+
+- `examples/hello-world`
+- `examples/structs-and-match`
+- `examples/optional-and-result`
+- `examples/multifile-imports`
+- `examples/std-json`
+- `examples/extern-c-puts`
+
+Guide:
+
+- `examples/README.md`
+
 ## CLI
 
 - `zt check [project|zenith.ztproj]`
 - `zt build [project|zenith.ztproj] [-o <output>]`
 - `zt run [project|zenith.ztproj] [-o <output>]`
+- `zt create [path|.] [--app|--lib] [--force]`
 - `zt test [project|zenith.ztproj]`
 - `zt fmt [project|zenith.ztproj] [--check]`
 - `zt doc check [project|zenith.ztproj]`
@@ -169,6 +185,12 @@ Current distribution for pre-release `0.3.0-alpha.1` includes a published packag
 - GitHub Release assets (outside source repository):
   - `zenith-0.3.0-alpha.1-windows-amd64.zip`
   - `zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+
+Linux packaging support in-repo:
+
+- `python3 tools/build_linux_packages.py --version <x.y.z>`
+- Generates `.deb`, `.rpm`, and `.pkg.tar.zst` artifacts under `dist/linux/`
+- Installs global `ZENITH_HOME` via `/etc/profile.d/zenith.sh`
 
 Alpha package includes:
 
