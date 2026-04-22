@@ -1,0 +1,44 @@
+namespace borealis.game.audio
+
+public struct AudioBus
+    master_volume: float = 1.0
+    music_volume: float = 1.0
+    sfx_volume: float = 1.0
+end
+
+public func bus_default() -> audio.AudioBus
+    return audio.AudioBus()
+end
+
+public func bus_set_master(bus: audio.AudioBus, value: float) -> audio.AudioBus
+    var next: audio.AudioBus = bus
+    next.master_volume = value
+    return next
+end
+
+public func bus_set_music(bus: audio.AudioBus, value: float) -> audio.AudioBus
+    var next: audio.AudioBus = bus
+    next.music_volume = value
+    return next
+end
+
+public func bus_set_sfx(bus: audio.AudioBus, value: float) -> audio.AudioBus
+    var next: audio.AudioBus = bus
+    next.sfx_volume = value
+    return next
+end
+
+public func sound_play(name: text, _bus: audio.AudioBus = audio.bus_default()) -> result<void, core.Error>
+    if name == ""
+        return error("audio: sound name cannot be empty")
+    end
+    return success()
+end
+
+public func music_play(name: text, _bus: audio.AudioBus = audio.bus_default()) -> result<void, core.Error>
+    if name == ""
+        return error("audio: music name cannot be empty")
+    end
+    return success()
+end
+

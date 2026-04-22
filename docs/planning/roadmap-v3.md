@@ -6,6 +6,7 @@ Definir o ciclo R3 para fechar lacunas de confiabilidade e linguagem sem romper 
 
 Foco do ciclo:
 
+- fechar primeiro a entrega prioritaria de `public var` em escopo de namespace, sem introduzir `global`;
 - fechar M34 com hardening final de diagnosticos;
 - fechar M35 com concorrencia, FFI estavel e base de dyn dispatch;
 - evoluir features funcionais (closures/lambdas/HOF) com rollout seguro.
@@ -23,6 +24,7 @@ Foco do ciclo:
   - `docs/planning/roadmap-v2.md`
   - `docs/planning/checklist-v2.md`
   - `language/spec/*`
+  - `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
 - Downstream:
   - `docs/planning/checklist-v3.md`
   - `docs/planning/borealis-roadmap-v1.md`
@@ -30,9 +32,20 @@ Foco do ciclo:
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
 
-Status: proposto
-Data: 2026-04-21
+Status: em execucao
+Data: 2026-04-22
 Base: `0.3.0-alpha.1` publicado (`R2.M12` fechado)
+
+## Atualizacao de status (2026-04-22)
+
+`R3.P1` foi entregue neste corte.
+
+Sinalizacao de entrega:
+
+- `public var` habilitado em escopo de namespace (leitura externa qualificada, escrita restrita ao namespace dono);
+- sem introducao de `global` na sintaxe canonica;
+- stdlib piloto implementado em `std.random` com estado observavel e testes dedicados;
+- docs normativas atualizadas em `language/spec/*` e `language/decisions/086-*`.
 
 ## Diretrizes de linguagem do ciclo
 
@@ -61,6 +74,39 @@ Para release do ciclo:
 4. install limpo validado
 
 ## Fases do Roadmap 3.0
+
+## R3.P1 - Prioridade 1: public var de namespace (concluida em 2026-04-22)
+
+Objetivo:
+
+- habilitar `public var` em escopo de namespace com regra de mutacao controlada.
+
+Entregas:
+
+- fechar a mini-RFC `Decision 086` e manter o texto normativo como base oficial;
+- aceitar `public var` apenas em declaracao top-level de namespace;
+- permitir leitura externa qualificada (`alias.var_publica`);
+- bloquear escrita externa de `public var` fora do namespace dono neste corte;
+- manter semantica explicita de que `public` != `global` e que `global` nao existe na sintaxe canonica;
+- preservar comportamento atual de `public const` sem regressao;
+- publicar testes positivos/negativos e criterio de init deterministico para storage de modulo;
+- documentar efeitos colaterais esperados de `public var` e mitigacoes recomendadas;
+- documentar interacao entre `public var` e `mut func` (mutacao de namespace != mutacao de `self`);
+- registrar diretriz de adocao na stdlib: sem refactor amplo, apenas uso pontual quando houver ganho claro.
+
+## R3.P1.A - Analise futura: estado compartilhado de namespace
+
+Objetivo:
+
+- preparar a evolucao segura de `public var` para cenarios com concorrencia e maior escala.
+
+Entregas:
+
+- analise de riscos de estado compartilhado (ordem de execucao, isolamento de teste, debug);
+- proposta de modelo para `public var` em concorrencia (`single-thread` por padrao vs wrappers explicitos);
+- proposta de primitives futuras (`atomic`/sincronizacao explicita) sem introduzir `global`;
+- guideline de migracao para stdlib/packages com checklist de quando usar e quando evitar `public var`;
+- criterios de aceite para promover esta analise para milestone de implementacao.
 
 ## R3.M0 - Baseline e alinhamento
 
@@ -100,6 +146,7 @@ Entregas:
 - modelo oficial `task` + `channel` com isolamento por fronteira;
 - contrato explicito de copia na fronteira entre tasks;
 - `Shared<T>` apenas como caminho avancado e explicito;
+- integrar conclusoes de `R3.P1.A` para semantica de `public var` em contexto concorrente;
 - testes de corrida, ordem, cancelamento e determinismo do runtime;
 - docs de semantica de concorrencia no spec.
 

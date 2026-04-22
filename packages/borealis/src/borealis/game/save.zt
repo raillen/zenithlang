@@ -1,0 +1,38 @@
+namespace borealis.game.save
+
+public var save_slots: map<int, text> = {}
+
+public func slot_write(slot: int, snapshot: text) -> result<void, core.Error>
+    if slot < 0
+        return error("save: slot must be >= 0")
+    end
+
+    var next: map<int, text> = save_slots
+    next[slot] = snapshot
+    save_slots = next
+    return success()
+end
+
+public func slot_read(slot: int) -> optional<text>
+    return save_slots.get(slot)
+end
+
+public func slot_delete(slot: int) -> result<void, core.Error>
+    if slot < 0
+        return error("save: slot must be >= 0")
+    end
+
+    var next: map<int, text> = save_slots
+    next[slot] = ""
+    save_slots = next
+    return success()
+end
+
+public func autosave_write(snapshot: text) -> result<void, core.Error>
+    return save.slot_write(0, snapshot)
+end
+
+public func autosave_read() -> optional<text>
+    return save.slot_read(0)
+end
+

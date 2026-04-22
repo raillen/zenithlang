@@ -6,8 +6,8 @@ extern c
     func zt_json_parse_map_text_text(input: text) -> result<map<text,text>, core.Error>
     func zt_json_stringify_map_text_text(value: map<text,text>) -> text
     func zt_json_pretty_map_text_text(value: map<text,text>, indent: int) -> text
-    func zt_host_read_file(path: text) -> result<text, core.Error>
-    func zt_host_write_file(path: text, content: text) -> result<void, core.Error>
+    func zt_host_read_file(file_path: text) -> result<text, core.Error>
+    func zt_host_write_file(file_path: text, content: text) -> result<void, core.Error>
 end
 
 public func parse(input: text) -> result<map<text,text>, core.Error>

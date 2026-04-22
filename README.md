@@ -11,6 +11,7 @@ Zenith is a reading-first language with explicit semantics and a native compilat
 - Status: alpha published (v2 compiler track)
 - Current version: `0.3.0-alpha.1` (2026-04-21)
 - Alpha gate milestone: `R2.M12` closed
+- Language update (2026-04-22): `public var` at namespace scope is now implemented with controlled mutation (read public, write only in owner namespace; no `global` syntax)
 
 ## Project origin (AI-assisted)
 
@@ -41,6 +42,7 @@ Core references:
 - `language/spec/formatter-model.md`
 - `language/spec/diagnostics-model.md`
 - `language/spec/implementation-status.md`
+- `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
 
 ## What is implemented
 
@@ -242,6 +244,8 @@ Notes:
 
 ## Documentation hub
 
+- `docs/planning/roadmap-v3.md`
+- `docs/planning/checklist-v3.md`
 - `docs/planning/roadmap-v2.md`
 - `docs/planning/checklist-v2.md`
 - `docs/planning/cascade-v2.md`

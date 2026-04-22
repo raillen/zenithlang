@@ -1,0 +1,41 @@
+namespace borealis.game.database
+
+public struct DatabaseConfig
+    driver: text = "sqlite"
+    path: text = ""
+end
+
+public struct DatabaseConnection
+    open: bool
+    driver: text
+    path: text
+end
+
+public func open(config: database.DatabaseConfig) -> result<database.DatabaseConnection, core.Error>
+    if config.driver == ""
+        return error("database: driver cannot be empty")
+    end
+
+    return success(database.DatabaseConnection(
+        open: true,
+        driver: config.driver,
+        path: config.path
+    ))
+end
+
+public func close(connection: database.DatabaseConnection) -> database.DatabaseConnection
+    return database.DatabaseConnection(open: false, driver: connection.driver, path: connection.path)
+end
+
+public func query(connection: database.DatabaseConnection, sql: text) -> result<text, core.Error>
+    if connection.open == false
+        return error("database: connection is closed")
+    end
+
+    if sql == ""
+        return error("database: sql cannot be empty")
+    end
+
+    return success("database-stub-result")
+end
+

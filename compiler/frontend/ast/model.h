@@ -253,6 +253,8 @@ struct zt_ast_node {
             const char *name;
             zt_ast_node *type_node;
             zt_ast_node *init_value;
+            int is_public;
+            int is_module_level;
         } var_decl;
 
         struct {

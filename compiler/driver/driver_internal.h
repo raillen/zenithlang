@@ -69,6 +69,7 @@ extern const char *zt_since_ref;
 extern int zt_use_action_first;
 extern const zt_project_manifest *zt_active_manifest;
 extern int zt_telemetry_enabled;
+extern int zt_native_raw_output;
 extern char zt_project_root_abs[512];
 
 /* ── Path filter list ────────────────────────────────────────────── */

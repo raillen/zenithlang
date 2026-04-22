@@ -1,0 +1,29 @@
+namespace borealis.game.events
+
+public var last_event_name: text = ""
+public var last_event_payload: text = ""
+public var emit_count: int = 0
+
+public func emit(name: text, payload: text = "") -> result<void, core.Error>
+    if name == ""
+        return error("events: name cannot be empty")
+    end
+
+    last_event_name = name
+    last_event_payload = payload
+    emit_count = emit_count + 1
+    return success()
+end
+
+public func last_name() -> text
+    return last_event_name
+end
+
+public func last_payload() -> text
+    return last_event_payload
+end
+
+public func count() -> int
+    return emit_count
+end
+

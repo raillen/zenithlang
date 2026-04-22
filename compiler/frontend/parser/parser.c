@@ -1334,6 +1334,8 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
             node->as.var_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
             node->as.var_decl.type_node = type_node;
             node->as.var_decl.init_value = init_value;
+            node->as.var_decl.is_public = 0;
+            node->as.var_decl.is_module_level = 0;
         }
         return node;
     }
@@ -1869,17 +1871,33 @@ static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
             }
             return node;
         }
-        case ZT_TOKEN_VAR:
+        case ZT_TOKEN_VAR: {
+            zt_token var_tok = p->current;
+            zt_parser_advance(p);
+            zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+            zt_parser_expect(p, ZT_TOKEN_COLON);
+            zt_ast_node *type_node = zt_parser_parse_type(p);
+            zt_ast_node *init_value = NULL;
+            zt_ast_node *node;
             if (is_test_attr) {
                 zt_parser_error_at(p, "attr test is only valid on func declarations");
             }
-            zt_parser_error_contextual(p, "invalid top-level var",
-                "top-level var is not supported; use const at module scope");
-            zt_parser_advance(p);
-            return NULL;
+            if (zt_parser_match(p, ZT_TOKEN_EQ)) {
+                init_value = zt_parser_parse_expression(p);
+            }
+            node = zt_parser_ast_make(p, ZT_AST_VAR_DECL, var_tok.span);
+            if (node != NULL) {
+                node->as.var_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                node->as.var_decl.type_node = type_node;
+                node->as.var_decl.init_value = init_value;
+                node->as.var_decl.is_public = is_public;
+                node->as.var_decl.is_module_level = 1;
+            }
+            return node;
+        }
         default:
             zt_parser_error_contextual(p, "expected declaration",
-                "expected top-level declaration (func, struct, trait, apply, enum, extern, or const)");
+                "expected top-level declaration (func, struct, trait, apply, enum, extern, const, or var)");
             zt_parser_advance(p);
             return NULL;
     }

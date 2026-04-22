@@ -169,9 +169,23 @@ typedef struct zt_hir_match_case_list {
     size_t capacity;
 } zt_hir_match_case_list;
 
+typedef struct zt_hir_module_var {
+    zt_source_span span;
+    char *name;
+    zt_type *type;
+    zt_hir_expr *init_value;
+} zt_hir_module_var;
+
+typedef struct zt_hir_module_var_list {
+    zt_hir_module_var *items;
+    size_t count;
+    size_t capacity;
+} zt_hir_module_var_list;
+
 typedef struct zt_hir_module {
     zt_source_span span;
     char *module_name;
+    zt_hir_module_var_list module_vars;
     zt_hir_decl_list declarations;
 } zt_hir_module;
 
@@ -341,6 +355,9 @@ void zt_hir_map_entry_list_dispose(zt_hir_map_entry_list *list);
 zt_hir_match_case_list zt_hir_match_case_list_make(void);
 void zt_hir_match_case_list_push(zt_hir_match_case_list *list, zt_hir_match_case match_case);
 void zt_hir_match_case_list_dispose(zt_hir_match_case_list *list);
+zt_hir_module_var_list zt_hir_module_var_list_make(void);
+void zt_hir_module_var_list_push(zt_hir_module_var_list *list, zt_hir_module_var module_var);
+void zt_hir_module_var_list_dispose(zt_hir_module_var_list *list);
 
 #ifdef __cplusplus
 }

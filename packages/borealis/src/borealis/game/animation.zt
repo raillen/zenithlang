@@ -1,0 +1,62 @@
+namespace borealis.game.animation
+
+public struct AnimationState
+    clip: text = ""
+    frame: int = 0
+    fps: float = 12.0
+    playing: bool = false
+    loop: bool = true
+    elapsed: float = 0.0
+end
+
+public func animation_create(clip: text, fps: float = 12.0, loop: bool = true) -> animation.AnimationState
+    return animation.AnimationState(clip: clip, frame: 0, fps: fps, playing: false, loop: loop, elapsed: 0.0)
+end
+
+public func animation_play(state: animation.AnimationState) -> animation.AnimationState
+    var next: animation.AnimationState = state
+    next.playing = true
+    return next
+end
+
+public func animation_stop(state: animation.AnimationState) -> animation.AnimationState
+    var next: animation.AnimationState = state
+    next.playing = false
+    return next
+end
+
+public func animation_update(state: animation.AnimationState, frame_count: int, dt: float = 1.0 / 60.0) -> animation.AnimationState
+    if state.playing == false
+        return state
+    end
+
+    if frame_count <= 0
+        return state
+    end
+
+    if state.fps <= 0.0
+        return state
+    end
+
+    var next: animation.AnimationState = state
+    next.elapsed = next.elapsed + dt
+
+    const frame_time: float = 1.0 / state.fps
+    while next.elapsed >= frame_time
+        next.elapsed = next.elapsed - frame_time
+        next.frame = next.frame + 1
+
+        if next.frame >= frame_count
+            if next.loop
+                next.frame = 0
+            else
+                next.frame = frame_count - 1
+                next.playing = false
+                return next
+            end
+        end
+    end
+
+    return next
+end
+

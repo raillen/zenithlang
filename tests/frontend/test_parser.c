@@ -150,6 +150,23 @@ static void test_public_module_const(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
+static void test_public_module_var(void) {    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src = "namespace app\npublic var counter: int = 0";
+    zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_ERRORS(r, "public_module_var");
+    ASSERT_EQ(r.root->as.file.declarations.count, 1, "1 decl");
+    zt_ast_node *decl = r.root->as.file.declarations.items[0];
+    ASSERT_EQ(decl->kind, ZT_AST_VAR_DECL, "var decl");
+    ASSERT_EQ(decl->as.var_decl.is_public, 1, "var is public");
+    ASSERT_EQ(decl->as.var_decl.is_module_level, 1, "var is module-level");
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 static void test_const_and_var(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -723,6 +740,7 @@ int main(void) {
     test_func_void();
     test_public_func();
     test_public_module_const();
+    test_public_module_var();
     test_const_and_var();
     test_if_else();
     test_while_loop();

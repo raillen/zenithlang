@@ -47,12 +47,14 @@ function Run-Step([string]$Name, [string]$Exe, [string[]]$Args, [string]$LogFile
 $installResolved = Resolve-InstallRoot -Value $InstallRoot
 $installAbs = [System.IO.Path]::GetFullPath($installResolved)
 $ztExe = Join-Path $installAbs "zt.exe"
+$runtimeSource = Join-Path $installAbs "runtime\\c\\zenith_rt.c"
 $stdlibDir = Join-Path $installAbs "stdlib"
 $projectAbs = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $ProjectPath))
 $logAbs = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $LogPath))
 
 Assert-Exists $installAbs "Install root"
 Assert-Exists $ztExe "Installed compiler binary"
+Assert-Exists $runtimeSource "Installed runtime source"
 Assert-Exists $stdlibDir "Installed stdlib folder"
 Assert-Exists $projectAbs "Validation project"
 

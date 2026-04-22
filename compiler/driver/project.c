@@ -452,6 +452,8 @@ static int zt_prefix_declaration_for_namespace(zt_string_pool *pool, zt_ast_node
             return zt_prefix_ast_name(pool, &decl->as.enum_decl.name, prefix);
         case ZT_AST_CONST_DECL:
             return zt_prefix_ast_name(pool, &decl->as.const_decl.name, prefix);
+        case ZT_AST_VAR_DECL:
+            return zt_prefix_ast_name(pool, &decl->as.var_decl.name, prefix);
         case ZT_AST_EXTERN_DECL:
             for (i = 0; i < decl->as.extern_decl.functions.count; i += 1) {
                 zt_ast_node *func = decl->as.extern_decl.functions.items[i];

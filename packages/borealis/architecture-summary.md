@@ -10,6 +10,7 @@ One compact reference for the Borealis runtime, module boundaries, and editor-re
 |---|---|---|---|
 | `game` | Easy layer entrypoint | simple game API, defaults | no backend/linker burden |
 | `engine` | Technical layer | advanced control, backend-facing APIs | not the beginner path |
+| `contracts` | Shared gameplay contracts | frame/input/body data structs and helpers | no rendering/audio logic |
 | `entities` | Gameplay-facing ECS bridge | create/destroy, tags, hierarchy, snapshot, inspect | logic lives in systems/controllers |
 | `movement` | Generic motion helpers | move, push, teleport, basic motion math | not controllers, not animation |
 | `controllers` | Ready-made control schemes | platformer, topdown, grid, twin-stick, visual bridge | owns optional sprite sync |
@@ -32,6 +33,7 @@ One compact reference for the Borealis runtime, module boundaries, and editor-re
 | `scene` | Flow and screen organization | enter/exit/update/draw/transitions | does not replace gameplay model |
 | `events` | Decoupled messaging | emit/on/off/queue/dispatch | lightweight, not a huge bus |
 | `debug` | Diagnostics and overlays | bounds, hitboxes, FPS, watches | optional and easy to strip |
+| `editor` | Editor metadata bridge | labels, notes, grouping, lock/hidden flags by stable id | tool-facing metadata only |
 
 ## Editor Rules
 
@@ -49,3 +51,48 @@ One compact reference for the Borealis runtime, module boundaries, and editor-re
 - `services` is for network and remote services.
 - `procedural` is separate from `world`.
 - `hud` is a namespace under `ui`.
+
+## Backend Hook (B7)
+
+Desktop backend integration now follows an adapter contract in runtime C:
+
+1. `zt_borealis_desktop_api` defines desktop operations.
+2. `zt_borealis_set_desktop_api(...)` registers a desktop adapter.
+3. Runtime now ships an initial Raylib adapter loaded dynamically when the library exists.
+4. If no desktop adapter is registered/available, `backend_id=1` safely falls back to stub.
+
+Canonical profile doc:
+
+- `packages/borealis/backend-desktop-linker-profile-v1.md`.
+
+## Dependency Map (B6)
+
+Allowed direct dependencies in easy layer:
+
+1. `contracts` can depend only on `game` primitives.
+2. `movement`, `controllers`, `ai`, `camera`, `input` can depend on `contracts`.
+3. `ui.hud` depends on `ui` only by namespace convention (light coupling).
+4. `save` can use `storage` later, but each module remains usable standalone.
+5. `editor` remains isolated from runtime draw/audio/backend modules.
+
+Canonical file: `packages/borealis/dependency-map-v1.md`.
+
+## ECS Hybrid Guidance (B5)
+
+Use `borealis.game` first when:
+
+1. You are prototyping quickly.
+2. You only need entity lifecycle, tags, hierarchy, and simple scene flow.
+3. You want the lowest cognitive load.
+
+Move to `borealis.engine.ecs` when:
+
+1. You need explicit component payload ownership.
+2. You need system lifecycle tracking (`update`/`draw`) and run counters.
+3. You are preparing editor tooling, automation, or larger project organization.
+
+Recommended path:
+
+1. Start entities in `borealis.game.entities`.
+2. Add components through the facade (`entity_add_component` and related).
+3. Promote orchestration to `borealis.engine.ecs` systems as complexity grows.

@@ -1,0 +1,28 @@
+namespace borealis.game.debug
+
+
+public var enabled: bool = false
+
+public func set_enabled(value: bool) -> void
+    enabled = value
+end
+
+public func is_enabled() -> bool
+    return enabled
+end
+
+public func watch_text(label: text, value: text) -> text
+    if debug.enabled == false
+        return ""
+    end
+    return fmt "{label}: {value}"
+end
+
+public func hitbox_text(area: game.Rect) -> text
+    if debug.enabled == false
+        return ""
+    end
+    return fmt "hitbox({area.x}, {area.y}, {area.width}, {area.height})"
+end
+
+

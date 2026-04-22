@@ -1,0 +1,35 @@
+namespace borealis.game.settings
+
+public struct Settings
+    master_volume: float = 1.0
+    music_volume: float = 1.0
+    sfx_volume: float = 1.0
+    language: text = "en-US"
+    accessibility_dyslexia_font: bool = false
+    accessibility_high_contrast: bool = false
+end
+
+public func defaults() -> settings.Settings
+    return settings.Settings()
+end
+
+public func set_language(current: settings.Settings, language: text) -> settings.Settings
+    var next: settings.Settings = current
+    if language != ""
+        next.language = language
+    end
+    return next
+end
+
+public func set_master_volume(current: settings.Settings, volume: float) -> settings.Settings
+    var next: settings.Settings = current
+    next.master_volume = volume
+    return next
+end
+
+public func set_dyslexia_font(current: settings.Settings, enabled: bool) -> settings.Settings
+    var next: settings.Settings = current
+    next.accessibility_dyslexia_font = enabled
+    return next
+end
+

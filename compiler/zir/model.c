@@ -942,6 +942,23 @@ zir_enum_decl zir_make_enum_decl(const char *name, const zir_enum_variant_decl *
     return enum_decl;
 }
 
+zir_module_var zir_make_module_var(const char *name, const char *type_name, const char *init_expr_text) {
+    zir_module_var module_var;
+    module_var.name = name;
+    module_var.type_name = type_name;
+    module_var.init_expr_text = init_expr_text;
+    module_var.span = zir_make_span(NULL, 0, 0);
+    module_var.init_expr = NULL;
+    return module_var;
+}
+
+zir_module_var zir_make_module_var_expr(const char *name, const char *type_name, zir_expr *init_expr) {
+    zir_module_var module_var = zir_make_module_var(name, type_name, NULL);
+    module_var.init_expr = init_expr;
+    module_var.init_expr_text = zir_expr_render_alloc(init_expr);
+    return module_var;
+}
+
 zir_function zir_make_function(const char *name, const zir_param *params, size_t param_count, const char *return_type, const zir_block *blocks, size_t block_count) {
     zir_function function_decl;
     function_decl.name = name;
@@ -964,6 +981,8 @@ zir_module zir_make_module(const char *name, const zir_function *functions, size
 zir_module zir_make_module_with_structs(const char *name, const zir_struct_decl *structs, size_t struct_count, const zir_function *functions, size_t function_count) {
     zir_module module_decl;
     module_decl.name = name;
+    module_decl.module_vars = NULL;
+    module_decl.module_var_count = 0;
     module_decl.structs = structs;
     module_decl.struct_count = struct_count;
     module_decl.enums = NULL;
@@ -982,9 +1001,33 @@ zir_module zir_make_module_with_decls(
         size_t enum_count,
         const zir_function *functions,
         size_t function_count) {
+    return zir_make_module_with_decls_and_vars(
+        name,
+        structs,
+        struct_count,
+        enums,
+        enum_count,
+        NULL,
+        0,
+        functions,
+        function_count);
+}
+
+zir_module zir_make_module_with_decls_and_vars(
+        const char *name,
+        const zir_struct_decl *structs,
+        size_t struct_count,
+        const zir_enum_decl *enums,
+        size_t enum_count,
+        const zir_module_var *module_vars,
+        size_t module_var_count,
+        const zir_function *functions,
+        size_t function_count) {
     zir_module module_decl = zir_make_module_with_structs(name, structs, struct_count, functions, function_count);
     module_decl.enums = enums;
     module_decl.enum_count = enum_count;
+    module_decl.module_vars = module_vars;
+    module_decl.module_var_count = module_var_count;
     return module_decl;
 }
 
@@ -1058,6 +1101,15 @@ void zir_enum_decl_dispose_owned(zir_enum_decl *enum_decl) {
     memset(enum_decl, 0, sizeof(*enum_decl));
 }
 
+void zir_module_var_dispose_owned(zir_module_var *module_var) {
+    if (module_var == NULL) return;
+    free((void *)module_var->name);
+    free((void *)module_var->type_name);
+    zir_free_owned_nonempty(module_var->init_expr_text);
+    zir_expr_dispose(module_var->init_expr);
+    memset(module_var, 0, sizeof(*module_var));
+}
+
 void zir_function_dispose_owned(zir_function *function_decl) {
     size_t i;
     zir_param *params;
@@ -1084,6 +1136,7 @@ void zir_module_dispose_owned(zir_module *module_decl) {
     size_t i;
     zir_struct_decl *structs;
     zir_enum_decl *enums;
+    zir_module_var *module_vars;
     zir_function *functions;
     if (module_decl == NULL) return;
     free((void *)module_decl->name);
@@ -1093,9 +1146,11 @@ void zir_module_dispose_owned(zir_module *module_decl) {
     enums = (zir_enum_decl *)module_decl->enums;
     for (i = 0; i < module_decl->enum_count; i++) zir_enum_decl_dispose_owned(&enums[i]);
     free(enums);
+    module_vars = (zir_module_var *)module_decl->module_vars;
+    for (i = 0; i < module_decl->module_var_count; i++) zir_module_var_dispose_owned(&module_vars[i]);
+    free(module_vars);
     functions = (zir_function *)module_decl->functions;
     for (i = 0; i < module_decl->function_count; i++) zir_function_dispose_owned(&functions[i]);
     free(functions);
     memset(module_decl, 0, sizeof(*module_decl));
 }
-

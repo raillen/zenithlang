@@ -1,6 +1,6 @@
 # Decision 005 - Editor Ready Architecture
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-04-22
 - Type: architecture / editor readiness / data model
 - Scope: Borealis runtime, data model, editor compatibility

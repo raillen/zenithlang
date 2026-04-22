@@ -11,6 +11,10 @@ typedef struct c_local_decl {
     const char *type_name;
 } c_local_decl;
 
+static const zir_module *c_active_module_for_symbol_lookup = NULL;
+static const zir_module_var *c_find_module_var_decl(const zir_module *module_decl, const char *name);
+static int c_is_module_var_name(const zir_module *module_decl, const char *name);
+
 /* Buffer allocation strategy: use heap for large buffers to prevent stack overflow */
 #define ZT_EMITTER_STACK_BUFFER_THRESHOLD 2048  /* 2KB threshold */
 
@@ -1019,24 +1023,33 @@ static const char *c_find_symbol_type(const zir_function *function_decl, const c
     size_t param_index;
     size_t block_index;
 
-    for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
-        if (strcmp(function_decl->params[param_index].name, name) == 0) {
-            return function_decl->params[param_index].type_name;
+    if (function_decl != NULL) {
+        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
+            if (strcmp(function_decl->params[param_index].name, name) == 0) {
+                return function_decl->params[param_index].type_name;
+            }
+        }
+
+        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
+            size_t instruction_index;
+            const zir_block *block = &function_decl->blocks[block_index];
+
+            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
+                const zir_instruction *instruction = &block->instructions[instruction_index];
+
+                if (instruction->kind == ZIR_INSTR_ASSIGN &&
+                        instruction->dest_name != NULL &&
+                        strcmp(instruction->dest_name, name) == 0) {
+                    return instruction->type_name;
+                }
+            }
         }
     }
 
-    for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
-        size_t instruction_index;
-        const zir_block *block = &function_decl->blocks[block_index];
-
-        for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
-            const zir_instruction *instruction = &block->instructions[instruction_index];
-
-            if (instruction->kind == ZIR_INSTR_ASSIGN &&
-                    instruction->dest_name != NULL &&
-                    strcmp(instruction->dest_name, name) == 0) {
-                return instruction->type_name;
-            }
+    if (c_active_module_for_symbol_lookup != NULL) {
+        const zir_module_var *module_var = c_find_module_var_decl(c_active_module_for_symbol_lookup, name);
+        if (module_var != NULL) {
+            return module_var->type_name;
         }
     }
 
@@ -3813,6 +3826,24 @@ static const char *c_extern_call_expected_arg_type(const char *callee, size_t in
     return NULL;
 }
 
+static const zir_module_var *c_find_module_var_decl(const zir_module *module_decl, const char *name) {
+    size_t index;
+
+    if (module_decl == NULL || name == NULL) return NULL;
+    for (index = 0; index < module_decl->module_var_count; index += 1) {
+        const zir_module_var *module_var = &module_decl->module_vars[index];
+        if (module_var->name != NULL && strcmp(module_var->name, name) == 0) {
+            return module_var;
+        }
+    }
+
+    return NULL;
+}
+
+static int c_is_module_var_name(const zir_module *module_decl, const char *name) {
+    return c_find_module_var_decl(module_decl, name) != NULL;
+}
+
 static int c_zir_call_extern_needs_ffi_shield(
         const zir_module *module_decl,
         const zir_function *function_decl,
@@ -5542,6 +5573,7 @@ static int c_emit_effect_zir_expr(
 
 
 static int c_collect_locals(
+        const zir_module *module_decl,
         const zir_function *function_decl,
         c_local_decl *locals,
         size_t capacity,
@@ -5560,6 +5592,10 @@ static int c_collect_locals(
             int found = 0;
 
             if (instruction->kind != ZIR_INSTR_ASSIGN) {
+                continue;
+            }
+
+            if (c_is_module_var_name(module_decl, instruction->dest_name)) {
                 continue;
             }
 
@@ -7380,6 +7416,145 @@ static int c_emit_generated_outcome_helpers(
     return 1;
 }
 
+static void c_build_module_var_init_symbol(const zir_module *module_decl, char *dest, size_t capacity) {
+    char module_name[64];
+    c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
+    snprintf(dest, capacity, "zt_%s__init_module_vars", module_name);
+}
+
+static void c_build_module_var_init_guard_symbol(const zir_module *module_decl, char *dest, size_t capacity) {
+    char module_name[64];
+    c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
+    snprintf(dest, capacity, "zt_%s__module_vars_initialized", module_name);
+}
+
+static int c_emit_module_var_section(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        c_emit_result *result) {
+    size_t index;
+    char init_symbol[128];
+    char guard_symbol[128];
+    zir_function pseudo_function;
+
+    if (module_decl == NULL || module_decl->module_var_count == 0) {
+        return 1;
+    }
+
+    memset(&pseudo_function, 0, sizeof(pseudo_function));
+    pseudo_function.return_type = "void";
+
+    for (index = 0; index < module_decl->module_var_count; index += 1) {
+        const zir_module_var *module_var = &module_decl->module_vars[index];
+        char c_type[64];
+        int is_pointer_managed;
+        int needs_value_cleanup;
+
+        if (!c_type_to_c(module_decl, module_var->type_name, c_type, sizeof(c_type), result)) {
+            return 0;
+        }
+
+        is_pointer_managed = c_type_is_managed(module_var->type_name);
+        needs_value_cleanup = c_type_needs_managed_cleanup(module_decl, module_var->type_name) && !is_pointer_managed;
+
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "static "))) {
+            return 0;
+        }
+
+        if (!c_emit_typed_name(&emitter->buffer, c_type, c_safe_text(module_var->name))) {
+            return 0;
+        }
+
+        if (is_pointer_managed) {
+            if (!c_buffer_append(&emitter->buffer, " = NULL;")) {
+                return 0;
+            }
+        } else if (needs_value_cleanup) {
+            if (!c_buffer_append(&emitter->buffer, " = {0};")) {
+                return 0;
+            }
+        } else if (!c_buffer_append(&emitter->buffer, ";")) {
+            return 0;
+        }
+    }
+
+    c_build_module_var_init_symbol(module_decl, init_symbol, sizeof(init_symbol));
+    c_build_module_var_init_guard_symbol(module_decl, guard_symbol, sizeof(guard_symbol));
+
+    if (!(c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static zt_bool %s = false;", guard_symbol) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static void %s(void) {", init_symbol) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "    if (%s) return;", guard_symbol) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "    %s = true;", guard_symbol))) {
+        return 0;
+    }
+
+    for (index = 0; index < module_decl->module_var_count; index += 1) {
+        const zir_module_var *module_var = &module_decl->module_vars[index];
+        int is_pointer_managed = c_type_is_managed(module_var->type_name);
+
+        if (module_var->init_expr == NULL && c_is_blank(module_var->init_expr_text)) {
+            continue;
+        }
+
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s = ", c_safe_text(module_var->name)))) {
+            return 0;
+        }
+
+        if (module_var->init_expr != NULL) {
+            if (is_pointer_managed) {
+                if (!c_emit_owned_managed_zir_expr(
+                        emitter,
+                        module_decl,
+                        &pseudo_function,
+                        module_var->init_expr,
+                        module_var->type_name,
+                        result)) {
+                    return 0;
+                }
+            } else if (!c_emit_zir_expr(
+                    emitter,
+                    module_decl,
+                    &pseudo_function,
+                    module_var->init_expr,
+                    module_var->type_name,
+                    result)) {
+                return 0;
+            }
+        } else if (is_pointer_managed) {
+            if (!c_emit_owned_managed_expr(
+                    emitter,
+                    module_decl,
+                    &pseudo_function,
+                    module_var->init_expr_text,
+                    module_var->type_name,
+                    result)) {
+                return 0;
+            }
+        } else if (!c_emit_expr(
+                emitter,
+                module_decl,
+                &pseudo_function,
+                module_var->init_expr_text,
+                module_var->type_name,
+                result)) {
+            return 0;
+        }
+
+        if (!c_buffer_append(&emitter->buffer, ";")) {
+            return 0;
+        }
+    }
+
+    return c_begin_line(emitter) &&
+           c_buffer_append(&emitter->buffer, "}");
+}
+
 static int c_emit_function_signature(
         c_emitter *emitter,
         const zir_module *module_decl,
@@ -7451,7 +7626,7 @@ static int c_emit_function_definition(
     c_local_decl locals[128];
     size_t local_count = 0;
 
-    if (!c_collect_locals(function_decl, locals, sizeof(locals) / sizeof(locals[0]), &local_count, result)) {
+    if (!c_collect_locals(module_decl, function_decl, locals, sizeof(locals) / sizeof(locals[0]), &local_count, result)) {
         return 0;
     }
 
@@ -7469,6 +7644,15 @@ static int c_emit_function_definition(
 
     if (!c_emit_locals(emitter, module_decl, function_decl, locals, local_count, result)) {
         return 0;
+    }
+
+    if (module_decl->module_var_count > 0) {
+        char init_symbol[128];
+        c_build_module_var_init_symbol(module_decl, init_symbol, sizeof(init_symbol));
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append_format(&emitter->buffer, "    %s();", init_symbol))) {
+            return 0;
+        }
     }
 
     if (function_decl->block_count > 0) {
@@ -7617,6 +7801,8 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         return 0;
     }
 
+    c_active_module_for_symbol_lookup = module_decl;
+
         if (!(c_emit_line(emitter, "#include \"runtime/c/zenith_rt.h\"") &&
             (!c_module_requires_template_header(module_decl) ||
                 c_emit_line(emitter, "#include \"runtime/c/zenith_rt_templates.h\"")) &&
@@ -7624,26 +7810,32 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
             (!c_module_requires_string_header(module_decl) ||
                 c_emit_line(emitter, "#include <string.h>")))) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "unable to write emitter prologue");
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
     if (!c_begin_line(emitter)) {
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
     if (!c_emit_struct_definitions(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
     if (!c_emit_enum_definitions(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
     if (!c_emit_generated_map_helpers(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
     if (!c_emit_generated_outcome_helpers(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
@@ -7651,11 +7843,13 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         const zir_function *function_decl = &module_decl->functions[function_index];
 
         if (!c_begin_line(emitter)) {
+            c_active_module_for_symbol_lookup = NULL;
             return 0;
         }
 
         if (!c_emit_function_signature(emitter, module_decl, function_decl, 1, result) ||
                 !c_buffer_append(&emitter->buffer, ";")) {
+            c_active_module_for_symbol_lookup = NULL;
             return 0;
         }
 
@@ -7664,19 +7858,27 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         }
     }
 
+    if (!c_emit_module_var_section(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
+        return 0;
+    }
+
     for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
         if (!c_emit_function_definition(emitter, module_decl, &module_decl->functions[function_index], result)) {
+            c_active_module_for_symbol_lookup = NULL;
             return 0;
         }
     }
 
     if (main_function != NULL) {
         if (!c_emit_main_wrapper(emitter, module_decl, main_function, result)) {
+            c_active_module_for_symbol_lookup = NULL;
             return 0;
         }
     }
 
     c_emit_result_init(result);
+    c_active_module_for_symbol_lookup = NULL;
     return 1;
 }
 

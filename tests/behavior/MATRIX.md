@@ -58,8 +58,9 @@ one`, `success(...)` and `error(...)` | `0` |
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, `one_of_text`, text length checks) | `42` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
-| `std_random_basic` | `std.random` baseline (`seed`, 
-ext`, `between`) via host runtime wrappers | `0` |
+| `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) plus `public var` state tracking | `0` |
+| `std_random_state_observability` | `std.random` public state observability (`seeded`, `last_seed`, `draw_count`, `stats`) | `0` |
+| `std_random_between_branches` | `std.random.between` branch behavior (`min == max`, `max < min`) with draw count invariants | `0` |
 | `std_format_basic` | `std.format` com `BytesStyle` tipado (`hex`, `bin`, `bytes(style: ...)`, `bytes_binary`, `bytes_decimal`) | `0` |
 | `fmt_interpolation_basic` | `fmt "..."` end-to-end com expressao, chamada, bool e escape de chaves | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
@@ -78,6 +79,10 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `tooling_gate_smoke` | projeto canario para gate de `zt fmt --check` e `zt doc check` no runner oficial | `0` |
 | `multifile_import_alias` | Multi-file source root and import alias | `42` |
 | `public_const_module` | Top-level `public const` imported via alias (`module.CONST`) | `42` |
+| `public_var_module` | Top-level `public var` imported via alias (`module.VAR`) | `42` |
+| `public_var_module_state` | `public var` shares state across functions in the owning module | `4` |
+| `borealis_backend_fallback_stub` | Borealis desktop-profile request (`backend_id=1`) with safe fallback to stub when adapter is unavailable; covers window + draw + input queries | `0` |
+| `borealis_ecs_hybrid_stub` | Borealis ECS hybrid (stub run-pass): component store API em `borealis.engine.ecs` | `0` |
 | `where_contracts_ok` | Runtime `where` contracts on parameter, struct construction and field assignment | `40` |
 
 ## Invalid Projects
@@ -93,6 +98,8 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `multifile_duplicate_symbol` | Duplicate effective symbol rejection |
 | `multifile_import_cycle` | Import cycle rejection |
 | `multifile_private_access` | Access to non-public symbol via import alias is rejected |
+| `public_var_cross_namespace_write_error` | Cross-namespace mutation of `public var` via import alias is rejected |
+| `std_random_cross_namespace_write_error` | Cross-namespace mutation of `std.random` `public var` via import alias is rejected |
 | `project_unknown_key_manifest` | Manifest unknown key diagnostic (`project.*`) |
 | `fmt_interpolation_type_error` | `fmt` rejeita tipo sem `TextRepresentable<T>` |
 | `monomorphization_limit_error` | Monomorphization gate diagnostic when generic instantiations exceed `build.monomorphization_limit` |

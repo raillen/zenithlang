@@ -42,6 +42,7 @@ Compatibilidade semantica atual:
 - `Outcome<int,text>`, `Outcome<void,text>`, `Outcome<text,text>`, `Outcome<list<int>,text>`, `Outcome<list<text>,text>` e `Outcome<map<text,text>,text>` sao heap-managed para simplificar ownership no backend C
 - `zt_runtime_error_info` guarda kind, mensagem, codigo opcional e span opcional para diagnostico estruturado
 - a boundary host minima do runtime C expoe `zt_host_read_file`, `zt_host_write_stdout` e `zt_host_write_stderr`, com override por `zt_host_set_api`
+- Borealis desktop hook: `zt_borealis_desktop_api`, `zt_borealis_set_desktop_api` e `zt_borealis_get_desktop_api` com adapter Raylib inicial por carga dinamica (fallback para stub quando ausente)
 
 Estado atual do runtime:
 

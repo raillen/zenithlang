@@ -41,6 +41,15 @@
   #define OutputBase "zenith-" + MyAppVersion + "-windows-amd64-setup"
 #endif
 
+#ifndef InstallerIconPath
+  #define StageIconPath SourceDir + "\logo-only.ico"
+  #ifexist StageIconPath
+    #define InstallerIconPath StageIconPath
+  #else
+    #define InstallerIconPath "..\branding\logo-only.ico"
+  #endif
+#endif
+
 [Setup]
 AppId={#MyAppId}
 AppName={#MyAppName}
@@ -62,7 +71,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 ChangesEnvironment=yes
-UninstallDisplayIcon={app}\zt.exe
+SetupIconFile={#InstallerIconPath}
+UninstallDisplayIcon={app}\logo-only.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -72,6 +82,8 @@ Name: "addtopath"; Description: "Add Zenith to system PATH"; Flags: checkedonce
 
 [Files]
 Source: "{#SourceDir}\zt.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#InstallerIconPath}"; DestDir: "{app}"; DestName: "logo-only.ico"; Flags: ignoreversion
+Source: "{#SourceDir}\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourceDir}\stdlib\*"; DestDir: "{app}\stdlib"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourceDir}\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion

@@ -1,0 +1,44 @@
+namespace app.main
+
+import borealis.game as game
+
+func main() -> result<void, core.Error>
+    const config: game.WindowConfig = game.WindowConfig(
+        title: "Borealis Render2D Base",
+        width: 800,
+        height: 450,
+        target_fps: 60,
+        backend: game.Backend.Stub
+    )
+
+    const ctx: game.GameContext = game.start(config)?
+    var x: float = 120.0
+    var frame: int = 0
+
+    while frame < 3
+        game.frame_begin(ctx, game.rgb(22, 26, 34))?
+
+        game.draw_text(
+            ctx,
+            "HUD: Render2D base",
+            x: 24,
+            y: 24,
+            size: 20,
+            color: game.rgb(236, 236, 236)
+        )?
+
+        game.draw_line(ctx, 24.0, 58.0, 310.0, 58.0, game.rgb(100, 160, 255))?
+        game.draw_rect(ctx, game.rect(x, 160.0, 96.0, 64.0), game.rgb(255, 170, 40))?
+        game.draw_rect_outline(ctx, game.rect(x - 2.0, 158.0, 100.0, 68.0), game.rgb(245, 245, 245), thickness: 2.0)?
+        game.draw_circle(ctx, game.vec2(540.0, 192.0), 36.0, game.rgb(120, 210, 140))?
+        game.draw_circle_outline(ctx, game.vec2(540.0, 192.0), 42.0, game.rgb(245, 245, 245), thickness: 2.0)?
+
+        game.frame_end(ctx)?
+
+        x = x + 8.0
+        frame = frame + 1
+    end
+
+    game.close(ctx)?
+    return success()
+end

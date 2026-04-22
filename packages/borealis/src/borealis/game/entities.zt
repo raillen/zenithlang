@@ -1,8 +1,6 @@
 namespace borealis.game.entities
 
-import borealis.game as game
-import std.format as format
-import std.text as text
+import borealis.engine.ecs as ecs
 
 public struct Entity
     id: int
@@ -31,8 +29,14 @@ public struct EntityInfo
     layer: text
     parent_id: int
     child_count: int
+    component_count: int
     tags_blob: text
     dirty: bool
+end
+
+public struct EntityComponent
+    kind: text
+    payload: text
 end
 
 public var entities_next_id: int = 1
@@ -244,10 +248,11 @@ public func entity_add_tag(entity: entities.Entity, tag: text) -> result<void, c
 
     const current: text = entities.entities_text_or(entities_tags_blob, entity.id, "|")
     const token: text = entities.entities_tag_token(tag)
-    if text.contains(current, token) == false
-        entities_tags_blob = entities.entities_text_set(entities_tags_blob, entity.id, text.join([current, tag, "|"]))
-        entities_dirty = entities.entities_bool_set(entities_dirty, entity.id, true)
+    if text.contains(current, token)
+        return success()
     end
+    entities_tags_blob = entities.entities_text_set(entities_tags_blob, entity.id, text.join([current, tag, "|"]))
+    entities_dirty = entities.entities_bool_set(entities_dirty, entity.id, true)
     return success()
 end
 
@@ -315,6 +320,65 @@ end
 
 public func entity_get_layer(entity: entities.Entity) -> text
     return entities.entities_text_or(entities_layer, entity.id, "default")
+end
+
+public func entity_add_component(
+    entity: entities.Entity,
+    component_type: text,
+    payload: text = ""
+) -> result<void, core.Error>
+    entities.entities_require_exists(entity)?
+    ecs.ecs_component_set(entity.id, component_type, payload)?
+    entities_dirty = entities.entities_bool_set(entities_dirty, entity.id, true)
+    return success()
+end
+
+public func entity_remove_component(
+    entity: entities.Entity,
+    component_type: text
+) -> result<void, core.Error>
+    entities.entities_require_exists(entity)?
+    ecs.ecs_component_remove(entity.id, component_type)?
+    entities_dirty = entities.entities_bool_set(entities_dirty, entity.id, true)
+    return success()
+end
+
+public func entity_has_component(entity: entities.Entity, component_type: text) -> bool
+    if entities.entity_exists(entity) == false
+        return false
+    end
+    return ecs.ecs_component_has(entity.id, component_type)
+end
+
+public func entity_get_component(
+    entity: entities.Entity,
+    component_type: text
+) -> optional<entities.EntityComponent>
+    if entities.entity_exists(entity) == false
+        return none
+    end
+
+    const payload: optional<text> = ecs.ecs_component_get(entity.id, component_type)
+    match payload
+        case value data ->
+            return entities.EntityComponent(kind: component_type, payload: data)
+        case none ->
+            return none
+    end
+end
+
+public func entity_component_count(entity: entities.Entity) -> int
+    if entities.entity_exists(entity) == false
+        return 0
+    end
+    return ecs.ecs_component_count(entity.id)
+end
+
+public func entity_list_components_blob(entity: entities.Entity) -> text
+    if entities.entity_exists(entity) == false
+        return "|"
+    end
+    return ecs.ecs_component_list_blob(entity.id)
 end
 
 public func entity_count() -> int
@@ -458,10 +522,14 @@ public func entity_inspect(entity: entities.Entity) -> entities.EntityInfo
         layer: entities.entity_get_layer(entity),
         parent_id: entities.entities_int_or(entities_parent_id, entity.id, 0),
         child_count: entities.entity_child_count(entity),
+        component_count: entities.entity_component_count(entity),
         tags_blob: entities.entities_text_or(entities_tags_blob, entity.id, "|"),
         dirty: entities.entity_is_dirty(entity)
     )
 end
+
+
+
 
 
 

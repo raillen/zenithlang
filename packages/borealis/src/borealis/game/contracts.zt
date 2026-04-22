@@ -1,0 +1,69 @@
+namespace borealis.game.contracts
+
+public struct FrameContext
+    dt: float = 1.0 / 60.0
+    frame: int = 0
+end
+
+public struct ActionInput
+    up: bool = false
+    down: bool = false
+    left: bool = false
+    right: bool = false
+    jump: bool = false
+    dash: bool = false
+    primary: bool = false
+    secondary: bool = false
+end
+
+public struct Body2D
+    position: game.Vector2
+    velocity: game.Vector2
+end
+
+public func frame_context(dt: float = 1.0 / 60.0, frame: int = 0) -> contracts.FrameContext
+    return contracts.FrameContext(dt: dt, frame: frame)
+end
+
+public func action_input() -> contracts.ActionInput
+    return contracts.ActionInput()
+end
+
+public func body2d(
+    position: game.Vector2 = game.vec2(0.0, 0.0),
+    velocity: game.Vector2 = game.vec2(0.0, 0.0)
+) -> contracts.Body2D
+    return contracts.Body2D(position: position, velocity: velocity)
+end
+
+public func action_axis(input: contracts.ActionInput) -> game.Vector2
+    var x: float = 0.0
+    var y: float = 0.0
+
+    if input.left
+        x = x - 1.0
+    end
+    if input.right
+        x = x + 1.0
+    end
+    if input.up
+        y = y - 1.0
+    end
+    if input.down
+        y = y + 1.0
+    end
+
+    return game.vec2(x, y)
+end
+
+public func body_set_velocity(body: contracts.Body2D, velocity: game.Vector2) -> contracts.Body2D
+    return contracts.Body2D(position: body.position, velocity: velocity)
+end
+
+public func body_integrate(body: contracts.Body2D, dt: float = 1.0 / 60.0) -> contracts.Body2D
+    const next_position: game.Vector2 = game.vec2(
+        body.position.x + (body.velocity.x * dt),
+        body.position.y + (body.velocity.y * dt)
+    )
+    return contracts.Body2D(position: next_position, velocity: body.velocity)
+end

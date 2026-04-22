@@ -1,0 +1,40 @@
+namespace borealis.game.input
+
+
+
+public struct ActionState
+    pressed: bool
+    down: bool
+    released: bool
+end
+
+public func key_state(ctx: game.GameContext, key: game.Key) -> input.ActionState
+    return input.ActionState(
+        pressed: game.key_pressed(ctx, key),
+        down: game.key_down(ctx, key),
+        released: game.key_released(ctx, key)
+    )
+end
+
+public func mouse_hover(mouse: game.Vector2, area: game.Rect) -> bool
+    return mouse.x >= area.x and
+           mouse.x <= (area.x + area.width) and
+           mouse.y >= area.y and
+           mouse.y <= (area.y + area.height)
+end
+
+public func action_input_from_keyboard(ctx: game.GameContext) -> contracts.ActionInput
+    return contracts.ActionInput(
+        up: game.key_down(ctx, game.Key.Up),
+        down: game.key_down(ctx, game.Key.Down),
+        left: game.key_down(ctx, game.Key.Left),
+        right: game.key_down(ctx, game.Key.Right),
+        jump: game.key_pressed(ctx, game.Key.Space),
+        dash: false,
+        primary: game.key_pressed(ctx, game.Key.Space),
+        secondary: game.key_released(ctx, game.Key.Space)
+    )
+end
+
+
+

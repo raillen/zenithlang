@@ -1,0 +1,44 @@
+namespace borealis.game.procedural
+
+public var seed_value: int = 1
+
+public func set_seed(value: int) -> void
+    if value == 0
+        seed_value = 1
+        return
+    end
+    seed_value = value
+end
+
+public func get_seed() -> int
+    return seed_value
+end
+
+public func next_i32() -> int
+    seed_value = (1103515245 * seed_value + 12345) % 2147483647
+    if seed_value < 0
+        seed_value = -seed_value
+    end
+    return seed_value
+end
+
+public func range_int(min: int, max: int) -> int
+    if min == max
+        return min
+    end
+
+    var lo: int = min
+    var hi: int = max
+    if max < min
+        lo = max
+        hi = min
+    end
+
+    const span: int = (hi - lo) + 1
+    if span <= 0
+        return lo
+    end
+
+    return lo + (procedural.next_i32() % span)
+end
+

@@ -60,6 +60,14 @@ typedef struct zt_const_meta {
     int is_lowering;
 } zt_const_meta;
 
+typedef struct zt_var_meta {
+    char *name;
+    char *lowered_name;
+    zt_type *type;
+    const zt_ast_node *init_value;
+    int is_lowering;
+} zt_var_meta;
+
 typedef struct zt_lower_ctx {
     zt_hir_lower_result result;
     zt_struct_meta *structs;
@@ -74,6 +82,9 @@ typedef struct zt_lower_ctx {
     zt_const_meta *consts;
     size_t const_count;
     size_t const_capacity;
+    zt_var_meta *vars;
+    size_t var_count;
+    size_t var_capacity;
     const zt_type *current_return_type;
     const zt_ast_node *root_ast;
 } zt_lower_ctx;
@@ -224,6 +235,7 @@ static zt_type_kind zt_builtin_kind(const char *name, int *is_builtin) {
 }
 
 static zt_type *zt_lower_type_from_ast(zt_lower_ctx *ctx, const zt_ast_node *node);
+static char *zt_build_module_var_symbol(const char *name);
 
 static zt_type *zt_lower_type_from_generic(zt_lower_ctx *ctx, const char *name, const zt_ast_node_list *args) {
     zt_type_list lowered_args;
@@ -342,6 +354,17 @@ static zt_const_meta *zt_push_const_meta(zt_lower_ctx *ctx) {
     }
     memset(&ctx->consts[ctx->const_count], 0, sizeof(zt_const_meta));
     return &ctx->consts[ctx->const_count++];
+}
+
+static zt_var_meta *zt_push_var_meta(zt_lower_ctx *ctx) {
+    zt_var_meta *grown;
+    if (ctx->var_count >= ctx->var_capacity) {
+        grown = (zt_var_meta *)zt_lower_grow_array(ctx->vars, &ctx->var_capacity, sizeof(zt_var_meta));
+        if (grown == NULL) return NULL;
+        ctx->vars = grown;
+    }
+    memset(&ctx->vars[ctx->var_count], 0, sizeof(zt_var_meta));
+    return &ctx->vars[ctx->var_count++];
 }
 
 static zt_struct_field_meta *zt_push_struct_field_meta(zt_struct_meta *meta) {
@@ -466,6 +489,15 @@ static zt_const_meta *zt_find_const_meta(zt_lower_ctx *ctx, const char *name) {
     return NULL;
 }
 
+static zt_var_meta *zt_find_var_meta(zt_lower_ctx *ctx, const char *name) {
+    size_t i;
+    if (ctx == NULL || name == NULL) return NULL;
+    for (i = 0; i < ctx->var_count; i += 1) {
+        if (zt_name_eq(ctx->vars[i].name, name)) return &ctx->vars[i];
+    }
+    return NULL;
+}
+
 static char *zt_build_apply_name(const char *target, const char *trait, const char *method) {
     char buffer[1024];
     if (target == NULL || method == NULL) return zt_lower_strdup("<invalid>");
@@ -554,6 +586,18 @@ static void zt_collect_const_symbol(zt_lower_ctx *ctx, const zt_ast_node *decl) 
     meta->is_lowering = 0;
 }
 
+static void zt_collect_var_symbol(zt_lower_ctx *ctx, const zt_ast_node *decl) {
+    zt_var_meta *meta;
+    if (decl == NULL || decl->kind != ZT_AST_VAR_DECL) return;
+    meta = zt_push_var_meta(ctx);
+    if (meta == NULL) return;
+    meta->name = zt_lower_strdup(decl->as.var_decl.name);
+    meta->lowered_name = zt_build_module_var_symbol(meta->name);
+    meta->type = zt_lower_type_from_ast(ctx, decl->as.var_decl.type_node);
+    meta->init_value = decl->as.var_decl.init_value;
+    meta->is_lowering = 0;
+}
+
 static void zt_collect_extern_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl) {
     size_t i;
     if (ctx == NULL || decl == NULL || decl->kind != ZT_AST_EXTERN_DECL) return;
@@ -590,6 +634,8 @@ static void zt_collect_symbols(zt_lower_ctx *ctx, const zt_ast_node *root) {
             zt_collect_apply_symbols(ctx, decl);
         } else if (decl->kind == ZT_AST_CONST_DECL) {
             zt_collect_const_symbol(ctx, decl);
+        } else if (decl->kind == ZT_AST_VAR_DECL) {
+            zt_collect_var_symbol(ctx, decl);
         }
     }
 }
@@ -747,6 +793,57 @@ static zt_hir_expr_list zt_lower_call_args(
         }
     }
 
+    return out;
+}
+
+static int zt_is_module_var_symbol_char(char ch) {
+    return ((ch >= 'a' && ch <= 'z') ||
+            (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9'));
+}
+
+static char *zt_build_module_var_symbol(const char *name) {
+    size_t len;
+    size_t capacity;
+    char *out;
+    size_t i;
+    size_t pos = 0;
+    const char *prefix = "zt_modvar_";
+
+    if (name == NULL) return NULL;
+    len = strlen(name);
+    capacity = strlen(prefix) + (len * 6) + 1;
+    out = (char *)malloc(capacity);
+    if (out == NULL) return NULL;
+
+    memcpy(out, prefix, strlen(prefix));
+    pos = strlen(prefix);
+
+    for (i = 0; i < len && pos + 1 < capacity; i += 1) {
+        unsigned char ch = (unsigned char)name[i];
+        if (zt_is_module_var_symbol_char((char)ch)) {
+            out[pos++] = (char)ch;
+            continue;
+        }
+        if (ch == '_') {
+            if (pos + 2 >= capacity) break;
+            out[pos++] = '_';
+            out[pos++] = '_';
+            continue;
+        }
+        if (ch == '.') {
+            if (pos + 3 >= capacity) break;
+            out[pos++] = '_';
+            out[pos++] = 'd';
+            out[pos++] = '_';
+            continue;
+        }
+        if (pos + 5 >= capacity) break;
+        snprintf(out + pos, capacity - pos, "_x%02x_", (unsigned int)ch);
+        pos += 5;
+    }
+
+    out[pos] = '\0';
     return out;
 }
 
@@ -1348,8 +1445,11 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
         case ZT_AST_IDENT_EXPR: {
             const zt_type *bound_type = zt_scope_get(scope, expr->as.ident_expr.name);
             zt_const_meta *const_meta = NULL;
+            zt_var_meta *var_meta = NULL;
+            const char *resolved_name = expr->as.ident_expr.name;
             if (bound_type == NULL) {
                 const_meta = zt_find_const_meta(ctx, expr->as.ident_expr.name);
+                var_meta = zt_find_var_meta(ctx, expr->as.ident_expr.name);
             }
             if (const_meta != NULL && const_meta->init_value != NULL) {
                 if (const_meta->is_lowering) {
@@ -1362,11 +1462,19 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                     if (inlined != NULL) return inlined;
                 }
             }
+            if (var_meta != NULL) {
+                if (bound_type == NULL) {
+                    bound_type = var_meta->type;
+                }
+                if (var_meta->lowered_name != NULL) {
+                    resolved_name = var_meta->lowered_name;
+                }
+            }
             {
                 zt_type *type = zt_type_clone(bound_type);
                 if (type == NULL) type = expected != NULL ? zt_type_clone(expected) : zt_unknown_type();
                 out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, type);
-                if (out != NULL) out->as.ident_expr.name = zt_lower_strdup(expr->as.ident_expr.name);
+                if (out != NULL) out->as.ident_expr.name = zt_lower_strdup(resolved_name);
                 return out;
             }
         }
@@ -1561,6 +1669,7 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                 expr->as.field_expr.field_name != NULL) {
                 char qualified_name[512];
                 zt_const_meta *const_meta;
+                zt_var_meta *var_meta;
                 snprintf(qualified_name, sizeof(qualified_name), "%s.%s", expr->as.field_expr.object->as.ident_expr.name, expr->as.field_expr.field_name);
                 const_meta = zt_find_const_meta(ctx, qualified_name);
                 if (const_meta != NULL && const_meta->init_value != NULL) {
@@ -1573,6 +1682,17 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                         const_meta->is_lowering = 0;
                         if (inlined != NULL) return inlined;
                     }
+                }
+                var_meta = zt_find_var_meta(ctx, qualified_name);
+                if (var_meta != NULL) {
+                    zt_type *type = zt_type_clone(var_meta->type);
+                    if (type == NULL) type = expected != NULL ? zt_type_clone(expected) : zt_unknown_type();
+                    out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, type);
+                    if (out != NULL) {
+                        out->as.ident_expr.name = zt_lower_strdup(
+                            var_meta->lowered_name != NULL ? var_meta->lowered_name : qualified_name);
+                    }
+                    return out;
                 }
             }
             if (expr->as.field_expr.object != NULL && expr->as.field_expr.field_name != NULL) {
@@ -1825,9 +1945,19 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
 
         case ZT_AST_ASSIGN_STMT: {
             zt_hir_stmt *out = zt_hir_stmt_make(ZT_HIR_ASSIGN_STMT, stmt->span);
+            const zt_type *assigned_type = zt_scope_get(scope, stmt->as.assign_stmt.name);
+            const char *target_name = stmt->as.assign_stmt.name;
             if (out == NULL) return NULL;
-            out->as.assign_stmt.name = zt_lower_strdup(stmt->as.assign_stmt.name);
-            out->as.assign_stmt.value = zt_lower_expr(ctx, scope, stmt->as.assign_stmt.value, zt_scope_get(scope, stmt->as.assign_stmt.name));
+            if (assigned_type == NULL) {
+                zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.assign_stmt.name);
+                if (var_meta != NULL && var_meta->type != NULL) {
+                    target_name = var_meta->lowered_name != NULL ? var_meta->lowered_name : stmt->as.assign_stmt.name;
+                    zt_scope_set(scope, target_name, var_meta->type);
+                    assigned_type = zt_scope_get(scope, target_name);
+                }
+            }
+            out->as.assign_stmt.name = zt_lower_strdup(target_name);
+            out->as.assign_stmt.value = zt_lower_expr(ctx, scope, stmt->as.assign_stmt.value, assigned_type);
             return out;
         }
 
@@ -1835,6 +1965,15 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             zt_hir_stmt *out = zt_hir_stmt_make(ZT_HIR_INDEX_ASSIGN_STMT, stmt->span);
             zt_type *value_expected = NULL;
             if (out == NULL) return NULL;
+            if (stmt->as.index_assign_stmt.object != NULL &&
+                stmt->as.index_assign_stmt.object->kind == ZT_AST_IDENT_EXPR &&
+                stmt->as.index_assign_stmt.object->as.ident_expr.name != NULL &&
+                zt_scope_get(scope, stmt->as.index_assign_stmt.object->as.ident_expr.name) == NULL) {
+                zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.index_assign_stmt.object->as.ident_expr.name);
+                if (var_meta != NULL && var_meta->type != NULL) {
+                    zt_scope_set(scope, stmt->as.index_assign_stmt.object->as.ident_expr.name, var_meta->type);
+                }
+            }
             out->as.index_assign_stmt.object = zt_lower_expr(ctx, scope, stmt->as.index_assign_stmt.object, NULL);
             if (out->as.index_assign_stmt.object != NULL && out->as.index_assign_stmt.object->type != NULL) {
                 const zt_type *t = out->as.index_assign_stmt.object->type;
@@ -1852,6 +1991,15 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             zt_hir_stmt *out = zt_hir_stmt_make(ZT_HIR_FIELD_ASSIGN_STMT, stmt->span);
             zt_type *field_type = NULL;
             if (out == NULL) return NULL;
+            if (stmt->as.field_assign_stmt.object != NULL &&
+                stmt->as.field_assign_stmt.object->kind == ZT_AST_IDENT_EXPR &&
+                stmt->as.field_assign_stmt.object->as.ident_expr.name != NULL &&
+                zt_scope_get(scope, stmt->as.field_assign_stmt.object->as.ident_expr.name) == NULL) {
+                zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.field_assign_stmt.object->as.ident_expr.name);
+                if (var_meta != NULL && var_meta->type != NULL) {
+                    zt_scope_set(scope, stmt->as.field_assign_stmt.object->as.ident_expr.name, var_meta->type);
+                }
+            }
             out->as.field_assign_stmt.object = zt_lower_expr(ctx, scope, stmt->as.field_assign_stmt.object, NULL);
             if (out->as.field_assign_stmt.object != NULL && out->as.field_assign_stmt.object->type != NULL &&
                     out->as.field_assign_stmt.object->type->kind == ZT_TYPE_USER) {
@@ -2119,6 +2267,29 @@ static void zt_lower_apply_decl(zt_lower_ctx *ctx, zt_hir_module *module, const 
     }
 }
 
+static void zt_lower_module_vars(zt_lower_ctx *ctx, zt_hir_module *module) {
+    size_t i;
+    zt_scope module_scope;
+
+    if (ctx == NULL || module == NULL) return;
+    zt_scope_init(&module_scope, NULL);
+
+    for (i = 0; i < ctx->var_count; i += 1) {
+        const zt_var_meta *meta = &ctx->vars[i];
+        zt_hir_module_var hir_var;
+        memset(&hir_var, 0, sizeof(hir_var));
+        hir_var.span = meta->init_value != NULL ? meta->init_value->span : module->span;
+        hir_var.name = zt_lower_strdup(meta->lowered_name != NULL ? meta->lowered_name : meta->name);
+        hir_var.type = zt_type_clone(meta->type);
+        hir_var.init_value = meta->init_value != NULL
+            ? zt_lower_expr(ctx, &module_scope, meta->init_value, meta->type)
+            : NULL;
+        zt_hir_module_var_list_push(&module->module_vars, hir_var);
+    }
+
+    zt_scope_dispose(&module_scope);
+}
+
 zt_hir_lower_result zt_lower_ast_to_hir(const zt_ast_node *root) {
     zt_lower_ctx ctx;
     size_t i;
@@ -2148,7 +2319,10 @@ zt_hir_lower_result zt_lower_ast_to_hir(const zt_ast_node *root) {
     }
 
     ctx.result.module->module_name = zt_lower_strdup(root->as.file.module_name != NULL ? root->as.file.module_name : "main");
+    ctx.result.module->module_vars = zt_hir_module_var_list_make();
     ctx.result.module->declarations = zt_hir_decl_list_make();
+
+    zt_lower_module_vars(&ctx, ctx.result.module);
 
     for (i = 0; i < root->as.file.declarations.count; i += 1) {
         const zt_ast_node *decl = root->as.file.declarations.items[i];
@@ -2202,6 +2376,13 @@ zt_hir_lower_result zt_lower_ast_to_hir(const zt_ast_node *root) {
         zt_type_dispose(ctx.consts[i].type);
     }
     free(ctx.consts);
+
+    for (i = 0; i < ctx.var_count; i += 1) {
+        free(ctx.vars[i].name);
+        free(ctx.vars[i].lowered_name);
+        zt_type_dispose(ctx.vars[i].type);
+    }
+    free(ctx.vars);
 
     return ctx.result;
 }

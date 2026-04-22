@@ -1,10 +1,10 @@
--- Zenith Standard Library — OS Module
+-- Zenith Standard Library - OS Module
 -- Process environment, platform, architecture (Decision 067).
--- 🏗️ TYPES
--- 🏗️ EXTERN C
--- 📋 ARGS / ENV
--- 💻 PLATFORM / ARCH
--- 📂 CURRENT DIRECTORY
+-- TYPES
+-- EXTERN C
+-- ARGS / ENV
+-- PLATFORM / ARCH
+-- CURRENT DIRECTORY
 namespace std.os
 
 public enum Platform
@@ -82,6 +82,6 @@ public func current_dir() -> result<text, os.Error>
     return os.zt_host_os_current_dir()
 end
 
-public func change_dir(path: text) -> result<void, os.Error>
-    return os.zt_host_os_change_dir(path)
+public func change_dir(dir_path: text) -> result<void, os.Error>
+    return os.zt_host_os_change_dir(dir_path)
 end

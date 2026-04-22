@@ -57,6 +57,7 @@ typedef struct zir_function_ctx {
 typedef struct zir_decl_counts {
     size_t struct_count;
     size_t enum_count;
+    size_t module_var_count;
     size_t function_count;
 } zir_decl_counts;
 
@@ -2651,11 +2652,38 @@ static zir_function zir_lower_function_decl(
     return out;
 }
 
+static zir_module_var zir_lower_module_var_decl(
+        const zt_hir_module *module_hir,
+        const zt_hir_module_var *module_var) {
+    zir_module_var out;
+    zir_expr *init_expr = NULL;
+
+    if (module_var != NULL && module_var->init_value != NULL) {
+        init_expr = zir_lower_hir_expr(module_hir, module_var->init_value, NULL, NULL, NULL);
+    }
+
+    if (init_expr != NULL) {
+        out = zir_make_module_var_expr(
+            zir_lower_strdup(module_var->name),
+            zir_type_name_owned(module_var->type),
+            init_expr);
+    } else {
+        out = zir_make_module_var(
+            zir_lower_strdup(module_var != NULL ? module_var->name : ""),
+            zir_type_name_owned(module_var != NULL ? module_var->type : NULL),
+            NULL);
+    }
+
+    out.span = zir_span_from_source(module_var != NULL ? module_var->span : zt_source_span_unknown());
+    return out;
+}
+
 static zir_decl_counts zir_count_decls(const zt_hir_module *module_hir) {
     zir_decl_counts counts;
     size_t i;
     memset(&counts, 0, sizeof(counts));
     if (module_hir == NULL) return counts;
+    counts.module_var_count = module_hir->module_vars.count;
     for (i = 0; i < module_hir->declarations.count; i += 1) {
         const zt_hir_decl *decl = module_hir->declarations.items[i];
         if (decl == NULL) continue;
@@ -2671,9 +2699,11 @@ zir_lower_result zir_lower_hir_to_zir(const zt_hir_module *module_decl) {
     zir_decl_counts counts;
     zir_struct_decl *structs = NULL;
     zir_enum_decl *enums = NULL;
+    zir_module_var *module_vars = NULL;
     zir_function *functions = NULL;
     size_t struct_index = 0;
     size_t enum_index = 0;
+    size_t module_var_index = 0;
     size_t fn_index = 0;
     size_t i;
 
@@ -2704,8 +2734,18 @@ zir_lower_result zir_lower_hir_to_zir(const zt_hir_module *module_decl) {
     if (counts.enum_count > 0) {
         enums = (zir_enum_decl *)calloc(counts.enum_count, sizeof(zir_enum_decl));
     }
+    if (counts.module_var_count > 0) {
+        module_vars = (zir_module_var *)calloc(counts.module_var_count, sizeof(zir_module_var));
+    }
     if (counts.function_count > 0) {
         functions = (zir_function *)calloc(counts.function_count, sizeof(zir_function));
+    }
+
+    for (i = 0; i < module_decl->module_vars.count; i += 1) {
+        const zt_hir_module_var *module_var = &module_decl->module_vars.items[i];
+        if (module_var_index < counts.module_var_count) {
+            module_vars[module_var_index++] = zir_lower_module_var_decl(module_decl, module_var);
+        }
     }
 
     for (i = 0; i < module_decl->declarations.count; i += 1) {
@@ -2728,12 +2768,14 @@ zir_lower_result zir_lower_hir_to_zir(const zt_hir_module *module_decl) {
         }
     }
 
-    out.module = zir_make_module_with_decls(
+    out.module = zir_make_module_with_decls_and_vars(
         zir_lower_strdup(module_decl->module_name != NULL ? module_decl->module_name : "main"),
         structs,
         counts.struct_count,
         enums,
         counts.enum_count,
+        module_vars,
+        counts.module_var_count,
         functions,
         counts.function_count);
     out.module.span = zir_span_from_source(module_decl->span);

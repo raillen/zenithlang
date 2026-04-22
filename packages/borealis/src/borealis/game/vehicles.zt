@@ -1,0 +1,43 @@
+namespace borealis.game.vehicles
+
+public struct CarConfig
+    accel: float = 220.0
+    brake: float = 260.0
+    max_speed: float = 300.0
+    steering_speed: float = 3.0
+end
+
+public struct CarState
+    speed: float = 0.0
+    steering: float = 0.0
+    heading: float = 0.0
+end
+
+public func car_create() -> vehicles.CarState
+    return vehicles.CarState()
+end
+
+public func car_update(
+    state: vehicles.CarState,
+    throttle: float,
+    brake: float,
+    steer: float,
+    config: vehicles.CarConfig = vehicles.CarConfig(),
+    dt: float = 1.0 / 60.0
+) -> vehicles.CarState
+    var next: vehicles.CarState = state
+    next.speed = state.speed + ((throttle * config.accel) - (brake * config.brake)) * dt
+
+    if next.speed > config.max_speed
+        next.speed = config.max_speed
+    end
+
+    if next.speed < (0.0 - config.max_speed)
+        next.speed = 0.0 - config.max_speed
+    end
+
+    next.steering = steer
+    next.heading = state.heading + (steer * config.steering_speed * dt)
+    return next
+end
+

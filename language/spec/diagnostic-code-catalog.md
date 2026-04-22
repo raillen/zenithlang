@@ -1,7 +1,7 @@
 # Zenith Diagnostic Code Catalog
 
 - Status: canonical catalog for M23 (current implementation)
-- Date: 2026-04-18
+- Date: 2026-04-22
 - Source of truth: `compiler/semantic/diagnostics/diagnostics.h` and `compiler/semantic/diagnostics/diagnostics.c`
 
 ## Purpose
@@ -56,7 +56,7 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_INVALID_ARGUMENT` | `type.invalid_argument` | Check argument names/order/arity |
 | `ZT_DIAG_INVALID_OPERATOR` | `type.invalid_operator` | Use operator-compatible operands |
 | `ZT_DIAG_INVALID_MAP_KEY_TYPE` | `type.invalid_map_key` | Key must implement required traits |
-| `ZT_DIAG_INVALID_MUTATION` | `mutability.invalid_update` | Mutate only mutable targets/receivers |
+| `ZT_DIAG_INVALID_MUTATION` | `mutability.invalid_update` | Mutate only mutable targets/receivers or owner-namespace `public var` |
 | `ZT_DIAG_INVALID_CONVERSION` | `type.invalid_conversion` | Use supported explicit conversion |
 | `ZT_DIAG_INTEGER_OVERFLOW` | `type.integer_overflow` | Use wider type or smaller range |
 

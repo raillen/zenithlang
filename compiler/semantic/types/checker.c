@@ -321,6 +321,9 @@ static void zt_catalog_build(zt_module_catalog *catalog, const zt_ast_node *root
             case ZT_AST_CONST_DECL:
                 zt_decl_list_push(&catalog->decls, decl->as.const_decl.name, decl);
                 break;
+            case ZT_AST_VAR_DECL:
+                zt_decl_list_push(&catalog->decls, decl->as.var_decl.name, decl);
+                break;
             case ZT_AST_EXTERN_DECL: {
                 size_t f;
                 for (f = 0; f < decl->as.extern_decl.functions.count; f++) {
@@ -369,6 +372,8 @@ static int zt_checker_decl_is_public(const zt_ast_node *decl) {
             return decl->as.enum_decl.is_public;
         case ZT_AST_CONST_DECL:
             return decl->as.const_decl.is_public;
+        case ZT_AST_VAR_DECL:
+            return decl->as.var_decl.is_public;
         case ZT_AST_EXTERN_DECL:
             return decl->as.extern_decl.is_public;
         default:
@@ -556,6 +561,19 @@ static int zt_type_is_core_trait_name(const char *name) {
             strcmp(name, "Hashable") == 0 ||
             strcmp(name, "TextRepresentable") == 0 ||
             strcmp(name, "Comparable") == 0);
+}
+
+static int zt_checker_split_prefix(const char *name, char *prefix, size_t prefix_capacity) {
+    const char *dot;
+    size_t len;
+    if (name == NULL || prefix == NULL || prefix_capacity == 0) return 0;
+    dot = strrchr(name, '.');
+    if (dot == NULL) return 0;
+    len = (size_t)(dot - name);
+    if (len == 0 || len >= prefix_capacity) return 0;
+    memcpy(prefix, name, len);
+    prefix[len] = '\0';
+    return 1;
 }
 
 static int zt_type_param_has_trait(zt_binding_scope *scope, const char *type_param_name, const char *trait_name) {
@@ -1073,6 +1091,40 @@ static int zt_checker_build_qualified_name(const zt_ast_node *node, char *buffer
     return 0;
 }
 
+static const zt_ast_node *zt_checker_lookup_import_member(
+        const zt_checker *checker,
+        const zt_ast_node *object_expr,
+        const char *field_name,
+        char *combined_name,
+        size_t combined_name_size,
+        const char **out_alias,
+        const char **out_import_path) {
+    const char *alias;
+
+    if (out_alias != NULL) *out_alias = NULL;
+    if (out_import_path != NULL) *out_import_path = NULL;
+    if (combined_name != NULL && combined_name_size > 0) combined_name[0] = '\0';
+
+    if (checker == NULL ||
+        object_expr == NULL ||
+        object_expr->kind != ZT_AST_IDENT_EXPR ||
+        object_expr->as.ident_expr.name == NULL ||
+        field_name == NULL) {
+        return NULL;
+    }
+
+    alias = object_expr->as.ident_expr.name;
+    if (out_alias != NULL) *out_alias = alias;
+    if (out_import_path != NULL) *out_import_path = zt_catalog_import_path_for_alias(&checker->catalog, alias);
+
+    if (combined_name != NULL && combined_name_size > 0) {
+        snprintf(combined_name, combined_name_size, "%s.%s", alias, field_name);
+        return zt_catalog_find_decl(&checker->catalog, combined_name);
+    }
+
+    return NULL;
+}
+
 static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_ast_node *node, zt_binding_scope *scope, zt_function_context *fn_ctx) {
     zt_expr_info object_info;
     zt_expr_info result;
@@ -1087,14 +1139,17 @@ static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_as
         node->as.field_expr.object->kind == ZT_AST_IDENT_EXPR) {
         char combined_name[512];
         const zt_ast_node *member_decl = NULL;
-        const char *alias = node->as.field_expr.object->as.ident_expr.name;
-        const char *import_path = zt_catalog_import_path_for_alias(&checker->catalog, alias);
-        
-        snprintf(combined_name, sizeof(combined_name), "%s.%s",
-            alias,
-            node->as.field_expr.field_name != NULL ? node->as.field_expr.field_name : "");
-        
-        member_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
+        const char *alias = NULL;
+        const char *import_path = NULL;
+
+        member_decl = zt_checker_lookup_import_member(
+            checker,
+            node->as.field_expr.object,
+            node->as.field_expr.field_name,
+            combined_name,
+            sizeof(combined_name),
+            &alias,
+            &import_path);
         
         if (member_decl != NULL) {
             if (!zt_checker_decl_is_public(member_decl) && 
@@ -1108,6 +1163,9 @@ static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_as
             if (member_decl->kind == ZT_AST_CONST_DECL) {
                 zt_type_dispose(result.type);
                 result.type = zt_checker_resolve_type(checker, member_decl->as.const_decl.type_node, scope);
+            } else if (member_decl->kind == ZT_AST_VAR_DECL) {
+                zt_type_dispose(result.type);
+                result.type = zt_checker_resolve_type(checker, member_decl->as.var_decl.type_node, scope);
             } else {
                 /* Function or other decl used in field expr context (likely part of a call) */
                 zt_type_dispose(result.type);
@@ -2417,11 +2475,46 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
             zt_type *field_type = NULL;
             const zt_ast_node *struct_decl = NULL;
             const zt_ast_node *field_decl = NULL;
+            const zt_ast_node *import_member_decl = NULL;
+            const char *import_alias = NULL;
+            const char *import_path = NULL;
+            char combined_name[512];
+            int import_member_access_error = 0;
+            int imported_module_var_mutation = 0;
             zt_binding_scope type_scope;
-            if (!zt_checker_expression_is_mutable_target(stmt->as.field_assign_stmt.object, scope, fn_ctx)) {
+
+            import_member_decl = zt_checker_lookup_import_member(
+                checker,
+                stmt->as.field_assign_stmt.object,
+                stmt->as.field_assign_stmt.field_name,
+                combined_name,
+                sizeof(combined_name),
+                &import_alias,
+                &import_path);
+
+            if (import_member_decl != NULL) {
+                if (!zt_checker_decl_is_public(import_member_decl) &&
+                    (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                    !zt_checker_is_self_prefix(checker, import_alias)) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, stmt->span, "member '%s' is not public", combined_name);
+                    import_member_access_error = 1;
+                } else if (import_member_decl->kind == ZT_AST_VAR_DECL &&
+                           !zt_checker_is_self_prefix(checker, import_alias)) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_MUTATION, stmt->span, "cannot mutate imported module variable '%s'", combined_name);
+                    imported_module_var_mutation = 1;
+                } else if (import_member_decl->kind == ZT_AST_VAR_DECL) {
+                    field_type = zt_checker_resolve_type(checker, import_member_decl->as.var_decl.type_node, scope);
+                } else if (import_member_decl->kind == ZT_AST_CONST_DECL) {
+                    field_type = zt_checker_resolve_type(checker, import_member_decl->as.const_decl.type_node, scope);
+                }
+            }
+
+            if (!import_member_access_error &&
+                !imported_module_var_mutation &&
+                !zt_checker_expression_is_mutable_target(stmt->as.field_assign_stmt.object, scope, fn_ctx)) {
                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_MUTATION, stmt->span, "field assignment requires a mutable receiver");
             }
-            if (object_info.type != NULL && object_info.type->kind == ZT_TYPE_USER) {
+            if (field_type == NULL && object_info.type != NULL && object_info.type->kind == ZT_TYPE_USER) {
                 struct_decl = zt_catalog_find_decl(&checker->catalog, zt_type_base_name(object_info.type));
                 if (struct_decl != NULL && struct_decl->kind == ZT_AST_STRUCT_DECL) {
                     field_decl = zt_checker_find_struct_field_decl(struct_decl, stmt->as.field_assign_stmt.field_name);
@@ -2883,18 +2976,75 @@ static void zt_checker_check_func_like(zt_checker *checker, const zt_ast_node *f
 }
 
 
-static void zt_checker_seed_module_const_bindings(zt_checker *checker, zt_binding_scope *scope) {
+static void zt_checker_seed_module_value_bindings(zt_checker *checker, zt_binding_scope *scope) {
     size_t i;
     if (checker == NULL || scope == NULL) return;
     for (i = 0; i < checker->catalog.decls.count; i++) {
         const zt_ast_node *decl = checker->catalog.decls.items[i].node;
-        if (decl == NULL || decl->kind != ZT_AST_CONST_DECL || decl->as.const_decl.name == NULL) continue;
-        zt_binding_scope_declare(
-            scope,
-            ZT_BINDING_VALUE,
-            decl->as.const_decl.name,
-            zt_checker_resolve_type(checker, decl->as.const_decl.type_node, scope),
-            0);
+        if (decl == NULL) continue;
+        if (decl->kind == ZT_AST_CONST_DECL && decl->as.const_decl.name != NULL) {
+            zt_binding_scope_declare(
+                scope,
+                ZT_BINDING_VALUE,
+                decl->as.const_decl.name,
+                zt_checker_resolve_type(checker, decl->as.const_decl.type_node, scope),
+                0);
+            continue;
+        }
+        if (decl->kind == ZT_AST_VAR_DECL && decl->as.var_decl.name != NULL) {
+            zt_binding_scope_declare(
+                scope,
+                ZT_BINDING_VALUE,
+                decl->as.var_decl.name,
+                zt_checker_resolve_type(checker, decl->as.var_decl.type_node, scope),
+                1);
+            continue;
+        }
+    }
+}
+
+static void zt_checker_seed_module_value_aliases(zt_checker *checker, zt_binding_scope *scope, const char *decl_name) {
+    char prefix[256];
+    size_t prefix_len;
+    size_t i;
+
+    if (checker == NULL || scope == NULL) return;
+    if (!zt_checker_split_prefix(decl_name, prefix, sizeof(prefix))) return;
+    prefix_len = strlen(prefix);
+
+    for (i = 0; i < checker->catalog.decls.count; i++) {
+        const zt_ast_node *decl = checker->catalog.decls.items[i].node;
+        const char *name = NULL;
+        const char *dot;
+        const char *short_name;
+        zt_type *decl_type;
+        int is_mutable = 0;
+
+        if (decl == NULL) continue;
+        if (decl->kind == ZT_AST_CONST_DECL) {
+            name = decl->as.const_decl.name;
+            is_mutable = 0;
+        } else if (decl->kind == ZT_AST_VAR_DECL) {
+            name = decl->as.var_decl.name;
+            is_mutable = 1;
+        } else {
+            continue;
+        }
+
+        if (name == NULL) continue;
+        if (strncmp(name, prefix, prefix_len) != 0 || name[prefix_len] != '.') continue;
+        dot = strrchr(name, '.');
+        if (dot == NULL || dot[1] == '\0') continue;
+        short_name = dot + 1;
+
+        if (zt_binding_scope_lookup(scope, short_name, ZT_BINDING_VALUE) != NULL) continue;
+
+        if (decl->kind == ZT_AST_CONST_DECL) {
+            decl_type = zt_checker_resolve_type(checker, decl->as.const_decl.type_node, scope);
+        } else {
+            decl_type = zt_checker_resolve_type(checker, decl->as.var_decl.type_node, scope);
+        }
+        zt_binding_scope_declare(scope, ZT_BINDING_VALUE, short_name, decl_type, is_mutable);
     }
 }
 
@@ -2906,10 +3056,11 @@ static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) 
 
     if (decl == NULL) return;
     zt_binding_scope_init(&scope, NULL);
-    zt_checker_seed_module_const_bindings(checker, &scope);
+    zt_checker_seed_module_value_bindings(checker, &scope);
 
     switch (decl->kind) {
         case ZT_AST_FUNC_DECL:
+            zt_checker_seed_module_value_aliases(checker, &scope, decl->as.func_decl.name);
             zt_checker_check_func_like(checker, decl, &scope, NULL, 0);
             break;
         case ZT_AST_STRUCT_DECL:
@@ -2996,10 +3147,21 @@ static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) 
             }
             break;
         case ZT_AST_CONST_DECL:
+            zt_checker_seed_module_value_aliases(checker, &scope, decl->as.const_decl.name);
             decl_type = zt_checker_resolve_type(checker, decl->as.const_decl.type_node, &scope);
             expr_info = zt_checker_check_expression(checker, decl->as.const_decl.init_value, &scope, NULL, decl_type);
             if (!zt_checker_same_or_contextually_assignable(checker, &scope, decl_type, &expr_info, decl->as.const_decl.init_value != NULL ? decl->as.const_decl.init_value->span : decl->span)) {
                 zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, decl->span, "const initializer type mismatch", decl_type, expr_info.type);
+            }
+            zt_expr_info_dispose(&expr_info);
+            zt_type_dispose(decl_type);
+            break;
+        case ZT_AST_VAR_DECL:
+            zt_checker_seed_module_value_aliases(checker, &scope, decl->as.var_decl.name);
+            decl_type = zt_checker_resolve_type(checker, decl->as.var_decl.type_node, &scope);
+            expr_info = zt_checker_check_expression(checker, decl->as.var_decl.init_value, &scope, NULL, decl_type);
+            if (!zt_checker_same_or_contextually_assignable(checker, &scope, decl_type, &expr_info, decl->as.var_decl.init_value != NULL ? decl->as.var_decl.init_value->span : decl->span)) {
+                zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, decl->span, "var initializer type mismatch", decl_type, expr_info.type);
             }
             zt_expr_info_dispose(&expr_info);
             zt_type_dispose(decl_type);

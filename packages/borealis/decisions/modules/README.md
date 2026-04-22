@@ -11,6 +11,7 @@ Rule of the folder:
 ## Current Modules
 
 - `movement.md`
+- `contracts.md`
 - `controllers.md`
 - `vehicles.md`
 - `animation.md`
@@ -31,6 +32,7 @@ Rule of the folder:
 - `debug.md`
 - `scene.md`
 - `events.md`
+- `editor.md`
 
 ## Notes
 

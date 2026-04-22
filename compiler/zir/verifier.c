@@ -282,11 +282,15 @@ static int zir_symbol_table_add_unique(zir_symbol_table *table, const char *name
     return zir_symbol_table_add(table, name);
 }
 
-static size_t zir_count_function_definitions(const zir_function *function_decl) {
+static size_t zir_count_function_definitions(const zir_module *module_decl, const zir_function *function_decl) {
     size_t count = 0;
     size_t block_index;
     if (function_decl == NULL) {
         return 0;
+    }
+
+    if (module_decl != NULL) {
+        count += module_decl->module_var_count;
     }
 
     count += function_decl->param_count;
@@ -304,15 +308,26 @@ static size_t zir_count_function_definitions(const zir_function *function_decl) 
 }
 
 static int zir_collect_function_definitions(
+        const zir_module *module_decl,
         const zir_function *function_decl,
         zir_symbol_table *defined,
         const zir_span *span,
         zir_verifier_result *result) {
+    size_t module_var_index;
     size_t param_index;
     size_t block_index;
 
     if (function_decl == NULL || defined == NULL) {
         return 0;
+    }
+
+    if (module_decl != NULL) {
+        for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
+            if (!zir_symbol_table_add_unique(defined, module_decl->module_vars[module_var_index].name)) {
+                zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register module variable");
+                return 0;
+            }
+        }
     }
 
     for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
@@ -921,7 +936,7 @@ static int zir_verify_terminator(
     }
 }
 
-static int zir_verify_function(const zir_function *function_decl, zir_verifier_result *result) {
+static int zir_verify_function(const zir_module *module_decl, const zir_function *function_decl, zir_verifier_result *result) {
     size_t param_index;
     size_t block_index;
     const char **block_labels = NULL;
@@ -978,7 +993,7 @@ static int zir_verify_function(const zir_function *function_decl, zir_verifier_r
         }
     }
 
-    definition_capacity = zir_count_function_definitions(function_decl);
+    definition_capacity = zir_count_function_definitions(module_decl, function_decl);
     if (definition_capacity == 0) {
         definition_capacity = 1;
     }
@@ -994,7 +1009,7 @@ static int zir_verify_function(const zir_function *function_decl, zir_verifier_r
     defined.count = 0;
     defined.capacity = definition_capacity;
 
-    if (!zir_collect_function_definitions(function_decl, &defined, &function_decl->span, result)) {
+    if (!zir_collect_function_definitions(module_decl, function_decl, &defined, &function_decl->span, result)) {
         free(defined_names);
         free(block_labels);
         return 0;
@@ -1033,6 +1048,7 @@ static int zir_verify_function(const zir_function *function_decl, zir_verifier_r
 }
 
 int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result) {
+    size_t module_var_index;
     size_t struct_index;
     size_t enum_index;
     size_t function_index;
@@ -1085,8 +1101,61 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
         }
     }
 
+    if (module_decl->module_var_count > 0) {
+        const char **module_var_names = (const char **)calloc(
+            module_decl->module_var_count,
+            sizeof(const char *));
+        zir_symbol_table module_var_defined;
+
+        if (module_var_names == NULL) {
+            zir_verifier_set_result(result, ZIR_VERIFIER_INVALID_INPUT, "unable to allocate verifier state");
+            return 0;
+        }
+
+        module_var_defined.names = module_var_names;
+        module_var_defined.count = 0;
+        module_var_defined.capacity = module_decl->module_var_count;
+
+        for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
+            const zir_module_var *module_var = &module_decl->module_vars[module_var_index];
+            const zir_span *span = zir_prefer_span(&module_var->span, &module_decl->span);
+            char context[192];
+
+            snprintf(context, sizeof(context), "module var %s", zir_safe_text(module_var->name));
+            if (!zir_verify_type_name(module_var->type_name, context, span, result)) {
+                free(module_var_names);
+                return 0;
+            }
+
+            if (!zir_symbol_table_add_unique(&module_var_defined, module_var->name)) {
+                zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register module variable");
+                free(module_var_names);
+                return 0;
+            }
+        }
+
+        for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
+            const zir_module_var *module_var = &module_decl->module_vars[module_var_index];
+            const zir_span *span = zir_prefer_span(&module_var->span, &module_decl->span);
+            char context[192];
+
+            snprintf(context, sizeof(context), "module var %s init", zir_safe_text(module_var->name));
+            if (module_var->init_expr != NULL) {
+                if (!zir_verify_expr(module_var->init_expr, &module_var_defined, context, span, result)) {
+                    free(module_var_names);
+                    return 0;
+                }
+            } else if (!zir_verify_identifier_usage(module_var->init_expr_text, &module_var_defined, context, span, result)) {
+                free(module_var_names);
+                return 0;
+            }
+        }
+
+        free(module_var_names);
+    }
+
     for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
-        if (!zir_verify_function(&module_decl->functions[function_index], result)) {
+        if (!zir_verify_function(module_decl, &module_decl->functions[function_index], result)) {
             return 0;
         }
     }
@@ -1094,5 +1163,3 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
     zir_verifier_result_init(result);
     return 1;
 }
-
-

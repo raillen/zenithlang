@@ -67,6 +67,8 @@ BEHAVIOR_CHECK_FAIL = {
     "multifile_missing_import",
     "multifile_namespace_mismatch",
     "mutability_const_reassign_error",
+    "public_var_cross_namespace_write_error",
+    "std_random_cross_namespace_write_error",
     "optional_question_outside_optional_error",
     "project_unknown_key_manifest",
     "monomorphization_limit_error",
@@ -90,6 +92,8 @@ BEHAVIOR_RUN_FAIL = {
 
 # Tests that must pass through run stage
 BEHAVIOR_RUN_PASS = {
+    "borealis_backend_fallback_stub",
+    "borealis_ecs_hybrid_stub",
     "extern_c_puts_e2e",
     "fmt_interpolation_basic",
     "edge_boundaries_empty",
@@ -113,10 +117,12 @@ BEHAVIOR_DIAGNOSTIC_FRAGMENT_FILES = {
     "multifile_missing_import": "tests/fixtures/diagnostics/multifile_missing_import.contains.txt",
     "multifile_namespace_mismatch": "tests/fixtures/diagnostics/multifile_namespace_mismatch.contains.txt",
     "mutability_const_reassign_error": "tests/fixtures/diagnostics/mutability_const_reassign.contains.txt",
+    "public_var_cross_namespace_write_error": "tests/fixtures/diagnostics/public_var_cross_namespace_write_error.contains.txt",
     "optional_question_outside_optional_error": "tests/fixtures/diagnostics/optional_question_outside_optional_error.contains.txt",
     "project_unknown_key_manifest": "tests/fixtures/diagnostics/project_unknown_key_manifest.contains.txt",
     "result_optional_propagation_error": "tests/fixtures/diagnostics/result_optional_propagation.contains.txt",
     "runtime_index_error": "tests/fixtures/diagnostics/runtime_index_error.contains.txt",
+    "std_random_cross_namespace_write_error": "tests/fixtures/diagnostics/std_random_cross_namespace_write_error.contains.txt",
     "where_contract_construct_error": "tests/fixtures/diagnostics/where_contract_construct_error.contains.txt",
     "where_contract_field_assign_error": "tests/fixtures/diagnostics/where_contract_field_assign_error.contains.txt",
     "where_contract_param_error": "tests/fixtures/diagnostics/where_contract_param_error.contains.txt",

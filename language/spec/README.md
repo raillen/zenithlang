@@ -1,7 +1,7 @@
 # Zenith Language Specs
 
 - Status: canonical consolidated specs
-- Date: 2026-04-17
+- Date: 2026-04-22
 - Source: accepted decisions in `language/decisions/`
 
 ## Purpose
@@ -61,7 +61,7 @@ These spec files are the implementation-facing reference used after the design c
 
 ## Relationship To Decisions
 
-The specs consolidate Decisions 001-082.
+The specs consolidate Decisions 001-086.
 
 If a spec and an older decision conflict, the newer accepted decision and this consolidated spec take precedence.
 

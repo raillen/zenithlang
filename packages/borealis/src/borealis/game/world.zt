@@ -1,0 +1,43 @@
+namespace borealis.game.world
+
+public var world_tile_solid: map<int, bool> = {}
+public var world_tile_walkable: map<int, bool> = {}
+
+public func tile_key(x: int, y: int) -> int
+    return (x * 100000) + y
+end
+
+public func set_solid(x: int, y: int, value: bool) -> result<void, core.Error>
+    var next: map<int, bool> = world_tile_solid
+    next[world.tile_key(x, y)] = value
+    world_tile_solid = next
+    return success()
+end
+
+public func is_solid(x: int, y: int) -> bool
+    const maybe: optional<bool> = world_tile_solid.get(world.tile_key(x, y))
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return false
+    end
+end
+
+public func set_walkable(x: int, y: int, value: bool) -> result<void, core.Error>
+    var next: map<int, bool> = world_tile_walkable
+    next[world.tile_key(x, y)] = value
+    world_tile_walkable = next
+    return success()
+end
+
+public func is_walkable(x: int, y: int) -> bool
+    const maybe: optional<bool> = world_tile_walkable.get(world.tile_key(x, y))
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return true
+    end
+end
+

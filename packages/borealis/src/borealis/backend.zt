@@ -19,6 +19,50 @@ extern c
         color_b: int,
         color_a: int
     ) -> result<void, core.Error>
+    func zt_borealis_draw_line(
+        window_id: int,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
+    func zt_borealis_draw_rect_outline(
+        window_id: int,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        thickness: float,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
+    func zt_borealis_draw_circle(
+        window_id: int,
+        x: float,
+        y: float,
+        radius: float,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
+    func zt_borealis_draw_circle_outline(
+        window_id: int,
+        x: float,
+        y: float,
+        radius: float,
+        thickness: float,
+        color_r: int,
+        color_g: int,
+        color_b: int,
+        color_a: int
+    ) -> result<void, core.Error>
     func zt_borealis_draw_text(
         window_id: int,
         value: text,
@@ -32,6 +76,10 @@ extern c
     ) -> result<void, core.Error>
 
     func zt_borealis_is_key_down(window_id: int, input_code: int) -> bool
+    func zt_borealis_is_key_pressed(window_id: int, input_code: int) -> bool
+    func zt_borealis_is_key_released(window_id: int, input_code: int) -> bool
+    func zt_borealis_stub_set_key_down(window_id: int, input_code: int, is_down: bool) -> result<void, core.Error>
+    func zt_borealis_stub_reset_input(window_id: int) -> result<void, core.Error>
 end
 
 public func open_window(
@@ -80,6 +128,62 @@ public func draw_rect(
     return backend.zt_borealis_draw_rect(window_id, x, y, width, height, color_r, color_g, color_b, color_a)
 end
 
+public func draw_line(
+    window_id: int,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_line(window_id, x1, y1, x2, y2, color_r, color_g, color_b, color_a)
+end
+
+public func draw_rect_outline(
+    window_id: int,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    thickness: float,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_rect_outline(window_id, x, y, width, height, thickness, color_r, color_g, color_b, color_a)
+end
+
+public func draw_circle(
+    window_id: int,
+    x: float,
+    y: float,
+    radius: float,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_circle(window_id, x, y, radius, color_r, color_g, color_b, color_a)
+end
+
+public func draw_circle_outline(
+    window_id: int,
+    x: float,
+    y: float,
+    radius: float,
+    thickness: float,
+    color_r: int,
+    color_g: int,
+    color_b: int,
+    color_a: int
+) -> result<void, core.Error>
+    return backend.zt_borealis_draw_circle_outline(window_id, x, y, radius, thickness, color_r, color_g, color_b, color_a)
+end
+
 public func draw_text(
     window_id: int,
     value: text,
@@ -96,4 +200,20 @@ end
 
 public func key_down(window_id: int, input_code: int) -> bool
     return backend.zt_borealis_is_key_down(window_id, input_code)
+end
+
+public func key_pressed(window_id: int, input_code: int) -> bool
+    return backend.zt_borealis_is_key_pressed(window_id, input_code)
+end
+
+public func key_released(window_id: int, input_code: int) -> bool
+    return backend.zt_borealis_is_key_released(window_id, input_code)
+end
+
+public func stub_set_key_down(window_id: int, input_code: int, is_down: bool) -> result<void, core.Error>
+    return backend.zt_borealis_stub_set_key_down(window_id, input_code, is_down)
+end
+
+public func stub_reset_input(window_id: int) -> result<void, core.Error>
+    return backend.zt_borealis_stub_reset_input(window_id)
 end

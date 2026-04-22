@@ -73,6 +73,7 @@ zt_hir_module *zt_hir_module_make(zt_source_span span) {
     zt_hir_module *module = (zt_hir_module *)calloc(1, sizeof(zt_hir_module));
     if (module == NULL) return NULL;
     module->span = span;
+    module->module_vars = zt_hir_module_var_list_make();
     module->declarations = zt_hir_decl_list_make();
     return module;
 }
@@ -113,6 +114,7 @@ zt_hir_enum_variant_list zt_hir_enum_variant_list_make(void) { zt_hir_enum_varia
 zt_hir_field_init_list zt_hir_field_init_list_make(void) { zt_hir_field_init_list list = {0}; return list; }
 zt_hir_map_entry_list zt_hir_map_entry_list_make(void) { zt_hir_map_entry_list list = {0}; return list; }
 zt_hir_match_case_list zt_hir_match_case_list_make(void) { zt_hir_match_case_list list = {0}; return list; }
+zt_hir_module_var_list zt_hir_module_var_list_make(void) { zt_hir_module_var_list list = {0}; return list; }
 
 void zt_hir_string_list_push(zt_hir_string_list *list, char *value) {
     char **new_items;
@@ -239,6 +241,17 @@ void zt_hir_match_case_list_push(zt_hir_match_case_list *list, zt_hir_match_case
         list->items = new_items;
     }
     list->items[list->count++] = match_case;
+}
+
+void zt_hir_module_var_list_push(zt_hir_module_var_list *list, zt_hir_module_var module_var) {
+    zt_hir_module_var *new_items;
+    if (list == NULL) return;
+    if (list->count >= list->capacity) {
+        new_items = (zt_hir_module_var *)zt_hir_realloc_array(list->items, &list->capacity, sizeof(zt_hir_module_var));
+        if (new_items == NULL) return;
+        list->items = new_items;
+    }
+    list->items[list->count++] = module_var;
 }
 
 void zt_hir_string_list_dispose(zt_hir_string_list *list) {
@@ -455,6 +468,18 @@ void zt_hir_match_case_list_dispose(zt_hir_match_case_list *list) {
     memset(list, 0, sizeof(*list));
 }
 
+void zt_hir_module_var_list_dispose(zt_hir_module_var_list *list) {
+    size_t i;
+    if (list == NULL) return;
+    for (i = 0; i < list->count; i++) {
+        free(list->items[i].name);
+        zt_type_dispose(list->items[i].type);
+        zt_hir_expr_dispose(list->items[i].init_value);
+    }
+    free(list->items);
+    memset(list, 0, sizeof(*list));
+}
+
 void zt_hir_decl_dispose(zt_hir_decl *decl) {
     if (decl == NULL) return;
     switch (decl->kind) {
@@ -493,6 +518,7 @@ void zt_hir_decl_list_dispose(zt_hir_decl_list *list) {
 void zt_hir_module_dispose(zt_hir_module *module) {
     if (module == NULL) return;
     free(module->module_name);
+    zt_hir_module_var_list_dispose(&module->module_vars);
     zt_hir_decl_list_dispose(&module->declarations);
     free(module);
 }

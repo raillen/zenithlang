@@ -1,0 +1,45 @@
+namespace examples.ecs_hybrid_v1
+
+import borealis.engine.ecs as ecs
+import borealis.game.entities as entities
+
+func main() -> result<void, core.Error>
+    const player: entities.Entity = entities.entity_create("player")?
+    entities.entity_add_component(player, "transform", "x=10;y=20")?
+    entities.entity_add_component(player, "health", "100")?
+
+    if entities.entity_component_count(player) != 2
+        return error("player should have two components")
+    end
+
+    const maybe_health: optional<entities.EntityComponent> = entities.entity_get_component(player, "health")
+    match maybe_health
+        case value component ->
+            if component.payload != "100"
+                return error("health component payload mismatch")
+            end
+        case none ->
+            return error("health component should exist")
+    end
+
+    const movement: ecs.System = ecs.ecs_system_register("movement", "update")?
+    const render: ecs.System = ecs.ecs_system_register("render", "draw")?
+
+    ecs.ecs_system_mark_run(movement, 1.0 / 60.0)?
+    ecs.ecs_system_mark_run(render, 1.0 / 60.0)?
+
+    const movement_info: ecs.SystemInfo = ecs.ecs_system_info(movement)
+    if movement_info.run_count != 1
+        return error("movement system run count mismatch")
+    end
+
+    ecs.ecs_system_enable(render, false)?
+    ecs.ecs_system_mark_run(render, 1.0 / 60.0)?
+
+    const render_info: ecs.SystemInfo = ecs.ecs_system_info(render)
+    if render_info.run_count != 1
+        return error("disabled system should not increment run count")
+    end
+
+    return success()
+end

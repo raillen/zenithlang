@@ -1,0 +1,60 @@
+namespace borealis.game.camera
+
+
+
+public struct CameraState
+    center: game.Vector2
+    zoom: float = 1.0
+end
+
+public struct CameraBounds
+    min_x: float
+    min_y: float
+    max_x: float
+    max_y: float
+end
+
+public func create(center: game.Vector2 = game.vec2(0.0, 0.0), zoom: float = 1.0) -> camera.CameraState
+    return camera.CameraState(center: center, zoom: zoom)
+end
+
+public func follow(current: game.Vector2, target: game.Vector2, smooth: float = 0.15) -> game.Vector2
+    const next_x: float = current.x + ((target.x - current.x) * smooth)
+    const next_y: float = current.y + ((target.y - current.y) * smooth)
+    return game.vec2(next_x, next_y)
+end
+
+public func apply_bounds(center: game.Vector2, bounds: camera.CameraBounds) -> game.Vector2
+    var next_x: float = center.x
+    var next_y: float = center.y
+
+    if next_x < bounds.min_x
+        next_x = bounds.min_x
+    end
+    if next_x > bounds.max_x
+        next_x = bounds.max_x
+    end
+
+    if next_y < bounds.min_y
+        next_y = bounds.min_y
+    end
+    if next_y > bounds.max_y
+        next_y = bounds.max_y
+    end
+
+    return game.vec2(next_x, next_y)
+end
+
+public func shake_offset(intensity: float, tick: int) -> game.Vector2
+    if (tick % 2) == 0
+        return game.vec2(intensity, -intensity)
+    end
+    return game.vec2(-intensity, intensity)
+end
+
+public func follow_body(current: game.Vector2, body: contracts.Body2D, smooth: float = 0.15) -> game.Vector2
+    return camera.follow(current, body.position, smooth)
+end
+
+
+

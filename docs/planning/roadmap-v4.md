@@ -6,7 +6,8 @@ Definir o ciclo R4 com foco em:
 
 - estabilidade real para alpha.2;
 - produto com valor de mercado;
-- ecossistema pratico (web + FFI + tooling).
+- ecossistema pratico (web + FFI + tooling);
+- base consistente para consumers reais do ecossistema, incluindo Borealis.
 
 ## Escopo
 
@@ -24,6 +25,10 @@ Definir o ciclo R4 com foco em:
   - `docs/planning/checklist-v4.md`
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
+  - `packages/borealis/*`
+  - `packages/borealis/decisions/*`
+  - `docs/planning/borealis-roadmap-v1.md`
+  - `docs/planning/borealis-checklist-v1.md`
 
 Status: proposto  
 Data: 2026-04-21  
@@ -36,7 +41,8 @@ Direcao do R4:
 1. estabilizar alpha.2 (warnings + budgets + release flow);
 2. entregar DX forte (LSP + VSCode);
 3. entregar backend de valor de mercado (web + sqlite + http);
-4. publicar produtos simples que geram adocao.
+4. publicar produtos simples que geram adocao;
+5. manter o ecossistema facil de consumir por packages reais como Borealis.
 
 Modelo de capacidade inicial:
 

@@ -681,12 +681,14 @@ zt_outcome_i64_text zt_outcome_i64_text_failure_message(const char *message);
 zt_bool zt_outcome_i64_text_is_success(zt_outcome_i64_text outcome);
 zt_int zt_outcome_i64_text_value(zt_outcome_i64_text outcome);
 zt_outcome_i64_text zt_outcome_i64_text_propagate(zt_outcome_i64_text outcome);
+void zt_outcome_i64_text_dispose(zt_outcome_i64_text *outcome);
 
 zt_outcome_void_text zt_outcome_void_text_success(void);
 zt_outcome_void_text zt_outcome_void_text_failure(zt_text *error);
 zt_outcome_void_text zt_outcome_void_text_failure_message(const char *message);
 zt_bool zt_outcome_void_text_is_success(zt_outcome_void_text outcome);
 zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome);
+void zt_outcome_void_text_dispose(zt_outcome_void_text *outcome);
 
 typedef struct zt_host_api {
     zt_outcome_text_core_error (*read_file)(const zt_text *path);
@@ -736,12 +738,14 @@ zt_outcome_text_text zt_outcome_text_text_failure_message(const char *message);
 zt_bool zt_outcome_text_text_is_success(zt_outcome_text_text outcome);
 zt_text *zt_outcome_text_text_value(zt_outcome_text_text outcome);
 zt_outcome_text_text zt_outcome_text_text_propagate(zt_outcome_text_text outcome);
+void zt_outcome_text_text_dispose(zt_outcome_text_text *outcome);
 zt_outcome_bytes_text zt_outcome_bytes_text_success(zt_bytes *value);
 zt_outcome_bytes_text zt_outcome_bytes_text_failure(zt_text *error);
 zt_outcome_bytes_text zt_outcome_bytes_text_failure_message(const char *message);
 zt_bool zt_outcome_bytes_text_is_success(zt_outcome_bytes_text outcome);
 zt_bytes *zt_outcome_bytes_text_value(zt_outcome_bytes_text outcome);
 zt_outcome_bytes_text zt_outcome_bytes_text_propagate(zt_outcome_bytes_text outcome);
+void zt_outcome_bytes_text_dispose(zt_outcome_bytes_text *outcome);
 
 zt_bool zt_outcome_text_text_eq(zt_outcome_text_text left, zt_outcome_text_text right);
 zt_outcome_optional_text_text zt_outcome_optional_text_text_success(zt_optional_text value);
@@ -750,12 +754,14 @@ zt_outcome_optional_text_text zt_outcome_optional_text_text_failure_message(cons
 zt_bool zt_outcome_optional_text_text_is_success(zt_outcome_optional_text_text outcome);
 zt_optional_text zt_outcome_optional_text_text_value(zt_outcome_optional_text_text outcome);
 zt_outcome_optional_text_text zt_outcome_optional_text_text_propagate(zt_outcome_optional_text_text outcome);
+void zt_outcome_optional_text_text_dispose(zt_outcome_optional_text_text *outcome);
 zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_success(zt_optional_bytes value);
 zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_failure(zt_text *error);
 zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_failure_message(const char *message);
 zt_bool zt_outcome_optional_bytes_text_is_success(zt_outcome_optional_bytes_text outcome);
 zt_optional_bytes zt_outcome_optional_bytes_text_value(zt_outcome_optional_bytes_text outcome);
 zt_outcome_optional_bytes_text zt_outcome_optional_bytes_text_propagate(zt_outcome_optional_bytes_text outcome);
+void zt_outcome_optional_bytes_text_dispose(zt_outcome_optional_bytes_text *outcome);
 
 zt_outcome_net_connection_text zt_outcome_net_connection_text_success(zt_net_connection *value);
 zt_outcome_net_connection_text zt_outcome_net_connection_text_failure(zt_text *error);
@@ -763,6 +769,7 @@ zt_outcome_net_connection_text zt_outcome_net_connection_text_failure_message(co
 zt_bool zt_outcome_net_connection_text_is_success(zt_outcome_net_connection_text outcome);
 zt_net_connection *zt_outcome_net_connection_text_value(zt_outcome_net_connection_text outcome);
 zt_outcome_net_connection_text zt_outcome_net_connection_text_propagate(zt_outcome_net_connection_text outcome);
+void zt_outcome_net_connection_text_dispose(zt_outcome_net_connection_text *outcome);
 
 zt_outcome_list_i64_text zt_outcome_list_i64_text_success(zt_list_i64 *value);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_failure(zt_text *error);
@@ -770,12 +777,14 @@ zt_outcome_list_i64_text zt_outcome_list_i64_text_failure_message(const char *me
 zt_bool zt_outcome_list_i64_text_is_success(zt_outcome_list_i64_text outcome);
 zt_list_i64 *zt_outcome_list_i64_text_value(zt_outcome_list_i64_text outcome);
 zt_outcome_list_i64_text zt_outcome_list_i64_text_propagate(zt_outcome_list_i64_text outcome);
+void zt_outcome_list_i64_text_dispose(zt_outcome_list_i64_text *outcome);
 
 zt_outcome_list_text_text zt_outcome_list_text_text_success(zt_list_text *value);
 zt_outcome_list_text_text zt_outcome_list_text_text_failure(zt_text *error);
 zt_bool zt_outcome_list_text_text_is_success(zt_outcome_list_text_text outcome);
 zt_list_text *zt_outcome_list_text_text_value(zt_outcome_list_text_text outcome);
 zt_outcome_list_text_text zt_outcome_list_text_text_propagate(zt_outcome_list_text_text outcome);
+void zt_outcome_list_text_text_dispose(zt_outcome_list_text_text *outcome);
 
 zt_outcome_map_text_text zt_outcome_map_text_text_success(zt_map_text_text *value);
 zt_outcome_map_text_text zt_outcome_map_text_text_failure(zt_text *error);
@@ -783,6 +792,7 @@ zt_outcome_map_text_text zt_outcome_map_text_text_failure_message(const char *me
 zt_bool zt_outcome_map_text_text_is_success(zt_outcome_map_text_text outcome);
 zt_map_text_text *zt_outcome_map_text_text_value(zt_outcome_map_text_text outcome);
 zt_outcome_map_text_text zt_outcome_map_text_text_propagate(zt_outcome_map_text_text outcome);
+void zt_outcome_map_text_text_dispose(zt_outcome_map_text_text *outcome);
 
 zt_outcome_i64_core_error zt_outcome_i64_core_error_success(zt_int value);
 zt_outcome_i64_core_error zt_outcome_i64_core_error_failure(zt_core_error error);
@@ -915,6 +925,46 @@ zt_outcome_void_core_error zt_borealis_draw_rect(
     zt_int color_g,
     zt_int color_b,
     zt_int color_a);
+zt_outcome_void_core_error zt_borealis_draw_line(
+    zt_int window_id,
+    zt_float x1,
+    zt_float y1,
+    zt_float x2,
+    zt_float y2,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_draw_rect_outline(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float width,
+    zt_float height,
+    zt_float thickness,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_draw_circle(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float radius,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_draw_circle_outline(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float radius,
+    zt_float thickness,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
 zt_outcome_void_core_error zt_borealis_draw_text(
     zt_int window_id,
     const zt_text *value,
@@ -926,6 +976,84 @@ zt_outcome_void_core_error zt_borealis_draw_text(
     zt_int color_b,
     zt_int color_a);
 zt_bool zt_borealis_is_key_down(zt_int window_id, zt_int input_code);
+zt_bool zt_borealis_is_key_pressed(zt_int window_id, zt_int input_code);
+zt_bool zt_borealis_is_key_released(zt_int window_id, zt_int input_code);
+zt_outcome_void_core_error zt_borealis_stub_set_key_down(zt_int window_id, zt_int input_code, zt_bool is_down);
+zt_outcome_void_core_error zt_borealis_stub_reset_input(zt_int window_id);
+
+typedef struct zt_borealis_desktop_api {
+    zt_outcome_i64_core_error (*open_window)(const zt_text *title, zt_int width, zt_int height, zt_int target_fps, zt_int backend_id);
+    zt_outcome_void_core_error (*close_window)(zt_int window_id);
+    zt_bool (*window_should_close)(zt_int window_id);
+    zt_outcome_void_core_error (*begin_frame)(zt_int window_id, zt_int clear_r, zt_int clear_g, zt_int clear_b, zt_int clear_a);
+    zt_outcome_void_core_error (*end_frame)(zt_int window_id);
+    zt_outcome_void_core_error (*draw_rect)(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_outcome_void_core_error (*draw_line)(
+        zt_int window_id,
+        zt_float x1,
+        zt_float y1,
+        zt_float x2,
+        zt_float y2,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_outcome_void_core_error (*draw_rect_outline)(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_outcome_void_core_error (*draw_circle)(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_outcome_void_core_error (*draw_circle_outline)(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_outcome_void_core_error (*draw_text)(
+        zt_int window_id,
+        const zt_text *value,
+        zt_int x,
+        zt_int y,
+        zt_int size,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a);
+    zt_bool (*is_key_down)(zt_int window_id, zt_int input_code);
+    zt_bool (*is_key_pressed)(zt_int window_id, zt_int input_code);
+    zt_bool (*is_key_released)(zt_int window_id, zt_int input_code);
+} zt_borealis_desktop_api;
+
+void zt_borealis_set_desktop_api(const zt_borealis_desktop_api *api);
+const zt_borealis_desktop_api *zt_borealis_get_desktop_api(void);
 
 zt_text *zt_path_normalize(const zt_text *value);
 zt_bool zt_path_is_absolute(const zt_text *value);

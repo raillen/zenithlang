@@ -150,6 +150,52 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
 static void zt_bind_type_node(zt_binder *binder, const zt_ast_node *node, zt_scope *scope);
 static void zt_bind_block(zt_binder *binder, const zt_ast_node *block, zt_scope *parent_scope);
 
+static int zt_bind_split_prefix(const char *name, char *prefix, size_t prefix_capacity) {
+    const char *dot;
+    size_t len;
+    if (name == NULL || prefix == NULL || prefix_capacity == 0) return 0;
+    dot = strrchr(name, '.');
+    if (dot == NULL) return 0;
+    len = (size_t)(dot - name);
+    if (len == 0 || len >= prefix_capacity) return 0;
+    memcpy(prefix, name, len);
+    prefix[len] = '\0';
+    return 1;
+}
+
+static int zt_bind_symbol_is_value_like(zt_symbol_kind kind) {
+    return kind == ZT_SYMBOL_LOCAL;
+}
+
+static void zt_bind_seed_module_value_aliases(
+        zt_scope *module_scope,
+        zt_scope *target_scope,
+        const char *decl_name) {
+    char prefix[256];
+    size_t prefix_len;
+    size_t i;
+
+    if (module_scope == NULL || target_scope == NULL) return;
+    if (!zt_bind_split_prefix(decl_name, prefix, sizeof(prefix))) return;
+    prefix_len = strlen(prefix);
+
+    for (i = 0; i < module_scope->count; i += 1) {
+        const zt_symbol *symbol = &module_scope->symbols[i];
+        const char *short_name;
+        const char *dot;
+
+        if (symbol->name == NULL) continue;
+        if (!zt_bind_symbol_is_value_like(symbol->kind)) continue;
+        if (strncmp(symbol->name, prefix, prefix_len) != 0 || symbol->name[prefix_len] != '.') continue;
+
+        dot = strrchr(symbol->name, '.');
+        if (dot == NULL || dot[1] == '\0') continue;
+        short_name = dot + 1;
+        if (zt_scope_lookup_current(target_scope, short_name) != NULL) continue;
+        zt_scope_declare(target_scope, symbol->kind, short_name, symbol->span, 1, NULL);
+    }
+}
+
 static void zt_bind_simple_type_name(zt_binder *binder, const char *name, zt_source_span span, zt_scope *scope) {
     char qualifier[256];
     const char *dot;
@@ -525,6 +571,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
             zt_bind_param_list(binder, &decl->as.func_decl.params, &decl_scope);
             zt_bind_generic_constraints(binder, &decl->as.func_decl.constraints, &decl_scope);
             zt_bind_type_node(binder, decl->as.func_decl.return_type, &decl_scope);
+            zt_bind_seed_module_value_aliases(module_scope, &decl_scope, decl->as.func_decl.name);
             zt_bind_block(binder, decl->as.func_decl.body, &decl_scope);
             zt_scope_dispose(&decl_scope);
             break;
@@ -622,8 +669,18 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
             }
             break;
         case ZT_AST_CONST_DECL:
-            zt_bind_type_node(binder, decl->as.const_decl.type_node, module_scope);
-            zt_bind_expression(binder, decl->as.const_decl.init_value, module_scope);
+            zt_scope_init(&decl_scope, module_scope);
+            zt_bind_seed_module_value_aliases(module_scope, &decl_scope, decl->as.const_decl.name);
+            zt_bind_type_node(binder, decl->as.const_decl.type_node, &decl_scope);
+            zt_bind_expression(binder, decl->as.const_decl.init_value, &decl_scope);
+            zt_scope_dispose(&decl_scope);
+            break;
+        case ZT_AST_VAR_DECL:
+            zt_scope_init(&decl_scope, module_scope);
+            zt_bind_seed_module_value_aliases(module_scope, &decl_scope, decl->as.var_decl.name);
+            zt_bind_type_node(binder, decl->as.var_decl.type_node, &decl_scope);
+            zt_bind_expression(binder, decl->as.var_decl.init_value, &decl_scope);
+            zt_scope_dispose(&decl_scope);
             break;
         default:
             break;
@@ -658,6 +715,9 @@ static void zt_bind_declare_top_level(zt_binder *binder, const zt_ast_node *decl
             break;
         case ZT_AST_CONST_DECL:
             zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_LOCAL, decl->as.const_decl.name, decl->span, 0);
+            break;
+        case ZT_AST_VAR_DECL:
+            zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_LOCAL, decl->as.var_decl.name, decl->span, 1);
             break;
         default:
             break;

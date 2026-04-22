@@ -1,6 +1,6 @@
 # Decision 006 - Borealis Stack
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-04-22
 - Type: architecture / stack / platform direction
 - Scope: Borealis runtime, data formats, persistence, editor foundation

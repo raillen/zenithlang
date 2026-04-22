@@ -1,0 +1,35 @@
+namespace borealis.game.ui
+
+
+public struct ButtonState
+    hovered: bool
+    pressed: bool
+    clicked: bool
+end
+
+public func point_in_rect(point: game.Vector2, area: game.Rect) -> bool
+    return point.x >= area.x and
+           point.x <= (area.x + area.width) and
+           point.y >= area.y and
+           point.y <= (area.y + area.height)
+end
+
+public func button(
+    area: game.Rect,
+    mouse: game.Vector2,
+    mouse_down: bool,
+    mouse_pressed: bool
+) -> ui.ButtonState
+    const hovered: bool = ui.point_in_rect(mouse, area)
+    return ui.ButtonState(
+        hovered: hovered,
+        pressed: hovered and mouse_down,
+        clicked: hovered and mouse_pressed
+    )
+end
+
+public func label(value: text) -> text
+    return value
+end
+
+

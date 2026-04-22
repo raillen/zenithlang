@@ -12,6 +12,9 @@
 #include "compiler/driver/driver_internal.h"
 #include "compiler/frontend/lexer/lexer.h"
 
+static void zt_runtime_root(char *buffer, size_t capacity);
+static int zt_home_has_stdlib(const char *home_root);
+
 /*  String set (local utility for generic instance tracking)  */
 
 typedef struct zt_string_set {
@@ -508,67 +511,84 @@ int zt_compile_project(const char *input_path, zt_project_compile_result *out) {
     /* Load only the specific stdlib modules that are actually imported */
     {
         const char *stdlib_base = getenv("ZENITH_HOME");
+        char runtime_base[768];
         char default_base[768];
         char import_buf[256];
+        int skip_std_import_scan = 0;
         size_t si;
 
-        if (stdlib_base == NULL) {
-            strcpy(default_base, "stdlib");
-            stdlib_base = default_base;
-        } else {
+        zt_runtime_root(runtime_base, sizeof(runtime_base));
+
+        if (zt_project_manifest_kind(&out->manifest) == ZT_PROJECT_KIND_LIB &&
+                strncmp(out->manifest.lib_root_namespace, "std", 3) == 0 &&
+                zt_path_suffix_matches(source_root_path, "stdlib")) {
+            skip_std_import_scan = 1;
+        }
+
+        if (stdlib_base != NULL && stdlib_base[0] != '\0' && zt_home_has_stdlib(stdlib_base)) {
             if (!zt_join_path(default_base, sizeof(default_base), stdlib_base, "stdlib")) {
                 strcpy(default_base, "stdlib");
             }
             stdlib_base = default_base;
+        } else if (zt_home_has_stdlib(runtime_base)) {
+            if (!zt_join_path(default_base, sizeof(default_base), runtime_base, "stdlib")) {
+                strcpy(default_base, "stdlib");
+            }
+            stdlib_base = default_base;
+        } else {
+            strcpy(default_base, "stdlib");
+            stdlib_base = default_base;
         }
 
-        for (si = 0; si < out->source_files.count; si++) {
-            const char *src_path = out->source_files.items[si].path;
-            FILE *sf = fopen(src_path, "r");
-            if (sf != NULL) {
-                char line[512];
-                while (fgets(line, sizeof(line), sf) != NULL) {
-                    /* Look for: import std.X or import std.X as Y */
-                    const char *imp = strstr(line, "import std.");
-                    if (imp != NULL) {
-                        const char *mod_start = imp + 7; /* skip "import " -> "std.X..." */
-                        const char *end = mod_start;
-                        char mod_path[768];
-                        size_t j;
-                        int already_loaded;
+        if (!skip_std_import_scan) {
+            for (si = 0; si < out->source_files.count; si++) {
+                const char *src_path = out->source_files.items[si].path;
+                FILE *sf = fopen(src_path, "r");
+                if (sf != NULL) {
+                    char line[512];
+                    while (fgets(line, sizeof(line), sf) != NULL) {
+                        /* Look for: import std.X or import std.X as Y */
+                        const char *imp = strstr(line, "import std.");
+                        if (imp != NULL) {
+                            const char *mod_start = imp + 7; /* skip "import " -> "std.X..." */
+                            const char *end = mod_start;
+                            char mod_path[768];
+                            size_t j;
+                            int already_loaded;
 
-                        while (*end && *end != ' ' && *end != '\t' && *end != '\n' && *end != '\r') end++;
-                        if ((size_t)(end - mod_start) < sizeof(import_buf)) {
-                            memcpy(import_buf, mod_start, end - mod_start);
-                            import_buf[end - mod_start] = '\0';
+                            while (*end && *end != ' ' && *end != '\t' && *end != '\n' && *end != '\r') end++;
+                            if ((size_t)(end - mod_start) < sizeof(import_buf)) {
+                                memcpy(import_buf, mod_start, end - mod_start);
+                                import_buf[end - mod_start] = '\0';
 
-                            /* Convert std.io -> stdlib_base/std/io.zt */
-                            snprintf(mod_path, sizeof(mod_path), "%s", stdlib_base);
-                            for (j = 0; import_buf[j]; j++) {
-                                if (import_buf[j] == '.') import_buf[j] = '/';
-                            }
-                            if (strlen(mod_path) + 1 + strlen(import_buf) + 3 < sizeof(mod_path)) {
-                                strcat(mod_path, "/");
-                                strcat(mod_path, import_buf);
-                                strcat(mod_path, ".zt");
-                            }
-
-                            /* Check if already loaded */
-                            already_loaded = 0;
-                            for (j = 0; j < out->source_files.count; j++) {
-                                if (strcmp(out->source_files.items[j].path, mod_path) == 0) {
-                                    already_loaded = 1;
-                                    break;
+                                /* Convert std.io -> stdlib_base/std/io.zt */
+                                snprintf(mod_path, sizeof(mod_path), "%s", stdlib_base);
+                                for (j = 0; import_buf[j]; j++) {
+                                    if (import_buf[j] == '.') import_buf[j] = '/';
                                 }
-                            }
+                                if (strlen(mod_path) + 1 + strlen(import_buf) + 3 < sizeof(mod_path)) {
+                                    strcat(mod_path, "/");
+                                    strcat(mod_path, import_buf);
+                                    strcat(mod_path, ".zt");
+                                }
 
-                            if (!already_loaded && zt_path_is_file(mod_path)) {
-                                zt_project_source_file_list_push(&out->source_files, mod_path);
+                                /* Check if already loaded */
+                                already_loaded = 0;
+                                for (j = 0; j < out->source_files.count; j++) {
+                                    if (strcmp(out->source_files.items[j].path, mod_path) == 0) {
+                                        already_loaded = 1;
+                                        break;
+                                    }
+                                }
+
+                                if (!already_loaded && zt_path_is_file(mod_path)) {
+                                    zt_project_source_file_list_push(&out->source_files, mod_path);
+                                }
                             }
                         }
                     }
+                    fclose(sf);
                 }
-                fclose(sf);
             }
         }
     }
@@ -702,13 +722,56 @@ static int zt_get_file_mtime(const char *path, time_t *out_mtime) {
     return 1;
 }
 
+static int zt_get_executable_dir(char *buffer, size_t capacity) {
+    char exe_path[1024];
+
+    if (buffer == NULL || capacity == 0) return 0;
+
+#ifdef _WIN32
+    {
+        DWORD length = GetModuleFileNameA(NULL, exe_path, (DWORD)sizeof(exe_path));
+        if (length == 0 || length >= (DWORD)sizeof(exe_path)) return 0;
+        exe_path[length] = '\0';
+    }
+#else
+    {
+        ssize_t length = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+        if (length <= 0 || (size_t)length >= sizeof(exe_path)) return 0;
+        exe_path[length] = '\0';
+    }
+#endif
+
+    return zt_dirname(buffer, capacity, exe_path);
+}
+
+static int zt_home_has_runtime(const char *home_root) {
+    char runtime_c_path[1024];
+    if (home_root == NULL || home_root[0] == '\0') return 0;
+    if (!zt_join_path(runtime_c_path, sizeof(runtime_c_path), home_root, "runtime/c/zenith_rt.c")) return 0;
+    return zt_path_is_file(runtime_c_path);
+}
+
+static int zt_home_has_stdlib(const char *home_root) {
+    char stdlib_path[1024];
+    if (home_root == NULL || home_root[0] == '\0') return 0;
+    if (!zt_join_path(stdlib_path, sizeof(stdlib_path), home_root, "stdlib")) return 0;
+    return zt_path_is_dir(stdlib_path);
+}
+
 static void zt_runtime_root(char *buffer, size_t capacity) {
     const char *zenith_home;
+    char executable_dir[768];
 
     if (buffer == NULL || capacity == 0) return;
     zenith_home = getenv("ZENITH_HOME");
-    if (zenith_home != NULL && zenith_home[0] != '\0') {
+    if (zenith_home != NULL && zenith_home[0] != '\0' && zt_home_has_runtime(zenith_home)) {
         zt_copy_text(buffer, capacity, zenith_home);
+        return;
+    }
+
+    if (zt_get_executable_dir(executable_dir, sizeof(executable_dir)) &&
+            zt_home_has_runtime(executable_dir)) {
+        zt_copy_text(buffer, capacity, executable_dir);
         return;
     }
 
@@ -747,6 +810,305 @@ static int zt_runtime_object_is_stale(const char *runtime_obj_path) {
     return 0;
 }
 
+static void zt_native_trim_line(char *line) {
+    size_t len;
+    if (line == NULL) return;
+    len = strlen(line);
+    while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+        line[len - 1] = '\0';
+        len -= 1;
+    }
+}
+
+static int zt_native_line_is_warning(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, ": warning:") != NULL;
+}
+
+static int zt_native_line_is_compiler_not_found(const char *line) {
+    if (line == NULL) return 0;
+    if (strstr(line, "gcc: command not found") != NULL) return 1;
+    if (strstr(line, "not recognized as an internal or external command") != NULL) return 1;
+    if (strstr(line, "'gcc' não é reconhecido") != NULL) return 1;
+    return 0;
+}
+
+static int zt_native_line_is_error_undefined_reference(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, "undefined reference to") != NULL;
+}
+
+static int zt_native_line_is_error_fatal(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, ": fatal error:") != NULL;
+}
+
+static int zt_native_line_is_error(const char *line) {
+    if (line == NULL) return 0;
+    if (strstr(line, ": error:") != NULL) return 1;
+    if (zt_native_line_is_error_undefined_reference(line)) return 1;
+    if (strstr(line, "collect2: error:") != NULL) return 1;
+    if (zt_native_line_is_compiler_not_found(line)) return 1;
+    return 0;
+}
+
+static int zt_native_line_is_filtered_warning(const char *line) {
+    if (line == NULL) return 0;
+    if (strstr(line, "warning: unused parameter") != NULL &&
+            strstr(line, "[-Wunused-parameter]") != NULL) {
+        return 1;
+    }
+    return 0;
+}
+
+static int zt_native_line_is_warning_format_truncation(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, "[-Wformat-truncation") != NULL;
+}
+
+static int zt_native_line_is_warning_sign_compare(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, "[-Wsign-compare]") != NULL;
+}
+
+static int zt_native_line_is_warning_unused_variable(const char *line) {
+    if (line == NULL) return 0;
+    return strstr(line, "[-Wunused-variable]") != NULL;
+}
+
+static void zt_native_capture_first(char *dest, size_t capacity, const char *line) {
+    if (dest == NULL || capacity == 0 || line == NULL) return;
+    if (dest[0] != '\0') return;
+    snprintf(dest, capacity, "%s", line);
+}
+
+static int zt_native_decode_status(int status) {
+#ifdef _WIN32
+    return status;
+#else
+    if (status < 0) return status;
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    return status;
+#endif
+}
+
+static int zt_run_native_compile_command(const char *compile_cmd) {
+    char wrapped_cmd[4096];
+    FILE *pipe;
+    char line[2048];
+    char first_warning_generic[512];
+    char first_warning_format_truncation[512];
+    char first_warning_sign_compare[512];
+    char first_warning_unused_variable[512];
+    char first_error_generic[512];
+    char first_error_undefined_reference[512];
+    char first_error_fatal[512];
+    char first_error_compiler_not_found[512];
+    char first_error[512];
+    char first_other[512];
+    size_t filtered_unused_parameter = 0;
+    size_t warning_generic_count = 0;
+    size_t warning_format_truncation_count = 0;
+    size_t warning_sign_compare_count = 0;
+    size_t warning_unused_variable_count = 0;
+    size_t error_undefined_reference_count = 0;
+    size_t error_fatal_count = 0;
+    size_t error_compiler_not_found_count = 0;
+    int status;
+    int exit_code;
+
+    first_warning_generic[0] = '\0';
+    first_warning_format_truncation[0] = '\0';
+    first_warning_sign_compare[0] = '\0';
+    first_warning_unused_variable[0] = '\0';
+    first_error_generic[0] = '\0';
+    first_error_undefined_reference[0] = '\0';
+    first_error_fatal[0] = '\0';
+    first_error_compiler_not_found[0] = '\0';
+    first_error[0] = '\0';
+    first_other[0] = '\0';
+
+    if (compile_cmd == NULL || compile_cmd[0] == '\0') return 1;
+
+    if (zt_native_raw_output) {
+        return zt_native_decode_status(system(compile_cmd));
+    }
+
+    if (snprintf(wrapped_cmd, sizeof(wrapped_cmd), "%s 2>&1", compile_cmd) >= (int)sizeof(wrapped_cmd)) {
+        return zt_native_decode_status(system(compile_cmd));
+    }
+
+    pipe = ZT_POPEN(wrapped_cmd, "r");
+    if (pipe == NULL) {
+        return zt_native_decode_status(system(compile_cmd));
+    }
+
+    while (fgets(line, sizeof(line), pipe) != NULL) {
+        zt_native_trim_line(line);
+        if (line[0] == '\0') continue;
+
+        if (zt_native_line_is_filtered_warning(line)) {
+            filtered_unused_parameter += 1;
+            continue;
+        }
+
+        if (zt_native_line_is_compiler_not_found(line)) {
+            error_compiler_not_found_count += 1;
+            zt_native_capture_first(first_error_compiler_not_found, sizeof(first_error_compiler_not_found), line);
+            continue;
+        }
+
+        if (zt_native_line_is_warning(line)) {
+            if (zt_native_line_is_warning_format_truncation(line)) {
+                warning_format_truncation_count += 1;
+                zt_native_capture_first(
+                    first_warning_format_truncation,
+                    sizeof(first_warning_format_truncation),
+                    line);
+            } else if (zt_native_line_is_warning_sign_compare(line)) {
+                warning_sign_compare_count += 1;
+                zt_native_capture_first(
+                    first_warning_sign_compare,
+                    sizeof(first_warning_sign_compare),
+                    line);
+            } else if (zt_native_line_is_warning_unused_variable(line)) {
+                warning_unused_variable_count += 1;
+                zt_native_capture_first(
+                    first_warning_unused_variable,
+                    sizeof(first_warning_unused_variable),
+                    line);
+            } else {
+                warning_generic_count += 1;
+                zt_native_capture_first(first_warning_generic, sizeof(first_warning_generic), line);
+            }
+            continue;
+        }
+
+        if (zt_native_line_is_error(line)) {
+            if (zt_native_line_is_error_undefined_reference(line)) {
+                error_undefined_reference_count += 1;
+                zt_native_capture_first(
+                    first_error_undefined_reference,
+                    sizeof(first_error_undefined_reference),
+                    line);
+            } else if (zt_native_line_is_error_fatal(line)) {
+                error_fatal_count += 1;
+                zt_native_capture_first(first_error_fatal, sizeof(first_error_fatal), line);
+            } else {
+                zt_native_capture_first(first_error_generic, sizeof(first_error_generic), line);
+            }
+            continue;
+        }
+
+        zt_native_capture_first(first_other, sizeof(first_other), line);
+    }
+
+    status = ZT_PCLOSE(pipe);
+    exit_code = zt_native_decode_status(status);
+
+    if (!zt_ci_mode_enabled) {
+        if (filtered_unused_parameter > 0) {
+            fprintf(stderr, "warning[native.unused_parameter]\n");
+            fprintf(stderr, "ACTION\n  no action needed in Zenith source.\n");
+            fprintf(stderr, "WHY\n  generated C keeps stable function signatures and may keep unused args.\n");
+            fprintf(stderr, "NEXT\n  continue build. use --native-raw to inspect raw gcc output.\n");
+            fprintf(stderr, "count\n  %zu occurrence(s) hidden.\n", filtered_unused_parameter);
+        }
+
+        if (warning_format_truncation_count > 0) {
+            fprintf(stderr, "warning[native.format_truncation]\n");
+            fprintf(stderr, "ACTION\n  review generated C buffers and snprintf usage in backend/runtime.\n");
+            fprintf(stderr, "WHY\n  gcc detected possible output truncation during formatting.\n");
+            fprintf(stderr, "NEXT\n  inspect backend.c emitter paths. use --native-raw for full context.\n");
+            fprintf(stderr, "count\n  %zu occurrence(s).\n", warning_format_truncation_count);
+            if (first_warning_format_truncation[0] != '\0') {
+                fprintf(stderr, "sample\n  %s\n", first_warning_format_truncation);
+            }
+        }
+
+        if (warning_sign_compare_count > 0) {
+            fprintf(stderr, "warning[native.sign_compare]\n");
+            fprintf(stderr, "ACTION\n  align signed/unsigned comparisons in generated C.\n");
+            fprintf(stderr, "WHY\n  gcc found comparisons that may behave differently by platform.\n");
+            fprintf(stderr, "NEXT\n  inspect emitted integer types in backend.c. use --native-raw for details.\n");
+            fprintf(stderr, "count\n  %zu occurrence(s).\n", warning_sign_compare_count);
+            if (first_warning_sign_compare[0] != '\0') {
+                fprintf(stderr, "sample\n  %s\n", first_warning_sign_compare);
+            }
+        }
+
+        if (warning_unused_variable_count > 0) {
+            fprintf(stderr, "warning[native.unused_variable]\n");
+            fprintf(stderr, "ACTION\n  review generated temporary variables in backend C output.\n");
+            fprintf(stderr, "WHY\n  gcc detected variables that are written but never used.\n");
+            fprintf(stderr, "NEXT\n  refine emitter flow for that construct. use --native-raw for raw lines.\n");
+            fprintf(stderr, "count\n  %zu occurrence(s).\n", warning_unused_variable_count);
+            if (first_warning_unused_variable[0] != '\0') {
+                fprintf(stderr, "sample\n  %s\n", first_warning_unused_variable);
+            }
+        }
+
+        if (warning_generic_count > 0) {
+            fprintf(stderr, "warning[native.compiler]\n");
+            fprintf(stderr, "ACTION\n  review native warnings if they affect your platform/toolchain.\n");
+            fprintf(stderr, "WHY\n  gcc reported warnings while compiling generated C.\n");
+            fprintf(stderr, "NEXT\n  rerun with --native-raw for full compiler output.\n");
+            fprintf(stderr, "count\n  %zu occurrence(s).\n", warning_generic_count);
+            if (first_warning_generic[0] != '\0') {
+                fprintf(stderr, "sample\n  %s\n", first_warning_generic);
+            }
+        }
+
+        if (exit_code != 0) {
+            if (error_compiler_not_found_count > 0) {
+                fprintf(stderr, "error[native.compiler.not_found]\n");
+                fprintf(stderr, "ACTION\n  install gcc and ensure it is available in PATH.\n");
+                fprintf(stderr, "WHY\n  the native compiler executable was not found.\n");
+                fprintf(stderr, "NEXT\n  configure toolchain, then rerun build. use --native-raw for full output.\n");
+                if (first_error_compiler_not_found[0] != '\0') {
+                    fprintf(stderr, "first_error\n  %s\n", first_error_compiler_not_found);
+                }
+            } else if (error_undefined_reference_count > 0) {
+                fprintf(stderr, "error[native.linker.undefined_reference]\n");
+                fprintf(stderr, "ACTION\n  verify extern symbol names and linker flags.\n");
+                fprintf(stderr, "WHY\n  the linker could not resolve one or more referenced symbols.\n");
+                fprintf(stderr, "NEXT\n  review build.linker_flags and extern declarations. use --native-raw if needed.\n");
+                fprintf(stderr, "count\n  %zu unresolved reference(s).\n", error_undefined_reference_count);
+                if (first_error_undefined_reference[0] != '\0') {
+                    fprintf(stderr, "first_error\n  %s\n", first_error_undefined_reference);
+                }
+            } else if (error_fatal_count > 0) {
+                fprintf(stderr, "error[native.compiler.fatal]\n");
+                fprintf(stderr, "ACTION\n  fix the first fatal compiler error in generated C.\n");
+                fprintf(stderr, "WHY\n  gcc stopped after a fatal issue.\n");
+                fprintf(stderr, "NEXT\n  rerun with --native-raw and inspect the file/line context.\n");
+                if (first_error_fatal[0] != '\0') {
+                    fprintf(stderr, "first_error\n  %s\n", first_error_fatal);
+                }
+            } else if (first_other[0] != '\0') {
+                fprintf(stderr, "error[native.compiler]\n");
+                fprintf(stderr, "ACTION\n  inspect native compiler output.\n");
+                fprintf(stderr, "WHY\n  gcc failed while compiling/linking generated C.\n");
+                fprintf(stderr, "NEXT\n  rerun with --native-raw for full output.\n");
+                fprintf(stderr, "first_line\n  %s\n", first_other);
+            } else {
+                if (first_error_generic[0] != '\0') {
+                    snprintf(first_error, sizeof(first_error), "%s", first_error_generic);
+                }
+                fprintf(stderr, "error[native.compiler]\n");
+                fprintf(stderr, "ACTION\n  inspect native compiler output.\n");
+                fprintf(stderr, "WHY\n  gcc failed while compiling/linking generated C.\n");
+                fprintf(stderr, "NEXT\n  rerun with --native-raw for full output.\n");
+                if (first_error[0] != '\0') {
+                    fprintf(stderr, "first_error\n  %s\n", first_error);
+                }
+            }
+        }
+    }
+
+    return exit_code;
+}
+
 static int zt_compile_runtime_object(const char *runtime_obj_path) {
     char compile_cmd[2048];
     char runtime_c_path[1024];
@@ -783,9 +1145,10 @@ static int zt_compile_runtime_object(const char *runtime_obj_path) {
 
     if (!zt_ci_mode_enabled) {
         printf("compiling runtime cache: %s\n", compile_cmd);
+        fflush(stdout);
     }
 
-    compile_result = system(compile_cmd);
+    compile_result = zt_run_native_compile_command(compile_cmd);
     if (compile_result != 0) {
         zt_print_single_diag(
             "backend.c.emit",
@@ -831,19 +1194,20 @@ int zt_compile_c_file(const char *c_path, const char *exe_path, const zt_project
 #else
     if (extra_linker_flags[0] != '\0') {
         snprintf(compile_cmd, sizeof(compile_cmd),
-                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" %s -lm",
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" %s -lm -ldl",
                  runtime_root, exe_path, c_path, runtime_obj_path, extra_linker_flags);
     } else {
         snprintf(compile_cmd, sizeof(compile_cmd),
-                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lm",
+                 "gcc -Wall -Wextra -Wno-unused-function -I. -I\"%s\" -o \"%s\" \"%s\" \"%s\" -lm -ldl",
                  runtime_root, exe_path, c_path, runtime_obj_path);
     }
 #endif
 
     if (!zt_ci_mode_enabled) {
         printf("compiling: %s\n", compile_cmd);
+        fflush(stdout);
     }
-    compile_result = system(compile_cmd);
+    compile_result = zt_run_native_compile_command(compile_cmd);
     if (compile_result != 0) {
         zt_print_single_diag(
             "backend.c.emit",

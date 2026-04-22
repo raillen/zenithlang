@@ -446,6 +446,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             break;
         case ZT_AST_VAR_DECL:
+            if (node->as.var_decl.is_module_level && node->as.var_decl.is_public) sb_append(sb, "public ");
             sb_append(sb, "var ");
             sb_append(sb, node->as.var_decl.name);
             if (node->as.var_decl.type_node) {

@@ -57,6 +57,15 @@ one`, `success` e `error`.
 
 - `multifile_import_alias/`: projeto valido. Exercita varredura de `source.root` e chamada qualificada via import alias.
 - `public_const_module/`: projeto valido. Exercita `public const` em nivel de modulo com import alias (`mod.CONST`).
+- `public_var_module/`: projeto valido. Exercita leitura de `public var` em nivel de modulo via import alias (`mod.VAR`).
+- `public_var_module_state/`: projeto valido. Exercita persistencia de estado de `public var` entre funcoes do modulo.
+- `public_var_cross_namespace_write_error/`: projeto invalido. Garante que `public var` nao pode ser mutado fora do namespace de origem.
+- `std_random_basic/`: projeto valido. Exercita `std.random` baseline (`seed`, `next`, `between`) e valida o estado publico (`seeded`, `last_seed`, `draw_count`).
+- `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
+- `std_random_between_branches/`: projeto valido. Exercita ramos de `std.random.between` (`min == max` e `max < min`) sem consumo indevido de draw.
+- `std_random_cross_namespace_write_error/`: projeto invalido. Garante que `std.random.draw_count` nao pode ser mutado fora do namespace `std.random`.
+- `borealis_backend_fallback_stub/`: projeto valido em `run-pass`. Solicita backend desktop (`backend_id=1`) e valida fallback seguro para stub (janela + draw + leitura de input) quando adapter nao esta disponivel no ambiente.
+- `borealis_ecs_hybrid_stub/`: projeto valido em `run-pass`. Exercita o subset inicial de componentes do ECS (`borealis.engine.ecs`) com stub autocontido para runtime atual.
 - `multifile_missing_import/`: projeto invalido. Deve falhar quando um import nao existe em `source.root`.
 - `multifile_namespace_mismatch/`: projeto invalido. Deve falhar quando 
 amespace` nao corresponde ao caminho do arquivo.

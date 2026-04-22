@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 #endif
 
 #ifdef _WIN32
@@ -2449,6 +2450,106 @@ zt_bool zt_outcome_void_text_is_success(zt_outcome_void_text outcome) {
 
 zt_outcome_void_text zt_outcome_void_text_propagate(zt_outcome_void_text outcome) {
     return outcome;
+}
+
+void zt_outcome_i64_text_dispose(zt_outcome_i64_text *outcome) {
+    if (outcome == NULL) return;
+    if (!outcome->is_success && outcome->error != NULL) {
+        zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_void_text_dispose(zt_outcome_void_text *outcome) {
+    if (outcome == NULL) return;
+    if (!outcome->is_success && outcome->error != NULL) {
+        zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_text_text_dispose(zt_outcome_text_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_bytes_text_dispose(zt_outcome_bytes_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_optional_text_text_dispose(zt_outcome_optional_text_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value.is_present && outcome->value.value != NULL) {
+            zt_release(outcome->value.value);
+        }
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_optional_bytes_text_dispose(zt_outcome_optional_bytes_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value.is_present && outcome->value.value != NULL) {
+            zt_release(outcome->value.value);
+        }
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_net_connection_text_dispose(zt_outcome_net_connection_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_list_i64_text_dispose(zt_outcome_list_i64_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_list_text_text_dispose(zt_outcome_list_text_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+void zt_outcome_map_text_text_dispose(zt_outcome_map_text_text *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        if (outcome->error != NULL) zt_release(outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
 }
 
 
@@ -4926,7 +5027,30 @@ zt_int zt_net_error_kind_index(zt_core_error error) {
 }
 
 #define ZT_BOREALIS_BACKEND_STUB 0
-#define ZT_BOREALIS_STUB_WINDOW_ID 1
+#define ZT_BOREALIS_BACKEND_RAYLIB 1
+#define ZT_BOREALIS_STUB_WINDOW_ID (-1)
+#define ZT_BOREALIS_RAYLIB_WINDOW_ID 1
+#define ZT_BOREALIS_MAX_WINDOWS 8
+#define ZT_BOREALIS_MAX_KEYS_PER_WINDOW 64
+
+typedef struct zt_borealis_key_state {
+    zt_bool used;
+    zt_int input_code;
+    zt_bool raw_down;
+    zt_bool down;
+    zt_bool prev_down;
+} zt_borealis_key_state;
+
+typedef struct zt_borealis_window_state {
+    zt_bool used;
+    zt_int window_id;
+    zt_bool is_stub;
+    zt_borealis_key_state keys[ZT_BOREALIS_MAX_KEYS_PER_WINDOW];
+} zt_borealis_window_state;
+
+static zt_borealis_window_state zt_borealis_window_states[ZT_BOREALIS_MAX_WINDOWS];
+static const zt_borealis_desktop_api *zt_borealis_desktop_api_state = NULL;
+
 
 static zt_core_error zt_borealis_backend_missing_error(void) {
     return zt_core_error_from_message(
@@ -4948,51 +5072,654 @@ static zt_outcome_void_core_error zt_borealis_backend_missing_void(void) {
     return outcome;
 }
 
+static zt_borealis_window_state *zt_borealis_find_window_state(zt_int window_id) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_WINDOWS; index += 1) {
+        if (zt_borealis_window_states[index].used &&
+            zt_borealis_window_states[index].window_id == window_id) {
+            return &zt_borealis_window_states[index];
+        }
+    }
+    return NULL;
+}
+
+static zt_borealis_window_state *zt_borealis_alloc_window_state(zt_int window_id) {
+    size_t index;
+    zt_borealis_window_state *state = zt_borealis_find_window_state(window_id);
+    if (state != NULL) {
+        return state;
+    }
+    for (index = 0; index < ZT_BOREALIS_MAX_WINDOWS; index += 1) {
+        if (!zt_borealis_window_states[index].used) {
+            memset(&zt_borealis_window_states[index], 0, sizeof(zt_borealis_window_state));
+            zt_borealis_window_states[index].used = true;
+            zt_borealis_window_states[index].window_id = window_id;
+            return &zt_borealis_window_states[index];
+        }
+    }
+    return NULL;
+}
+
+static void zt_borealis_free_window_state(zt_int window_id) {
+    zt_borealis_window_state *state = zt_borealis_find_window_state(window_id);
+    if (state != NULL) {
+        memset(state, 0, sizeof(zt_borealis_window_state));
+    }
+}
+
 static zt_bool zt_borealis_is_stub_window(zt_int window_id) {
-    return window_id == ZT_BOREALIS_STUB_WINDOW_ID;
+    zt_borealis_window_state *state = zt_borealis_find_window_state(window_id);
+    return state != NULL && state->is_stub;
+}
+
+static zt_outcome_i64_core_error zt_borealis_open_stub_window(void) {
+    zt_borealis_window_state *window_state = zt_borealis_alloc_window_state(ZT_BOREALIS_STUB_WINDOW_ID);
+    if (window_state == NULL) {
+        return zt_outcome_i64_core_error_failure_message("borealis: no free window slots");
+    }
+    window_state->is_stub = true;
+    return zt_outcome_i64_core_error_success(ZT_BOREALIS_STUB_WINDOW_ID);
+}
+
+void zt_borealis_set_desktop_api(const zt_borealis_desktop_api *api) {
+    zt_borealis_desktop_api_state = api;
+}
+
+const zt_borealis_desktop_api *zt_borealis_get_desktop_api(void) {
+    return zt_borealis_desktop_api_state;
+}
+
+typedef struct zt_borealis_raylib_color {
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
+} zt_borealis_raylib_color;
+
+typedef void (*zt_borealis_raylib_init_window_fn)(int width, int height, const char *title);
+typedef void (*zt_borealis_raylib_close_window_fn)(void);
+typedef int (*zt_borealis_raylib_window_should_close_fn)(void);
+typedef int (*zt_borealis_raylib_is_window_ready_fn)(void);
+typedef void (*zt_borealis_raylib_set_target_fps_fn)(int fps);
+typedef void (*zt_borealis_raylib_begin_drawing_fn)(void);
+typedef void (*zt_borealis_raylib_end_drawing_fn)(void);
+typedef void (*zt_borealis_raylib_clear_background_fn)(zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_rectangle_fn)(int pos_x, int pos_y, int width, int height, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_rectangle_lines_fn)(int pos_x, int pos_y, int width, int height, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_line_fn)(int start_x, int start_y, int end_x, int end_y, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_circle_fn)(int center_x, int center_y, float radius, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_circle_lines_fn)(int center_x, int center_y, float radius, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_text_fn)(const char *text, int pos_x, int pos_y, int font_size, zt_borealis_raylib_color color);
+typedef int (*zt_borealis_raylib_is_key_fn)(int key);
+
+typedef struct zt_borealis_raylib_runtime {
+    zt_bool load_attempted;
+    zt_bool loaded;
+    zt_bool window_open;
+    zt_bool frame_open;
+    zt_int window_id;
+    void *library;
+    zt_borealis_raylib_init_window_fn init_window;
+    zt_borealis_raylib_close_window_fn close_window;
+    zt_borealis_raylib_window_should_close_fn window_should_close;
+    zt_borealis_raylib_is_window_ready_fn is_window_ready;
+    zt_borealis_raylib_set_target_fps_fn set_target_fps;
+    zt_borealis_raylib_begin_drawing_fn begin_drawing;
+    zt_borealis_raylib_end_drawing_fn end_drawing;
+    zt_borealis_raylib_clear_background_fn clear_background;
+    zt_borealis_raylib_draw_rectangle_fn draw_rectangle;
+    zt_borealis_raylib_draw_rectangle_lines_fn draw_rectangle_lines;
+    zt_borealis_raylib_draw_line_fn draw_line;
+    zt_borealis_raylib_draw_circle_fn draw_circle;
+    zt_borealis_raylib_draw_circle_lines_fn draw_circle_lines;
+    zt_borealis_raylib_draw_text_fn draw_text;
+    zt_borealis_raylib_is_key_fn is_key_down;
+    zt_borealis_raylib_is_key_fn is_key_pressed;
+    zt_borealis_raylib_is_key_fn is_key_released;
+} zt_borealis_raylib_runtime;
+
+static zt_borealis_raylib_runtime zt_borealis_raylib = {0};
+
+static void *zt_borealis_dynlib_open(const char *name) {
+#ifdef _WIN32
+    return (void *)LoadLibraryA(name);
+#else
+    return dlopen(name, RTLD_NOW | RTLD_LOCAL);
+#endif
+}
+
+static void *zt_borealis_dynlib_symbol(void *library, const char *name) {
+    if (library == NULL || name == NULL) {
+        return NULL;
+    }
+#ifdef _WIN32
+    return (void *)GetProcAddress((HMODULE)library, name);
+#else
+    return dlsym(library, name);
+#endif
+}
+
+static void zt_borealis_dynlib_close(void *library) {
+    if (library == NULL) {
+        return;
+    }
+#ifdef _WIN32
+    FreeLibrary((HMODULE)library);
+#else
+    dlclose(library);
+#endif
+}
+
+static unsigned char zt_borealis_color_u8(zt_int value) {
+    if (value < 0) return 0;
+    if (value > 255) return 255;
+    return (unsigned char)value;
+}
+
+static zt_borealis_raylib_color zt_borealis_make_raylib_color(zt_int r, zt_int g, zt_int b, zt_int a) {
+    zt_borealis_raylib_color color;
+    color.r = zt_borealis_color_u8(r);
+    color.g = zt_borealis_color_u8(g);
+    color.b = zt_borealis_color_u8(b);
+    color.a = zt_borealis_color_u8(a);
+    return color;
+}
+
+static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
+    if (zt_borealis_raylib.library == NULL) {
+        return false;
+    }
+
+    zt_borealis_raylib.init_window = (zt_borealis_raylib_init_window_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "InitWindow");
+    zt_borealis_raylib.close_window = (zt_borealis_raylib_close_window_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "CloseWindow");
+    zt_borealis_raylib.window_should_close = (zt_borealis_raylib_window_should_close_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "WindowShouldClose");
+    zt_borealis_raylib.is_window_ready = (zt_borealis_raylib_is_window_ready_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsWindowReady");
+    zt_borealis_raylib.set_target_fps = (zt_borealis_raylib_set_target_fps_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "SetTargetFPS");
+    zt_borealis_raylib.begin_drawing = (zt_borealis_raylib_begin_drawing_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "BeginDrawing");
+    zt_borealis_raylib.end_drawing = (zt_borealis_raylib_end_drawing_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "EndDrawing");
+    zt_borealis_raylib.clear_background = (zt_borealis_raylib_clear_background_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "ClearBackground");
+    zt_borealis_raylib.draw_rectangle = (zt_borealis_raylib_draw_rectangle_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawRectangle");
+    zt_borealis_raylib.draw_rectangle_lines = (zt_borealis_raylib_draw_rectangle_lines_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawRectangleLines");
+    zt_borealis_raylib.draw_line = (zt_borealis_raylib_draw_line_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawLine");
+    zt_borealis_raylib.draw_circle = (zt_borealis_raylib_draw_circle_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawCircle");
+    zt_borealis_raylib.draw_circle_lines = (zt_borealis_raylib_draw_circle_lines_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawCircleLines");
+    zt_borealis_raylib.draw_text = (zt_borealis_raylib_draw_text_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawText");
+    zt_borealis_raylib.is_key_down = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyDown");
+    zt_borealis_raylib.is_key_pressed = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyPressed");
+    zt_borealis_raylib.is_key_released = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyReleased");
+
+    return zt_borealis_raylib.init_window != NULL &&
+           zt_borealis_raylib.close_window != NULL &&
+           zt_borealis_raylib.window_should_close != NULL &&
+           zt_borealis_raylib.set_target_fps != NULL &&
+           zt_borealis_raylib.begin_drawing != NULL &&
+           zt_borealis_raylib.end_drawing != NULL &&
+           zt_borealis_raylib.clear_background != NULL &&
+           zt_borealis_raylib.draw_rectangle != NULL &&
+           zt_borealis_raylib.draw_rectangle_lines != NULL &&
+           zt_borealis_raylib.draw_line != NULL &&
+           zt_borealis_raylib.draw_circle != NULL &&
+           zt_borealis_raylib.draw_circle_lines != NULL &&
+           zt_borealis_raylib.draw_text != NULL &&
+           zt_borealis_raylib.is_key_down != NULL &&
+           zt_borealis_raylib.is_key_pressed != NULL &&
+           zt_borealis_raylib.is_key_released != NULL;
+}
+
+static zt_bool zt_borealis_raylib_try_load(void) {
+    size_t index;
+#ifdef _WIN32
+    const char *candidates[] = {"raylib.dll", "libraylib.dll", NULL};
+#elif __APPLE__
+    const char *candidates[] = {"libraylib.dylib", "raylib.dylib", NULL};
+#else
+    const char *candidates[] = {"libraylib.so", "libraylib.so.5", "libraylib.so.4", NULL};
+#endif
+
+    if (zt_borealis_raylib.load_attempted) {
+        return zt_borealis_raylib.loaded;
+    }
+
+    zt_borealis_raylib.load_attempted = true;
+    zt_borealis_raylib.window_id = ZT_BOREALIS_RAYLIB_WINDOW_ID;
+
+    for (index = 0; candidates[index] != NULL; index += 1) {
+        zt_borealis_raylib.library = zt_borealis_dynlib_open(candidates[index]);
+        if (zt_borealis_raylib.library == NULL) {
+            continue;
+        }
+
+        if (zt_borealis_raylib_assign_required_symbols()) {
+            zt_borealis_raylib.loaded = true;
+            return true;
+        }
+
+        zt_borealis_dynlib_close(zt_borealis_raylib.library);
+        memset(&zt_borealis_raylib, 0, sizeof(zt_borealis_raylib));
+        zt_borealis_raylib.load_attempted = true;
+        zt_borealis_raylib.window_id = ZT_BOREALIS_RAYLIB_WINDOW_ID;
+    }
+
+    return false;
+}
+
+static zt_outcome_i64_core_error zt_borealis_raylib_open_window(
+        const zt_text *title,
+        zt_int width,
+        zt_int height,
+        zt_int target_fps,
+        zt_int backend_id) {
+    const char *title_text;
+
+    if (backend_id != ZT_BOREALIS_BACKEND_RAYLIB) {
+        return zt_outcome_i64_core_error_failure_message("borealis: unsupported desktop backend id");
+    }
+
+    if (!zt_borealis_raylib_try_load()) {
+        return zt_borealis_backend_missing_i64();
+    }
+
+    if (zt_borealis_raylib.window_open) {
+        return zt_outcome_i64_core_error_failure_message("borealis: desktop window already open");
+    }
+
+    title_text = title != NULL ? zt_text_data(title) : "Borealis";
+    zt_borealis_raylib.init_window((int)width, (int)height, title_text);
+
+    if (zt_borealis_raylib.is_window_ready != NULL && !zt_borealis_raylib.is_window_ready()) {
+        zt_borealis_raylib.close_window();
+        return zt_outcome_i64_core_error_failure_message("borealis: failed to initialize raylib window");
+    }
+
+    zt_borealis_raylib.set_target_fps((int)target_fps);
+    zt_borealis_raylib.window_open = true;
+    zt_borealis_raylib.frame_open = false;
+    return zt_outcome_i64_core_error_success(zt_borealis_raylib.window_id);
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_close_window(zt_int window_id) {
+    if (!zt_borealis_raylib.window_open) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    if (window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown desktop window id");
+    }
+
+    if (zt_borealis_raylib.frame_open) {
+        zt_borealis_raylib.end_drawing();
+        zt_borealis_raylib.frame_open = false;
+    }
+
+    zt_borealis_raylib.close_window();
+    zt_borealis_raylib.window_open = false;
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_bool zt_borealis_raylib_window_should_close(zt_int window_id) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return true;
+    }
+    return zt_borealis_raylib.window_should_close() ? true : false;
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_begin_frame(
+        zt_int window_id,
+        zt_int clear_r,
+        zt_int clear_g,
+        zt_int clear_b,
+        zt_int clear_a) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    if (zt_borealis_raylib.frame_open) {
+        return zt_outcome_void_core_error_failure_message("borealis: frame_begin called twice without frame_end");
+    }
+
+    zt_borealis_raylib.begin_drawing();
+    zt_borealis_raylib.clear_background(zt_borealis_make_raylib_color(clear_r, clear_g, clear_b, clear_a));
+    zt_borealis_raylib.frame_open = true;
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_end_frame(zt_int window_id) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    if (!zt_borealis_raylib.frame_open) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    zt_borealis_raylib.end_drawing();
+    zt_borealis_raylib.frame_open = false;
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_rect(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    zt_borealis_raylib.draw_rectangle(
+        (int)lround(x),
+        (int)lround(y),
+        (int)lround(width),
+        (int)lround(height),
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_line(
+        zt_int window_id,
+        zt_float x1,
+        zt_float y1,
+        zt_float x2,
+        zt_float y2,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    zt_borealis_raylib.draw_line(
+        (int)lround(x1),
+        (int)lround(y1),
+        (int)lround(x2),
+        (int)lround(y2),
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_rect_outline(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    int step;
+    int line_count;
+
+    (void)thickness;
+
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    line_count = thickness <= 1.0 ? 1 : (int)lround(thickness);
+    if (line_count < 1) line_count = 1;
+
+    for (step = 0; step < line_count; step += 1) {
+        zt_borealis_raylib.draw_rectangle_lines(
+            (int)lround(x) - step,
+            (int)lround(y) - step,
+            (int)lround(width) + (step * 2),
+            (int)lround(height) + (step * 2),
+            zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    }
+
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_circle(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    zt_borealis_raylib.draw_circle(
+        (int)lround(x),
+        (int)lround(y),
+        (float)radius,
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_circle_outline(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    int step;
+    int line_count;
+    zt_borealis_raylib_color color;
+
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    line_count = thickness <= 1.0 ? 1 : (int)lround(thickness);
+    if (line_count < 1) line_count = 1;
+    color = zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a);
+
+    for (step = 0; step < line_count; step += 1) {
+        float ring = radius - (float)step;
+        if (ring <= 0.0f) break;
+        zt_borealis_raylib.draw_circle_lines((int)lround(x), (int)lround(y), ring, color);
+    }
+
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_borealis_raylib_draw_text(
+        zt_int window_id,
+        const zt_text *value,
+        zt_int x,
+        zt_int y,
+        zt_int size,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    const char *text;
+
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+
+    text = value != NULL ? zt_text_data(value) : "";
+    zt_borealis_raylib.draw_text(
+        text,
+        (int)x,
+        (int)y,
+        (int)size,
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_bool zt_borealis_raylib_is_key_down(zt_int window_id, zt_int input_code) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return false;
+    }
+    return zt_borealis_raylib.is_key_down((int)input_code) ? true : false;
+}
+
+static zt_bool zt_borealis_raylib_is_key_pressed(zt_int window_id, zt_int input_code) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return false;
+    }
+    return zt_borealis_raylib.is_key_pressed((int)input_code) ? true : false;
+}
+
+static zt_bool zt_borealis_raylib_is_key_released(zt_int window_id, zt_int input_code) {
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return false;
+    }
+    return zt_borealis_raylib.is_key_released((int)input_code) ? true : false;
+}
+
+static const zt_borealis_desktop_api zt_borealis_raylib_desktop_api = {
+    zt_borealis_raylib_open_window,
+    zt_borealis_raylib_close_window,
+    zt_borealis_raylib_window_should_close,
+    zt_borealis_raylib_begin_frame,
+    zt_borealis_raylib_end_frame,
+    zt_borealis_raylib_draw_rect,
+    zt_borealis_raylib_draw_line,
+    zt_borealis_raylib_draw_rect_outline,
+    zt_borealis_raylib_draw_circle,
+    zt_borealis_raylib_draw_circle_outline,
+    zt_borealis_raylib_draw_text,
+    zt_borealis_raylib_is_key_down,
+    zt_borealis_raylib_is_key_pressed,
+    zt_borealis_raylib_is_key_released
+};
+
+static void zt_borealis_try_register_builtin_desktop_api(void) {
+    if (zt_borealis_get_desktop_api() != NULL) {
+        return;
+    }
+
+    if (zt_borealis_raylib_try_load()) {
+        zt_borealis_set_desktop_api(&zt_borealis_raylib_desktop_api);
+    }
+}
+
+
+static zt_borealis_key_state *zt_borealis_find_key_state(
+        zt_borealis_window_state *window_state,
+        zt_int input_code,
+        zt_bool create_if_missing) {
+    size_t index;
+    zt_borealis_key_state *first_free = NULL;
+
+    if (window_state == NULL) {
+        return NULL;
+    }
+
+    for (index = 0; index < ZT_BOREALIS_MAX_KEYS_PER_WINDOW; index += 1) {
+        zt_borealis_key_state *key = &window_state->keys[index];
+        if (key->used && key->input_code == input_code) {
+            return key;
+        }
+        if (!key->used && first_free == NULL) {
+            first_free = key;
+        }
+    }
+
+    if (!create_if_missing || first_free == NULL) {
+        return NULL;
+    }
+
+    memset(first_free, 0, sizeof(zt_borealis_key_state));
+    first_free->used = true;
+    first_free->input_code = input_code;
+    return first_free;
 }
 
 zt_outcome_i64_core_error zt_borealis_open_window(const zt_text *title, zt_int width, zt_int height, zt_int target_fps, zt_int backend_id) {
-    (void)title;
-    (void)width;
-    (void)height;
-    (void)target_fps;
+    const zt_borealis_desktop_api *desktop_api;
 
     if (backend_id == ZT_BOREALIS_BACKEND_STUB) {
-        return zt_outcome_i64_core_error_success(ZT_BOREALIS_STUB_WINDOW_ID);
+        return zt_borealis_open_stub_window();
     }
 
-    return zt_borealis_backend_missing_i64();
+    zt_borealis_try_register_builtin_desktop_api();
+    desktop_api = zt_borealis_get_desktop_api();
+
+    if (desktop_api != NULL && desktop_api->open_window != NULL) {
+        return desktop_api->open_window(title, width, height, target_fps, backend_id);
+    }
+
+    return zt_borealis_open_stub_window();
 }
 
 zt_outcome_void_core_error zt_borealis_close_window(zt_int window_id) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
     if (zt_borealis_is_stub_window(window_id)) {
+        zt_borealis_free_window_state(window_id);
         return zt_outcome_void_core_error_success();
     }
+
+    if (desktop_api != NULL && desktop_api->close_window != NULL) {
+        return desktop_api->close_window(window_id);
+    }
+
     return zt_borealis_backend_missing_void();
 }
 
 zt_bool zt_borealis_window_should_close(zt_int window_id) {
-    (void)window_id;
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return true;
+    }
+
+    if (desktop_api != NULL && desktop_api->window_should_close != NULL) {
+        return desktop_api->window_should_close(window_id);
+    }
+
     return true;
 }
 
 zt_outcome_void_core_error zt_borealis_begin_frame(zt_int window_id, zt_int clear_r, zt_int clear_g, zt_int clear_b, zt_int clear_a) {
-    (void)clear_r;
-    (void)clear_g;
-    (void)clear_b;
-    (void)clear_a;
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
 
     if (zt_borealis_is_stub_window(window_id)) {
+        size_t index;
+        zt_borealis_window_state *window_state = zt_borealis_alloc_window_state(window_id);
+        if (window_state == NULL) {
+            return zt_outcome_void_core_error_failure_message("borealis: no free input window slots");
+        }
+        for (index = 0; index < ZT_BOREALIS_MAX_KEYS_PER_WINDOW; index += 1) {
+            zt_borealis_key_state *key = &window_state->keys[index];
+            if (!key->used) {
+                continue;
+            }
+            key->prev_down = key->down;
+            key->down = key->raw_down;
+        }
         return zt_outcome_void_core_error_success();
     }
+
+    if (desktop_api != NULL && desktop_api->begin_frame != NULL) {
+        return desktop_api->begin_frame(window_id, clear_r, clear_g, clear_b, clear_a);
+    }
+
     return zt_borealis_backend_missing_void();
 }
 
 zt_outcome_void_core_error zt_borealis_end_frame(zt_int window_id) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
     if (zt_borealis_is_stub_window(window_id)) {
         return zt_outcome_void_core_error_success();
     }
+
+    if (desktop_api != NULL && desktop_api->end_frame != NULL) {
+        return desktop_api->end_frame(window_id);
+    }
+
     return zt_borealis_backend_missing_void();
 }
 
@@ -5006,18 +5733,108 @@ zt_outcome_void_core_error zt_borealis_draw_rect(
         zt_int color_g,
         zt_int color_b,
         zt_int color_a) {
-    (void)x;
-    (void)y;
-    (void)width;
-    (void)height;
-    (void)color_r;
-    (void)color_g;
-    (void)color_b;
-    (void)color_a;
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
 
     if (zt_borealis_is_stub_window(window_id)) {
         return zt_outcome_void_core_error_success();
     }
+
+    if (desktop_api != NULL && desktop_api->draw_rect != NULL) {
+        return desktop_api->draw_rect(window_id, x, y, width, height, color_r, color_g, color_b, color_a);
+    }
+
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_line(
+        zt_int window_id,
+        zt_float x1,
+        zt_float y1,
+        zt_float x2,
+        zt_float y2,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    if (desktop_api != NULL && desktop_api->draw_line != NULL) {
+        return desktop_api->draw_line(window_id, x1, y1, x2, y2, color_r, color_g, color_b, color_a);
+    }
+
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_rect_outline(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    if (desktop_api != NULL && desktop_api->draw_rect_outline != NULL) {
+        return desktop_api->draw_rect_outline(window_id, x, y, width, height, thickness, color_r, color_g, color_b, color_a);
+    }
+
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_circle(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    if (desktop_api != NULL && desktop_api->draw_circle != NULL) {
+        return desktop_api->draw_circle(window_id, x, y, radius, color_r, color_g, color_b, color_a);
+    }
+
+    return zt_borealis_backend_missing_void();
+}
+
+zt_outcome_void_core_error zt_borealis_draw_circle_outline(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius,
+        zt_float thickness,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+
+    if (desktop_api != NULL && desktop_api->draw_circle_outline != NULL) {
+        return desktop_api->draw_circle_outline(window_id, x, y, radius, thickness, color_r, color_g, color_b, color_a);
+    }
+
     return zt_borealis_backend_missing_void();
 }
 
@@ -5031,25 +5848,126 @@ zt_outcome_void_core_error zt_borealis_draw_text(
         zt_int color_g,
         zt_int color_b,
         zt_int color_a) {
-    (void)value;
-    (void)x;
-    (void)y;
-    (void)size;
-    (void)color_r;
-    (void)color_g;
-    (void)color_b;
-    (void)color_a;
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
 
     if (zt_borealis_is_stub_window(window_id)) {
         return zt_outcome_void_core_error_success();
     }
+
+    if (desktop_api != NULL && desktop_api->draw_text != NULL) {
+        return desktop_api->draw_text(window_id, value, x, y, size, color_r, color_g, color_b, color_a);
+    }
+
     return zt_borealis_backend_missing_void();
 }
 
 zt_bool zt_borealis_is_key_down(zt_int window_id, zt_int input_code) {
-    (void)window_id;
-    (void)input_code;
-    return false;
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+    zt_borealis_window_state *window_state;
+    zt_borealis_key_state *key;
+
+    if (!zt_borealis_is_stub_window(window_id)) {
+        if (desktop_api != NULL && desktop_api->is_key_down != NULL) {
+            return desktop_api->is_key_down(window_id, input_code);
+        }
+        return false;
+    }
+
+    window_state = zt_borealis_find_window_state(window_id);
+    if (window_state == NULL) {
+        return false;
+    }
+
+    key = zt_borealis_find_key_state(window_state, input_code, false);
+    if (key == NULL) {
+        return false;
+    }
+    return key->down;
+}
+
+zt_bool zt_borealis_is_key_pressed(zt_int window_id, zt_int input_code) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+    zt_borealis_window_state *window_state;
+    zt_borealis_key_state *key;
+
+    if (!zt_borealis_is_stub_window(window_id)) {
+        if (desktop_api != NULL && desktop_api->is_key_pressed != NULL) {
+            return desktop_api->is_key_pressed(window_id, input_code);
+        }
+        return false;
+    }
+
+    window_state = zt_borealis_find_window_state(window_id);
+    if (window_state == NULL) {
+        return false;
+    }
+
+    key = zt_borealis_find_key_state(window_state, input_code, false);
+    if (key == NULL) {
+        return false;
+    }
+    return key->down && !key->prev_down;
+}
+
+zt_bool zt_borealis_is_key_released(zt_int window_id, zt_int input_code) {
+    const zt_borealis_desktop_api *desktop_api = zt_borealis_get_desktop_api();
+    zt_borealis_window_state *window_state;
+    zt_borealis_key_state *key;
+
+    if (!zt_borealis_is_stub_window(window_id)) {
+        if (desktop_api != NULL && desktop_api->is_key_released != NULL) {
+            return desktop_api->is_key_released(window_id, input_code);
+        }
+        return false;
+    }
+
+    window_state = zt_borealis_find_window_state(window_id);
+    if (window_state == NULL) {
+        return false;
+    }
+
+    key = zt_borealis_find_key_state(window_state, input_code, false);
+    if (key == NULL) {
+        return false;
+    }
+    return !key->down && key->prev_down;
+}
+
+zt_outcome_void_core_error zt_borealis_stub_set_key_down(zt_int window_id, zt_int input_code, zt_bool is_down) {
+    zt_borealis_window_state *window_state;
+    zt_borealis_key_state *key;
+
+    if (!zt_borealis_is_stub_window(window_id)) {
+        return zt_borealis_backend_missing_void();
+    }
+
+    window_state = zt_borealis_alloc_window_state(window_id);
+    if (window_state == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: no free input window slots");
+    }
+
+    key = zt_borealis_find_key_state(window_state, input_code, true);
+    if (key == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: no free key slots in window input state");
+    }
+
+    key->raw_down = is_down;
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_stub_reset_input(zt_int window_id) {
+    zt_borealis_window_state *window_state;
+
+    if (!zt_borealis_is_stub_window(window_id)) {
+        return zt_borealis_backend_missing_void();
+    }
+
+    window_state = zt_borealis_alloc_window_state(window_id);
+    if (window_state == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: no free input window slots");
+    }
+    memset(window_state->keys, 0, sizeof(window_state->keys));
+    return zt_outcome_void_core_error_success();
 }
 
 static zt_bool zt_path_is_separator_char(char value) {

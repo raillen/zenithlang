@@ -1,0 +1,102 @@
+namespace borealis.game.controllers
+
+
+
+public enum Direction
+    None
+    Left
+    Right
+    Up
+    Down
+end
+
+public struct TopDownConfig
+    speed: float = 120.0
+end
+
+public struct PlatformConfig
+    speed: float = 120.0
+    gravity: float = 700.0
+    jump_force: float = 260.0
+end
+
+public func direction_from_input(up: bool, down: bool, left: bool, right: bool) -> controllers.Direction
+    if left
+        return controllers.Direction.Left
+    end
+    if right
+        return controllers.Direction.Right
+    end
+    if up
+        return controllers.Direction.Up
+    end
+    if down
+        return controllers.Direction.Down
+    end
+    return controllers.Direction.None
+end
+
+public func topdown_update(
+    position: game.Vector2,
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
+    config: controllers.TopDownConfig = controllers.TopDownConfig(),
+    dt: float = 1.0 / 60.0
+) -> game.Vector2
+    var vx: float = 0.0
+    var vy: float = 0.0
+
+    if left
+        vx = vx - config.speed
+    end
+    if right
+        vx = vx + config.speed
+    end
+    if up
+        vy = vy - config.speed
+    end
+    if down
+        vy = vy + config.speed
+    end
+
+    return game.vec2(position.x + (vx * dt), position.y + (vy * dt))
+end
+
+public func grid_step(position: game.Vector2, direction: controllers.Direction, cell_size: float = 32.0) -> game.Vector2
+    match direction
+        case controllers.Direction.Left ->
+            return game.vec2(position.x - cell_size, position.y)
+        case controllers.Direction.Right ->
+            return game.vec2(position.x + cell_size, position.y)
+        case controllers.Direction.Up ->
+            return game.vec2(position.x, position.y - cell_size)
+        case controllers.Direction.Down ->
+            return game.vec2(position.x, position.y + cell_size)
+        case controllers.Direction.None ->
+            return position
+    end
+end
+
+public func topdown_velocity(
+    input: contracts.ActionInput,
+    config: controllers.TopDownConfig = controllers.TopDownConfig()
+) -> game.Vector2
+    const axis: game.Vector2 = contracts.action_axis(input)
+    return game.vec2(axis.x * config.speed, axis.y * config.speed)
+end
+
+public func topdown_body_update(
+    body: contracts.Body2D,
+    input: contracts.ActionInput,
+    config: controllers.TopDownConfig = controllers.TopDownConfig(),
+    dt: float = 1.0 / 60.0
+) -> contracts.Body2D
+    const velocity: game.Vector2 = controllers.topdown_velocity(input, config)
+    const with_velocity: contracts.Body2D = contracts.body_set_velocity(body, velocity)
+    return movement.body_step(with_velocity, dt)
+end
+
+
+

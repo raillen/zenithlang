@@ -1,0 +1,83 @@
+namespace borealis.game.ai
+
+
+
+public func seek(position: game.Vector2, target: game.Vector2, speed: float, dt: float = 1.0 / 60.0) -> game.Vector2
+    var dx: float = 0.0
+    var dy: float = 0.0
+
+    if target.x > position.x
+        dx = speed
+    end
+    if target.x < position.x
+        dx = -speed
+    end
+
+    if target.y > position.y
+        dy = speed
+    end
+    if target.y < position.y
+        dy = -speed
+    end
+
+    return game.vec2(position.x + (dx * dt), position.y + (dy * dt))
+end
+
+public func evade(position: game.Vector2, threat: game.Vector2, speed: float, dt: float = 1.0 / 60.0) -> game.Vector2
+    var dx: float = 0.0
+    var dy: float = 0.0
+
+    if threat.x > position.x
+        dx = -speed
+    end
+    if threat.x < position.x
+        dx = speed
+    end
+
+    if threat.y > position.y
+        dy = -speed
+    end
+    if threat.y < position.y
+        dy = speed
+    end
+
+    return game.vec2(position.x + (dx * dt), position.y + (dy * dt))
+end
+
+public func move_randomly(position: game.Vector2, step: float, tick: int) -> game.Vector2
+    const phase: int = tick % 4
+    if phase == 0
+        return game.vec2(position.x + step, position.y)
+    end
+    if phase == 1
+        return game.vec2(position.x - step, position.y)
+    end
+    if phase == 2
+        return game.vec2(position.x, position.y + step)
+    end
+    return game.vec2(position.x, position.y - step)
+end
+
+public func seek_body(
+    body: contracts.Body2D,
+    target: game.Vector2,
+    speed: float,
+    dt: float = 1.0 / 60.0
+) -> contracts.Body2D
+    const next_position: game.Vector2 = ai.seek(body.position, target, speed, dt)
+    const next_velocity: game.Vector2 = movement.move_towards(body.velocity, game.vec2(0.0, 0.0), speed, dt)
+    return contracts.Body2D(position: next_position, velocity: next_velocity)
+end
+
+public func evade_body(
+    body: contracts.Body2D,
+    threat: game.Vector2,
+    speed: float,
+    dt: float = 1.0 / 60.0
+) -> contracts.Body2D
+    const next_position: game.Vector2 = ai.evade(body.position, threat, speed, dt)
+    return contracts.Body2D(position: next_position, velocity: body.velocity)
+end
+
+
+

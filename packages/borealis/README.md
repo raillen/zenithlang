@@ -1,124 +1,77 @@
-# Borealis (skeleton)
+# Borealis
 
-Local package skeleton for a future ZPM-published 2D framework.
+Package de game dev 2D da Zenith com duas camadas publicas:
 
-Status:
+- `borealis.game`: camada facil (onboarding rapido).
+- `borealis.engine`: camada tecnica (controle explicito).
 
-- API contract drafted;
-- backend boundary drafted (`borealis.backend`);
-- minimal usage example drafted (`examples/minimal_loop.zt`);
-- runtime stub implemented (`zt_borealis_*` in `zenith_rt.c`);
-- linker hook implemented via `build.linker_flags`;
-- public layering decision accepted: `borealis.game` + `borealis.engine`.
+Projeto atual: `Borealis` (nome fechado).
 
-## Why This Is A Package (Not stdlib)
+## Estado atual
 
-- graphics/game API evolves fast in early cycles;
-- stdlib should stay smaller and more stable;
-- this package can iterate fast and migrate to ZPM with less churn.
+- `R3.B0` base documental e arquitetural: implementado.
+- `R3.B1` naming da camada facil: implementado.
+- `R3.B2` input por transicao de frame: implementado.
+- `R3.B3` Render2D base: implementado.
+- `R3.B4` Scene e Entities v1: implementado.
+- `R3.B5` ECS hibrido (subset inicial): em andamento.
+- `R3.B5` no comportamento atual: fixture ECS validado em `run-pass` (subset de componentes).
+- `R3.B6` scaffolds modulares: implementado (com contratos e extensao de editor).
 
-## Folder Layout
+## Arquivos de referencia
 
-```text
-packages/borealis/
-  decisions/
-    001-module-layering-and-naming.md
-  zenith.ztproj
-  src/
-    borealis.zt
-    borealis/
-      backend.zt
-      engine.zt
-      game.zt
-  examples/
-    minimal_loop.zt
-```
+- arquitetura: `packages/borealis/architecture-summary.md`
+- decisions: `packages/borealis/decisions/*`
+- baseline da API: `packages/borealis/api-baseline-v1.md`
+- linker profile desktop: `packages/borealis/backend-desktop-linker-profile-v1.md`
+- riscos ativos: `packages/borealis/risks.md`
+- roadmap: `docs/planning/borealis-roadmap-v1.md`
+- checklist: `docs/planning/borealis-checklist-v1.md`
 
-## Public Surface
+## Exemplo rapido (camada facil)
 
-- `borealis`:
-  - open/close window;
-  - frame begin/end;
-  - draw rect/text;
-  - key input helper.
-- `borealis` core types:
-  - `WindowConfig`, `Window`, `Color`, `Rect`, `Key`, `Backend`.
-- `borealis.backend`:
-  - C ABI contract (`zt_borealis_*`) for backend adapters (stub/raylib/etc).
+Arquivo: `packages/borealis/examples/minimal_loop.zt`
 
-## Layering (Easy vs Advanced)
+Fluxo principal:
 
-Accepted decision:
+1. `game.start(config)`
+2. `while game.running(ctx)`
+3. `game.frame_begin(ctx)`
+4. desenhar (`game.draw_rect`, `game.draw_text`)
+5. `game.frame_end(ctx)`
+6. `game.close(ctx)`
 
-- `packages/borealis/decisions/001-module-layering-and-naming.md`
+Outros exemplos:
 
-Module map discussion:
+- `packages/borealis/examples/render2d_base.zt` (line/rect/circle/text + HUD simples)
+- `packages/borealis/examples/scene_entities_v1.zt` (scene + entities + tags/hierarquia)
+- `packages/borealis/examples/ecs_hybrid_v1.zt` (components + systems via `engine.ecs` e facade em `game.entities`)
+- `packages/borealis/examples/modular_scaffolds_v1.zt` (uso basico dos novos modulos scaffold)
+- `packages/borealis/examples/raylib_desktop_loop.zt` (camada `borealis.game` com `Backend.Raylib`)
+- `packages/borealis/examples/raylib_desktop_app/` (projeto completo com `zenith.ztproj`, usando ABI runtime direta para rodar agora)
 
-- `packages/borealis/decisions/004-module-map-and-secondary-modules.md`
-- `packages/borealis/decisions/005-editor-ready-architecture.md`
-- `packages/borealis/decisions/006-borealis-stack.md`
-- `packages/borealis/decisions/007-borealis-flow.md`
-- `packages/borealis/architecture-summary.md`
+## Nota sobre backend
 
-Module decisions:
+Nesta fase, o caminho padrao continua sendo o backend stub para bootstrap.
 
-- `packages/borealis/decisions/modules/README.md`
+No R3.B7, o runtime ganhou hook de adapter desktop (`zt_borealis_desktop_api`) e adapter Raylib inicial com carregamento dinamico.
 
-Public layers:
+Quando Raylib nao estiver disponivel no ambiente, o fallback para stub continua seguro.
 
-- `borealis.game`: easy-first entrypoint (scaffold in this cut).
-- `borealis.engine`: advanced/technical entrypoint (scaffold in this cut).
-- `borealis`: current compatibility root.
+Detalhes do profile em `packages/borealis/backend-desktop-linker-profile-v1.md`.
 
-Imports:
+## Rodar exemplo Raylib
 
-```zt
-import borealis.game as game
-import borealis.engine as engine
-```
+1. Garanta que a biblioteca do Raylib esteja disponivel no ambiente:
+   - Windows: `raylib.dll` no mesmo diretorio do executavel ou no `PATH`.
+   - Linux: `libraylib.so` disponivel no loader path (`LD_LIBRARY_PATH` ou install do sistema).
+2. Use `packages/borealis/examples/raylib_desktop_loop.zt` como template do `app.main` do seu projeto Zenith.
+3. No seu `main`, mantenha `backend: game.Backend.Raylib`.
+4. Rode o projeto normalmente:
+   - `./zt.exe run caminho/do/seu/zenith.ztproj`
 
-## Backend Contract (C ABI)
+Projeto pronto incluido no repo:
 
-Expected symbols:
+- `./zt.exe run packages/borealis/examples/raylib_desktop_app/zenith.ztproj`
 
-- `zt_borealis_open_window`
-- `zt_borealis_close_window`
-- `zt_borealis_window_should_close`
-- `zt_borealis_begin_frame`
-- `zt_borealis_end_frame`
-- `zt_borealis_draw_rect`
-- `zt_borealis_draw_text`
-- `zt_borealis_is_key_down`
-
-Current behavior:
-
-- `Backend.Stub` works as no-op runtime backend (safe for bootstrap);
-- non-stub backends return `core.Error` with a clear message if not linked.
-
-## Linker Hook (`zenith.ztproj`)
-
-Use `[build].linker_flags` to inject native linker args.
-
-```toml
-[build]
-linker_flags = "-lraylib -lopengl32 -lgdi32 -lwinmm"
-```
-
-Accepted aliases:
-
-- `linker_flags`
-- `link_flags`
-- `link`
-
-## Example Dependency (Future ZPM / Local Path)
-
-```toml
-[dependencies]
-borealis = { path = "../packages/borealis" }
-```
-
-Then import:
-
-```zt
-import borealis
-```
+Se Raylib nao for encontrado, o runtime entra em fallback seguro para `stub`.

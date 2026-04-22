@@ -1,13 +1,13 @@
--- Zenith Standard Library — FS Module
+-- Zenith Standard Library - FS Module
 -- Synchronous filesystem operations (Decision 064).
--- 🏗️ TYPES
--- 🏗️ EXTERN C
--- 📖 READ / WRITE
--- 📁 DIRECTORY
--- 🔍 QUERY
--- 🗑️ REMOVE
--- 📋 COPY / MOVE
--- 📊 METADATA
+-- TYPES
+-- EXTERN C
+-- READ / WRITE
+-- DIRECTORY
+-- QUERY
+-- REMOVE
+-- COPY / MOVE
+-- METADATA
 namespace std.fs
 
 import std.time as time
@@ -32,73 +32,73 @@ public struct Metadata
 end
 
 extern c
-    func zt_host_read_file(path: text) -> result<text, fs.Error>
-    func zt_host_write_file(path: text, content: text) -> result<void, fs.Error>
-    func zt_host_fs_append_text(path: text, content: text) -> result<void, fs.Error>
-    func zt_host_path_exists(path: text) -> bool
-    func zt_host_fs_is_file(path: text) -> result<bool, fs.Error>
-    func zt_host_fs_is_dir(path: text) -> result<bool, fs.Error>
-    func zt_host_fs_create_dir(path: text) -> result<void, fs.Error>
-    func zt_host_fs_create_dir_all(path: text) -> result<void, fs.Error>
-    func zt_host_fs_list(path: text) -> result<list<text>, fs.Error>
-    func zt_host_fs_remove_file(path: text) -> result<void, fs.Error>
-    func zt_host_fs_remove_dir(path: text) -> result<void, fs.Error>
-    func zt_host_fs_remove_dir_all(path: text) -> result<void, fs.Error>
+    func zt_host_read_file(file_path: text) -> result<text, fs.Error>
+    func zt_host_write_file(file_path: text, content: text) -> result<void, fs.Error>
+    func zt_host_fs_append_text(file_path: text, content: text) -> result<void, fs.Error>
+    func zt_host_path_exists(target_path: text) -> bool
+    func zt_host_fs_is_file(file_path: text) -> result<bool, fs.Error>
+    func zt_host_fs_is_dir(dir_path: text) -> result<bool, fs.Error>
+    func zt_host_fs_create_dir(dir_path: text) -> result<void, fs.Error>
+    func zt_host_fs_create_dir_all(dir_path: text) -> result<void, fs.Error>
+    func zt_host_fs_list(dir_path: text) -> result<list<text>, fs.Error>
+    func zt_host_fs_remove_file(file_path: text) -> result<void, fs.Error>
+    func zt_host_fs_remove_dir(dir_path: text) -> result<void, fs.Error>
+    func zt_host_fs_remove_dir_all(dir_path: text) -> result<void, fs.Error>
     func zt_host_fs_copy_file(from_path: text, to_path: text) -> result<void, fs.Error>
     func zt_host_fs_move(from_path: text, to_path: text) -> result<void, fs.Error>
-    func zt_host_fs_metadata(path: text) -> result<fs.Metadata, fs.Error>
-    func zt_host_fs_size(path: text) -> result<int, fs.Error>
-    func zt_host_fs_modified_at(path: text) -> result<int, fs.Error>
-    func zt_host_fs_created_at(path: text) -> result<optional<int>, fs.Error>
+    func zt_host_fs_metadata(target_path: text) -> result<fs.Metadata, fs.Error>
+    func zt_host_fs_size(target_path: text) -> result<int, fs.Error>
+    func zt_host_fs_modified_at(target_path: text) -> result<int, fs.Error>
+    func zt_host_fs_created_at(target_path: text) -> result<optional<int>, fs.Error>
 end
 
-public func read_text(path: text) -> result<text, fs.Error>
-    return fs.zt_host_read_file(path)
+public func read_text(file_path: text) -> result<text, fs.Error>
+    return fs.zt_host_read_file(file_path)
 end
 
-public func write_text(path: text, content: text) -> result<void, fs.Error>
-    return fs.zt_host_write_file(path, content)
+public func write_text(file_path: text, content: text) -> result<void, fs.Error>
+    return fs.zt_host_write_file(file_path, content)
 end
 
-public func append_text(path: text, content: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_append_text(path, content)
+public func append_text(file_path: text, content: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_append_text(file_path, content)
 end
 
-public func exists(path: text) -> result<bool, fs.Error>
-    const val: bool = fs.zt_host_path_exists(path)
+public func exists(target_path: text) -> result<bool, fs.Error>
+    const val: bool = fs.zt_host_path_exists(target_path)
     return success(val)
 end
 
-public func is_file(path: text) -> result<bool, fs.Error>
-    return fs.zt_host_fs_is_file(path)
+public func is_file(file_path: text) -> result<bool, fs.Error>
+    return fs.zt_host_fs_is_file(file_path)
 end
 
-public func is_dir(path: text) -> result<bool, fs.Error>
-    return fs.zt_host_fs_is_dir(path)
+public func is_dir(dir_path: text) -> result<bool, fs.Error>
+    return fs.zt_host_fs_is_dir(dir_path)
 end
 
-public func create_dir(path: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_create_dir(path)
+public func create_dir(dir_path: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_create_dir(dir_path)
 end
 
-public func create_dir_all(path: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_create_dir_all(path)
+public func create_dir_all(dir_path: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_create_dir_all(dir_path)
 end
 
-public func list_dir(path: text) -> result<list<text>, fs.Error>
-    return fs.zt_host_fs_list(path)
+public func list_dir(dir_path: text) -> result<list<text>, fs.Error>
+    return fs.zt_host_fs_list(dir_path)
 end
 
-public func remove_file(path: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_remove_file(path)
+public func remove_file(file_path: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_remove_file(file_path)
 end
 
-public func remove_dir(path: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_remove_dir(path)
+public func remove_dir(dir_path: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_remove_dir(dir_path)
 end
 
-public func remove_dir_all(path: text) -> result<void, fs.Error>
-    return fs.zt_host_fs_remove_dir_all(path)
+public func remove_dir_all(dir_path: text) -> result<void, fs.Error>
+    return fs.zt_host_fs_remove_dir_all(dir_path)
 end
 
 public func copy_file(from: text, to: text) -> result<void, fs.Error>
@@ -109,21 +109,21 @@ public func move(from: text, to: text) -> result<void, fs.Error>
     return fs.zt_host_fs_move(from, to)
 end
 
-public func metadata(path: text) -> result<fs.Metadata, fs.Error>
-    return fs.zt_host_fs_metadata(path)
+public func metadata(target_path: text) -> result<fs.Metadata, fs.Error>
+    return fs.zt_host_fs_metadata(target_path)
 end
 
-public func size(path: text) -> result<int, fs.Error>
-    return fs.zt_host_fs_size(path)
+public func size(target_path: text) -> result<int, fs.Error>
+    return fs.zt_host_fs_size(target_path)
 end
 
-public func modified_at(path: text) -> result<time.Instant, fs.Error>
-    const millis: int = fs.zt_host_fs_modified_at(path)?
+public func modified_at(target_path: text) -> result<time.Instant, fs.Error>
+    const millis: int = fs.zt_host_fs_modified_at(target_path)?
     return success(time.from_unix_ms(millis))
 end
 
-public func created_at(path: text) -> result<optional<time.Instant>, fs.Error>
-    const maybe_millis: optional<int> = fs.zt_host_fs_created_at(path)?
+public func created_at(target_path: text) -> result<optional<time.Instant>, fs.Error>
+    const maybe_millis: optional<int> = fs.zt_host_fs_created_at(target_path)?
     const missing: optional<time.Instant> = none
     if maybe_millis == none
         return success(missing)

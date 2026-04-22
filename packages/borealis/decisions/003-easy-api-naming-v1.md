@@ -1,6 +1,6 @@
 # Decision 003 - Easy API Naming V1
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-04-22
 - Type: API naming / accessibility
 - Scope: `borealis.game` easy layer function naming
@@ -33,6 +33,10 @@ Canonical loop naming in easy layer:
 3. `frame_begin(ctx, clear)`.
 4. `frame_end(ctx)`.
 5. `close(ctx)`.
+
+Temporary aliases in this cut:
+
+- none (no migration alias needed yet).
 
 Engine layer remains explicit:
 

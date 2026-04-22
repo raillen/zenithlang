@@ -33,8 +33,8 @@ Executar e validar as entregas do roadmap 3.0 com evidencias objetivas.
 
 Checklist operacional derivado de `docs/planning/roadmap-v3.md`.
 
-Status inicial: nao iniciado
-Data de criacao: 2026-04-21
+Status inicial: em execucao
+Data de criacao: 2026-04-22
 
 ## Gates obrigatorios por milestone
 
@@ -50,6 +50,53 @@ Para release:
 - [ ] budget atualizado e justificado
 - [ ] sem P0 aberto sem aceite formal
 - [ ] install limpo validado
+
+## R3.P1 - Prioridade 1: public var de namespace
+
+- [x] Fechar alinhamento com `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
+- [x] Aceitar parser/AST para `public var` em escopo top-level de namespace
+- [x] Bloquear `public var` fora do escopo de namespace
+- [x] Permitir leitura externa qualificada de `public var` (`alias.var_publica`)
+- [x] Bloquear escrita externa de `public var` fora do namespace dono
+- [x] Preservar comportamento existente de `public const` sem regressao
+- [x] Atualizar formatter/ZDoc/diagnosticos para distinguir `public` de `global`
+- [x] Criar testes positivos para leitura de `public var` via import alias
+- [x] Criar testes negativos para tentativa de escrita cross-namespace
+- [x] Registrar estrategia de init deterministico para storage de modulo
+- [x] Documentar efeitos colaterais esperados de `public var`
+- [x] Documentar mitigacoes recomendadas para `public var` (reset de teste, API explicita, invariantes)
+- [x] Documentar relacao entre `public var` e `mut func` (`self` vs estado de namespace)
+- [x] Publicar diretriz de adocao na stdlib (sem refactor amplo, adocao pontual orientada a criterio)
+
+Criterio de aceite:
+
+- [x] `public var` entregue como prioridade 1, sem quebrar suites atuais de visibilidade/modulo
+
+Evidencia (2026-04-22):
+
+- `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
+- `language/spec/surface-syntax.md`
+- `language/surface-implementation-status.md`
+- `stdlib/std/random.zt`
+- `tests/behavior/public_var_module`
+- `tests/behavior/public_var_module_state`
+- `tests/behavior/public_var_cross_namespace_write_error`
+- `tests/behavior/std_random_basic`
+- `tests/behavior/std_random_state_observability`
+- `tests/behavior/std_random_between_branches`
+- `tests/behavior/std_random_cross_namespace_write_error`
+
+## R3.P1.A - Analise futura: estado compartilhado de namespace
+
+- [ ] Publicar analise de risco para estado compartilhado de namespace
+- [ ] Definir proposta para `public var` sob concorrencia (modelo base + limites)
+- [ ] Definir proposta de sincronizacao futura (`atomic`/wrappers explicitos)
+- [ ] Publicar guideline de migracao para stdlib/packages
+- [ ] Definir criterio para promover analise para milestone de implementacao
+
+Criterio de aceite:
+
+- [ ] Analise futura publicada e referenciada por `R3.M2`
 
 ## R3.M0 - Baseline e alinhamento
 
@@ -82,6 +129,7 @@ Criterio de aceite:
 - [ ] Definir e implementar modelo oficial `task` + `channel`
 - [ ] Implementar contrato explicito de copia na fronteira entre tasks
 - [ ] Implementar caminho avancado explicito para `Shared<T>`
+- [ ] Integrar conclusoes de `R3.P1.A` na proposta de semantica concorrente para `public var`
 - [ ] Criar testes de corrida, ordem e cancelamento
 - [ ] Criar testes de determinismo para entradas iguais
 - [ ] Publicar spec de semantica de concorrencia

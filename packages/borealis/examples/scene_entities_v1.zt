@@ -1,0 +1,38 @@
+namespace app.main
+
+import borealis.game.entities as entities
+import borealis.game.scene as scene
+
+func main() -> result<void, core.Error>
+    const gameplay: scene.Scene = scene.scene_create("gameplay")?
+    const player: entities.Entity = entities.entity_create("player")?
+    const enemy: entities.Entity = entities.entity_create("enemy")?
+
+    entities.entity_add_tag(player, "player")?
+    entities.entity_add_tag(enemy, "enemy")?
+    entities.entity_set_parent(enemy, player)?
+
+    scene.scene_add_entity(gameplay, player)?
+    scene.scene_add_entity(gameplay, enemy)?
+
+    scene.scene_enter(gameplay)?
+    scene.scene_update(gameplay, 1.0 / 60.0)?
+    scene.scene_draw(gameplay)?
+
+    const player_info: entities.EntityInfo = entities.entity_inspect(player)
+    if player_info.exists == false
+        return error("player should exist")
+    end
+
+    const in_scene: int = scene.scene_entity_count(gameplay)
+    if in_scene != 2
+        return error("scene should contain two entities")
+    end
+
+    const child_total: int = entities.entity_child_count(player)
+    if child_total != 1
+        return error("player should have one child entity")
+    end
+
+    return success()
+end

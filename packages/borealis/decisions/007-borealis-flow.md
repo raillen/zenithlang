@@ -1,6 +1,6 @@
 # Decision 007 - Borealis Flow
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-04-22
 - Type: editor direction / visual scripting / low-code
 - Scope: future Borealis editor logic layer

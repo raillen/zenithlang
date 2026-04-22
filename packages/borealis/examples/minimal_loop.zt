@@ -1,40 +1,40 @@
 namespace app.main
 
-import borealis as bo
+import borealis.game as game
 
 func main() -> result<void, core.Error>
-    const config: bo.WindowConfig = bo.WindowConfig(
-        title: "Zenith Borealis Skeleton",
+    const config: game.WindowConfig = game.WindowConfig(
+        title: "Borealis Game Loop",
         width: 960,
         height: 540,
         target_fps: 60,
-        backend: bo.Backend.Stub
+        backend: game.Backend.Stub
     )
 
-    var window: bo.Window = bo.open_window(config)?
+    var ctx: game.GameContext = game.start(config)?
     var x: float = 80.0
     const speed: float = 4.0
 
-    while bo.window_should_close(window) == false
+    while game.running(ctx)
         x = x + speed
 
-        bo.begin_frame(window, clear: bo.rgb(24, 28, 36))?
-        bo.draw_rect(
-            window,
-            bo.rect(x, 180.0, 96.0, 96.0),
-            bo.rgb(255, 170, 40)
+        game.frame_begin(ctx, clear: game.rgb(24, 28, 36))?
+        game.draw_rect(
+            ctx,
+            game.rect(x, 180.0, 96.0, 96.0),
+            game.rgb(255, 170, 40)
         )?
-        bo.draw_text(
-            window,
-            "Borealis package skeleton (ZPM-ready)",
+        game.draw_text(
+            ctx,
+            "borealis.game naming v1",
             x: 24,
             y: 24,
             size: 20,
-            color: bo.rgb(230, 230, 230)
+            color: game.rgb(230, 230, 230)
         )?
-        bo.end_frame(window)?
+        game.frame_end(ctx)?
     end
 
-    bo.close_window(window)?
+    game.close(ctx)?
     return success()
 end

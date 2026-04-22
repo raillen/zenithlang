@@ -1,0 +1,37 @@
+namespace borealis.game.assets
+
+public struct AssetHandle
+    key: text
+    kind: text
+    loaded: bool
+end
+
+public func asset_load_image(path: text) -> result<assets.AssetHandle, core.Error>
+    if path == ""
+        return error("assets: image path cannot be empty")
+    end
+    return success(assets.AssetHandle(key: path, kind: "image", loaded: true))
+end
+
+public func asset_load_text(path: text) -> result<assets.AssetHandle, core.Error>
+    if path == ""
+        return error("assets: text path cannot be empty")
+    end
+    return success(assets.AssetHandle(key: path, kind: "text", loaded: true))
+end
+
+public func asset_load_binary(path: text) -> result<assets.AssetHandle, core.Error>
+    if path == ""
+        return error("assets: binary path cannot be empty")
+    end
+    return success(assets.AssetHandle(key: path, kind: "binary", loaded: true))
+end
+
+public func asset_unload(_asset: assets.AssetHandle) -> result<void, core.Error>
+    return success()
+end
+
+public func asset_is_loaded(asset: assets.AssetHandle) -> bool
+    return asset.loaded
+end
+

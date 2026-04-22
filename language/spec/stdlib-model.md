@@ -1,7 +1,7 @@
 # Zenith Stdlib Model Spec
 
 - Status: canonical closure spec
-- Date: 2026-04-18
+- Date: 2026-04-22
 - Scope: public standard library architecture and MVP module policy
 
 ## Purpose
@@ -21,6 +21,7 @@ The current MVP stdlib module set is:
 - `std.json`
 - `std.math`
 - `std.text`
+- `std.random`
 - `std.validate`
 - `std.time`
 - `std.format`
@@ -100,6 +101,28 @@ Rules:
 - safe lookup functions should include names such as `get`, `find` or `try_` only when the distinction is needed
 - whole-file byte APIs may be deferred until binary/runtime support is complete
 - path operations live in `std.fs.path`, not `std.fs`
+
+## Namespace Mutable State Policy (`public var`)
+
+`public var` may exist in stdlib only when shared module state is a clear part of the contract.
+
+Rules:
+
+- prefer `public const` by default
+- use `public var` only at namespace top-level
+- allow external read through qualified import
+- block external write outside the owner namespace
+- `public` is visibility only; it is not `global`
+- mutation should be exposed by explicit `public func` APIs
+- tests must reseed/reset state to avoid order-dependent flakes
+
+Current first-slice adoption:
+
+- `std.random` exposes read-only observable module state to callers:
+  - `seeded`
+  - `last_seed`
+  - `draw_count`
+  - `stats()`
 
 ## Safe Collections API
 

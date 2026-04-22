@@ -1,7 +1,7 @@
 # Zenith Final Conformance Matrix (R2.M11)
 
 - Status: conformant for RC 2.0 gate
-- Date: 2026-04-21
+- Date: 2026-04-22
 - Scope: compiler + runtime + tooling + perf gates for release candidate
 
 ## Inputs Used
@@ -34,6 +34,7 @@ Canonical labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`,
 | Project model (`.ztproj`, namespace/imports) | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
 | Core syntax/control-flow/functions | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
 | Structs/traits/apply/methods | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
+| Namespace `public var` (read public, write owner namespace) | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
 | Collections + optional/result + `?` | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
 | Enum match + exhaustiveness | `Parsed` | `Semantic` | `Lowered` | `Emitted` | `Executable` | `Conformant` |
 | Formatter (`zt fmt --check`) | `Spec` | `-` | `-` | `-` | `Executable` | `Conformant` |
@@ -53,3 +54,10 @@ Canonical labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`,
 Release candidate 2.0 gate is green on all mandatory suites and nightly perf.
 
 No open P0 blocker was found in this cut.
+
+## Feature Delta (2026-04-22)
+
+- `public var` is implemented at namespace scope with controlled mutation:
+  - external read allowed through alias;
+  - external write rejected with `mutability.invalid_update`.
+- stdlib pilot is live in `std.random` with observable state and behavior coverage.

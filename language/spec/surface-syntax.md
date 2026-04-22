@@ -1,7 +1,7 @@
 # Zenith Surface Syntax Spec
 
 - Status: canonical consolidated spec
-- Date: 2026-04-17
+- Date: 2026-04-22
 - Scope: `.zt` source syntax and user-visible language semantics
 
 ## Philosophy
@@ -71,6 +71,11 @@ Rules:
 - shadowing is rejected in the MVP
 - files with the same effective namespace share private namespace symbols
 - duplicate names in the same effective namespace/scope are errors
+- `public var` is valid only at namespace top level
+- read access to `public var` is allowed through qualified imports
+- write access to `public var` is allowed only inside the owner namespace
+- external write to imported `public var` is rejected with `mutability.invalid_update`
+- `public` means visibility, not global scope or global lifetime
 
 ## Functions
 
@@ -146,6 +151,43 @@ Rules:
 - assignment is a statement, not an expression
 - `let` is not canonical
 - local inference is not part of the MVP
+
+Namespace-level mutable state:
+
+```zt
+namespace app.runtime.state
+
+public var frame_count: int = 0
+
+public func next_frame() -> int
+    frame_count = frame_count + 1
+    return frame_count
+end
+```
+
+Cross-namespace read is allowed:
+
+```zt
+namespace app.main
+
+import app.runtime.state as state
+
+func main() -> int
+    return state.frame_count
+end
+```
+
+Cross-namespace write is not allowed:
+
+```zt
+namespace app.main
+
+import app.runtime.state as state
+
+func force_reset()
+    state.frame_count = 0
+end
+```
 
 ## Types
 

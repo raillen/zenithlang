@@ -1,0 +1,40 @@
+namespace borealis.game.storage
+
+public var storage_values: map<text, text> = {}
+
+public func write(key: text, value: text) -> result<void, core.Error>
+    if key == ""
+        return error("storage: key cannot be empty")
+    end
+
+    var next: map<text, text> = storage_values
+    next[key] = value
+    storage_values = next
+    return success()
+end
+
+public func read(key: text) -> optional<text>
+    return storage_values.get(key)
+end
+
+public func remove(key: text) -> result<void, core.Error>
+    if key == ""
+        return error("storage: key cannot be empty")
+    end
+
+    var next: map<text, text> = storage_values
+    next[key] = ""
+    storage_values = next
+    return success()
+end
+
+public func exists(key: text) -> bool
+    const maybe: optional<text> = storage_values.get(key)
+    match maybe
+        case value present ->
+            return present != ""
+        case none ->
+            return false
+    end
+end
+

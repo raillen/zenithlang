@@ -1,0 +1,72 @@
+namespace borealis.game.movement
+
+
+
+public func move(position: game.Vector2, delta: game.Vector2) -> game.Vector2
+    return game.vec2(position.x + delta.x, position.y + delta.y)
+end
+
+public func push(position: game.Vector2, force: game.Vector2, dt: float = 1.0 / 60.0) -> game.Vector2
+    return game.vec2(position.x + (force.x * dt), position.y + (force.y * dt))
+end
+
+public func teleport(_position: game.Vector2, target: game.Vector2) -> game.Vector2
+    return target
+end
+
+public func move_towards(current: game.Vector2, target: game.Vector2, speed: float, dt: float = 1.0 / 60.0) -> game.Vector2
+    const step: float = speed * dt
+    var next_x: float = current.x
+    var next_y: float = current.y
+
+    if target.x > current.x
+        next_x = current.x + step
+        if next_x > target.x
+            next_x = target.x
+        end
+    end
+
+    if target.x < current.x
+        next_x = current.x - step
+        if next_x < target.x
+            next_x = target.x
+        end
+    end
+
+    if target.y > current.y
+        next_y = current.y + step
+        if next_y > target.y
+            next_y = target.y
+        end
+    end
+
+    if target.y < current.y
+        next_y = current.y - step
+        if next_y < target.y
+            next_y = target.y
+        end
+    end
+
+    return game.vec2(next_x, next_y)
+end
+
+public func body_move(body: contracts.Body2D, delta: game.Vector2) -> contracts.Body2D
+    const next_position: game.Vector2 = movement.move(body.position, delta)
+    return contracts.Body2D(position: next_position, velocity: body.velocity)
+end
+
+public func body_push(body: contracts.Body2D, force: game.Vector2, dt: float = 1.0 / 60.0) -> contracts.Body2D
+    const next_velocity: game.Vector2 = movement.push(body.velocity, force, dt)
+    return contracts.Body2D(position: body.position, velocity: next_velocity)
+end
+
+public func body_teleport(body: contracts.Body2D, target: game.Vector2) -> contracts.Body2D
+    return contracts.Body2D(position: target, velocity: body.velocity)
+end
+
+public func body_step(body: contracts.Body2D, dt: float = 1.0 / 60.0) -> contracts.Body2D
+    return contracts.body_integrate(body, dt)
+end
+
+
+

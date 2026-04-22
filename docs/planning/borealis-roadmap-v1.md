@@ -29,9 +29,21 @@ Foco do ciclo:
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
 
-Status: proposto
+Status: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial)
 Data: 2026-04-22
-Base: skeleton Borealis + stub runtime + linker hook
+Base: Borealis package + stub runtime + linker hook
+
+Progresso atual:
+
+- R3.B0 concluido.
+- R3.B1 concluido.
+- R3.B2 concluido.
+- R3.B3 concluido.
+- R3.B4 concluido (API/scaffold); fixture `run-pass` de scene tipada ainda bloqueada no emitter C.
+- R3.B5 concluido (subset ECS interno + facade inicial de componentes).
+- R3.B6 concluido (scaffolds + contratos + extensao editor + mapa de dependencias).
+- R3.B7 em andamento (adapter Raylib inicial + fallback + E2E fallback).
+- Proxima etapa ativa: R3.B7 (validacao em ambiente com Raylib instalado).
 
 ## Diretrizes do ciclo Borealis
 
@@ -72,6 +84,8 @@ Entregas:
 - tabela-resumo unica da arquitetura Borealis publicada;
 - decision de layering (`game` + `engine`) aceita;
 - decision de editor-ready architecture revisada e alinhada;
+- decision de stack Borealis revisada e alinhada;
+- decision de `Borealis Flow` registrada como direcao futura do editor;
 - baseline de API atual e riscos P0/P1/P2 documentados.
 
 ## R3.B1 - Naming da camada facil
@@ -98,6 +112,8 @@ Entregas:
 - semantica formal por frame;
 - testes de transicao de estado.
 
+Status da fase: concluida no escopo de API/scaffold; fixture `run-pass` tipada segue bloqueada no emitter C.
+
 ## R3.B3 - Render2D base
 
 Objetivo:
@@ -110,7 +126,9 @@ Entregas:
 - helpers de cor/area consistentes;
 - exemplos com HUD e movimento basico.
 
-## R3.B4 - Scene e Entity v1
+Status da fase: concluida.
+
+## R3.B4 - Scene e Entities v1
 
 Objetivo:
 
@@ -118,9 +136,12 @@ Objetivo:
 
 Entregas:
 
-- API minima de `scene` e `entity`;
-- spawn/remove/listagem de entidades;
+- API minima de `scene` e `entities`;
+- create/destroy/find/listagem de entidades;
+- tags, hierarquia e snapshot inicial de entidades;
 - desenho por cena e atualizacao por frame.
+
+Status da fase: concluida.
 
 ## R3.B5 - ECS hibrido (interno)
 
@@ -134,6 +155,11 @@ Entregas:
 - facade simples no `game` para uso padrao;
 - guidelines de quando sair da camada facil.
 
+Status parcial da execucao:
+
+- fixture `tests/behavior/borealis_ecs_hybrid_stub` validado em `run-pass` (subset de componentes);
+- validacao `run-pass` do caminho de sistemas tipados com `struct` permanece no backlog do backend C.
+
 ## R3.B6 - Subsistemas modulares (scaffold)
 
 Objetivo:
@@ -142,9 +168,19 @@ Objetivo:
 
 Entregas:
 
-- scaffolds de `physics2d`, `audio`, `controls`, `assets`, `time`;
+- scaffolds de modulos aprovados em arquitetura;
+- base de `entities`, `movement`, `controllers`, `vehicles`, `animation`, `audio`, `ai`, `camera`, `input`;
+- base de `world`, `procedural`, `ui`, `assets`, `save`, `storage`, `database`, `services`, `settings`, `scene`, `events`, `debug`;
 - contratos minimos de integracao entre subsistemas;
 - metadados iniciais para futura integracao com editor.
+
+Status parcial da execucao:
+
+- scaffolds base criados para `movement`, `controllers`, `vehicles`, `animation`, `audio`, `ai`, `camera`, `input`;
+- scaffolds base criados para `world`, `procedural`, `ui`, `ui.hud`, `assets`, `save`, `storage`, `database`, `services`, `settings`, `events`, `debug`;
+- exemplo de integracao inicial publicado em `packages/borealis/examples/modular_scaffolds_v1.zt`.
+
+Status da fase: concluida.
 
 ## R3.B7 - Backend desktop inicial
 
@@ -157,6 +193,14 @@ Entregas:
 - adaptador desktop inicial (Raylib/OpenGL) com linker profile documentado;
 - fallback seguro para stub quando backend real nao estiver ligado;
 - teste E2E de janela + input + draw.
+
+Status parcial da execucao:
+
+- hook de adapter desktop adicionado no runtime (`zt_borealis_desktop_api`, `zt_borealis_set_desktop_api`, `zt_borealis_get_desktop_api`);
+- adapter Raylib inicial implementado no runtime por carga dinamica de biblioteca;
+- fallback seguro para stub quando `backend_id=1` e adapter nao esta disponivel no ambiente;
+- profile de linker desktop publicado em `packages/borealis/backend-desktop-linker-profile-v1.md`;
+- E2E de janela + input + draw publicado em `tests/behavior/borealis_backend_fallback_stub`.
 
 ## R3.B8 - Pronto para ZPM
 
@@ -182,240 +226,77 @@ Entregas:
 - relatorio final de qualidade/compatibilidade;
 - limites conhecidos e risco residual publicados.
 
-## Catalogo funcional por nivel (proposto)
+## Catalogo funcional por modulos (alinhado com as decisions)
 
-Este catalogo organiza as funcoes por topico e por nivel de implementacao:
+Este catalogo substitui o backlog antigo por topicos grandes.
 
-- N1 = base (entrada facil, baixo risco)
-- N2 = intermediario (comportamento util de gameplay)
-- N3 = avancado (game changer, maior custo tecnico)
+Agora o Borealis esta organizado por modulos, porque foi assim que as decisions ficaram fechadas.
 
-Observacao de naming em aberto:
+Niveis usados no ciclo:
 
-- `shape_sweep` e `find_overlaps` sao nomes candidatos para substituir nomes mais genericos (`sweep` e `query`), sem decisao final fechada.
+- N1 = base simples, boa para onboarding e prototipacao
+- N2 = camada intermediaria, util para jogo real
+- N3 = camada avancada, ja pensando em editor, escala e automacao
 
-## Colisao
+Fonte canonica:
 
-N1:
+- `packages/borealis/architecture-summary.md`
+- `packages/borealis/decisions/modules/*.md`
+- `packages/borealis/decisions/005-editor-ready-architecture.md`
+- `packages/borealis/decisions/006-borealis-stack.md`
+- `packages/borealis/decisions/007-borealis-flow.md`
 
-- `collides(a, b) -> bool`: testa se dois shapes se sobrepoem.
-- `contains_point(shape, point) -> bool`: verifica se um ponto esta dentro de um shape.
-- `overlap_query(area) -> Entity[]`: retorna entidades dentro de uma area.
-- `raycast(origin, direction, max_distance) -> Hit`: retorna o primeiro impacto ao longo de um raio.
-- `linecast(start, end) -> Hit`: versao simplificada de raycast com ponto inicial e final.
-- `shape_sweep(shape, motion) -> Hit`: detecta colisao ao deslocar um shape pelo vetor de movimento.
+## Regras canonicas de naming ja fechadas
 
-N2:
+- `shape_sweep` e `find_overlaps` deixam de ser nomes em aberto e passam a ser nomes aceitos.
+- `wander` e `flee` deixam de ser nomes canonicos; usar `move_randomly` e `evade`.
+- `seek` permanece como nome aceito.
+- `Vector2`, `Point2`, `Size2`, `Rect` e `Direction` seguem como base de tipos da camada facil.
 
-- `find_nearest(shape, radius) -> Entity`: retorna a entidade mais proxima em um raio.
-- `find_overlaps(shape, filter) -> Entity[]`: busca entidades que sobrepoem o shape com filtro customizado.
-- `collision_normal(hit) -> Vector2`: retorna a normal da colisao encontrada.
-- `separation_vector(a, b) -> Vector2`: retorna o menor vetor para separar dois corpos.
+## Mapa funcional por modulo
 
-N3:
+### Entrada principal
 
-- `move_and_collide(entity, motion) -> CollisionInfo`: move entidade e retorna dados completos de colisao.
-- `move_and_slide(entity, velocity, up) -> MotionResult`: move respeitando superficies e inclinacoes.
-- `shape_cast(shape, direction, distance) -> Hit`: raycast com volume do shape.
-- `predict_collision(entity, motion) -> Hit`: antecipa colisao antes do movimento real.
-- `get_contacts(entity) -> Contact[]`: lista contatos ativos da entidade no frame.
+- `game`: camada facil para quem esta comecando.
+- `engine`: camada tecnica para controle avancado.
 
-## Fisica
+### Runtime e jogabilidade
 
-N1:
+- `contracts`: contratos comuns de frame/input/body para integracao entre modulos.
+- `entities`: ponte amigavel para ECS, com create/destroy, tags, hierarquia, snapshot e inspect.
+- `movement`: movimento generico como `move`, `push`, `teleport` e helpers.
+- `controllers`: controladores prontos como platform, topdown, 4 directions, 8 directions, grid, twin stick e ponte opcional com sprite.
+- `vehicles`: controladores especializados de veiculos, com foco inicial em carro e espaco para familias futuras.
+- `animation`: animacoes, estados visuais e sincronizacao de sprite.
+- `audio`: som, musica, grupos e controle de volume.
+- `ai`: comportamento, percepcao, busca de alvo, `seek`, `evade`, `move_randomly`, patrulha e FSM/BT.
+- `camera`: follow, bounds, shake, deadzone e enquadramento.
+- `input`: teclado, mouse, gamepad, acoes, contextos e `mouse_hover`.
+- `world`: tiles, tileset, colisao, pathing e estrutura do mundo.
+- `procedural`: geracao generica escalavel, incluindo mapas, layouts, noise, seed e pipelines.
 
-- `create_body(body_type) -> Body`: cria corpo fisico.
-- `set_velocity(body, velocity)`: define velocidade linear.
-- `add_force(body, force)`: aplica forca continua.
-- `add_impulse(body, impulse)`: aplica impulso instantaneo.
-- `set_gravity_scale(body, scale)`: ajusta quanto o corpo recebe gravidade.
-- `set_mass(body, mass)`: define massa do corpo.
-- `physics_step(dt)`: avanca simulacao fisica.
+### Interface e experiencia
 
-N2:
+- `ui`: widgets, layout, interacao e fluxo de interface.
+- `ui.hud`: namespace de HUD dentro de `ui`.
+- `scene`: organizacao de telas, fases, transicoes e pilha de cenas.
+- `events`: mensageria desacoplada e leve.
+- `debug`: overlays, hitboxes, watches, FPS e inspecao visual.
 
-- `set_drag(body, drag)`: define resistencia de movimento.
-- `set_friction(body, friction)`: define atrito em contatos.
-- `set_bounciness(body, value)`: define quique/restituicao.
-- `lock_rotation(body, locked)`: trava rotacao do corpo.
+### Dados, persistencia e remoto
 
-N3:
+- `assets`: load/get/unload/cache de texturas, fontes, som, atlas e sprite sheets.
+- `save`: progresso, slots, autosave, snapshots e restauracao de estado.
+- `storage`: persistencia generica local para texto, JSON e binario.
+- `database`: reservado para backend futuro estilo SQLite.
+- `services`: modulo guarda-chuva para rede, cloud save, APIs, sessoes remotas e multiplayer simples.
+- `settings`: configuracoes de usuario, acessibilidade, audio, video e idioma.
 
-- `character_body(config) -> Character`: cria corpo otimizado para personagem.
-- `move_character(character, input, dt) -> MotionResult`: executa movimento de personagem com colisao.
-- `is_on_floor(character) -> bool`: verifica contato com chao.
-- `is_on_wall(character) -> bool`: verifica contato lateral.
-- `apply_knockback(body, direction, force)`: aplica recuo de gameplay.
-- `rewind_physics(state)`: restaura estado anterior da simulacao.
+### Editor futuro
 
-## Sprites
-
-N1:
-
-- `sprite_draw(texture, position)`: desenha textura em uma posicao.
-- `sprite_draw_ex(texture, transform)`: desenha textura com rotacao/escala.
-- `sprite_draw_region(texture, source, dest)`: desenha uma regiao da textura.
-- `sprite_set_color(sprite, color)`: aplica cor/tint no sprite.
-- `sprite_set_flip(sprite, flip_x, flip_y)`: espelha sprite nos eixos.
-
-N2:
-
-- `anim_create(frames, fps, loop) -> Animation`: cria animacao por frames.
-- `anim_play(sprite, animation)`: inicia animacao no sprite.
-- `anim_update(sprite, dt)`: avanca animacao com delta time.
-- `anim_set_speed(sprite, speed)`: ajusta velocidade da animacao.
-
-N3:
-
-- `animator_create() -> Animator`: cria maquina de estados de animacao.
-- `animator_set_state(animator, state)`: troca estado atual da animacao.
-- `anim_sync_with_velocity(sprite, velocity)`: sincroniza animacao com velocidade.
-- `anim_directional(sprite, direction)`: escolhe animacao por direcao.
-- `sprite_batch_create() -> Batch`: cria sistema de desenho em lote.
-
-## Shaders e FX
-
-N1:
-
-- `shader_create(vs, fs) -> Shader`: cria shader por codigo fonte.
-- `shader_set_uniform(shader, name, value)`: define valor de uniform.
-- `shader_apply(target, shader)`: aplica shader em alvo de render.
-
-N2:
-
-- `material_create(shader) -> Material`: encapsula shader com parametros.
-- `material_set_param(material, name, value)`: atualiza parametro de material.
-- `render_to_texture(size, draw_fn) -> Texture`: renderiza offscreen para textura.
-
-N3:
-
-- `post_process(texture, shader) -> Texture`: aplica efeito fullscreen.
-- `effect_chain(texture, shaders[]) -> Texture`: aplica cadeia de efeitos.
-- `light2d_create(config) -> Light`: cria luz 2D.
-- `lighting_apply(scene, lights[])`: aplica iluminacao da cena.
-- `palette_swap(texture, palette)`: troca paleta de cores dinamicamente.
-
-## Movimentacao
-
-N1:
-
-- `move(entity, delta)`: move entidade por deslocamento.
-- `set_position(entity, position)`: define posicao absoluta.
-- `set_rotation(entity, angle)`: define rotacao da entidade.
-- `move_towards(current, target, speed, dt)`: move gradualmente para alvo.
-
-N2:
-
-- `dash(entity, direction, speed, duration)`: executa dash temporario.
-- `jump(entity, force)`: aplica impulso de salto.
-- `follow_target(entity, target, speed)`: faz entidade seguir alvo.
-- `arrive(entity, target, slow_radius)`: aproxima com desaceleracao perto do alvo.
-
-N3:
-
-- `controller_top_down_create(config) -> Controller`: cria controlador top-down.
-- `controller_platformer_create(config) -> Controller`: cria controlador de plataforma.
-- `controller_update(controller, input, dt)`: atualiza controlador com feel de gameplay.
-- `controller_set_coyote_time(controller, time)`: permite pulo curto apos cair da borda.
-- `controller_set_jump_buffer(controller, time)`: guarda input de pulo por curto intervalo.
-- `avoid_obstacles(entity, steering)`: desvia obstaculos automaticamente.
-
-## IA e Comportamento
-
-N1:
-
-- `look_at(entity, target)`: orienta entidade para olhar alvo.
-- `distance(a, b) -> float`: calcula distancia entre pontos/entidades.
-
-N2:
-
-- `follow_path(entity, path, speed)`: percorre caminho predefinido.
-- `wander(entity, radius)`: movimento aleatorio controlado.
-- `seek(entity, target)`: busca alvo aproximando.
-- `flee(entity, target)`: afasta de alvo.
-
-N3:
-
-- `fsm_create() -> FSM`: cria maquina de estados.
-- `fsm_set_state(fsm, state)`: troca estado da FSM.
-- `bt_create() -> BT`: cria behavior tree.
-- `ai_update(ai, dt)`: atualiza logica de IA.
-- `vision_cone(entity, angle, distance) -> Entity[]`: detecta entidades no campo de visao.
-- `hearing_sensor(entity, radius) -> Event[]`: detecta eventos sonoros proximos.
-
-## Camera
-
-N1:
-
-- `camera_set_position(position)`: define posicao da camera.
-- `camera_set_zoom(value)`: define zoom da camera.
-- `world_to_screen(position) -> Vector2`: converte coordenadas de mundo para tela.
-
-N2:
-
-- `camera_follow(target, smooth)`: segue alvo com suavizacao.
-- `camera_set_bounds(rect)`: limita area de movimento da camera.
-- `camera_lerp_to(target, speed)`: interpola camera para alvo.
-
-N3:
-
-- `camera_rig_create(config) -> CameraRig`: cria sistema completo de camera.
-- `camera_shake(intensity, duration)`: aplica tremor.
-- `camera_set_deadzone(rect)`: define zona morta de acompanhamento.
-- `camera_set_look_ahead(offset)`: antecipa direcao do movimento.
-- `camera_frame_targets(entities[])`: enquadra varios alvos na tela.
-
-## Input
-
-N1:
-
-- `key_down(key) -> bool`: retorna se tecla esta pressionada no momento.
-- `key_pressed(key) -> bool`: retorna se tecla foi acionada no frame atual.
-- `axis_get(name) -> float`: retorna valor de eixo virtual.
-
-N2:
-
-- `action_bind(name, inputs[])`: associa uma acao a entradas fisicas.
-- `action_pressed(name) -> bool`: verifica se acao foi acionada no frame.
-
-N3:
-
-- `input_context_create(name)`: cria contexto de input.
-- `input_context_push(name)`: ativa contexto no topo da pilha.
-- `input_rebind(action, input)`: remapeia acao para nova entrada.
-- `input_record() -> Frame`: grava estado de input do frame.
-- `input_playback(frame)`: reproduz input gravado.
-
-## Mundo e Tilemap
-
-N1:
-
-- `map_load(file) -> Map`: carrega mapa de arquivo.
-- `map_draw(map)`: desenha mapa carregado.
-
-N2:
-
-- `tile_at(map, x, y)`: retorna tile em coordenada de grade.
-- `world_to_tile(position)`: converte posicao de mundo para coordenada de tile.
-
-N3:
-
-- `map_auto_tile(map)`: ajusta tiles automaticamente por vizinhanca.
-- `map_build_collision(map)`: gera dados de colisao a partir do mapa.
-- `map_build_navmesh(map)`: gera navegacao para IA.
-
-## Particulas
-
-N1:
-
-- `particle_emit(position)`: emite particula em posicao.
-- `particle_emitter_update(dt)`: atualiza emissor de particulas.
-
-N3:
-
-- `particle_attach_emitter(entity)`: vincula emissor a entidade.
-- `particle_emit_on_collision(info)`: dispara particulas em evento de colisao.
-- `particle_use_preset(name)`: aplica preset pronto de particulas.
+- `Borealis Flow`: camada visual low-code do editor futuro, em cima dos modulos do Borealis, sem substituir Zenith.
+- `editor`: metadados de ferramenta (label/note/group/lock/hidden) ligados por stable id.
+- editor futuro deve consumir o mesmo modelo de runtime para `entities`, `scene`, `assets`, `components` e snapshots.
 
 ## Fora de escopo do Borealis 1.0
 
@@ -424,6 +305,8 @@ N3:
 - pipeline de importacao de assets avancado
 - 3D
 - netcode multiplayer completo
+- banco de dados completo na runtime inicial
+- no-code completo cobrindo toda a engine
 
 ## Definicao de pronto por milestone
 

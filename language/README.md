@@ -36,3 +36,10 @@ Historico e racional:
 Compatibilidade:
 
 - `surface-spec.md` foi substituido pelos specs em `spec/` e permanece apenas como ponteiro.
+
+## Atualizacao recente (2026-04-22)
+
+- `Decision 086` aceita e aplicada: `public var` em escopo de namespace.
+- Regra oficial: leitura externa qualificada permitida, escrita externa bloqueada.
+- `public` significa visibilidade, nao `global`.
+- `global` continua fora da sintaxe canonica.

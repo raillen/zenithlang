@@ -33,6 +33,11 @@ public struct Rect
     height: float
 end
 
+public struct Vector2
+    x: float
+    y: float
+end
+
 public enum Key
     Left
     Right
@@ -84,6 +89,56 @@ public func draw_rect(window: Window, area: Rect, color: Color) -> result<void, 
     )
 end
 
+public func draw_line(
+    window: Window,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    color: Color
+) -> result<void, core.Error>
+    return backend.draw_line(window.id, x1, y1, x2, y2, color.r, color.g, color.b, color.a)
+end
+
+public func draw_rect_outline(
+    window: Window,
+    area: Rect,
+    color: Color,
+    thickness: float = 1.0
+) -> result<void, core.Error>
+    return backend.draw_rect_outline(
+        window.id,
+        area.x,
+        area.y,
+        area.width,
+        area.height,
+        thickness,
+        color.r,
+        color.g,
+        color.b,
+        color.a
+    )
+end
+
+public func draw_circle(
+    window: Window,
+    center: Vector2,
+    radius: float,
+    color: Color
+) -> result<void, core.Error>
+    return backend.draw_circle(window.id, center.x, center.y, radius, color.r, color.g, color.b, color.a)
+end
+
+public func draw_circle_outline(
+    window: Window,
+    center: Vector2,
+    radius: float,
+    color: Color,
+    thickness: float = 1.0
+) -> result<void, core.Error>
+    return backend.draw_circle_outline(window.id, center.x, center.y, radius, thickness, color.r, color.g, color.b, color.a)
+end
+
 public func draw_text(
     window: Window,
     value: text,
@@ -97,6 +152,14 @@ end
 
 public func key_down(window: Window, key: Key) -> bool
     return backend.key_down(window.id, key_code(key))
+end
+
+public func key_pressed(window: Window, key: Key) -> bool
+    return backend.key_pressed(window.id, key_code(key))
+end
+
+public func key_released(window: Window, key: Key) -> bool
+    return backend.key_released(window.id, key_code(key))
 end
 
 public func backend_code(value: Backend) -> int
@@ -135,4 +198,8 @@ end
 
 public func rect(x: float, y: float, width: float, height: float) -> Rect
     return Rect(x: x, y: y, width: width, height: height)
+end
+
+public func vec2(x: float, y: float) -> Vector2
+    return Vector2(x: x, y: y)
 end

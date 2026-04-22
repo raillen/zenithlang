@@ -1,0 +1,24 @@
+namespace borealis.game.ui.hud
+
+public struct HudValues
+    health: int = 100
+    score: int = 0
+    ammo: int = 0
+end
+
+public func defaults() -> hud.HudValues
+    return hud.HudValues()
+end
+
+public func set_health(current: hud.HudValues, value: int) -> hud.HudValues
+    var next: hud.HudValues = current
+    next.health = value
+    return next
+end
+
+public func add_score(current: hud.HudValues, value: int) -> hud.HudValues
+    var next: hud.HudValues = current
+    next.score = current.score + value
+    return next
+end
+

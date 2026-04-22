@@ -1,6 +1,6 @@
 #include "compiler/driver/driver_internal.h"
 
-/* ── Global state definitions (declared extern in driver_internal.h) ── */
+/* Global state definitions (declared extern in driver_internal.h) */
 
 zt_arena global_arena;
 zt_string_pool global_pool;
@@ -13,6 +13,7 @@ const char *zt_since_ref = NULL;
 int zt_use_action_first = 0;
 const zt_project_manifest *zt_active_manifest = NULL;
 int zt_telemetry_enabled = 0;
+int zt_native_raw_output = 0;
 char zt_project_root_abs[512] = "";
 
 zt_path_filter_list zt_since_filter = { 0 };
@@ -32,46 +33,226 @@ void zt_apply_manifest_lang(const zt_project_manifest *manifest) {
 
 
 
-static void zt_print_usage(const char *program) {
-    fprintf(stderr, "Usage: %s <command> [input] [options]\n", program);
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Canonical commands:\n");
-    fprintf(stderr, "  check [project|zenith.ztproj]         Validate project pipeline\n");
-    fprintf(stderr, "  build [project|zenith.ztproj] [-o <output>]\n");
-    fprintf(stderr, "                                        Build app executable with gcc\n");
-    fprintf(stderr, "  run [project|zenith.ztproj] [-o <output>]\n");
-    fprintf(stderr, "                                        Build and execute app executable\n");
-    fprintf(stderr, "  create [path|.] [--app|--lib] [--force]\n");
-    fprintf(stderr, "                                        Create a new Zenith project scaffold\n");
-    fprintf(stderr, "  test [project|zenith.ztproj]          Bootstrap alias to check\n");
-    fprintf(stderr, "  fmt [project|zenith.ztproj] [--check] Bootstrap formatter gate\n");
-    fprintf(stderr, "  doc check [project|zenith.ztproj]     Validate .zdoc files and links\n");
-    fprintf(stderr, "  doc show [symbol]                     Show documentation (ex: std.math.clamp)\n");
-    fprintf(stderr, "  summary [project|zenith.ztproj]      Show project context summary\n");
-    fprintf(stderr, "  resume [project|zenith.ztproj]       Resume context from recent edits and diagnostics\n");
-    fprintf(stderr, "  perf [quick|nightly|scenario]        Run M36 performance suite\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Bootstrap/compat commands:\n");
-    fprintf(stderr, "  project-info [project|zenith.ztproj]  Load manifest and print project info\n");
-    fprintf(stderr, "  verify [project|zenith.ztproj|file.zir]\n");
-    fprintf(stderr, "  emit-c [project|zenith.ztproj|file.zir]\n");
-    fprintf(stderr, "  build [file.zir] [-o <output>] [--run]\n");
-    fprintf(stderr, "  doc-check [project|zenith.ztproj]\n");
-    fprintf(stderr, "  parse <file.zir>                      Parse ZIR and print module info\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --run                Execute the compiled binary after build\n");
-    fprintf(stderr, "  -o <output>          Output executable path for build\n");
-    fprintf(stderr, "  --check              Check-only mode for fmt\n");
-    fprintf(stderr, "  --ci                 Use short deterministic diagnostic/output mode\n");
-    fprintf(stderr, "  --profile <level>    Diagnostic profile: beginner (max 3), balanced (max 5), full (all)\n");
-    fprintf(stderr, "  --all                Show all errors regardless of profile limit\n");
-    fprintf(stderr, "  --focus <path>       Check only files matching the given path or module\n");
-    fprintf(stderr, "  --since <git-ref>    Check only diagnostics in files changed since <git-ref>\n");
-    fprintf(stderr, "  --lang <lang>        Override language (en, pt, es, ja)\n");
-    fprintf(stderr, "  --app                Project template kind for create (default)\n");
-    fprintf(stderr, "  --lib                Library template kind for create\n");
-    fprintf(stderr, "  --force              Allow create inside non-empty/existing directories\n");
+static int zt_cli_utf8_enabled = 1;
+
+static int zt_cli_env_true(const char *name) {
+    const char *value = getenv(name);
+    if (value == NULL || value[0] == '\0') return 0;
+    if (value[0] == '0') return 0;
+    if (strcmp(value, "false") == 0 || strcmp(value, "FALSE") == 0) return 0;
+    if (strcmp(value, "off") == 0 || strcmp(value, "OFF") == 0) return 0;
+    return 1;
+}
+
+#ifndef _WIN32
+static int zt_cli_locale_has_utf8(void) {
+    const char *locale = getenv("LC_ALL");
+    if (locale == NULL || locale[0] == '\0') locale = getenv("LANG");
+    if (locale == NULL || locale[0] == '\0') return 0;
+    if (strstr(locale, "UTF-8") != NULL || strstr(locale, "utf-8") != NULL) return 1;
+    if (strstr(locale, "UTF8") != NULL || strstr(locale, "utf8") != NULL) return 1;
+    return 0;
+}
+#endif
+
+static void zt_cli_init_terminal(void) {
+    if (zt_cli_env_true("ZT_CLI_ASCII")) {
+        zt_cli_utf8_enabled = 0;
+        return;
+    }
+    if (zt_cli_env_true("ZT_CLI_UTF8")) {
+        zt_cli_utf8_enabled = 1;
+        return;
+    }
+#ifdef _WIN32
+    HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
+    DWORD mode = 0;
+
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+
+    if (stdout_handle != INVALID_HANDLE_VALUE && GetConsoleMode(stdout_handle, &mode)) {
+        SetConsoleMode(stdout_handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
+    if (stderr_handle != INVALID_HANDLE_VALUE && GetConsoleMode(stderr_handle, &mode)) {
+        SetConsoleMode(stderr_handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    }
+
+    zt_cli_utf8_enabled = GetConsoleOutputCP() == 65001;
+#else
+    zt_cli_utf8_enabled = zt_cli_locale_has_utf8();
+#endif
+}
+
+static int zt_is_help_flag(const char *arg) {
+    return arg != NULL &&
+        (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0);
+}
+
+static zt_lang zt_cli_lang(void) {
+    zt_lang lang = zt_l10n_current_lang();
+    return lang == ZT_LANG_UNSPECIFIED ? ZT_LANG_EN : lang;
+}
+
+static const char *zt_cli_section_main(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "principal";
+        case ZT_LANG_ES: return "principal";
+        case ZT_LANG_JA: return "main";
+        case ZT_LANG_EN:
+        default: return "main";
+    }
+}
+
+static const char *zt_cli_section_compat(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "compat";
+        case ZT_LANG_ES: return "compat";
+        case ZT_LANG_JA: return "compat";
+        case ZT_LANG_EN:
+        default: return "compat";
+    }
+}
+
+static const char *zt_cli_section_options(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "opcoes";
+        case ZT_LANG_ES: return "opciones";
+        case ZT_LANG_JA: return "options";
+        case ZT_LANG_EN:
+        default: return "options";
+    }
+}
+
+static const char *zt_cli_section_tip(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "dica";
+        case ZT_LANG_ES: return "tip";
+        case ZT_LANG_JA: return "tip";
+        case ZT_LANG_EN:
+        default: return "tip";
+    }
+}
+
+static const char *zt_cli_label_error(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "erro";
+        case ZT_LANG_ES: return "error";
+        case ZT_LANG_JA: return "error";
+        case ZT_LANG_EN:
+        default: return "error";
+    }
+}
+
+static const char *zt_cli_label_hint(void) {
+    switch (zt_cli_lang()) {
+        case ZT_LANG_PT: return "dica";
+        case ZT_LANG_ES: return "pista";
+        case ZT_LANG_JA: return "hint";
+        case ZT_LANG_EN:
+        default: return "hint";
+    }
+}
+
+static void zt_print_help_overview(FILE *out, const char *program) {
+    (void)program;
+    fprintf(out, "zt cli - reading-first\n");
+    if (!zt_cli_utf8_enabled) {
+        fprintf(out, "note: ascii fallback active (set ZT_CLI_UTF8=1 to force utf8)\n");
+    }
+    fprintf(out, "\n");
+    fprintf(out, "zt <command> [input] [options]\n");
+    fprintf(out, "\n");
+    fprintf(out, "%s:\n", zt_cli_section_main());
+    fprintf(out, "  check | build | run | create | test | fmt | doc check | doc show | summary | resume | perf\n");
+    fprintf(out, "\n");
+    fprintf(out, "%s:\n", zt_cli_section_compat());
+    fprintf(out, "  project-info | verify | emit-c | build <file.zir> | doc-check | parse\n");
+    fprintf(out, "\n");
+    fprintf(out, "%s:\n", zt_cli_section_options());
+    fprintf(out, "  --run --check --ci --profile --all --focus --since --lang --native-raw --app --lib --force -o\n");
+    fprintf(out, "\n");
+    fprintf(out, "%s:\n", zt_cli_section_tip());
+    fprintf(out, "  zt help <command>\n");
+}
+
+static int zt_print_help_topic(FILE *out, const char *program, const char *topic) {
+    (void)program;
+    if (topic == NULL || topic[0] == '\0') {
+        zt_print_help_overview(out, "zt");
+        return 0;
+    }
+
+    if (strcmp(topic, "check") == 0 || strcmp(topic, "test") == 0) {
+        fprintf(out, "zt %s [project|zenith.ztproj] [--ci] [--profile <level>] [--all]\n", topic);
+        fprintf(out, "       [--focus <path>] [--since <git-ref>] [--lang <lang>]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "build") == 0 || strcmp(topic, "run") == 0) {
+        fprintf(out, "zt %s [project|zenith.ztproj] [-o <output>] [--ci] [--lang <lang>] [--native-raw]\n", topic);
+        fprintf(out, "zt build <file.zir> [-o <output>] [--run]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "create") == 0) {
+        fprintf(out, "zt create [path|.] [--app|--lib] [--force]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "fmt") == 0) {
+        fprintf(out, "zt fmt [project|zenith.ztproj] [--check]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "doc") == 0 || strcmp(topic, "doc-check") == 0 || strcmp(topic, "doc-show") == 0) {
+        fprintf(out, "zt doc check [project|zenith.ztproj]\n");
+        fprintf(out, "zt doc show <symbol>\n");
+        fprintf(out, "zt doc-check [project|zenith.ztproj]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "summary") == 0 || strcmp(topic, "resume") == 0) {
+        fprintf(out, "zt %s [project|zenith.ztproj]\n", topic);
+        return 0;
+    }
+
+    if (strcmp(topic, "perf") == 0) {
+        fprintf(out, "zt perf [quick|nightly|scenario]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "verify") == 0 || strcmp(topic, "emit-c") == 0 || strcmp(topic, "project-info") == 0) {
+        if (strcmp(topic, "project-info") == 0) {
+            fprintf(out, "zt project-info [project|zenith.ztproj]\n");
+        } else {
+            fprintf(out, "zt %s [project|zenith.ztproj|file.zir]\n", topic);
+        }
+        return 0;
+    }
+
+    if (strcmp(topic, "parse") == 0) {
+        fprintf(out, "zt parse <file.zir>\n");
+        return 0;
+    }
+
+    fprintf(out, "zt: %s: unknown help topic: %s\n", zt_cli_label_error(), topic);
+    fprintf(out, "%s: zt help\n", zt_cli_label_hint());
+    return 1;
+}
+
+static int zt_cli_fail(const char *program, const char *message, const char *hint, int show_usage) {
+    (void)program;
+    fprintf(stderr, "zt: %s: %s\n", zt_cli_label_error(), message);
+    if (hint != NULL && hint[0] != '\0') {
+        fprintf(stderr, "%s: %s\n", zt_cli_label_hint(), hint);
+    }
+    if (show_usage) {
+        fprintf(stderr, "\n");
+        zt_print_help_overview(stderr, "zt");
+    }
+    return 1;
 }
 
 void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics);
@@ -2558,10 +2739,7 @@ static int zt_handle_create(const char *target_path, int create_lib, int force) 
 }
 
 int main(int argc, char *argv[]) {
-#ifdef _WIN32
-    SetConsoleOutputCP(65001);
-    SetConsoleCP(65001);
-#endif
+    zt_cli_init_terminal();
     zt_arena_init(&global_arena, 1048576);
     zt_string_pool_init(&global_pool, &global_arena);
 
@@ -2573,36 +2751,94 @@ int main(int argc, char *argv[]) {
     const char *lang_override = NULL;
     int fmt_check = 0;
     int ci_mode = 0;
+    int show_help = 0;
+    int command_index = 1;
     int parse_start = 2;
     int project_input_optional = 0;
     int i;
 
     if (argc < 2) {
-        zt_print_usage(argv[0]);
-        return 1;
+        return zt_cli_fail(argv[0], "missing command", "zt help", 1);
     }
 
-    command = argv[1];
+    while (command_index < argc) {
+        if (strcmp(argv[command_index], "--lang") == 0 && command_index + 1 < argc) {
+            lang_override = argv[command_index + 1];
+            command_index += 2;
+            continue;
+        }
+        if (strcmp(argv[command_index], "--native-raw") == 0) {
+            zt_native_raw_output = 1;
+            command_index += 1;
+            continue;
+        }
+        break;
+    }
+
+    if (command_index >= argc) {
+        return zt_cli_fail(argv[0], "missing command", "zt help", 1);
+    }
+
+    if (lang_override != NULL) {
+        zt_lang lang = zt_l10n_from_str(lang_override);
+        if (lang != ZT_LANG_UNSPECIFIED) {
+            zt_l10n_set_lang(lang);
+        }
+    }
+
+    if (strcmp(argv[command_index], "help") == 0 || zt_is_help_flag(argv[command_index])) {
+        const char *topic = NULL;
+        for (i = command_index + 1; i < argc; i += 1) {
+            if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) {
+                zt_lang lang = zt_l10n_from_str(argv[i + 1]);
+                if (lang != ZT_LANG_UNSPECIFIED) zt_l10n_set_lang(lang);
+                i += 1;
+                continue;
+            }
+            if (strcmp(argv[i], "--native-raw") == 0) continue;
+            if (zt_is_help_flag(argv[i])) continue;
+            if (topic == NULL) topic = argv[i];
+        }
+        return zt_print_help_topic(stdout, argv[0], topic);
+    }
+
+    command = argv[command_index];
     effective_command = command;
+    parse_start = command_index + 1;
+
+    if (zt_native_raw_output &&
+            strcmp(command, "build") != 0 &&
+            strcmp(command, "run") != 0) {
+        return zt_cli_fail(argv[0], "option --native-raw is only valid for build/run", "use: zt build [project] --native-raw", 0);
+    }
 
     if (strcmp(command, "doc") == 0) {
-        if (argc < 3) {
-            zt_print_usage(argv[0]);
-            return 1;
+        if (argc > parse_start && zt_is_help_flag(argv[parse_start])) {
+            return zt_print_help_topic(stdout, argv[0], "doc");
         }
-        if (strcmp(argv[2], "check") == 0) {
+        if (argc <= parse_start) {
+            return zt_cli_fail(
+                argv[0],
+                "missing subcommand for 'doc'",
+                "use: zt doc check [project] | zt doc show <symbol>",
+                0);
+        }
+        if (strcmp(argv[parse_start], "check") == 0) {
             effective_command = "doc-check";
-            parse_start = 3;
-        } else if (strcmp(argv[2], "show") == 0) {
+            parse_start += 1;
+        } else if (strcmp(argv[parse_start], "show") == 0) {
             effective_command = "doc-show";
-            parse_start = 3;
-            if (argc > 3 && argv[3][0] != '-') {
-                input_path = argv[3];
-                parse_start = 4;
+            parse_start += 1;
+            if (argc > parse_start && argv[parse_start][0] != '-') {
+                input_path = argv[parse_start];
+                parse_start += 1;
             }
         } else {
-            zt_print_usage(argv[0]);
-            return 1;
+            return zt_cli_fail(
+                argv[0],
+                "unknown subcommand for 'doc'",
+                "use: zt doc check [project] | zt doc show <symbol>",
+                0);
         }
     }
 
@@ -2611,33 +2847,33 @@ int main(int argc, char *argv[]) {
         int create_lib = 0;
         int create_force = 0;
 
-        for (i = 2; i < argc; i += 1) {
-            if (strcmp(argv[i], "--lib") == 0) {
+        for (i = parse_start; i < argc; i += 1) {
+            if (zt_is_help_flag(argv[i])) {
+                return zt_print_help_topic(stdout, argv[0], "create");
+            } else if (strcmp(argv[i], "--lib") == 0) {
                 create_lib = 1;
             } else if (strcmp(argv[i], "--app") == 0) {
                 create_lib = 0;
             } else if (strcmp(argv[i], "--force") == 0) {
                 create_force = 1;
             } else if (argv[i][0] == '-') {
-                zt_print_single_diag(
-                    "project",
-                    ZT_DIAG_PROJECT_INVALID_INPUT,
-                    zt_source_span_unknown(),
-                    "unknown option for create: %s",
-                    argv[i]);
-                zt_print_usage(argv[0]);
-                return 1;
+                char message[256];
+                snprintf(message, sizeof(message), "unknown option for create: %s", argv[i]);
+                return zt_cli_fail(
+                    argv[0],
+                    message,
+                    "use: zt create [path|.] [--app|--lib] [--force]",
+                    0);
             } else if (target == NULL) {
                 target = argv[i];
             } else {
-                zt_print_single_diag(
-                    "project",
-                    ZT_DIAG_PROJECT_INVALID_INPUT,
-                    zt_source_span_unknown(),
-                    "unexpected positional argument for create: %s",
-                    argv[i]);
-                zt_print_usage(argv[0]);
-                return 1;
+                char message[256];
+                snprintf(message, sizeof(message), "unexpected argument for create: %s", argv[i]);
+                return zt_cli_fail(
+                    argv[0],
+                    message,
+                    "use only one path: zt create [path|.] [--app|--lib] [--force]",
+                    0);
             }
         }
 
@@ -2665,14 +2901,9 @@ int main(int argc, char *argv[]) {
             strcmp(effective_command, "build") == 0) {
         project_input_optional = 1;
     } else if (strcmp(effective_command, "parse") != 0) {
-        zt_print_single_diag(
-            "project",
-            ZT_DIAG_PROJECT_INVALID_INPUT,
-            zt_source_span_unknown(),
-            "unknown command: %s",
-            command);
-        zt_print_usage(argv[0]);
-        return 1;
+        char message[256];
+        snprintf(message, sizeof(message), "unknown command: %s", command);
+        return zt_cli_fail(argv[0], message, "run: zt help", 1);
     }
 
     for (i = parse_start; i < argc; i += 1) {
@@ -2682,11 +2913,17 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
+        if (zt_is_help_flag(argv[i])) {
+            show_help = 1;
+            continue;
+        }
         if (strcmp(argv[i], "--run") == 0) {
             run_output = 1;
         } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
             output_path = argv[i + 1];
             i += 1;
+        } else if (strcmp(argv[i], "--native-raw") == 0) {
+            zt_native_raw_output = 1;
         } else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) {
             lang_override = argv[i + 1];
             i += 1;
@@ -2719,26 +2956,26 @@ int main(int argc, char *argv[]) {
             zt_since_ref = argv[i + 1];
             i += 1;
         } else if (argv[i][0] == '-') {
-            zt_print_single_diag(
-                "project",
-                ZT_DIAG_PROJECT_INVALID_INPUT,
-                zt_source_span_unknown(),
-                "unknown option: %s",
-                argv[i]);
-            zt_print_usage(argv[0]);
-            return 1;
+            char message[256];
+            snprintf(message, sizeof(message), "unknown option: %s", argv[i]);
+            return zt_cli_fail(argv[0], message, "run: zt help", 1);
         } else if (input_path == NULL) {
             input_path = argv[i];
         } else {
-            zt_print_single_diag(
-                "project",
-                ZT_DIAG_PROJECT_INVALID_INPUT,
-                zt_source_span_unknown(),
-                "unexpected positional argument: %s",
-                argv[i]);
-            zt_print_usage(argv[0]);
-            return 1;
+            char message[256];
+            snprintf(message, sizeof(message), "unexpected argument: %s", argv[i]);
+            return zt_cli_fail(argv[0], message, "run: zt help <command>", 0);
         }
+    }
+
+    if (show_help) {
+        const char *topic = command;
+        if (strcmp(command, "doc") == 0 && strcmp(effective_command, "doc-show") == 0) {
+            topic = "doc-show";
+        } else if (strcmp(command, "doc") == 0 && strcmp(effective_command, "doc-check") == 0) {
+            topic = "doc-check";
+        }
+        return zt_print_help_topic(stdout, argv[0], topic);
     }
 
     zt_ci_mode_enabled = ci_mode;
@@ -2776,42 +3013,30 @@ int main(int argc, char *argv[]) {
         char since_project_root[512];
         char since_manifest_path[512];
         if (!zt_resolve_project_paths(input_path, since_project_root, sizeof(since_project_root), since_manifest_path, sizeof(since_manifest_path))) {
-            zt_print_single_diag(
-                "project",
-                ZT_DIAG_PROJECT_INVALID_INPUT,
-                zt_source_span_unknown(),
-                "option --since requires a project path (or a directory containing zenith.ztproj)");
-            return 1;
+            return zt_cli_fail(
+                argv[0],
+                "option --since requires a project path",
+                "pass a project path or a directory with zenith.ztproj",
+                0);
         }
         if (!zt_load_since_filter(since_project_root, zt_since_ref)) {
             return 1;
         }
     }
     if (fmt_check && strcmp(effective_command, "fmt") != 0) {
-        zt_print_single_diag(
-            "project",
-            ZT_DIAG_PROJECT_INVALID_INPUT,
-            zt_source_span_unknown(),
-            "option --check is only valid for fmt");
-        return 1;
+        return zt_cli_fail(argv[0], "option --check is only valid for fmt", "use: zt fmt [project] --check", 0);
     }
 
     if (output_path != NULL && strcmp(effective_command, "build") != 0) {
-        zt_print_single_diag(
-            "project",
-            ZT_DIAG_PROJECT_INVALID_INPUT,
-            zt_source_span_unknown(),
-            "option -o is only valid for build/run");
-        return 1;
+        return zt_cli_fail(argv[0], "option -o is only valid for build/run", "use: zt build|run [project] -o <output>", 0);
     }
 
     if (run_output && strcmp(effective_command, "build") != 0) {
-        zt_print_single_diag(
-            "project",
-            ZT_DIAG_PROJECT_INVALID_INPUT,
-            zt_source_span_unknown(),
-            "option --run is only valid for build/run");
-        return 1;
+        return zt_cli_fail(argv[0], "option --run is only valid for build/run", "use: zt build [project] --run", 0);
+    }
+
+    if (zt_native_raw_output && strcmp(effective_command, "build") != 0) {
+        return zt_cli_fail(argv[0], "option --native-raw is only valid for build/run", "use: zt build [project] --native-raw", 0);
     }
 
     if (input_path == NULL && project_input_optional) {
@@ -2836,32 +3061,21 @@ int main(int argc, char *argv[]) {
 
     if (strcmp(effective_command, "doc-check") == 0) {
         if (input_path != NULL && input_path[0] != '\0' && zt_path_has_extension(input_path, ".zir")) {
-            zt_print_single_diag(
-                "doc",
-                ZT_DIAG_PROJECT_INVALID_INPUT,
-                zt_source_span_unknown(),
-                "doc-check expects a project path, not .zir");
-            return 1;
+            return zt_cli_fail(argv[0], "doc-check expects a project path, not .zir", "use: zt doc check [project]", 0);
         }
         return zt_handle_doc_check(input_path);
     }
 
     if (strcmp(effective_command, "doc-show") == 0) {
         if (input_path == NULL || input_path[0] == '\0') {
-            fprintf(stderr, "error: zt doc show espera um sÃ­mbolo (ex: std.math.clamp)\n");
-            return 1;
+            return zt_cli_fail(argv[0], "doc show requires a symbol", "use: zt doc show std.math.clamp", 0);
         }
         return zt_handle_doc_show(input_path, lang_override);
     }
 
     if (strcmp(effective_command, "fmt") == 0) {
         if (input_path != NULL && input_path[0] != '\0' && zt_path_has_extension(input_path, ".zir")) {
-            zt_print_single_diag(
-                "formatter",
-                ZT_DIAG_PROJECT_INVALID_INPUT,
-                zt_source_span_unknown(),
-                "fmt expects a project path, not .zir");
-            return 1;
+            return zt_cli_fail(argv[0], "fmt expects a project path, not .zir", "use: zt fmt [project] [--check]", 0);
         }
         return zt_handle_fmt(input_path, fmt_check);
     }
@@ -2875,13 +3089,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (strcmp(effective_command, "parse") == 0) {
-        zt_print_single_diag(
-            "zir.parse",
-            ZT_DIAG_PROJECT_INVALID_INPUT,
-            zt_source_span_unknown(),
-            "parse expects <file.zir>");
-        zt_print_usage(argv[0]);
-        return 1;
+        return zt_cli_fail(argv[0], "parse expects <file.zir>", "use: zt parse <file.zir>", 0);
     }
 
     if (strcmp(effective_command, "emit-c") == 0 ||
@@ -2890,15 +3098,13 @@ int main(int argc, char *argv[]) {
         return zt_handle_project_command(effective_command, input_path, output_path, run_output);
     }
 
-    zt_print_single_diag(
-        "project",
-        ZT_DIAG_PROJECT_INVALID_INPUT,
-        zt_source_span_unknown(),
-        "unknown command or unsupported input: %s",
-        command);
-    zt_print_usage(argv[0]);
-    return 1;
+    {
+        char message[256];
+        snprintf(message, sizeof(message), "unknown command or unsupported input: %s", command);
+        return zt_cli_fail(argv[0], message, "run: zt help", 1);
+    }
 }
+
 
 
 

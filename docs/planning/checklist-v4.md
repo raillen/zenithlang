@@ -20,6 +20,10 @@ Executar e validar as entregas do roadmap 4.0 de forma objetiva e auditavel.
   - `docs/planning/cascade-v4.md` (a criar)
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
+  - `packages/borealis/*`
+  - `packages/borealis/decisions/*`
+  - `docs/planning/borealis-roadmap-v1.md`
+  - `docs/planning/borealis-checklist-v1.md`
 - Codigo/Testes relacionados:
   - `python build.py`
   - `python run_all_tests.py`
@@ -45,8 +49,9 @@ Data de criacao: 2026-04-21
 4. `docs/planning/checklist-v2.md`
 5. `language/spec/README.md`
 6. `compiler/CODE_MAP.md`
-7. codigo
-8. testes
+7. `packages/borealis/architecture-summary.md`
+8. codigo
+9. testes
 
 ## Gates obrigatorios por milestone
 

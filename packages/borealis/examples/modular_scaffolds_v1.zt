@@ -1,0 +1,92 @@
+namespace app.main
+
+import borealis.game as game
+import borealis.game.assets as assets
+import borealis.game.controllers as controllers
+import borealis.game.contracts as contracts
+import borealis.game.debug as debug
+import borealis.game.editor as editor
+import borealis.game.events as events
+import borealis.game.movement as movement
+import borealis.game.procedural as procedural
+import borealis.game.settings as settings
+import borealis.game.ui as ui
+import borealis.game.ui.hud as hud
+import borealis.game.vehicles as vehicles
+
+func main() -> result<void, core.Error>
+    const start: game.Vector2 = game.vec2(10.0, 10.0)
+    const moved: game.Vector2 = movement.move(start, game.vec2(5.0, -2.0))
+
+    const step: game.Vector2 = controllers.grid_step(moved, controllers.Direction.Right)
+    if step.x <= moved.x
+        return error("controllers grid_step should move right")
+    end
+
+    const action: contracts.ActionInput = contracts.ActionInput(right: true)
+    const body0: contracts.Body2D = contracts.body2d(position: step)
+    const body1: contracts.Body2D = controllers.topdown_body_update(body0, action)
+    if body1.position.x <= body0.position.x
+        return error("topdown_body_update should move body to the right")
+    end
+
+    const car: vehicles.CarState = vehicles.car_update(
+        vehicles.car_create(),
+        1.0,
+        0.0,
+        0.25
+    )
+    if car.speed <= 0.0
+        return error("car should accelerate")
+    end
+
+    procedural.set_seed(42)
+    const roll: int = procedural.range_int(1, 6)
+    if roll < 1 or roll > 6
+        return error("procedural range_int out of range")
+    end
+
+    const icon: assets.AssetHandle = assets.asset_load_image("hero.png")?
+    if assets.asset_is_loaded(icon) == false
+        return error("asset should be loaded")
+    end
+
+    events.emit("game.started", "ok")?
+    if events.count() != 1
+        return error("events count should be 1")
+    end
+
+    const theme: settings.Settings = settings.defaults()
+    if theme.language == ""
+        return error("settings should have default language")
+    end
+
+    const button: ui.ButtonState = ui.button(
+        game.rect(0.0, 0.0, 64.0, 32.0),
+        game.vec2(8.0, 8.0),
+        true,
+        true
+    )
+    if button.clicked == false
+        return error("button should be clicked")
+    end
+
+    const panel: hud.HudValues = hud.add_score(hud.defaults(), 10)
+    if panel.score != 10
+        return error("hud score should update")
+    end
+
+    editor.set_label("entity.player", "Player")?
+    editor.set_note("entity.player", "spawn-point-a")?
+    const meta: editor.EntityMeta = editor.inspect("entity.player")
+    if meta.label != "Player"
+        return error("editor label should be saved")
+    end
+
+    debug.set_enabled(true)
+    if debug.is_enabled() == false
+        return error("debug should be enabled")
+    end
+
+    return success()
+end

@@ -31,6 +31,8 @@ if (-not $SkipStaging) {
     Get-ChildItem -Force -Path $stageAbs | Remove-Item -Recurse -Force
 
     $ztExe = Join-Path $repoRoot "zt.exe"
+    $logoIco = Join-Path $repoRoot "branding\\logo-only.ico"
+    $runtime = Join-Path $repoRoot "runtime"
     $stdlib = Join-Path $repoRoot "stdlib"
     $readme = Join-Path $repoRoot "README.md"
     $changelog = Join-Path $repoRoot "CHANGELOG.md"
@@ -39,6 +41,8 @@ if (-not $SkipStaging) {
     $licenseMit = Join-Path $repoRoot "LICENSE-MIT"
 
     Assert-Path $ztExe "Compiler binary"
+    Assert-Path $logoIco "Installer icon (.ico)"
+    Assert-Path $runtime "Runtime folder"
     Assert-Path $stdlib "Standard library folder"
     Assert-Path $readme "README"
     Assert-Path $changelog "CHANGELOG"
@@ -47,6 +51,8 @@ if (-not $SkipStaging) {
     Assert-Path $licenseMit "LICENSE-MIT"
 
     Copy-Item -LiteralPath $ztExe -Destination $stageAbs -Force
+    Copy-Item -LiteralPath $logoIco -Destination $stageAbs -Force
+    Copy-Item -LiteralPath $runtime -Destination (Join-Path $stageAbs "runtime") -Recurse -Force
     Copy-Item -LiteralPath $stdlib -Destination (Join-Path $stageAbs "stdlib") -Recurse -Force
     Copy-Item -LiteralPath $readme -Destination $stageAbs -Force
     Copy-Item -LiteralPath $changelog -Destination $stageAbs -Force

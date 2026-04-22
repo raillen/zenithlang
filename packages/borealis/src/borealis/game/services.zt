@@ -1,0 +1,37 @@
+namespace borealis.game.services
+
+public struct HttpRequest
+    method: text = "GET"
+    url: text
+    body: text = ""
+end
+
+public struct HttpResponse
+    status: int
+    body: text
+end
+
+public struct CloudState
+    connected: bool
+    provider: text
+end
+
+public func http_send(request: services.HttpRequest) -> result<services.HttpResponse, core.Error>
+    if request.url == ""
+        return error("services: url cannot be empty")
+    end
+
+    return success(services.HttpResponse(status: 200, body: "services-stub-ok"))
+end
+
+public func cloud_connect(provider: text) -> services.CloudState
+    if provider == ""
+        return services.CloudState(connected: false, provider: "")
+    end
+    return services.CloudState(connected: true, provider: provider)
+end
+
+public func cloud_is_connected(state: services.CloudState) -> bool
+    return state.connected
+end
+

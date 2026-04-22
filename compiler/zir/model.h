@@ -223,6 +223,14 @@ typedef struct zir_enum_decl {
     zir_span span;
 } zir_enum_decl;
 
+typedef struct zir_module_var {
+    const char *name;
+    const char *type_name;
+    const char *init_expr_text;
+    zir_span span;
+    zir_expr *init_expr;
+} zir_module_var;
+
 typedef struct zir_function {
     const char *name;
     const zir_param *params;
@@ -238,6 +246,8 @@ typedef struct zir_function {
 
 typedef struct zir_module {
     const char *name;
+    const zir_module_var *module_vars;
+    size_t module_var_count;
     const zir_function *functions;
     size_t function_count;
     zir_span span;
@@ -325,16 +335,29 @@ zir_struct_decl zir_make_struct_decl(const char *name, const zir_field_decl *fie
 zir_enum_variant_field_decl zir_make_enum_variant_field_decl(const char *name, const char *type_name);
 zir_enum_variant_decl zir_make_enum_variant_decl(const char *name, const zir_enum_variant_field_decl *fields, size_t field_count);
 zir_enum_decl zir_make_enum_decl(const char *name, const zir_enum_variant_decl *variants, size_t variant_count);
+zir_module_var zir_make_module_var(const char *name, const char *type_name, const char *init_expr_text);
+zir_module_var zir_make_module_var_expr(const char *name, const char *type_name, zir_expr *init_expr);
 zir_function zir_make_function(const char *name, const zir_param *params, size_t param_count, const char *return_type, const zir_block *blocks, size_t block_count);
 zir_module zir_make_module(const char *name, const zir_function *functions, size_t function_count);
 zir_module zir_make_module_with_structs(const char *name, const zir_struct_decl *structs, size_t struct_count, const zir_function *functions, size_t function_count);
 zir_module zir_make_module_with_decls(const char *name, const zir_struct_decl *structs, size_t struct_count, const zir_enum_decl *enums, size_t enum_count, const zir_function *functions, size_t function_count);
+zir_module zir_make_module_with_decls_and_vars(
+        const char *name,
+        const zir_struct_decl *structs,
+        size_t struct_count,
+        const zir_enum_decl *enums,
+        size_t enum_count,
+        const zir_module_var *module_vars,
+        size_t module_var_count,
+        const zir_function *functions,
+        size_t function_count);
 
 void zir_instruction_dispose_owned(zir_instruction *instruction);
 void zir_terminator_dispose_owned(zir_terminator *terminator);
 void zir_block_dispose_owned(zir_block *block);
 void zir_struct_decl_dispose_owned(zir_struct_decl *struct_decl);
 void zir_enum_decl_dispose_owned(zir_enum_decl *enum_decl);
+void zir_module_var_dispose_owned(zir_module_var *module_var);
 void zir_function_dispose_owned(zir_function *function_decl);
 void zir_module_dispose_owned(zir_module *module_decl);
 

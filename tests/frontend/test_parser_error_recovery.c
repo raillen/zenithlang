@@ -222,16 +222,15 @@ static void test_error_missing_match_end(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
-/* Test 16: Invalid declaration at top level */
-static void test_error_invalid_top_level(void) {    zt_arena test_arena;
+/* Test 16: Top-level var declaration is valid */
+static void test_top_level_var_allowed(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
 
     const char *src = "namespace app\nvar x: int = 10\nfunc foo()\nend";
     zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    /* var at top level is invalid in Zenith */
-    ASSERT_GT((int)r.diagnostics.count, 0, "error on invalid top-level var");
+    ASSERT_EQ((int)r.diagnostics.count, 0, "top-level var is allowed");
     zt_parser_result_dispose(&r);
     zt_arena_dispose(&test_arena);
 }
@@ -667,7 +666,7 @@ int main(void) {
     test_error_missing_for_end();
     test_error_missing_repeat_end();
     test_error_missing_match_end();
-    test_error_invalid_top_level();
+    test_top_level_var_allowed();
     test_error_missing_field_type();
     test_error_missing_variant_name();
     test_error_missing_return_expr();

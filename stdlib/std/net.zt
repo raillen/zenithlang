@@ -1,7 +1,5 @@
 namespace std.net
 
-import std.fs.path as path
-
 public enum Error
     ConnectionRefused
     HostUnreachable
@@ -60,35 +58,5 @@ public func is_closed(connection: net.Connection) -> bool
 end
 
 public func kind(err: core.Error) -> net.Error
-    if path._text_eq(err.code, "net.ConnectionRefused")
-        return net.Error.ConnectionRefused
-    end
-    if path._text_eq(err.code, "net.HostUnreachable") or path._text_eq(err.code, "net.DnsFailed")
-        return net.Error.HostUnreachable
-    end
-    if path._text_eq(err.code, "net.Timeout")
-        return net.Error.Timeout
-    end
-    if path._text_eq(err.code, "net.AddressInUse")
-        return net.Error.AddressInUse
-    end
-    if path._text_eq(err.code, "net.AlreadyConnected")
-        return net.Error.AlreadyConnected
-    end
-    if path._text_eq(err.code, "net.NotConnected")
-        return net.Error.NotConnected
-    end
-    if path._text_eq(err.code, "net.NetworkDown")
-        return net.Error.NetworkDown
-    end
-    if path._text_eq(err.code, "net.Overflow")
-        return net.Error.Overflow
-    end
-    if path._text_eq(err.code, "net.PeerReset")
-        return net.Error.PeerReset
-    end
-    if path._text_eq(err.code, "net.SystemLimit")
-        return net.Error.SystemLimit
-    end
     return net.Error.Unknown
 end

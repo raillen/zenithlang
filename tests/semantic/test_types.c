@@ -380,6 +380,47 @@ static void test_const_collection_index_mutation_rejected(void) {
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_module_var_assignment_ok(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "public var counter: int = 0\n"
+        "func bump() -> int\n"
+        "    counter = counter + 1\n"
+        "    return counter\n"
+        "end";
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "module_var_assignment_ok parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_NO_TYPE_ERRORS(checked, "module_var_assignment_ok type");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_module_var_assignment_type_mismatch_rejected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "public var counter: int = 0\n"
+        "func bad()\n"
+        "    counter = \"wrong\"\n"
+        "end";
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "module_var_assignment_type_mismatch_rejected parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_EQ(has_diag_code(&checked, ZT_DIAG_TYPE_MISMATCH), 1, "module_var_assignment_type_mismatch_rejected code");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
 static void test_enum_constructor_and_match_binding_ok(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -541,6 +582,8 @@ int main(void) {
     test_std_bytes_ops_ok();
     test_for_and_match_type_checking();
     test_const_collection_index_mutation_rejected();
+    test_module_var_assignment_ok();
+    test_module_var_assignment_type_mismatch_rejected();
     test_enum_constructor_and_match_binding_ok();
     test_enum_match_duplicate_default_rejected();
     test_enum_match_default_must_be_last_rejected();
