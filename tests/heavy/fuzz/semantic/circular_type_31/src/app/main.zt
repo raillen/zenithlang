@@ -1,0 +1,17 @@
+namespace fuzz.circular_type
+
+struct NodeA
+    ref: optional<NodeB>
+end
+
+struct NodeB
+    ref: optional<NodeA>
+end
+
+public func main() -> int
+    var a: NodeA = NodeA(ref: none)
+    var b: NodeB = NodeB(ref: none)
+    a.ref = some(b)
+    b.ref = some(a)
+    return 0
+end

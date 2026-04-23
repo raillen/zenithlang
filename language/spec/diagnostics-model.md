@@ -96,13 +96,24 @@ Initial categories:
 
 ## Required Runtime Codes
 
+Current alpha runtime codes are:
+
+- `runtime.assert`
+- `runtime.check`
 - `runtime.contract`
-- `runtime.bounds`
-- `runtime.map_key`
-- `runtime.utf8`
-- `runtime.divide_by_zero`
-- `runtime.allocation`
+- `runtime.index`
+- `runtime.io`
+- `runtime.math`
+- `runtime.panic`
 - `runtime.platform`
+- `runtime.unwrap`
+
+Notes:
+
+- `runtime.index` is the current stable code for bounds/index failures.
+- `runtime.math` currently covers divide-by-zero and arithmetic overflow.
+- `runtime.platform` currently covers allocation failures, invalid UTF-8 invariants, and other host/runtime platform failures.
+- Older proposal names such as `runtime.bounds`, `runtime.divide_by_zero`, `runtime.utf8`, `runtime.allocation`, and `runtime.map_key` are historical and are not the current alpha contract.
 
 ## Warning Policy
 

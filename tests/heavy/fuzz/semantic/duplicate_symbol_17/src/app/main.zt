@@ -1,0 +1,13 @@
+namespace fuzz.duplicate
+
+func baz_fbmz() -> int
+    return 1
+end
+
+func baz_fbmz(x: int) -> int  -- Duplicate
+    return x
+end
+
+public func main() -> int
+    return baz_fbmz()
+end

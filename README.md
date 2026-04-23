@@ -26,6 +26,16 @@ What is intentionally deferred to the next cycle:
 - Compass LSP productization
 - public API expansion for `stdlib/platform/` (remains internal)
 
+## Runtime model (alpha)
+
+- Default runtime paths are single-isolate.
+- Ordinary managed values use non-atomic ARC.
+- Cross-thread sharing of ordinary managed values is not a supported default path.
+- Crossing a boundary should use isolate/message-passing transfer or deep-copy semantics.
+- RC cycle collection is not present in the alpha runtime. Cycles are a known leak risk, not undefined behavior.
+- APIs that naturally create long-lived reference graphs remain deferred or unstable until a dedicated cycle policy exists.
+- Canonical reference: `language/spec/runtime-model.md`
+
 ## Philosophy
 
 Zenith follows four practical rules:
@@ -41,7 +51,10 @@ Core references:
 - `language/spec/cognitive-accessibility.md`
 - `language/spec/formatter-model.md`
 - `language/spec/diagnostics-model.md`
+- `language/spec/diagnostic-code-catalog.md`
 - `language/spec/implementation-status.md`
+- `language/surface-implementation-status.md`
+- `language/MVP_OUT_OF_SCOPE.md` (historical MVP boundary plus still-deferred items)
 - `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
 
 ## What is implemented

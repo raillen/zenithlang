@@ -1,0 +1,60 @@
+namespace borealis.game.core3d
+
+public struct Runtime3D
+    started: bool
+    target_fps: int
+    active_state: text
+end
+
+public var state_stack: map<int, text> = {}
+public var state_stack_size: int = 0
+
+public func core3d_start(target_fps: int = 60) -> core3d.Runtime3D
+    state_stack = {}
+    state_stack_size = 0
+    return core3d.Runtime3D(started: true, target_fps: target_fps, active_state: "")
+end
+
+public func core3d_close(runtime: core3d.Runtime3D) -> core3d.Runtime3D
+    return core3d.Runtime3D(started: false, target_fps: runtime.target_fps, active_state: runtime.active_state)
+end
+
+public func core3d_running(runtime: core3d.Runtime3D) -> bool
+    return runtime.started
+end
+
+public func core3d_frame_begin() -> result<void, core.Error>
+    return success()
+end
+
+public func core3d_frame_end() -> result<void, core.Error>
+    return success()
+end
+
+public func state_set(runtime: core3d.Runtime3D, name: text) -> core3d.Runtime3D
+    return core3d.Runtime3D(started: runtime.started, target_fps: runtime.target_fps, active_state: name)
+end
+
+public func state_get(runtime: core3d.Runtime3D) -> text
+    return runtime.active_state
+end
+
+public func state_push(name: text) -> result<void, core.Error>
+    state_stack_size = state_stack_size + 1
+    var next: map<int, text> = state_stack
+    next[state_stack_size] = name
+    state_stack = next
+    return success()
+end
+
+public func state_pop() -> optional<text>
+    if state_stack_size <= 0
+        return none
+    end
+    const maybe_name: optional<text> = state_stack.get(state_stack_size)
+    var next: map<int, text> = state_stack
+    next[state_stack_size] = ""
+    state_stack = next
+    state_stack_size = state_stack_size - 1
+    return maybe_name
+end

@@ -14,6 +14,7 @@ zt_block_entry:
     return zt_add_i64(a, b);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    zt_runtime_capture_process_args(argc, argv);
     return (int)zt_app_main__main();
 }

@@ -1,0 +1,140 @@
+namespace borealis.game.controllers3d
+
+public struct Controller3DHandle
+    id: int
+end
+
+public struct Controller3DDebugState
+    kind: text
+    enabled: bool
+    entity_id: int
+end
+
+public struct FpsConfig
+    move_speed: float = 5.0
+end
+
+public struct TpsConfig
+    move_speed: float = 4.0
+end
+
+public struct Platformer3dConfig
+    jump_force: float = 8.0
+end
+
+public var controller3d_next_id: int = 1
+public var controller3d_kind: map<int, text> = {}
+public var controller3d_enabled: map<int, bool> = {}
+public var controller3d_entity_id: map<int, int> = {}
+public var controller3d_camera_id: map<int, int> = {}
+
+public func controller3d_create_fps(entity: entities.Entity, camera: camera3d.Camera3D, _config: controllers3d.FpsConfig) -> result<controllers3d.Controller3DHandle, core.Error>
+    return controllers3d.controller3d_make("fps", entity, camera)
+end
+
+public func controller3d_create_tps(entity: entities.Entity, camera: camera3d.Camera3D, _config: controllers3d.TpsConfig) -> result<controllers3d.Controller3DHandle, core.Error>
+    return controllers3d.controller3d_make("tps", entity, camera)
+end
+
+public func controller3d_create_platformer(entity: entities.Entity, camera: camera3d.Camera3D, _config: controllers3d.Platformer3dConfig) -> result<controllers3d.Controller3DHandle, core.Error>
+    return controllers3d.controller3d_make("platformer3d", entity, camera)
+end
+
+public func controller3d_update(_id: controllers3d.Controller3DHandle, _dt: float) -> result<void, core.Error>
+    return success()
+end
+
+public func controller3d_set_enabled(id: controllers3d.Controller3DHandle, enabled: bool) -> result<void, core.Error>
+    controller3d_enabled = controllers3d.set_bool(controller3d_enabled, id.id, enabled)
+    return success()
+end
+
+public func controller3d_is_enabled(id: controllers3d.Controller3DHandle) -> bool
+    return controllers3d.bool_or(controller3d_enabled, id.id, false)
+end
+
+public func controller3d_get_entity(id: controllers3d.Controller3DHandle) -> optional<entities.Entity>
+    const maybe: optional<int> = controller3d_entity_id.get(id.id)
+    match maybe
+        case value present ->
+            return entities.Entity(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func controller3d_get_camera(id: controllers3d.Controller3DHandle) -> optional<camera3d.Camera3D>
+    const maybe: optional<int> = controller3d_camera_id.get(id.id)
+    match maybe
+        case value present ->
+            return camera3d.Camera3D(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func controller3d_debug_info(id: controllers3d.Controller3DHandle) -> controllers3d.Controller3DDebugState
+    return controllers3d.Controller3DDebugState(
+        kind: controllers3d.text_or(controller3d_kind, id.id, ""),
+        enabled: controllers3d.controller3d_is_enabled(id),
+        entity_id: controllers3d.int_or(controller3d_entity_id, id.id, 0)
+    )
+end
+
+public func controller3d_make(kind: text, entity: entities.Entity, camera: camera3d.Camera3D) -> result<controllers3d.Controller3DHandle, core.Error>
+    const id: int = controller3d_next_id
+    controller3d_next_id = controller3d_next_id + 1
+    controller3d_kind = controllers3d.set_text(controller3d_kind, id, kind)
+    controller3d_enabled = controllers3d.set_bool(controller3d_enabled, id, true)
+    controller3d_entity_id = controllers3d.set_int(controller3d_entity_id, id, entity.id)
+    controller3d_camera_id = controllers3d.set_int(controller3d_camera_id, id, camera.id)
+    return success(controllers3d.Controller3DHandle(id: id))
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+    const maybe: optional<int> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+    const maybe: optional<text> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end
+
+public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+    var next: map<int, text> = values
+    next[id] = value
+    return next
+end

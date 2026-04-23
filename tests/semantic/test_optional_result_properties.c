@@ -1,5 +1,12 @@
-/*
- * R2.M3 - Property tests for Optional and Result.
+/**
+ * R2.M3 - Property Tests para Optional e Result
+ * 
+ * Invariantes testados:
+ * 1. Optional sempre pode ser null ou ter valor
+ * 2. Result sempre é Ok ou Error
+ * 3. Operações de unwrap falham corretamente quando inválidas
+ * 4. Try operator propaga errors corretamente
+ * 5. Type checking de optional/result é estrito
  */
 
 #include "compiler/utils/arena.h"
@@ -49,7 +56,8 @@ static int tests_passed = 0;
     else { fprintf(stderr, "FAIL: %s: expected diag code %d, not found\n", msg, (int)(expected_code)); } \
 } while(0)
 
-static void test_optional_none_assignment(void) {
+/* Test 1: Optional pode ser null */
+static void test_optional_null_assignment(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -57,19 +65,20 @@ static void test_optional_none_assignment(void) {
 
     const char *src =
         "namespace app\n"
-        "func demo() -> optional<int>\n"
-        "    return none\n"
+        "func demo() -> int?\n"
+        "    return null\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    ASSERT_NO_PARSE_ERRORS(parsed, "optional_none_assignment parse");
+    ASSERT_NO_PARSE_ERRORS(parsed, "optional_null_assignment parse");
     zt_check_result checked = zt_check_file(parsed.root);
-    ASSERT_NO_TYPE_ERRORS(checked, "optional_none_assignment type");
-
+    ASSERT_NO_TYPE_ERRORS(checked, "optional_null_assignment type");
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
+/* Test 2: Optional pode ter valor */
 static void test_optional_with_value(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -78,20 +87,21 @@ static void test_optional_with_value(void) {
 
     const char *src =
         "namespace app\n"
-        "func demo() -> optional<int>\n"
+        "func demo() -> int?\n"
         "    return 42\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_PARSE_ERRORS(parsed, "optional_with_value parse");
     zt_check_result checked = zt_check_file(parsed.root);
     ASSERT_NO_TYPE_ERRORS(checked, "optional_with_value type");
-
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_result_success(void) {
+/* Test 3: Result Ok */
+static void test_result_ok(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -99,19 +109,20 @@ static void test_result_success(void) {
 
     const char *src =
         "namespace app\n"
-        "func demo() -> result<int, text>\n"
-        "    return success(42)\n"
+        "func demo() -> Result<int, text>\n"
+        "    return Ok(42)\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    ASSERT_NO_PARSE_ERRORS(parsed, "result_success parse");
+    ASSERT_NO_PARSE_ERRORS(parsed, "result_ok parse");
     zt_check_result checked = zt_check_file(parsed.root);
-    ASSERT_NO_TYPE_ERRORS(checked, "result_success type");
-
+    ASSERT_NO_TYPE_ERRORS(checked, "result_ok type");
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
+/* Test 4: Result Error */
 static void test_result_error(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -120,19 +131,20 @@ static void test_result_error(void) {
 
     const char *src =
         "namespace app\n"
-        "func demo() -> result<int, text>\n"
-        "    return error(\"failed\")\n"
+        "func demo() -> Result<int, text>\n"
+        "    return Error(\"failed\")\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_PARSE_ERRORS(parsed, "result_error parse");
     zt_check_result checked = zt_check_file(parsed.root);
     ASSERT_NO_TYPE_ERRORS(checked, "result_error type");
-
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
+/* Test 5: Try operator propaga error */
 static void test_try_operator_propagation(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -141,23 +153,24 @@ static void test_try_operator_propagation(void) {
 
     const char *src =
         "namespace app\n"
-        "func parse_int(s: text) -> result<int, core.Error>\n"
-        "    return success(42)\n"
+        "func parse_int(s: text) -> Result<int, text>\n"
+        "    return Ok(42)\n"
         "end\n"
-        "func demo() -> result<int, core.Error>\n"
+        "func demo() -> Result<int, text>\n"
         "    const value: int = parse_int(\"42\")?\n"
-        "    return success(value)\n"
+        "    return Ok(value)\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_PARSE_ERRORS(parsed, "try_operator_propagation parse");
     zt_check_result checked = zt_check_file(parsed.root);
     ASSERT_NO_TYPE_ERRORS(checked, "try_operator_propagation type");
-
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
+/* Test 6: Optional type mismatch deve falhar */
 static void test_optional_type_mismatch(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -166,20 +179,21 @@ static void test_optional_type_mismatch(void) {
 
     const char *src =
         "namespace app\n"
-        "func demo() -> optional<int>\n"
+        "func demo() -> int?\n"
         "    return \"not an int\"\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_PARSE_ERRORS(parsed, "optional_type_mismatch parse");
     zt_check_result checked = zt_check_file(parsed.root);
-    ASSERT_EQ((int)checked.diagnostics.count >= 1, 1, "optional_type_mismatch should have type error");
-
+    ASSERT_HAS_ERROR(checked, ZT_DIAG_TYPE_MISMATCH, "optional_type_mismatch should have type error");
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
-static void test_none_to_non_optional(void) {
+/* Test 7: Null assignment para tipo non-optional deve falhar */
+static void test_null_to_non_optional(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
     zt_arena_init(&test_arena, 65536);
@@ -188,30 +202,29 @@ static void test_none_to_non_optional(void) {
     const char *src =
         "namespace app\n"
         "func demo() -> int\n"
-        "    return none\n"
+        "    return null\n"
         "end";
-
+    
     zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
-    ASSERT_NO_PARSE_ERRORS(parsed, "none_to_non_optional parse");
+    ASSERT_NO_PARSE_ERRORS(parsed, "null_to_non_optional parse");
     zt_check_result checked = zt_check_file(parsed.root);
-    ASSERT_EQ((int)checked.diagnostics.count >= 1, 1, "none_to_non_optional should have type error");
-
+    ASSERT_HAS_ERROR(checked, ZT_DIAG_TYPE_MISMATCH, "null_to_non_optional should have type error");
+    
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
 
 int main(void) {
     printf("Running optional/result property tests...\n\n");
-
-    test_optional_none_assignment();
+    
+    test_optional_null_assignment();
     test_optional_with_value();
-    test_result_success();
+    test_result_ok();
     test_result_error();
     test_try_operator_propagation();
     test_optional_type_mismatch();
-    test_none_to_non_optional();
-
+    test_null_to_non_optional();
+    
     printf("\nOptional/Result property tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
-

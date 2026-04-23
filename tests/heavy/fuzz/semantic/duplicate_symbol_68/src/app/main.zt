@@ -1,0 +1,13 @@
+namespace fuzz.duplicate
+
+func garply_cudr() -> int
+    return 1
+end
+
+func garply_cudr(x: int) -> int  -- Duplicate
+    return x
+end
+
+public func main() -> int
+    return garply_cudr()
+end

@@ -21,11 +21,11 @@ The API is split into core camera controls and ready-to-use presets.
 
 ### Core camera
 
-- `camera3d_create(position: math.Vector3, target: math.Vector3, fov: float) -> result<camera3d.Camera3D, core.Error>`: creates a camera.
-- `camera3d_set_position(camera: camera3d.Camera3D, position: math.Vector3) -> result<void, core.Error>`: moves the camera.
-- `camera3d_get_position(camera: camera3d.Camera3D) -> math.Vector3`: reads camera position.
-- `camera3d_set_target(camera: camera3d.Camera3D, target: math.Vector3) -> result<void, core.Error>`: sets look target.
-- `camera3d_get_target(camera: camera3d.Camera3D) -> math.Vector3`: reads look target.
+- `camera3d_create(position: game.Vector3, target: game.Vector3, fov: float) -> result<camera3d.Camera3D, core.Error>`: creates a camera.
+- `camera3d_set_position(camera: camera3d.Camera3D, position: game.Vector3) -> result<void, core.Error>`: moves the camera.
+- `camera3d_get_position(camera: camera3d.Camera3D) -> game.Vector3`: reads camera position.
+- `camera3d_set_target(camera: camera3d.Camera3D, target: game.Vector3) -> result<void, core.Error>`: sets look target.
+- `camera3d_get_target(camera: camera3d.Camera3D) -> game.Vector3`: reads look target.
 - `camera3d_set_fov(camera: camera3d.Camera3D, fov: float) -> result<void, core.Error>`: sets field of view.
 - `camera3d_get_fov(camera: camera3d.Camera3D) -> float`: reads field of view.
 - `camera3d_zoom(camera: camera3d.Camera3D, amount: float) -> result<void, core.Error>`: zooms in or out.
@@ -46,13 +46,13 @@ The API is split into core camera controls and ready-to-use presets.
 
 ### Auxiliary helpers
 
-- `camera_look_at_point(camera: camera3d.Camera3D, point: math.Vector3) -> result<void, core.Error>`: points camera at a world position.
-- `camera_look_at_entity(camera: camera3d.Camera3D, entity: entities.Entity, offset: math.Vector3) -> result<void, core.Error>`: points camera at an entity.
-- `camera_set_bounds(camera: camera3d.Camera3D, min: math.Vector3, max: math.Vector3) -> result<void, core.Error>`: clamps camera movement to an area.
+- `camera_look_at_point(camera: camera3d.Camera3D, point: game.Vector3) -> result<void, core.Error>`: points camera at a world position.
+- `camera_look_at_entity(camera: camera3d.Camera3D, entity: entities.Entity, offset: game.Vector3) -> result<void, core.Error>`: points camera at an entity.
+- `camera_set_bounds(camera: camera3d.Camera3D, min: game.Vector3, max: game.Vector3) -> result<void, core.Error>`: clamps camera movement to an area.
 - `camera_lock_axis(camera: camera3d.Camera3D, lock_x: bool, lock_y: bool, lock_z: bool) -> result<void, core.Error>`: locks movement axes.
-- `camera_world_to_screen(camera: camera3d.Camera3D, world_pos: math.Vector3) -> math.Point2`: converts world point to screen point.
-- `camera_screen_to_world_ray(camera: camera3d.Camera3D, screen_pos: math.Point2) -> physics3d.Ray`: builds a world ray from screen coordinates.
-- `camera_is_visible(camera: camera3d.Camera3D, world_pos: math.Vector3, radius: float) -> bool`: basic visibility test.
+- `camera_world_to_screen(camera: camera3d.Camera3D, world_pos: game.Vector3) -> game.Point2`: converts world point to screen point.
+- `camera_screen_to_world_ray(camera: camera3d.Camera3D, screen_pos: game.Point2) -> game.Ray3`: builds a world ray from screen coordinates.
+- `camera_is_visible(camera: camera3d.Camera3D, world_pos: game.Vector3, radius: float) -> bool`: basic visibility test.
 - `camera_set_deadzone(camera: camera3d.Camera3D, x: float, y: float, w: float, h: float) -> result<void, core.Error>`: configures follow deadzone.
 - `camera_set_collision(camera: camera3d.Camera3D, enabled: bool, radius: float) -> result<void, core.Error>`: prevents camera clipping through walls.
 - `camera_reset(camera: camera3d.Camera3D) -> result<void, core.Error>`: resets to default state of current preset.
@@ -63,3 +63,4 @@ The API is split into core camera controls and ready-to-use presets.
 - presets are the default path for most games.
 - core camera functions stay available for advanced control.
 - API keeps the same accessibility principle used in Borealis 2D.
+

@@ -9,6 +9,34 @@
 -- 🌳 BTREE MAP / SET
 namespace std.collections
 
+public struct QueueNumberDequeueResult
+    queue: list<int>
+    value: optional<int>
+end
+
+public struct QueueTextDequeueResult
+    queue: list<text>
+    value: optional<text>
+end
+
+public struct StackNumberPopResult
+    stack: list<int>
+    value: optional<int>
+end
+
+public struct StackTextPopResult
+    stack: list<text>
+    value: optional<text>
+end
+
+func optional_number(value: int) -> optional<int>
+    return value
+end
+
+func optional_text_value(value: text) -> optional<text>
+    return value
+end
+
 extern c
     func zt_queue_i64_new() -> list<int>
     func zt_queue_i64_enqueue(queue: list<int>, value: int) -> list<int>
@@ -111,8 +139,18 @@ public func queue_int_enqueue(queue: list<int>, value: int) -> list<int>
     return collections.zt_queue_i64_enqueue(queue, value)
 end
 
-public func queue_int_dequeue(queue: list<int>) -> optional<int>
-    return collections.zt_queue_i64_dequeue(queue)
+public func queue_int_dequeue(queue: list<int>) -> collections.QueueNumberDequeueResult
+    if len(queue) == 0
+        return collections.QueueNumberDequeueResult(
+            queue: queue,
+            value: none
+        )
+    end
+
+    return collections.QueueNumberDequeueResult(
+        queue: queue[1..],
+        value: collections.optional_number(queue[0])
+    )
 end
 
 public func queue_int_peek(queue: list<int>) -> optional<int>
@@ -127,8 +165,18 @@ public func queue_text_enqueue(queue: list<text>, value: text) -> list<text>
     return collections.zt_queue_text_enqueue(queue, value)
 end
 
-public func queue_text_dequeue(queue: list<text>) -> optional<text>
-    return collections.zt_queue_text_dequeue(queue)
+public func queue_text_dequeue(queue: list<text>) -> collections.QueueTextDequeueResult
+    if len(queue) == 0
+        return collections.QueueTextDequeueResult(
+            queue: queue,
+            value: none
+        )
+    end
+
+    return collections.QueueTextDequeueResult(
+        queue: queue[1..],
+        value: collections.optional_text_value(queue[0])
+    )
 end
 
 public func queue_text_peek(queue: list<text>) -> optional<text>
@@ -143,8 +191,27 @@ public func stack_int_push(stack: list<int>, value: int) -> list<int>
     return collections.zt_stack_i64_push(stack, value)
 end
 
-public func stack_int_pop(stack: list<int>) -> optional<int>
-    return collections.zt_stack_i64_pop(stack)
+public func stack_int_pop(stack: list<int>) -> collections.StackNumberPopResult
+    const size: int = len(stack)
+
+    if size == 0
+        return collections.StackNumberPopResult(
+            stack: stack,
+            value: none
+        )
+    end
+
+    if size == 1
+        return collections.StackNumberPopResult(
+            stack: collections.zt_stack_i64_new(),
+            value: collections.optional_number(stack[0])
+        )
+    end
+
+    return collections.StackNumberPopResult(
+        stack: stack[0..(size - 2)],
+        value: collections.optional_number(stack[size - 1])
+    )
 end
 
 public func stack_int_peek(stack: list<int>) -> optional<int>
@@ -159,8 +226,27 @@ public func stack_text_push(stack: list<text>, value: text) -> list<text>
     return collections.zt_stack_text_push(stack, value)
 end
 
-public func stack_text_pop(stack: list<text>) -> optional<text>
-    return collections.zt_stack_text_pop(stack)
+public func stack_text_pop(stack: list<text>) -> collections.StackTextPopResult
+    const size: int = len(stack)
+
+    if size == 0
+        return collections.StackTextPopResult(
+            stack: stack,
+            value: none
+        )
+    end
+
+    if size == 1
+        return collections.StackTextPopResult(
+            stack: collections.zt_stack_text_new(),
+            value: collections.optional_text_value(stack[0])
+        )
+    end
+
+    return collections.StackTextPopResult(
+        stack: stack[0..(size - 2)],
+        value: collections.optional_text_value(stack[size - 1])
+    )
 end
 
 public func stack_text_peek(stack: list<text>) -> optional<text>

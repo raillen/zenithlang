@@ -32,7 +32,7 @@ Executar e validar as entregas do roadmap Borealis 1.0 com evidencias objetivas.
 
 Checklist operacional derivado de `docs/planning/borealis-roadmap-v1.md`.
 
-Status inicial: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial)
+Status inicial: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial; R3.B8 concluido; R3.B9 parcial)
 Data de criacao: 2026-04-22
 
 ## Gates obrigatorios por milestone
@@ -49,9 +49,9 @@ Quando houver mudanca em compiler/runtime:
 Para release Borealis 1.0:
 
 - [ ] checklist Borealis completo
-- [ ] docs de onboarding e limites conhecidos publicados
+- [x] docs de onboarding e limites conhecidos publicados
 - [ ] sem P0 aberto sem aceite formal
-- [ ] package pronto para fluxo `zpm` (quando comando estiver disponivel)
+- [x] package pronto para fluxo `zpm` (quando comando estiver disponivel)
 
 ## R3.B0 - Baseline e alinhamento
 
@@ -122,7 +122,7 @@ Evidencia R3.B2-R3.B4:
 - [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
 - [x] `./zt.exe run tests/behavior/borealis_input_transitions_stub`
 - [x] `./zt.exe run tests/behavior/borealis_render2d_stub`
-- [ ] `./zt.exe run tests/behavior/borealis_scene_entities_stub` (bloqueado por limite atual do emitter C com tipo `scene.scene`)
+- [ ] `./zt.exe run tests/behavior/borealis_scene_entities_stub` (bloqueado por limite atual do backend C com `optional<entities.Entity>` e structs tipadas de modulo)
 - [x] `python build.py`
 
 ## R3.B5 - ECS hibrido (interno)
@@ -179,34 +179,46 @@ Evidencia R3.B7 parcial:
 - [x] `runtime/c/zenith_rt.h` (contrato `zt_borealis_desktop_api`)
 - [x] `runtime/c/zenith_rt.c` (adapter Raylib inicial por carga dinamica + fallback `backend_id=1 -> stub`)
 - [x] `./zt.exe run tests/behavior/borealis_backend_fallback_stub/zenith.ztproj`
+- [x] `./zt.exe run packages/borealis/examples/raylib_desktop_app/zenith.ztproj`
+- [x] `compiler/driver/pipeline.c` (compilador local agora prioriza runtime/stdlib do workspace antes de `ZENITH_HOME`)
 
 ## R3.B8 - Pronto para ZPM
 
-- [ ] Alinhar manifest, docs e exemplos ao fluxo `zpm`
-- [ ] Publicar guia de migracao (se houver alias/deprecacao)
-- [ ] Definir semver inicial do package
-- [ ] Validar instalacao/uso em fluxo limpo
+- [x] Alinhar manifest, docs e exemplos ao fluxo `zpm`
+- [x] Publicar guia de migracao (se houver alias/deprecacao)
+- [x] Definir semver inicial do package
+- [ ] Validar instalacao/uso em fluxo limpo (bloqueado pela ausencia do comando `zpm`)
 
 Criterio de aceite:
 
-- [ ] Package preparado para distribuicao
+- [x] Package preparado para distribuicao
 
 ## R3.B9 - Estabilizacao e release Borealis 1.0
 
-- [ ] Fechar changelog do ciclo Borealis
-- [ ] Publicar relatorio final de qualidade/compatibilidade
-- [ ] Publicar limites conhecidos e risco residual
+- [x] Fechar changelog do ciclo Borealis
+- [x] Publicar relatorio final de qualidade/compatibilidade
+- [x] Publicar limites conhecidos e risco residual
 - [ ] Validar criterios finais de release
 
 Criterio de aceite:
 
 - [ ] Borealis 1.0 publicado com limites e garantias explicitas
 
+Evidencia R3.B8-R3.B9 parcial:
+
+- [x] `packages/borealis/CHANGELOG.md`
+- [x] `packages/borealis/known-limits-v1.md`
+- [x] `packages/borealis/migration-guide-v1.md`
+- [x] `packages/borealis/zpm-prep-v1.md`
+- [x] `docs/reports/release/R3.B9-borealis-release-report.md`
+- [x] `docs/reports/compatibility/R3.B9-borealis-compatibility.md`
+
 ## Backlog funcional por modulos (alinhado com as decisions)
 
 Regras deste bloco:
 
 - Cada modulo abaixo deve seguir como fonte canonica as decisions em `packages/borealis/decisions/modules/*.md`.
+- A trilha 3D deve seguir como fonte canonica as decisions em `packages/borealis/decisions/modules3d/*.md`.
 - N1 = base, N2 = intermediario, N3 = avancado.
 - `shape_sweep` e `find_overlaps` ja estao aceitos como naming canonico.
 - `move_randomly` e `evade` substituem `wander` e `flee`.
@@ -254,6 +266,26 @@ Regras deste bloco:
 - [ ] `editor`: metadata tool-facing (label/note/group/lock/hidden) por stable id.
 - [ ] `Borealis Flow`: registrar camada low-code em cima dos modulos existentes.
 - [ ] `runtime shared model`: editor futuro deve consumir o mesmo modelo de `entities`, `scene`, `assets`, `components` e snapshots.
+
+## Trilha 3D (documental nesta fase, com scaffolds experimentais)
+
+- [x] Registrar `core3d`, `render3d`, `camera3d`, `physics3d` e `world3d`
+- [x] Registrar `world3d.atmosphere`, `world3d.weather` e `postfx`
+- [x] Registrar `assets3d`, `animation3d`, `audio3d` e `ui3d`
+- [x] Registrar `entities3d`, `controllers3d`, `ai3d` e `procedural3d`
+- [x] Registrar `settings.video` e `debug3d`
+- [x] Registrar performance 3D por fases em decision transversal
+- [x] Ajustar coerencia entre `render3d`, `world3d` e `assets3d`
+- [x] Definir quais modulos permanecem compartilhados entre 2D e 3D
+- [x] Sincronizar roadmap/checklist com a trilha 3D documental
+- [x] Criar scaffolds experimentais para a trilha 3D em `packages/borealis/src/borealis/game`
+- [x] Validar `./zt.exe check packages/borealis/zenith.ztproj --all` apos os scaffolds 3D
+
+Criterio de aceite:
+
+- [x] Trilha 3D documentada sem criar duplicatas desnecessarias de `scene`, `save`, `events`, `services`, `storage`, `database`, `input` e `settings`
+- [x] Escopo do Borealis 1.0 continua focado em package/runtime 2D + backend desktop, sem prometer runtime 3D implementado neste ciclo
+- [x] Scaffolds 3D atuais permanecem explicitamente experimentais e sem backend/renderizacao 3D real nesta milestone
 
 ## Regras continuas
 

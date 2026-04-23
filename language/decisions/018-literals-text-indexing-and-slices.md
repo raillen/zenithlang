@@ -40,6 +40,7 @@ Normative rules for this cut:
 - indexing `text` yields `text`
 - the MVP does not define a separate `char` type
 - `text` is UTF-8 in the language surface
+- `len(text)` counts code points in the MVP model
 - text indexing and slicing operate on code points, not raw bytes
 - slice syntax uses inclusive end bounds
 - omitted slice start means the first valid sequence index

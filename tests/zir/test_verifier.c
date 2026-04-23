@@ -138,6 +138,21 @@ static void test_invalid_target_leak(void) {
     );
 }
 
+static void test_identifier_with_ffi_substring_is_valid(void) {
+    static const zir_param params[] = {
+        { "suffix", "text" },
+    };
+    static const zir_block blocks[] = {
+        { "entry", NULL, 0, { ZIR_TERM_RETURN, "suffix", NULL, NULL, NULL, NULL, NULL } },
+    };
+    static const zir_function functions[] = {
+        { "keep_suffix", params, ARRAY_COUNT(params), "text", blocks, ARRAY_COUNT(blocks) },
+    };
+    const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
+
+    assert_ok("identifier_with_ffi_substring_is_valid", &module_decl);
+}
+
 static void test_use_before_definition(void) {
     static const zir_param params[] = {
         { "a", "int" },
@@ -245,8 +260,8 @@ static void test_duplicate_block_label(void) {
 
 static void test_structured_expr_ok(void) {
     const zir_param params[] = {
-        zir_make_param("a", "int"),
-        zir_make_param("b", "int"),
+        zir_make_param("a", "int", NULL),
+        zir_make_param("b", "int", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction_expr(
@@ -273,7 +288,7 @@ static void test_structured_expr_ok(void) {
 
 static void test_structured_use_before_definition(void) {
     const zir_param params[] = {
-        zir_make_param("a", "int"),
+        zir_make_param("a", "int", NULL),
     };
     const zir_instruction instructions[] = {
         zir_make_assign_instruction_expr(
@@ -311,7 +326,7 @@ static void test_error_span(void) {
         zir_make_block("entry", instructions, ARRAY_COUNT(instructions), zir_make_return_terminator("t0")),
     };
     zir_param params[] = {
-        zir_make_param("a", "int"),
+        zir_make_param("a", "int", NULL),
     };
     zir_function functions[] = {
         zir_make_function("f", params, ARRAY_COUNT(params), "int", blocks, ARRAY_COUNT(blocks)),
@@ -342,7 +357,7 @@ static void test_error_span(void) {
 
 static void test_cross_block_reference_ok(void) {
     const zir_param params[] = {
-        zir_make_param("a", "int"),
+        zir_make_param("a", "int", NULL),
     };
     const zir_instruction entry_instructions[] = {
         zir_make_assign_instruction_expr("t0", "int", zir_expr_make_name("a")),
@@ -399,6 +414,7 @@ int main(void) {
     test_effect_and_jump();
     test_invalid_any();
     test_invalid_target_leak();
+    test_identifier_with_ffi_substring_is_valid();
     test_use_before_definition();
     test_unknown_block();
     test_invalid_terminator();

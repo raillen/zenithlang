@@ -1,74 +1,69 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-
 echo ====================================
 echo Compilando testes R2.M3
 echo ====================================
 
-if defined CC (
-    set "CC_BIN=%CC%"
-) else (
-    where gcc >nul 2>nul
-    if %ERRORLEVEL%==0 (
-        set "CC_BIN=gcc"
-    ) else (
-        where clang >nul 2>nul
-        if %ERRORLEVEL%==0 (
-            set "CC_BIN=clang"
-        )
-    )
-)
+set CC=gcc
+set CFLAGS=-O0 -Wall -Wextra -I.
 
-if not defined CC_BIN (
-    echo ERRO: Nenhum compilador C encontrado. Instale gcc/clang ou defina CC.
+echo.
+echo [1/3] Compilando test_optional_result_properties.exe...
+%CC% %CFLAGS% -o tests\semantic\test_optional_result_properties.exe ^
+    tests\semantic\test_optional_result_properties.c ^
+    compiler\utils\arena.c ^
+    compiler\utils\string_pool.c ^
+    compiler\frontend\lexer\lexer.c ^
+    compiler\frontend\parser\parser.c ^
+    compiler\semantic\binder\binder.c ^
+    compiler\semantic\types\checker.c ^
+    compiler\semantic\types\types.c ^
+    compiler\semantic\diagnostics\diagnostics.c ^
+    compiler\semantic\symbols\symbols.c
+if errorlevel 1 (
+    echo ERRO: Falha ao compilar test_optional_result_properties
     exit /b 1
 )
+echo OK!
 
-set "CFLAGS=-O0 -Wall -Wextra -I."
-set "RSP=%TEMP%\zenith_r2m3_compiler_sources.rsp"
-
-if exist "%RSP%" del /f /q "%RSP%" >nul 2>nul
-
-for /r compiler %%f in (*.c) do (
-    set "SRC=%%f"
-    if /I "!SRC:\compiler\driver\=!"=="!SRC!" (
-        >> "%RSP%" echo "%%f"
-    )
-)
-
-if not exist "%RSP%" (
-    echo ERRO: lista de fontes nao foi gerada.
+echo.
+echo [2/3] Compilando test_where_contract_properties.exe...
+%CC% %CFLAGS% -o tests\semantic\test_where_contract_properties.exe ^
+    tests\semantic\test_where_contract_properties.c ^
+    compiler\utils\arena.c ^
+    compiler\utils\string_pool.c ^
+    compiler\frontend\lexer\lexer.c ^
+    compiler\frontend\parser\parser.c ^
+    compiler\semantic\binder\binder.c ^
+    compiler\semantic\types\checker.c ^
+    compiler\semantic\types\types.c ^
+    compiler\semantic\diagnostics\diagnostics.c ^
+    compiler\semantic\symbols\symbols.c
+if errorlevel 1 (
+    echo ERRO: Falha ao compilar test_where_contract_properties
     exit /b 1
 )
+echo OK!
 
-call :build_one tests\semantic\test_optional_result_properties.c tests\semantic\test_optional_result_properties.exe test_optional_result_properties
-if errorlevel 1 exit /b 1
-
-call :build_one tests\semantic\test_where_contract_properties.c tests\semantic\test_where_contract_properties.exe test_where_contract_properties
-if errorlevel 1 exit /b 1
-
-call :build_one tests\semantic\test_conversion_overflow_properties.c tests\semantic\test_conversion_overflow_properties.exe test_conversion_overflow_properties
-if errorlevel 1 exit /b 1
-
-del /f /q "%RSP%" >nul 2>nul
+echo.
+echo [3/3] Compilando test_conversion_overflow_properties.exe...
+%CC% %CFLAGS% -o tests\semantic\test_conversion_overflow_properties.exe ^
+    tests\semantic\test_conversion_overflow_properties.c ^
+    compiler\utils\arena.c ^
+    compiler\utils\string_pool.c ^
+    compiler\frontend\lexer\lexer.c ^
+    compiler\frontend\parser\parser.c ^
+    compiler\semantic\binder\binder.c ^
+    compiler\semantic\types\checker.c ^
+    compiler\semantic\types\types.c ^
+    compiler\semantic\diagnostics\diagnostics.c ^
+    compiler\semantic\symbols\symbols.c
+if errorlevel 1 (
+    echo ERRO: Falha ao compilar test_conversion_overflow_properties
+    exit /b 1
+)
+echo OK!
 
 echo.
 echo ====================================
 echo Todos os testes compilados com sucesso!
 echo ====================================
-exit /b 0
-
-:build_one
-set "SRC=%~1"
-set "OUT=%~2"
-set "NAME=%~3"
-
-echo.
-echo Compilando %NAME%...
-"%CC_BIN%" %CFLAGS% -o "%OUT%" "%SRC%" @"%RSP%"
-if errorlevel 1 (
-    echo ERRO: Falha ao compilar %NAME%
-    exit /b 1
-)
-echo OK!
-exit /b 0

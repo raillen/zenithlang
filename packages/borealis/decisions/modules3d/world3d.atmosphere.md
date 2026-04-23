@@ -22,8 +22,8 @@ fog, time-of-day, ambient profile, and global wind.
 
 - `fog_set_enabled(enabled: bool) -> result<void, core.Error>`: turns fog on/off.
 - `fog_is_enabled() -> bool`: reads fog state.
-- `fog_set_color(color: core.Color) -> result<void, core.Error>`: sets fog color.
-- `fog_get_color() -> core.Color`: reads fog color.
+- `fog_set_color(color: game.Color) -> result<void, core.Error>`: sets fog color.
+- `fog_get_color() -> game.Color`: reads fog color.
 - `fog_set_range(start: float, end: float) -> result<void, core.Error>`: sets distance range.
 - `fog_get_range() -> world3d.FogRange`: reads fog range.
 - `fog_set_mode(mode: world3d.FogMode) -> result<void, core.Error>`: sets fog mode (`linear`, `exp`, `exp2`).
@@ -50,10 +50,11 @@ fog, time-of-day, ambient profile, and global wind.
 
 ### Wind
 
-- `wind_set(direction: math.Vector3, strength: float) -> result<void, core.Error>`: sets global wind.
+- `wind_set(direction: game.Vector3, strength: float) -> result<void, core.Error>`: sets global wind.
 - `wind_get() -> world3d.WindState`: reads global wind.
 
 ## Notes
 
 - atmosphere values are world-space, not fullscreen post-processing.
 - screen-space filters belong to `borealis.game.postfx`.
+

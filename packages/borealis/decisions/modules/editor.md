@@ -35,3 +35,8 @@ Goal: future editor can attach labels/notes/groups/visibility/lock flags by stab
 
 - Metadata stays mutable and tool-facing.
 - Save format integration comes later via `save/storage`.
+- The editor application stack and process architecture are defined separately in:
+  - `011-borealis-editor-stack.md`
+  - `012-borealis-editor-crates.md`
+  - `013-borealis-editor-architecture.md`
+  - `014-borealis-editor-preview-ipc.md`

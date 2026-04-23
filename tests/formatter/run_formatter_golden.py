@@ -16,7 +16,55 @@ CASES = [
         "input_project": ROOT / "tests" / "formatter" / "cases" / "case_all" / "input",
         "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_all" / "expected" / "src" / "app" / "main.zt",
         "target_file": Path("src") / "app" / "main.zt",
-    }
+    },
+    {
+        "id": "case_imports",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_imports" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_imports" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_structs",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_structs" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_structs" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_match",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_match" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_match" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_generics",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_generics" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_generics" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_comments",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_comments" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_comments" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_triple_quoted",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_triple_quoted" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_triple_quoted" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_trailing_commas",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_trailing_commas" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_trailing_commas" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
+        "id": "case_manifest",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_manifest" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_manifest" / "expected" / "zenith.ztproj",
+        "target_file": Path("zenith.ztproj"),
+    },
 ]
 
 

@@ -59,6 +59,7 @@ one`, `success` e `error`.
 - `public_const_module/`: projeto valido. Exercita `public const` em nivel de modulo com import alias (`mod.CONST`).
 - `public_var_module/`: projeto valido. Exercita leitura de `public var` em nivel de modulo via import alias (`mod.VAR`).
 - `public_var_module_state/`: projeto valido. Exercita persistencia de estado de `public var` entre funcoes do modulo.
+- `optional_struct_qualified_managed/`: projeto valido. Exercita `optional<mod.Struct>` com retorno direto de `struct`, nome qualificado entre modulos e isolamento de campo gerenciado (`list<text>`) dentro do payload.
 - `public_var_cross_namespace_write_error/`: projeto invalido. Garante que `public var` nao pode ser mutado fora do namespace de origem.
 - `std_random_basic/`: projeto valido. Exercita `std.random` baseline (`seed`, `next`, `between`) e valida o estado publico (`seeded`, `last_seed`, `draw_count`).
 - `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
@@ -78,6 +79,7 @@ amespace` nao corresponde ao caminho do arquivo.
 - `where_contract_field_assign_error/`: projeto invalido em runtime. Deve falhar com `error[runtime.contract]` por violacao de contrato em atribuicao de campo.
 - `std_net_basic/`: projeto valido. Exercita `std.net` no baseline atual via loopback TCP local. O script `run-loopback.ps1` sobe um servidor local em `127.0.0.1:41234`, executa o binario e fecha o listener automaticamente.
 - `std_collections_managed_arc/`: projeto valido. Exercita copy/mutate isolation em `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>`.
+- `std_collections_queue_stack_cow/`: projeto valido. Exercita `queue/stack` com retorno estruturado em `dequeue/pop`, preservando isolamento apos copia compartilhada.
 - `edge_boundaries_empty/`: projeto valido. Exercita valores-limite (`u8/u16/u32/u64`, `int` proximo ao limite) e estruturas vazias (`text/list/map/bytes`).
 - `std_test_basic/`: projeto valido. Exercita `std.test` diretamente via `main`, validando os desfechos de `skip(...)` e `fail(...)` no comando `zt test`.
 - `std_test_attr_pass_skip/`: projeto valido. Exercita o harness real de `zt test` com funcoes marcadas por `attr test`, cobrindo 1 caso pass e 1 caso skip.

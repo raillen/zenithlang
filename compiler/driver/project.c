@@ -33,13 +33,20 @@ void zt_project_source_file_list_dispose(zt_project_source_file_list *list) {
     memset(list, 0, sizeof(*list));
 }
 
-int zt_load_since_filter(const char *project_root, const char *since_ref) {
-    char command[1024];
-    FILE *pipe;
+int zt_load_since_filter(
+        zt_driver_context *ctx,
+        const char *project_root,
+        const char *since_ref) {
+    const char *argv[8];
+    char capture_path[512];
+    FILE *capture;
     char line[1024];
     int status;
+    int spawn_failed = 0;
 
-    zt_path_filter_list_dispose(&zt_since_filter);
+    if (ctx == NULL) return 0;
+
+    zt_path_filter_list_dispose(&ctx->since_filter);
 
     if (since_ref == NULL || since_ref[0] == '\0') {
         return 1;
@@ -55,18 +62,35 @@ int zt_load_since_filter(const char *project_root, const char *since_ref) {
         return 0;
     }
 
-    if (snprintf(command, sizeof(command), "git -C \"%s\" diff --name-only %s --", project_root, since_ref) >= (int)sizeof(command)) {
-        fprintf(stderr, "error: --since command is too long\n");
+    if (!zt_native_make_temp_path(capture_path, sizeof(capture_path), "since-filter", ".log")) {
+        fprintf(stderr, "error: cannot prepare --since capture file\n");
         return 0;
     }
 
-    pipe = ZT_POPEN(command, "r");
-    if (pipe == NULL) {
-        fprintf(stderr, "error: cannot execute git for --since\n");
+    argv[0] = "git";
+    argv[1] = "-C";
+    argv[2] = project_root;
+    argv[3] = "diff";
+    argv[4] = "--name-only";
+    argv[5] = since_ref;
+    argv[6] = "--";
+    argv[7] = NULL;
+
+    status = zt_native_spawn_process(argv, capture_path, &spawn_failed);
+    if (spawn_failed || status != 0) {
+        zt_native_remove_file_if_exists(capture_path);
+        fprintf(stderr, "error: git diff failed for --since ref '%s'\n", since_ref);
         return 0;
     }
 
-    while (fgets(line, sizeof(line), pipe) != NULL) {
+    capture = fopen(capture_path, "rb");
+    if (capture == NULL) {
+        zt_native_remove_file_if_exists(capture_path);
+        fprintf(stderr, "error: cannot read git output for --since\n");
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), capture) != NULL) {
         size_t len = strlen(line);
         while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
             line[len - 1] = '\0';
@@ -77,21 +101,23 @@ int zt_load_since_filter(const char *project_root, const char *since_ref) {
             memmove(line, line + 2, strlen(line + 2) + 1);
         }
         zt_normalize_path_separators(line);
-        if (!zt_path_filter_list_push(&zt_since_filter, line)) {
-            ZT_PCLOSE(pipe);
+        if (!zt_path_filter_list_push(&ctx->since_filter, line)) {
+            fclose(capture);
+            zt_native_remove_file_if_exists(capture_path);
             fprintf(stderr, "error: out of memory while loading --since filter\n");
-            zt_path_filter_list_dispose(&zt_since_filter);
+            zt_path_filter_list_dispose(&ctx->since_filter);
             return 0;
         }
     }
 
-    status = ZT_PCLOSE(pipe);
-    if (status != 0) {
-        fprintf(stderr, "error: git diff failed for --since ref '%s'\n", since_ref);
-        zt_path_filter_list_dispose(&zt_since_filter);
+    if (fclose(capture) != 0) {
+        zt_native_remove_file_if_exists(capture_path);
+        fprintf(stderr, "error: cannot close git output for --since\n");
+        zt_path_filter_list_dispose(&ctx->since_filter);
         return 0;
     }
 
+    zt_native_remove_file_if_exists(capture_path);
     return 1;
 }
 
@@ -524,7 +550,7 @@ int zt_validate_source_namespaces(
     return 1;
 }
 
-int zt_parse_project_sources(zt_project_source_file_list *files) {
+int zt_parse_project_sources(zt_driver_context *ctx, zt_project_source_file_list *files) {
     size_t i;
 
     if (files == NULL) return 0;
@@ -540,7 +566,7 @@ int zt_parse_project_sources(zt_project_source_file_list *files) {
         files->items[i].parsed_ready = 1;
 
         if (files->items[i].parsed.diagnostics.count != 0) {
-            zt_diag_render_detailed_list(stderr, "parser", &files->items[i].parsed.diagnostics);
+            zt_print_diagnostics(ctx, "parser", &files->items[i].parsed.diagnostics);
             return 0;
         }
 

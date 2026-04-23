@@ -1,0 +1,17 @@
+namespace fuzz.method_receiver
+
+struct Counter
+    value: int
+end
+
+apply Counter
+    mut func increment()
+        self.value = self.value + 1
+    end
+end
+
+public func main() -> int
+    const c: Counter = Counter(value: 0)
+    c.increment()  -- Error: const receiver, mut method
+    return c.value
+end

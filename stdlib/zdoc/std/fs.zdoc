@@ -1,9 +1,9 @@
 --- @target: namespace
-# std.fs — Sistema de Arquivos
+# std.fs - modulo de filesystem do alpha atual
 
-Módulo síncrono de filesystem. Caminhos são `text` no MVP.
-Manipulação de caminhos fica em `std.fs.path`.
-Diretório atual fica em `std.os`.
+Modulo sincrono de filesystem.
+Caminhos sao `text`.
+Manipulacao de path continua em `std.fs.path`.
 ---
 
 --- @target: Error
@@ -20,21 +20,22 @@ public enum Error
 end
 ```
 
-Erro tipado para operações de filesystem.
+Erro tipado para operacoes de filesystem.
 ---
 
 --- @target: Metadata
 ```zt
 public struct Metadata
     size_bytes: int
-    modified_at: time.Instant
-    created_at: optional<time.Instant>
+    modified_at_ms: int
+    created_at_ms: optional<int>
     is_file: bool
     is_dir: bool
 end
 ```
 
-Metadados de uma entrada do filesystem.
+Metadados expostos no alpha atual.
+Timestamps usam Unix milliseconds.
 ---
 
 --- @target: read_text
@@ -42,10 +43,7 @@ Metadados de uma entrada do filesystem.
 public func read_text(path: text) -> result<text, fs.Error>
 ```
 
-Lê o conteúdo textual de um arquivo (UTF-8).
-
-@param path — Caminho do arquivo.
-@return Conteúdo do arquivo, ou erro.
+Le um arquivo texto UTF-8.
 ---
 
 --- @target: write_text
@@ -53,11 +51,7 @@ Lê o conteúdo textual de um arquivo (UTF-8).
 public func write_text(path: text, content: text) -> result<void, fs.Error>
 ```
 
-Escreve conteúdo textual em um arquivo, substituindo conteúdo anterior.
-
-@param path — Caminho do arquivo.
-@param content — Texto a escrever.
-@return `void` em sucesso, ou erro.
+Escreve texto, substituindo o conteudo anterior.
 ---
 
 --- @target: append_text
@@ -65,11 +59,7 @@ Escreve conteúdo textual em um arquivo, substituindo conteúdo anterior.
 public func append_text(path: text, content: text) -> result<void, fs.Error>
 ```
 
-Adiciona conteúdo textual ao final de um arquivo.
-
-@param path — Caminho do arquivo.
-@param content — Texto a adicionar.
-@return `void` em sucesso, ou erro.
+Acrescenta texto ao final do arquivo.
 ---
 
 --- @target: exists
@@ -77,11 +67,7 @@ Adiciona conteúdo textual ao final de um arquivo.
 public func exists(path: text) -> result<bool, fs.Error>
 ```
 
-Verifica se um caminho existe no filesystem.
-Retorna `result` para distinguir "não existe" de "falha ao verificar".
-
-@param path — Caminho a verificar.
-@return `true` se existe, `false` se não, ou erro de I/O.
+Verifica se o caminho existe.
 ---
 
 --- @target: is_file
@@ -89,7 +75,7 @@ Retorna `result` para distinguir "não existe" de "falha ao verificar".
 public func is_file(path: text) -> result<bool, fs.Error>
 ```
 
-Verifica se o caminho aponta para um arquivo.
+Verifica se o caminho aponta para arquivo.
 ---
 
 --- @target: is_dir
@@ -97,7 +83,7 @@ Verifica se o caminho aponta para um arquivo.
 public func is_dir(path: text) -> result<bool, fs.Error>
 ```
 
-Verifica se o caminho aponta para um diretório.
+Verifica se o caminho aponta para diretorio.
 ---
 
 --- @target: create_dir
@@ -105,7 +91,7 @@ Verifica se o caminho aponta para um diretório.
 public func create_dir(path: text) -> result<void, fs.Error>
 ```
 
-Cria um diretório. Falha se o pai não existir.
+Cria um diretorio.
 ---
 
 --- @target: create_dir_all
@@ -113,7 +99,7 @@ Cria um diretório. Falha se o pai não existir.
 public func create_dir_all(path: text) -> result<void, fs.Error>
 ```
 
-Cria um diretório e todos os pais necessários.
+Cria um diretorio e os pais necessarios.
 ---
 
 --- @target: list_dir
@@ -121,10 +107,7 @@ Cria um diretório e todos os pais necessários.
 public func list_dir(path: text) -> result<list<text>, fs.Error>
 ```
 
-Lista os nomes das entradas de um diretório.
-
-@param path — Caminho do diretório.
-@return Lista de nomes de entradas.
+Lista os nomes das entradas de um diretorio.
 ---
 
 --- @target: remove_file
@@ -140,7 +123,7 @@ Remove um arquivo.
 public func remove_dir(path: text) -> result<void, fs.Error>
 ```
 
-Remove um diretório vazio.
+Remove um diretorio vazio.
 ---
 
 --- @target: remove_dir_all
@@ -148,7 +131,7 @@ Remove um diretório vazio.
 public func remove_dir_all(path: text) -> result<void, fs.Error>
 ```
 
-Remove um diretório e todo o seu conteúdo recursivamente.
+Remove um diretorio recursivamente.
 ---
 
 --- @target: copy_file
@@ -157,9 +140,6 @@ public func copy_file(from: text, to: text) -> result<void, fs.Error>
 ```
 
 Copia um arquivo.
-
-@param from — Caminho de origem.
-@param to — Caminho de destino.
 ---
 
 --- @target: move
@@ -167,10 +147,7 @@ Copia um arquivo.
 public func move(from: text, to: text) -> result<void, fs.Error>
 ```
 
-Move ou renomeia uma entrada do filesystem.
-
-@param from — Caminho de origem.
-@param to — Caminho de destino.
+Move ou renomeia uma entrada.
 ---
 
 --- @target: metadata
@@ -178,7 +155,7 @@ Move ou renomeia uma entrada do filesystem.
 public func metadata(path: text) -> result<fs.Metadata, fs.Error>
 ```
 
-Retorna metadados completos de uma entrada.
+Retorna metadados completos da entrada.
 ---
 
 --- @target: size
@@ -186,22 +163,21 @@ Retorna metadados completos de uma entrada.
 public func size(path: text) -> result<int, fs.Error>
 ```
 
-Retorna o tamanho de um arquivo em bytes.
+Retorna o tamanho em bytes.
 ---
 
 --- @target: modified_at
 ```zt
-public func modified_at(path: text) -> result<time.Instant, fs.Error>
+public func modified_at(path: text) -> result<int, fs.Error>
 ```
 
-Retorna o timestamp de modificación.
+Retorna o timestamp de modificacao em Unix milliseconds.
 ---
 
 --- @target: created_at
 ```zt
-public func created_at(path: text) -> result<optional<time.Instant>, fs.Error>
+public func created_at(path: text) -> result<optional<int>, fs.Error>
 ```
 
-Retorna o timestamp de criação.
-Retorna `none` quando a informação não está disponível na plataforma/filesystem.
+Retorna o timestamp de criacao em Unix milliseconds quando disponivel.
 ---

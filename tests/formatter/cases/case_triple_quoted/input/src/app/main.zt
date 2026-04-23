@@ -1,0 +1,11 @@
+namespace app.main
+
+func main() -> int
+const poem: text = """rosa
+azul
+fim"""
+if len(poem) > 0
+return 0
+end
+return 1
+end

@@ -1,0 +1,122 @@
+namespace borealis.game.entities3d
+
+public struct Entity3DDebugInfo
+    position: game.Vector3
+    rotation: game.Vector3
+    scale: game.Vector3
+    model_id: int
+end
+
+public var entity3d_x: map<int, float> = {}
+public var entity3d_y: map<int, float> = {}
+public var entity3d_z: map<int, float> = {}
+public var entity3d_rot_x: map<int, float> = {}
+public var entity3d_rot_y: map<int, float> = {}
+public var entity3d_rot_z: map<int, float> = {}
+public var entity3d_scale_x: map<int, float> = {}
+public var entity3d_scale_y: map<int, float> = {}
+public var entity3d_scale_z: map<int, float> = {}
+public var entity3d_model_id: map<int, int> = {}
+
+public func entity3d_create(name: text) -> result<entities.Entity, core.Error>
+    const entity: entities.Entity = entities.entity_create(name)?
+    entities3d.entity3d_set_position(entity, game.vec3(0.0, 0.0, 0.0))?
+    entities3d.entity3d_set_rotation(entity, game.vec3(0.0, 0.0, 0.0))?
+    entities3d.entity3d_set_scale(entity, game.vec3(1.0, 1.0, 1.0))?
+    return success(entity)
+end
+
+public func entity3d_spawn_model(name: text, model_id: assets3d.ModelHandle) -> result<entities.Entity, core.Error>
+    const entity: entities.Entity = entities3d.entity3d_create(name)?
+    entities3d.entity3d_set_model(entity, model_id)?
+    return success(entity)
+end
+
+public func entity3d_set_position(entity: entities.Entity, position: game.Vector3) -> result<void, core.Error>
+    entity3d_x = entities3d.set_float(entity3d_x, entity.id, position.x)
+    entity3d_y = entities3d.set_float(entity3d_y, entity.id, position.y)
+    entity3d_z = entities3d.set_float(entity3d_z, entity.id, position.z)
+    return success()
+end
+
+public func entity3d_get_position(entity: entities.Entity) -> game.Vector3
+    return game.vec3(entities3d.float_or(entity3d_x, entity.id, 0.0), entities3d.float_or(entity3d_y, entity.id, 0.0), entities3d.float_or(entity3d_z, entity.id, 0.0))
+end
+
+public func entity3d_set_rotation(entity: entities.Entity, rotation: game.Vector3) -> result<void, core.Error>
+    entity3d_rot_x = entities3d.set_float(entity3d_rot_x, entity.id, rotation.x)
+    entity3d_rot_y = entities3d.set_float(entity3d_rot_y, entity.id, rotation.y)
+    entity3d_rot_z = entities3d.set_float(entity3d_rot_z, entity.id, rotation.z)
+    return success()
+end
+
+public func entity3d_get_rotation(entity: entities.Entity) -> game.Vector3
+    return game.vec3(entities3d.float_or(entity3d_rot_x, entity.id, 0.0), entities3d.float_or(entity3d_rot_y, entity.id, 0.0), entities3d.float_or(entity3d_rot_z, entity.id, 0.0))
+end
+
+public func entity3d_set_scale(entity: entities.Entity, scale: game.Vector3) -> result<void, core.Error>
+    entity3d_scale_x = entities3d.set_float(entity3d_scale_x, entity.id, scale.x)
+    entity3d_scale_y = entities3d.set_float(entity3d_scale_y, entity.id, scale.y)
+    entity3d_scale_z = entities3d.set_float(entity3d_scale_z, entity.id, scale.z)
+    return success()
+end
+
+public func entity3d_get_scale(entity: entities.Entity) -> game.Vector3
+    return game.vec3(entities3d.float_or(entity3d_scale_x, entity.id, 1.0), entities3d.float_or(entity3d_scale_y, entity.id, 1.0), entities3d.float_or(entity3d_scale_z, entity.id, 1.0))
+end
+
+public func entity3d_set_model(entity: entities.Entity, model_id: assets3d.ModelHandle) -> result<void, core.Error>
+    entity3d_model_id = entities3d.set_int(entity3d_model_id, entity.id, model_id.id)
+    return success()
+end
+
+public func entity3d_get_model(entity: entities.Entity) -> optional<assets3d.ModelHandle>
+    const maybe: optional<int> = entity3d_model_id.get(entity.id)
+    match maybe
+        case value present ->
+            return assets3d.ModelHandle(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func entity3d_debug_info(entity: entities.Entity) -> entities3d.Entity3DDebugInfo
+    return entities3d.Entity3DDebugInfo(
+        position: entities3d.entity3d_get_position(entity),
+        rotation: entities3d.entity3d_get_rotation(entity),
+        scale: entities3d.entity3d_get_scale(entity),
+        model_id: entities3d.int_or(entity3d_model_id, entity.id, 0)
+    )
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+    const maybe: optional<int> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end

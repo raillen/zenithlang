@@ -38,6 +38,8 @@ Legend:
 | `list_dyn_trait_basic` | `list<dyn<TextRepresentable>>` heterogenea com `for` + `to_text()` | `16` |
 | `list_slice_len` | `list<int>` slice and `len(list)` | `37` |
 | `text_slice_len` | `text` slice and `len(text)` | `8` |
+| `text_utf8_index_slice` | `text` index/slice por code point com UTF-8 multi-byte | `21` |
+| `std_text_basic` | `std.text` alpha-safe (`trim`, busca, predicados, `limit`, `to_utf8`) | `0` |
 | `map_basic` | `map<text,text>` literal, index and update | `0` |
 | `map_int_text_basic` | `map<int,text>` literal, index, update and `len(map)` | `7` |
 | `map_safe_get` | Safe lookup `map.get(key) -> optional<text>` sem panic em chave ausente | `15` |
@@ -47,7 +49,9 @@ Legend:
 | `value_semantics_struct_managed` | Copy/mutate isolation para struct com campos `list/map` via rebind COW | `131` |
 | `value_semantics_arc_isolation` | Chain-copy isolation (`a -> b -> c`) for `list` and `map` under COW/RC | `158` |
 | `value_semantics_optional_result_managed` | `optional<list<int>>` creation/copy and `result<list<int>, text>` `?` with COW-safe list mutation | `0` |
+| `optional_struct_qualified_managed` | `optional<mod.Struct>` com `struct` qualificada, retorno direto de payload e isolamento de campo gerenciado em `list<text>` | `0` |
 | `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
+| `std_collections_queue_stack_cow` | `queue/stack` com retorno estruturado (`colecao + item`) e isolamento por copia em `dequeue/pop` | `0` |
 | `optional_result_basic` | 
 one`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
@@ -64,6 +68,7 @@ one`, `success(...)` and `error(...)` | `0` |
 | `std_format_basic` | `std.format` com `BytesStyle` tipado (`hex`, `bin`, `bytes(style: ...)`, `bytes_binary`, `bytes_decimal`) | `0` |
 | `fmt_interpolation_basic` | `fmt "..."` end-to-end com expressao, chamada, bool e escape de chaves | `0` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
+| `std_fs_ops_basic` | `std.fs` create/list/metadata/copy/move/remove com caminhos reais | `0` |
 | `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, 
 ame_without_extension`, `has_ext`, `change_ext`, 
 ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-probe | `0` |

@@ -1,0 +1,11 @@
+namespace fuzz.trait_violation
+
+struct NotHashable
+    value: int
+end
+
+public func main() -> int
+    -- map requer Hashable, NotHashable não implementa
+    const m: map<NotHashable, int> = {}
+    return 0
+end

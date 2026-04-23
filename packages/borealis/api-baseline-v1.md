@@ -155,6 +155,11 @@ B6 scaffolds modulares (inicial):
 - `borealis.game.debug`: `set_enabled`, `is_enabled`, `watch_text`, `hitbox_text`
 - `borealis.game.editor`: `set/get label`, `set/get note`, `set/get group`, `set/is locked`, `set/is hidden`, `inspect`
 
+Observacao de comportamento:
+
+- `save.slot_read(...)` retorna `none` quando o slot foi apagado
+- `storage.read(...)` retorna `none` quando a chave foi removida
+
 ## borealis (compat raiz)
 
 Mantido para compatibilidade no ciclo atual, com janela/frame/draw/input e primitives de desenho base.

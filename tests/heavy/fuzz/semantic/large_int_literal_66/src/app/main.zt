@@ -1,0 +1,7 @@
+namespace fuzz.large_int
+
+public func main() -> int
+    -- Literal maior que i64 max
+    const x: int = 9223372036854775808
+    return x
+end

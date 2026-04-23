@@ -392,7 +392,7 @@ static void test_make_map_int_text_expr(void) {
     static const char *const fragments[] = {
         "#include \"runtime/c/zenith_rt_templates.h\"",
         "static uint32_t zt_map_generated_map_int_text__heap_kind(void);",
-        "ZT_DEFINE_MAP(generated_map_int_text_, zt_int, zt_text *, zt_optional_text, zt_map_generated_map_int_text__heap_kind(), 0, 1, zt_i64_eq, zt_optional_text_present, zt_optional_text_empty)",
+        "ZT_DEFINE_MAP(generated_map_int_text_, zt_int, zt_text *, zt_optional_text, zt_map_generated_map_int_text__heap_kind(), 0, 1, zt_i64_eq, zt_i64_hash, zt_optional_text_present, zt_optional_text_empty)",
         "kind = zt_register_dynamic_heap_kind((zt_heap_free_fn)zt_free_map_generated_map_int_text_, (zt_heap_clone_fn)zt_map_generated_map_int_text__deep_copy);",
         "static zt_text *zt_main__pick_map_generated(zt_int k1, zt_text *v1, zt_int k2, zt_text *v2);",
         "zt_map_generated_map_int_text_ *t0 = NULL;",

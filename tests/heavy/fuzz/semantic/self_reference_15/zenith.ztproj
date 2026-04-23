@@ -1,0 +1,8 @@
+{
+  "project": {
+    "name": "fuzz_test",
+    "version": "0.1.0",
+    "source": { "root": "src" },
+    "build": { "target": "native", "mode": "debug" }
+  }
+}

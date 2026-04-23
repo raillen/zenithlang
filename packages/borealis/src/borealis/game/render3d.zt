@@ -1,0 +1,168 @@
+namespace borealis.game.render3d
+
+public enum QualityProfile
+    Low
+    Medium
+    High
+end
+
+public struct LightId
+    id: int
+end
+
+public struct AmbientLightState
+    color: game.Color
+    intensity: float
+end
+
+public struct DirectionalLightState
+    direction: game.Vector3
+    color: game.Color
+    intensity: float
+end
+
+public struct PointLightState
+    position: game.Vector3
+    color: game.Color
+    intensity: float
+    range: float
+    enabled: bool
+end
+
+public var render3d_quality: render3d.QualityProfile = render3d.QualityProfile.Medium
+public var ambient_light: render3d.AmbientLightState = render3d.AmbientLightState(color: game.rgb(180, 180, 180), intensity: 1.0)
+public var directional_light: render3d.DirectionalLightState = render3d.DirectionalLightState(direction: game.vec3(0.0, -1.0, 0.0), color: game.rgb(255, 255, 255), intensity: 1.0)
+public var render3d_light_next_id: int = 1
+public var render3d_light_enabled: map<int, bool> = {}
+public var render3d_light_x: map<int, float> = {}
+public var render3d_light_y: map<int, float> = {}
+public var render3d_light_z: map<int, float> = {}
+public var render3d_light_intensity: map<int, float> = {}
+public var render3d_light_range: map<int, float> = {}
+
+public func render3d_begin(_camera: camera3d.Camera3D) -> result<void, core.Error>
+    return success()
+end
+
+public func render3d_end() -> result<void, core.Error>
+    return success()
+end
+
+public func draw_mesh(_mesh: assets3d.MeshId, _material: assets3d.MaterialHandle, _transform: game.Transform3D) -> result<void, core.Error>
+    return success()
+end
+
+public func draw_model(_model: assets3d.ModelHandle, _transform: game.Transform3D) -> result<void, core.Error>
+    return success()
+end
+
+public func draw_cube(_position: game.Vector3, _size: game.Vector3, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func draw_billboard(_texture: assets3d.TextureId, _position: game.Vector3, _size: game.Vector2, _tint: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func render3d_set_quality_profile(level: render3d.QualityProfile) -> result<void, core.Error>
+    render3d_quality = level
+    return success()
+end
+
+public func render3d_get_quality_profile() -> render3d.QualityProfile
+    return render3d_quality
+end
+
+public func set_ambient_light(color: game.Color, intensity: float) -> result<void, core.Error>
+    ambient_light = render3d.AmbientLightState(color: color, intensity: intensity)
+    return success()
+end
+
+public func get_ambient_light() -> render3d.AmbientLightState
+    return ambient_light
+end
+
+public func set_directional_light(direction: game.Vector3, color: game.Color, intensity: float) -> result<void, core.Error>
+    directional_light = render3d.DirectionalLightState(direction: direction, color: color, intensity: intensity)
+    return success()
+end
+
+public func get_directional_light() -> render3d.DirectionalLightState
+    return directional_light
+end
+
+public func point_light_create(position: game.Vector3, color: game.Color, intensity: float, range: float) -> result<render3d.LightId, core.Error>
+    const id: int = render3d_light_next_id
+    render3d_light_next_id = render3d_light_next_id + 1
+    render3d_light_enabled = render3d.set_bool(render3d_light_enabled, id, true)
+    render3d_light_x = render3d.set_float(render3d_light_x, id, position.x)
+    render3d_light_y = render3d.set_float(render3d_light_y, id, position.y)
+    render3d_light_z = render3d.set_float(render3d_light_z, id, position.z)
+    render3d_light_intensity = render3d.set_float(render3d_light_intensity, id, intensity)
+    render3d_light_range = render3d.set_float(render3d_light_range, id, range)
+    return success(render3d.LightId(id: id))
+end
+
+public func point_light_set_enabled(id: render3d.LightId, enabled: bool) -> result<void, core.Error>
+    render3d_light_enabled = render3d.set_bool(render3d_light_enabled, id.id, enabled)
+    return success()
+end
+
+public func point_light_is_enabled(id: render3d.LightId) -> bool
+    return render3d.bool_or(render3d_light_enabled, id.id, false)
+end
+
+public func point_light_toggle(id: render3d.LightId) -> result<bool, core.Error>
+    const next: bool = render3d.point_light_is_enabled(id) == false
+    render3d_light_enabled = render3d.set_bool(render3d_light_enabled, id.id, next)
+    return success(next)
+end
+
+public func point_light_get(id: render3d.LightId) -> optional<render3d.PointLightState>
+    if render3d.point_light_is_enabled(id) == false and render3d.float_or(render3d_light_intensity, id.id, -1.0) < 0.0
+        return none
+    end
+    return render3d.PointLightState(
+        position: game.vec3(render3d.float_or(render3d_light_x, id.id, 0.0), render3d.float_or(render3d_light_y, id.id, 0.0), render3d.float_or(render3d_light_z, id.id, 0.0)),
+        color: game.rgb(255, 255, 255),
+        intensity: render3d.float_or(render3d_light_intensity, id.id, 1.0),
+        range: render3d.float_or(render3d_light_range, id.id, 4.0),
+        enabled: render3d.point_light_is_enabled(id)
+    )
+end
+
+public func lights_update_effects(_dt: float) -> result<void, core.Error>
+    return success()
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end

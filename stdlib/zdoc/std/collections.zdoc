@@ -5,6 +5,50 @@ Módulo com 8 tipos de estruturas de dados além dos `list` e `map` nativos: Que
 Todas as variantes existem para `int` e `text`. Mutações retornam cópias novas (COW — Copy-on-Write) via operações `*_owned` no runtime C.
 ---
 
+--- @target: QueueNumberDequeueResult
+```zt
+public struct QueueNumberDequeueResult
+    queue: list<int>
+    value: optional<int>
+end
+```
+
+Resultado tipado de `queue_int_dequeue`: devolve a fila atualizada e o item removido.
+---
+
+--- @target: QueueTextDequeueResult
+```zt
+public struct QueueTextDequeueResult
+    queue: list<text>
+    value: optional<text>
+end
+```
+
+Resultado tipado de `queue_text_dequeue`: devolve a fila atualizada e o item removido.
+---
+
+--- @target: StackNumberPopResult
+```zt
+public struct StackNumberPopResult
+    stack: list<int>
+    value: optional<int>
+end
+```
+
+Resultado tipado de `stack_int_pop`: devolve a pilha atualizada e o item removido do topo.
+---
+
+--- @target: StackTextPopResult
+```zt
+public struct StackTextPopResult
+    stack: list<text>
+    value: optional<text>
+end
+```
+
+Resultado tipado de `stack_text_pop`: devolve a pilha atualizada e o item removido do topo.
+---
+
 --- @target: queue_int_new
 ```zt
 public func queue_int_new() -> list<int>
@@ -43,20 +87,20 @@ Adiciona um elemento ao final da fila. Retorna a fila atualizada.
 
 --- @target: queue_int_dequeue
 ```zt
-public func queue_int_dequeue(queue: list<int>) -> optional<int>
-public func queue_text_dequeue(queue: list<text>) -> optional<text>
+public func queue_int_dequeue(queue: list<int>) -> collections.QueueNumberDequeueResult
+public func queue_text_dequeue(queue: list<text>) -> collections.QueueTextDequeueResult
 ```
 
-Remove e retorna o elemento da frente. Retorna `none` se a fila estiver vazia.
+Remove o elemento da frente e devolve um pacote com a fila atualizada e o item removido.
 ---
 
 --- @target: queue_text_dequeue
 ```zt
-public func queue_int_dequeue(queue: list<int>) -> optional<int>
-public func queue_text_dequeue(queue: list<text>) -> optional<text>
+public func queue_int_dequeue(queue: list<int>) -> collections.QueueNumberDequeueResult
+public func queue_text_dequeue(queue: list<text>) -> collections.QueueTextDequeueResult
 ```
 
-Remove e retorna o elemento da frente. Retorna `none` se a fila estiver vazia.
+Remove o elemento da frente e devolve a fila atualizada junto com o item removido.
 ---
 
 --- @target: queue_int_peek
@@ -119,20 +163,20 @@ Empilha um elemento no topo.
 
 --- @target: stack_int_pop
 ```zt
-public func stack_int_pop(stack: list<int>) -> optional<int>
-public func stack_text_pop(stack: list<text>) -> optional<text>
+public func stack_int_pop(stack: list<int>) -> collections.StackNumberPopResult
+public func stack_text_pop(stack: list<text>) -> collections.StackTextPopResult
 ```
 
-Remove e retorna o elemento do topo. Retorna `none` se vazia.
+Remove o elemento do topo e devolve um pacote com a pilha atualizada e o item removido.
 ---
 
 --- @target: stack_text_pop
 ```zt
-public func stack_int_pop(stack: list<int>) -> optional<int>
-public func stack_text_pop(stack: list<text>) -> optional<text>
+public func stack_int_pop(stack: list<int>) -> collections.StackNumberPopResult
+public func stack_text_pop(stack: list<text>) -> collections.StackTextPopResult
 ```
 
-Remove e retorna o elemento do topo. Retorna `none` se vazia.
+Remove o elemento do topo e devolve a pilha atualizada junto com o item removido.
 ---
 
 --- @target: stack_int_peek

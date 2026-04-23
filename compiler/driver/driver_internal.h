@@ -61,17 +61,6 @@
 extern zt_arena global_arena;
 extern zt_string_pool global_pool;
 
-extern int zt_ci_mode_enabled;
-extern zt_cog_profile zt_active_profile;
-extern int zt_show_all_errors;
-extern const char *zt_focus_path;
-extern const char *zt_since_ref;
-extern int zt_use_action_first;
-extern const zt_project_manifest *zt_active_manifest;
-extern int zt_telemetry_enabled;
-extern int zt_native_raw_output;
-extern char zt_project_root_abs[512];
-
 /* ── Path filter list ────────────────────────────────────────────── */
 
 typedef struct zt_path_filter_list {
@@ -80,7 +69,22 @@ typedef struct zt_path_filter_list {
     size_t capacity;
 } zt_path_filter_list;
 
-extern zt_path_filter_list zt_since_filter;
+typedef struct zt_driver_context {
+    int ci_mode_enabled;
+    int show_all_errors;
+    const char *focus_path;
+    const char *since_ref;
+    int native_raw_output;
+    int telemetry_forced;
+    int profile_locked;
+    zt_cog_profile configured_profile;
+    zt_cog_profile active_profile;
+    int use_action_first;
+    const zt_project_manifest *active_manifest;
+    int telemetry_enabled;
+    char project_root_abs[512];
+    zt_path_filter_list since_filter;
+} zt_driver_context;
 
 /* ── Source file management ──────────────────────────────────────── */
 
@@ -118,6 +122,16 @@ void zt_normalize_path_inplace(char *path);
 int zt_path_char_equal(char left, char right);
 int zt_path_suffix_matches(const char *path, const char *suffix);
 void zt_normalize_system_path(const char *input, char *output, size_t output_size);
+int zt_native_make_temp_path(
+        char *buffer,
+        size_t capacity,
+        const char *prefix,
+        const char *extension);
+int zt_native_spawn_process(
+        const char *const *argv,
+        const char *capture_path,
+        int *out_spawn_failed);
+int zt_native_remove_file_if_exists(const char *path);
 
 /* ── project.c — Project source management ───────────────────────── */
 
@@ -136,19 +150,32 @@ int zt_validate_source_namespaces(
         const zt_project_source_file_list *files,
         const zt_project_manifest *manifest,
         zt_diag_list *diagnostics);
-int zt_parse_project_sources(zt_project_source_file_list *files);
+int zt_parse_project_sources(zt_driver_context *ctx, zt_project_source_file_list *files);
 zt_ast_node *zt_build_combined_project_ast(
         zt_project_source_file_list *files,
         const zt_project_manifest *manifest);
-int zt_load_since_filter(const char *project_root, const char *since_ref);
+int zt_load_since_filter(
+        zt_driver_context *ctx,
+        const char *project_root,
+        const char *since_ref);
 void zt_path_filter_list_dispose(zt_path_filter_list *list);
 int zt_path_filter_list_push(zt_path_filter_list *list, const char *entry);
 
 /* ── main.c — Diagnostics and CLI ────────────────────────────────── */
 
+void zt_driver_context_init(zt_driver_context *ctx);
+void zt_driver_context_dispose(zt_driver_context *ctx);
+void zt_driver_context_activate_project(
+        zt_driver_context *ctx,
+        const zt_project_manifest *manifest,
+        const char *project_root);
 void zt_apply_manifest_lang(const zt_project_manifest *manifest);
-void zt_print_diagnostics(const char *stage, const zt_diag_list *diagnostics);
+void zt_print_diagnostics(
+        zt_driver_context *ctx,
+        const char *stage,
+        const zt_diag_list *diagnostics);
 void zt_print_single_diag(
+        zt_driver_context *ctx,
         const char *stage,
         zt_diag_code code,
         zt_source_span span,
@@ -160,11 +187,15 @@ int zt_resolve_project_paths(
         size_t project_root_capacity,
         char *manifest_path,
         size_t manifest_path_capacity);
-void zt_print_project_parse_error(const char *manifest_path, const zt_project_parse_result *project);
+void zt_print_project_parse_error(
+        zt_driver_context *ctx,
+        const char *manifest_path,
+        const zt_project_parse_result *project);
 zt_diag_code zt_diag_code_from_zir_verifier(zir_verifier_code code);
 zt_diag_code zt_diag_code_from_zir_parse_error(zir_parse_error_code code);
 zt_diag_code zt_diag_code_from_c_emit_error(c_emit_error_code code);
 int zt_collect_project_sources(
+        zt_driver_context *ctx,
         const char *input_path,
         zt_project_manifest *manifest,
         char *project_root,
@@ -185,12 +216,19 @@ typedef struct zt_project_compile_result {
 
 void zt_project_compile_result_init(zt_project_compile_result *result);
 void zt_project_compile_result_dispose(zt_project_compile_result *result);
-int zt_compile_project(const char *input_path, zt_project_compile_result *out);
+int zt_compile_project(
+        zt_driver_context *ctx,
+        const char *input_path,
+        zt_project_compile_result *out);
 int zt_emit_module_to_c(
         const zir_module *module_decl,
         c_emitter *emitter,
         c_emit_result *out_error);
-int zt_compile_c_file(const char *c_path, const char *exe_path, const zt_project_manifest *manifest);
-int zt_run_executable(const char *exe_path);
+int zt_compile_c_file(
+        zt_driver_context *ctx,
+        const char *c_path,
+        const char *exe_path,
+        const zt_project_manifest *manifest);
+int zt_run_executable(zt_driver_context *ctx, const char *exe_path);
 
 #endif /* ZT_DRIVER_INTERNAL_H */

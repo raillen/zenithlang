@@ -304,11 +304,14 @@ int main(void) {
         { "tests/behavior/control_flow_for_map", "tests\\behavior\\control_flow_for_map\\build\\control-flow-for-map.exe", "control_flow_for_map", 6 },
         { "tests/behavior/list_slice_len", "tests\\behavior\\list_slice_len\\build\\list-slice-len.exe", "list_slice_len", 37 },
         { "tests/behavior/text_slice_len", "tests\\behavior\\text_slice_len\\build\\text-slice-len.exe", "text_slice_len", 8 },
+        { "tests/behavior/text_utf8_index_slice", "tests\\behavior\\text_utf8_index_slice\\build\\text-utf8-index-slice.exe", "text_utf8_index_slice", 21 },
+        { "tests/behavior/std_text_basic", "tests\\behavior\\std_text_basic\\build\\std_text_basic.exe", "std_text_basic", 0 },
         { "tests/behavior/map_len_basic", "tests\\behavior\\map_len_basic\\build\\map-len-basic.exe", "map_len_basic", 2 },
         { "tests/behavior/result_question_basic", "tests\\behavior\\result_question_basic\\build\\result-question-basic.exe", "result_question_basic", 0 },
         { "tests/behavior/bytes_hex_literal", "tests\\behavior\\bytes_hex_literal\\build\\bytes-hex-literal.exe", "bytes_hex_literal", 9 },
         { "tests/behavior/std_bytes_utf8", "tests\\behavior\\std_bytes_utf8\\build\\std-bytes-utf8.exe", "std_bytes_utf8", 14 },
         { "tests/behavior/std_bytes_ops", "tests\\behavior\\std_bytes_ops\\build\\std-bytes-ops.exe", "std_bytes_ops", 7 },
+        { "tests/behavior/std_fs_ops_basic", "tests\\behavior\\std_fs_ops_basic\\build\\std-fs-ops-basic.exe", "std_fs_ops_basic", 0 },
         { "tests/behavior/multifile_import_alias", "tests\\behavior\\multifile_import_alias\\build\\multifile-import-alias.exe", "multifile_import_alias", 42 },
         { "tests/behavior/public_const_module", "tests\\behavior\\public_const_module\\build\\public-const-module.exe", "public_const_module", 42 },
         { "tests/behavior/where_contracts_ok", "tests\\behavior\\where_contracts_ok\\build\\where-contracts-ok.exe", "where_contracts_ok", 40 }
@@ -355,7 +358,4 @@ int main(void) {
     printf("M16 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
-
-
-
 

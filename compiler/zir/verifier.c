@@ -197,25 +197,24 @@ static int zir_contains_any_type(const char *type_name) {
 }
 
 static int zir_contains_target_leak(const char *text) {
-    static const char *const banned_fragments[] = {
-        "lua_call",
-        "lua.",
-        "zt.",
-        "ffi",
-        "metatable"
-    };
-    size_t index;
-
     if (text == NULL) {
         return 0;
     }
-
-    for (index = 0; index < ARRAY_COUNT(banned_fragments); index += 1) {
-        if (strstr(text, banned_fragments[index]) != NULL) {
-            return 1;
-        }
+    if (zir_find_token(text, "lua_call")) {
+        return 1;
     }
-
+    if (strstr(text, "lua.") != NULL) {
+        return 1;
+    }
+    if (strstr(text, "zt.") != NULL) {
+        return 1;
+    }
+    if (zir_find_token(text, "ffi")) {
+        return 1;
+    }
+    if (zir_find_token(text, "metatable")) {
+        return 1;
+    }
     return 0;
 }
 

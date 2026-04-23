@@ -1,0 +1,326 @@
+namespace borealis.game.procedural3d
+
+public struct Proc3DHandle
+    id: int
+end
+
+public struct Noise3DHandle
+    id: int
+end
+
+public struct HeightField
+    size: game.Size2
+    min_height: float
+    max_height: float
+end
+
+public struct HeightFieldChunk
+    chunk: world3d.ChunkCoord
+    field: procedural3d.HeightField
+end
+
+public struct ScatterRules
+    min_spacing: float = 1.0
+    align_to_ground: bool = true
+end
+
+public struct SpawnRules
+    tag: text = "spawn"
+end
+
+public struct SpawnPoint
+    position: game.Vector3
+    tag: text
+end
+
+public struct ScatterResult
+    count: int
+    model_id: int
+end
+
+public struct Proc3dRecipe
+    name: text
+    seed: int
+end
+
+public struct Proc3dResult
+    recipe_name: text
+    seed: int
+end
+
+public struct Proc3DDebugState
+    seed: int
+    noise_count: int
+end
+
+public var proc3d_next_id: int = 1
+public var proc3d_noise_next_id: int = 1
+public var proc3d_seed: map<int, int> = {}
+public var proc3d_noise_scale: map<int, float> = {}
+public var proc3d_noise_octaves: map<int, int> = {}
+public var proc3d_noise_persistence: map<int, float> = {}
+public var proc3d_noise_lacunarity: map<int, float> = {}
+
+public func proc3d_create(seed: int) -> result<procedural3d.Proc3DHandle, core.Error>
+    const id: int = proc3d_next_id
+    proc3d_next_id = proc3d_next_id + 1
+    proc3d_seed = procedural3d.set_int(proc3d_seed, id, seed)
+    return success(procedural3d.Proc3DHandle(id: id))
+end
+
+public func proc3d_set_seed(id: procedural3d.Proc3DHandle, seed: int) -> result<void, core.Error>
+    proc3d_seed = procedural3d.set_int(proc3d_seed, id.id, seed)
+    return success()
+end
+
+public func proc3d_get_seed(id: procedural3d.Proc3DHandle) -> int
+    return procedural3d.int_or(proc3d_seed, id.id, 1)
+end
+
+public func proc3d_reset(id: procedural3d.Proc3DHandle) -> result<void, core.Error>
+    proc3d_seed = procedural3d.set_int(proc3d_seed, id.id, procedural3d.proc3d_get_seed(id))
+    return success()
+end
+
+public func noise3d_create() -> result<procedural3d.Noise3DHandle, core.Error>
+    const id: int = proc3d_noise_next_id
+    proc3d_noise_next_id = proc3d_noise_next_id + 1
+    proc3d_noise_scale = procedural3d.set_float(proc3d_noise_scale, id, 1.0)
+    proc3d_noise_octaves = procedural3d.set_int(proc3d_noise_octaves, id, 4)
+    proc3d_noise_persistence = procedural3d.set_float(proc3d_noise_persistence, id, 0.5)
+    proc3d_noise_lacunarity = procedural3d.set_float(proc3d_noise_lacunarity, id, 2.0)
+    return success(procedural3d.Noise3DHandle(id: id))
+end
+
+public func noise3d_set_scale(id: procedural3d.Noise3DHandle, value: float) -> result<void, core.Error>
+    proc3d_noise_scale = procedural3d.set_float(proc3d_noise_scale, id.id, value)
+    return success()
+end
+
+public func noise3d_set_octaves(id: procedural3d.Noise3DHandle, value: int) -> result<void, core.Error>
+    proc3d_noise_octaves = procedural3d.set_int(proc3d_noise_octaves, id.id, value)
+    return success()
+end
+
+public func noise3d_set_persistence(id: procedural3d.Noise3DHandle, value: float) -> result<void, core.Error>
+    proc3d_noise_persistence = procedural3d.set_float(proc3d_noise_persistence, id.id, value)
+    return success()
+end
+
+public func noise3d_set_lacunarity(id: procedural3d.Noise3DHandle, value: float) -> result<void, core.Error>
+    proc3d_noise_lacunarity = procedural3d.set_float(proc3d_noise_lacunarity, id.id, value)
+    return success()
+end
+
+public func noise3d_sample(id: procedural3d.Noise3DHandle, position: game.Vector3) -> float
+    const scale: float = procedural3d.float_or(proc3d_noise_scale, id.id, 1.0)
+    const base: float = (position.x + position.y + position.z) * scale
+    return base / 7.0
+end
+
+public func noise2d_sample_height(id: procedural3d.Noise3DHandle, x: float, z: float) -> float
+    return procedural3d.noise3d_sample(id, game.vec3(x, 0.0, z))
+end
+
+public func terrain_generate_flat(_id: procedural3d.Proc3DHandle, size: game.Size2) -> procedural3d.HeightField
+    return procedural3d.HeightField(size: size, min_height: 0.0, max_height: 0.0)
+end
+
+public func terrain_generate_hills(_id: procedural3d.Proc3DHandle, size: game.Size2, noise: procedural3d.Noise3DHandle) -> procedural3d.HeightField
+    const max_height: float = 6.0 + procedural3d.noise2d_sample_height(noise, size.width, size.height)
+    return procedural3d.HeightField(size: size, min_height: 0.0, max_height: max_height)
+end
+
+public func terrain_generate_mountains(_id: procedural3d.Proc3DHandle, size: game.Size2, noise: procedural3d.Noise3DHandle) -> procedural3d.HeightField
+    const max_height: float = 16.0 + (procedural3d.noise2d_sample_height(noise, size.width, size.height) * 2.0)
+    return procedural3d.HeightField(size: size, min_height: 0.0, max_height: max_height)
+end
+
+public func terrain_generate_island(_id: procedural3d.Proc3DHandle, size: game.Size2, noise: procedural3d.Noise3DHandle) -> procedural3d.HeightField
+    const max_height: float = 4.0 + procedural3d.noise2d_sample_height(noise, size.width * 0.5, size.height * 0.5)
+    return procedural3d.HeightField(size: size, min_height: -1.0, max_height: max_height)
+end
+
+public func terrain_generate_plateau(_id: procedural3d.Proc3DHandle, size: game.Size2, noise: procedural3d.Noise3DHandle) -> procedural3d.HeightField
+    const top: float = 8.0 + procedural3d.noise2d_sample_height(noise, size.width * 0.25, size.height * 0.25)
+    return procedural3d.HeightField(size: size, min_height: 2.0, max_height: top)
+end
+
+public func terrain_smooth(field: procedural3d.HeightField, _iterations: int) -> procedural3d.HeightField
+    return field
+end
+
+public func terrain_clamp_height(field: procedural3d.HeightField, min_height: float, max_height: float) -> procedural3d.HeightField
+    var next_min: float = field.min_height
+    var next_max: float = field.max_height
+    if next_min < min_height
+        next_min = min_height
+    end
+    if next_max > max_height
+        next_max = max_height
+    end
+    return procedural3d.HeightField(size: field.size, min_height: next_min, max_height: next_max)
+end
+
+public func terrain_apply_erosion_light(field: procedural3d.HeightField, _iterations: int) -> procedural3d.HeightField
+    return field
+end
+
+public func terrain_to_world3d(_field: procedural3d.HeightField, _world: world3d.World3D) -> result<void, core.Error>
+    return success()
+end
+
+public func chunk_generate_height(id: procedural3d.Proc3DHandle, chunk_coord: world3d.ChunkCoord, noise: procedural3d.Noise3DHandle) -> procedural3d.HeightFieldChunk
+    const field: procedural3d.HeightField = procedural3d.terrain_generate_hills(id, game.size2(16.0, 16.0), noise)
+    return procedural3d.HeightFieldChunk(chunk: chunk_coord, field: field)
+end
+
+public func chunk_generate_props(_id: procedural3d.Proc3DHandle, _chunk_coord: world3d.ChunkCoord, _rules: procedural3d.ScatterRules) -> procedural3d.ScatterResult
+    return procedural3d.ScatterResult(count: 0, model_id: 0)
+end
+
+public func chunk_generate_spawn_points(_id: procedural3d.Proc3DHandle, chunk_coord: world3d.ChunkCoord, rules: procedural3d.SpawnRules) -> list<procedural3d.SpawnPoint>
+    return [
+        procedural3d.SpawnPoint(
+            position: game.vec3(0.0, 0.0, 0.0),
+            tag: rules.tag
+        )
+    ]
+end
+
+public func scatter_points(area: game.Bounds3D, count: int, _rules: procedural3d.ScatterRules) -> list<game.Vector3>
+    if count <= 0
+        return []
+    end
+    return [
+        area.min,
+        game.vec3(area.max.x, area.min.y, area.max.z)
+    ]
+end
+
+public func scatter_models(_area: game.Bounds3D, model_id: assets3d.ModelHandle, count: int, _rules: procedural3d.ScatterRules) -> procedural3d.ScatterResult
+    return procedural3d.ScatterResult(count: count, model_id: model_id.id)
+end
+
+public func scatter_entities(_area: game.Bounds3D, prefab: text, count: int, _rules: procedural3d.ScatterRules) -> result<list<entities.Entity>, core.Error>
+    if count <= 0
+        return success([])
+    end
+    const entity: entities.Entity = entities.entity_create(prefab)?
+    return success([entity])
+end
+
+public func scatter_on_terrain(field: procedural3d.HeightField, count: int, _rules: procedural3d.ScatterRules) -> list<game.Vector3>
+    if count <= 0
+        return []
+    end
+    return [game.vec3(0.0, field.max_height, 0.0)]
+end
+
+public func scatter_avoid_radius(points: list<game.Vector3>, _radius: float) -> list<game.Vector3>
+    return points
+end
+
+public func scatter_by_slope(_field: procedural3d.HeightField, _max_slope: float, _rules: procedural3d.ScatterRules) -> list<game.Vector3>
+    return []
+end
+
+public func scatter_by_height(field: procedural3d.HeightField, min_height: float, max_height: float, _rules: procedural3d.ScatterRules) -> list<game.Vector3>
+    if field.max_height < min_height or field.min_height > max_height
+        return []
+    end
+    return [game.vec3(0.0, field.max_height, 0.0)]
+end
+
+public func layout_generate_navpoints(area: game.Bounds3D, _count: int) -> list<game.Vector3>
+    return [area.min, area.max]
+end
+
+public func layout_generate_patrol_route(area: game.Bounds3D, _count: int) -> list<game.Vector3>
+    return [
+        area.min,
+        game.vec3(area.max.x, area.min.y, area.min.z),
+        area.max
+    ]
+end
+
+public func layout_generate_ring(center: game.Vector3, radius: float, _count: int) -> list<game.Vector3>
+    return [
+        game.vec3(center.x + radius, center.y, center.z),
+        game.vec3(center.x, center.y, center.z + radius),
+        game.vec3(center.x - radius, center.y, center.z),
+        game.vec3(center.x, center.y, center.z - radius)
+    ]
+end
+
+public func layout_generate_grid(area: game.Bounds3D, _spacing: float) -> list<game.Vector3>
+    return [
+        area.min,
+        game.vec3(area.max.x, area.min.y, area.min.z),
+        game.vec3(area.min.x, area.min.y, area.max.z),
+        area.max
+    ]
+end
+
+public func layout_generate_spawn_ring(center: game.Vector3, radius: float, _count: int) -> list<procedural3d.SpawnPoint>
+    return [
+        procedural3d.SpawnPoint(position: game.vec3(center.x + radius, center.y, center.z), tag: "spawn"),
+        procedural3d.SpawnPoint(position: game.vec3(center.x - radius, center.y, center.z), tag: "spawn")
+    ]
+end
+
+public func proc3d_preview_height(field: procedural3d.HeightField, _x: float, _z: float) -> float
+    return field.max_height
+end
+
+public func proc3d_debug_info(id: procedural3d.Proc3DHandle) -> procedural3d.Proc3DDebugState
+    return procedural3d.Proc3DDebugState(seed: procedural3d.proc3d_get_seed(id), noise_count: proc3d_noise_next_id - 1)
+end
+
+public func proc3d_bake_recipe(id: procedural3d.Proc3DHandle, recipe: procedural3d.Proc3dRecipe) -> procedural3d.Proc3dResult
+    proc3d_seed = procedural3d.set_int(proc3d_seed, id.id, recipe.seed)
+    return procedural3d.Proc3dResult(recipe_name: recipe.name, seed: recipe.seed)
+end
+
+public func proc3d_save_recipe(_path: text, _recipe: procedural3d.Proc3dRecipe) -> result<void, core.Error>
+    return success()
+end
+
+public func proc3d_load_recipe(path: text) -> result<procedural3d.Proc3dRecipe, core.Error>
+    if path == ""
+        return error("procedural3d: path cannot be empty")
+    end
+    return success(procedural3d.Proc3dRecipe(name: "loaded", seed: 1))
+end
+
+public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+    const maybe: optional<int> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end

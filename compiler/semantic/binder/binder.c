@@ -371,7 +371,25 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
 
 static void zt_bind_match_pattern(zt_binder *binder, const zt_ast_node *pattern, zt_scope *case_scope) {
     size_t i;
+    const zt_ast_node *inner = NULL;
     if (pattern == NULL) return;
+
+    if (pattern->kind == ZT_AST_SUCCESS_EXPR) {
+        inner = pattern->as.success_expr.value;
+    } else if (pattern->kind == ZT_AST_ERROR_EXPR) {
+        inner = pattern->as.error_expr.value;
+    }
+
+    if (inner != NULL) {
+        if (inner->kind == ZT_AST_IDENT_EXPR) {
+            zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, inner->as.ident_expr.name, inner->span, 0);
+        } else if (inner->kind == ZT_AST_VALUE_BINDING) {
+            zt_bind_declare_name(binder, case_scope, ZT_SYMBOL_LOCAL, inner->as.value_binding.name, inner->span, 0);
+        } else {
+            zt_bind_match_pattern(binder, inner, case_scope);
+        }
+        return;
+    }
 
     if (pattern->kind == ZT_AST_CALL_EXPR) {
         /* VariantName(binding) pattern */

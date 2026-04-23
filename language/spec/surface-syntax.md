@@ -290,6 +290,7 @@ Rules:
 - each interpolated expression must implement `TextRepresentable<T>`.
 - formatting helpers belong to `std.format`.
 - explicit UTF-8 conversion between `text` and `bytes` belongs to `std.text`.
+- `len(text)` counts code points in the MVP model.
 
 ## Bytes
 

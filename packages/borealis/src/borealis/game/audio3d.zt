@@ -1,0 +1,98 @@
+namespace borealis.game.audio3d
+
+public struct Sound3dId
+    id: int
+end
+
+public struct InstanceId
+    id: int
+end
+
+public struct Audio3dDebugInfo
+    position: game.Vector3
+    playing: bool
+end
+
+public var sound3d_next_id: int = 1
+public var sound3d_instance_next_id: int = 1
+public var listener_position: game.Vector3 = game.vec3(0.0, 0.0, 0.0)
+public var audio3d_instance_x: map<int, float> = {}
+public var audio3d_instance_y: map<int, float> = {}
+public var audio3d_instance_z: map<int, float> = {}
+public var audio3d_instance_playing: map<int, bool> = {}
+
+public func audio3d_set_listener_position(position: game.Vector3) -> result<void, core.Error>
+    listener_position = position
+    return success()
+end
+
+public func audio3d_get_listener_position() -> game.Vector3
+    return listener_position
+end
+
+public func sound3d_load(path: text) -> result<audio3d.Sound3dId, core.Error>
+    if path == ""
+        return error("audio3d: path cannot be empty")
+    end
+    const id: int = sound3d_next_id
+    sound3d_next_id = sound3d_next_id + 1
+    return success(audio3d.Sound3dId(id: id))
+end
+
+public func sound3d_play(_id: audio3d.Sound3dId, position: game.Vector3) -> result<audio3d.InstanceId, core.Error>
+    const id: int = sound3d_instance_next_id
+    sound3d_instance_next_id = sound3d_instance_next_id + 1
+    audio3d_instance_x = audio3d.set_float(audio3d_instance_x, id, position.x)
+    audio3d_instance_y = audio3d.set_float(audio3d_instance_y, id, position.y)
+    audio3d_instance_z = audio3d.set_float(audio3d_instance_z, id, position.z)
+    audio3d_instance_playing = audio3d.set_bool(audio3d_instance_playing, id, true)
+    return success(audio3d.InstanceId(id: id))
+end
+
+public func sound3d_stop(instance_id: audio3d.InstanceId) -> result<void, core.Error>
+    audio3d_instance_playing = audio3d.set_bool(audio3d_instance_playing, instance_id.id, false)
+    return success()
+end
+
+public func sound3d_is_playing(instance_id: audio3d.InstanceId) -> bool
+    return audio3d.bool_or(audio3d_instance_playing, instance_id.id, false)
+end
+
+public func audio3d_debug_info(instance_id: audio3d.InstanceId) -> audio3d.Audio3dDebugInfo
+    return audio3d.Audio3dDebugInfo(
+        position: game.vec3(audio3d.float_or(audio3d_instance_x, instance_id.id, 0.0), audio3d.float_or(audio3d_instance_y, instance_id.id, 0.0), audio3d.float_or(audio3d_instance_z, instance_id.id, 0.0)),
+        playing: audio3d.sound3d_is_playing(instance_id)
+    )
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end

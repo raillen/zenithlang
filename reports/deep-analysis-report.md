@@ -1,6 +1,6 @@
 ﻿# Relatório Operacional de Pendências — Zenith Lang v2
 
-**Data:** 2026-04-22  
+**Data:** 2026-04-23  
 **Versão analisada:** 0.3.0-alpha.1  
 **Escopo:** compilador, runtime C, stdlib, tooling, specs e testes  
 **Objetivo deste documento:** manter somente pendências reais ou de alta confiança, com plano de implementação, roadmap de bugfix e checklist executável.
@@ -35,17 +35,16 @@ Itens refutados e portanto removidos da versão operacional:
 
 | Prioridade | Quantidade | Blocos principais |
 |---|---:|---|
-| P0 | 2 | execução de processo via shell, overflow em alocação |
-| P1 | 7 | thread-safety, ARC, UTF-8, leak, COW, validação de alta aridade, portabilidade |
-| P2 | 7 | escalabilidade do emitter, mapa linear, drift de docs/spec, lacunas de stdlib |
+| P0 | 0 | sem bloqueios P0 restantes neste recorte |
+| P1 | 1 | fronteira residual de thread-safety/ARC |
+| P2 | 2 | emitter streaming e alinhamento documental residual |
 | P3 | 1 | hardening sistemático de testes |
 
 ### Ordem recomendada
 
-1. Fechar primeiro o que pode gerar execução indevida, overflow ou comportamento perigoso silencioso.
-2. Em seguida, estabilizar semântica de runtime e portabilidade.
-3. Depois, completar bindings de stdlib e alinhar documentação normativa.
-4. Por fim, atacar performance estrutural e ampliar hardening de testes.
+1. Consolidar a política residual de `single-isolate`/ARC antes de qualquer passo concreto em paralelismo.
+2. Tratar emitter streaming como trilha de escalabilidade, não como bugfix imediato.
+3. Fortalecer a esteira de testes agora que os guardas de profundidade, UTF-8 interno e `queue/stack` públicos já estão fechados neste recorte.
 
 ---
 
@@ -53,10 +52,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-01 — Command injection em `std.os.process.run`
 - Prioridade: `P0`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Segurança`
 - Evidência: `zt_host_default_process_run` monta uma string com programa + argumentos e executa `system(command)`.
 - Risco: qualquer argumento com metacaracteres de shell pode mudar o comando executado.
+- Avanço no working tree: o caminho user-facing saiu de `system()` e passou a executar por `argv` real, sem shell; a suíte C cobre exit code, bloqueio de injection e `cwd`, e os behaviors `std_os_process_basic` / `std_os_process_capture_basic` passam com `ZENITH_HOME` local.
 - Implementação:
 1. Substituir o caminho user-facing baseado em `system()` por uma API sem shell.
 2. No Windows, usar `CreateProcessW` com montagem segura de linha de comando e escaping correto.
@@ -77,10 +77,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-02 — Overflow de tamanho em `zt_text_concat` e `zt_bytes_join`
 - Prioridade: `P0`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Segurança / Corretude`
 - Evidência: somas de comprimentos são feitas antes da alocação sem guarda explícita.
 - Risco: overflow de `size_t`, alocação menor que a necessária e escrita fora do buffer.
+- Avanço no working tree: o runtime ganhou helpers de soma segura antes de alocação/cópia; `zt_text_concat` e `zt_bytes_join` falham com erro controlado, e a suíte C cobre os caminhos de overflow em subprocesso.
 - Implementação:
 1. Criar helpers internos `zt_size_add_checked` e `zt_size_add1_checked`.
 2. Usar esses helpers antes de qualquer `malloc`, `calloc` ou `from_array/from_utf8` com tamanho derivado de soma.
@@ -97,10 +98,12 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-03 — Fronteira de thread-safety indefinida no runtime e em globals do driver
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Parcialmente corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Driver / Arquitetura`
 - Evidência: `zt_retain` e `zt_release` não são atômicos; `zt_last_error` e globals do driver não têm isolamento por contexto.
 - Risco: se a base evoluir para paralelismo real, surgem double-free, UAF, vazamento de estado e resultados não determinísticos.
+- Situação atual já documentada: o caminho padrão do runtime é `single-isolate` com ARC não atômico; fronteiras de concorrência usam `isolate/message-passing`; a referência canônica é `language/spec/runtime-model.md`.
+- Avanço no working tree: o estado mutável de invocação do driver foi movido para `zt_driver_context`, incluindo `ci`, perfil, filtros, manifesto ativo, root do projeto e telemetry; o driver recompila com esse fluxo.
 - Implementação:
 1. Tomar uma decisão explícita: `single-thread only` no MVP ou runtime thread-safe mínimo.
 2. Se a decisão for manter single-thread only, documentar isso em spec, README e comentários de API, e bloquear chamadas paralelas no roadmap oficial.
@@ -118,10 +121,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-04 — Scaffolding de ciclo RC perigoso e morto
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Higiene`
 - Evidência: `zt_detect_cycles` altera o bit alto de `rc`; `zt_runtime_check_for_cycles` é stub; o bloco não participa do fluxo normal.
 - Risco: código morto perigoso confunde auditoria e pode ser religado de forma insegura no futuro.
+- Referência canônica de política: `language/spec/runtime-model.md`; `README.md`, `language/MVP_OUT_OF_SCOPE.md` e `language/surface-implementation-status.md` foram sincronizados para apontar o modelo atual.
 - Implementação:
 1. Remover `zt_detect_cycles`, `zt_runtime_check_for_cycles` e helpers scaffolding associados que não participam do runtime real.
 2. Se a equipe quiser preservar a ideia, mover para documento de design ou branch experimental, não para o runtime principal.
@@ -135,10 +139,12 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-05 — `text_index` e `text_slice` podem devolver UTF-8 inválido
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Semântica`
 - Evidência: indexação e slice operam por byte e podem cortar no meio de sequência multi-byte.
 - Risco: textos inválidos saem do runtime e quebram invariantes da linguagem.
+- Referência canônica já aceita: `language/decisions/018-literals-text-indexing-and-slices.md` fixa `text` index/slice por code point; `language/decisions/059-stdlib-text.md` e `stdlib/zdoc/std/text.zdoc` repetem o mesmo modelo.
+- Avanço no working tree: `zt_text_index`, `zt_text_slice` e `zt_text_len` foram alinhados ao modelo por code point; foi adicionada suíte C focada em caracteres de 2, 3 e 4 bytes e behavior project `text_utf8_index_slice`, além de cobertura UTF-8 em `std_validate_basic`.
 - Implementação:
 1. Definir na spec se `text` indexa por byte, scalar Unicode ou grapheme cluster.
 2. Se a semântica desejada for Unicode-safe, implementar navegação por fronteira UTF-8 antes de indexar/slicear.
@@ -155,10 +161,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-06 — Leak em `zt_net_error_kind_index`
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Memória`
 - Evidência: a função cria vários `zt_text_from_utf8_literal(...)` por chamada sem liberar.
 - Risco: vazamento repetitivo em caminhos de erro de rede.
+- Avanço no working tree: a classificação agora compara com literais C sem alocação temporária; foi adicionada suíte dedicada com casos conhecidos, desconhecidos, `NULL` e loop grande de repetição.
 - Implementação:
 1. Remover comparações baseadas em alocação temporária.
 2. Comparar `error.code->data` diretamente com literais C quando seguro.
@@ -173,15 +180,17 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-07 — Queue/stack mutam sem respeitar COW
 - Prioridade: `P1`
-- Estado: `Confirmado`
-- Área: `Runtime / Coleções`
-- Evidência: `dequeue` e `pop` mutam a estrutura diretamente, ao contrário do padrão `*_owned` já usado em outras coleções.
-- Risco: semântica inconsistente de ownership e isolamento após cópia/compartilhamento.
+- Estado: `Corrigido no working tree (2026-04-23)`
+- Área: `Stdlib / Coleções`
+- Evidência original: `dequeue` e `pop` mutavam a estrutura diretamente, ao contrário do padrão `*_owned` já usado em outras coleções.
+- Risco original: semântica inconsistente de ownership e isolamento após cópia/compartilhamento.
+- Avanço no working tree: a superfície pública de `std.collections` agora devolve um resultado estruturado com `{colecao_atualizada, value}` para `queue_*_dequeue` e `stack_*_pop`; isso preserva COW sem depender do runtime C antigo. Foi adicionado behavior E2E cobrindo cópia compartilhada, casos vazios e tipos `int`/`text`.
+- Observação residual: os helpers crus do runtime C continuam existindo como detalhe interno/compatibilidade, mas o contrato user-facing da linguagem ficou coerente.
 - Implementação:
 1. Definir contrato unificado de mutação para queue/stack.
-2. Introduzir variantes `*_dequeue_owned` e `*_pop_owned`, ou tornar as operações atuais COW-aware.
-3. Se a API atual for mantida, alinhar toda a documentação de ownership de coleções.
-4. Cobrir queue/stack com o mesmo padrão de isolamento já usado em outras coleções gerenciadas.
+2. Expor `dequeue/pop` como operações que devolvem coleção atualizada junto com o item removido.
+3. Alinhar ZDoc, matriz e fixture de comportamento ao novo contrato.
+4. Registrar a aresta restante do emitter: promoção implícita para `optional<T>` dentro de `make_struct` ainda precisou de helper tipado.
 - Testes necessários:
 1. Compartilhar queue/stack e mutar cada cópia.
 2. Casos com tipos simples e `text`.
@@ -192,10 +201,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-08 — Validação de chamadas com alta aridade depende de array fixo e retorna cedo
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Typechecker / Corretude`
 - Evidência: `used_params[128]` foi protegido contra overflow, mas a proteção atual apenas retorna cedo e pode deixar o caso sem diagnóstico claro.
 - Risco: chamadas com muitos parâmetros podem escapar da validação esperada ou produzir resultado silenciosamente incompleto.
+- Avanço no working tree: `used_params[128]` foi trocado por vetor dinâmico baseado em `params.count`, com diagnóstico explícito em OOM; há suíte semântica focada para chamadas com 129 parâmetros.
 - Implementação:
 1. Trocar `used_params[128]` por bitmap/vetor dinâmico alocado pelo número real de parâmetros.
 2. Em caso de OOM, emitir diagnóstico explícito e controlado.
@@ -211,10 +221,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-09 — Portabilidade quebrada para MSVC por uso direto de `__builtin_*_overflow`
 - Prioridade: `P1`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Runtime / Portabilidade`
 - Evidência: builtins GNU são usados diretamente nas operações aritméticas de overflow.
 - Risco: build falha no Windows com MSVC, apesar de o projeto mirar ambiente Windows.
+- Avanço no working tree: a aritmética de overflow foi encapsulada com fallback portátil e validada em três caminhos: GCC/Clang com builtins, fallback forçado e `clang-cl` no caminho compatível com MSVC.
 - Implementação:
 1. Criar camada `zt_overflow.h/.c` ou helpers estáticos por compilador.
 2. Em GCC/Clang, manter builtins existentes.
@@ -230,10 +241,12 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-10 — `c_string_buffer` cresce sem streaming ou flush
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Parcialmente corrigido no working tree (2026-04-23)`
 - Área: `Backend C / Performance`
 - Evidência: o emitter acumula tudo em memória antes de persistir resultado.
 - Risco: pico de memória cresce com tamanho do módulo e limita projetos maiores.
+- Avanço no working tree: o emitter agora pode fazer spill para `tmpfile()` acima de um limiar configurável (`ZT_EMITTER_SPILL_THRESHOLD_BYTES`) e o caminho de `build/run` passou a persistir via `c_emitter_write_file(...)` sem materializar o C inteiro em RAM; `hardening/concurrent_compilation` força o spill com limite baixo e segue verde em `nightly`.
+- Residual aberto: `emit-c` para stdout e os testes que chamam `c_emitter_text(...)` ainda materializam tudo em memória no fim; ainda não existe relatório objetivo de pico de memória antes/depois.
 - Implementação:
 1. Introduzir writer abstrato com suporte a buffer em memória e stream para arquivo.
 2. Manter modo atual para testes pequenos e modo streaming para `emit-c/build`.
@@ -249,10 +262,12 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-11 — `map<K,V>` continua com busca linear no runtime
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-23)`
 - Área: `Runtime / Performance`
-- Evidência: operações seguem caminho linear e a infraestrutura de hash não está fechada como benefício real para o caminho genérico.
-- Risco: degradação visível em mapas grandes e falsa sensação de complexidade melhor que O(n).
+- Evidência original: operações seguiam caminho linear e a infraestrutura de hash não estava fechada como benefício real para o caminho genérico.
+- Avanço no working tree: `map<text,text>` passou a manter índice hash com probing aberto no template do runtime, preservando ordem de iteração por arrays; a suíte `tests/runtime/c/test_map_hash_table.c` cobre volume, overwrite e COW; `tests/behavior/std_json_basic` continua passando sobre `map<text,text>`.
+- Validação adicional: o emitter C foi sincronizado com a assinatura hash do runtime, `pr_gate` voltou a `134/134` e `nightly --no-perf` ficou verde com a trilha atual.
+- Nota de fechamento: o recorte alpha atual expõe apenas `map<text,text>` como caminho genérico relevante. Publicação de benchmark formal por faixa de tamanho pode seguir como melhoria de hardening, mas o problema descrito neste item deixou de existir no runtime atual.
 - Implementação:
 1. Decidir se o MVP quer manter `map<K,V>` genérico com performance básica ou subir o nível de implementação.
 2. Se mantiver o tipo como superfície principal, implementar índice/hash consistente para lookup/set/remove.
@@ -266,12 +281,73 @@ Itens refutados e portanto removidos da versão operacional:
 1. Complexidade real e documentação passam a bater.
 2. O benchmark mostra ganho mensurável ou o contrato de performance fica explicitamente rebaixado.
 
+### BF-12 — `zt_catalog_find_decl()` continua linear no checker
+- Prioridade: `P2`
+- Estado: `Corrigido no working tree (2026-04-23)`
+- Área: `Typechecker / Performance`
+- Evidência original: resolução de declarações no catálogo fazia varredura linear por nome.
+- Avanço no working tree: `zt_module_catalog` agora constrói índice hash para declarações, `zt_catalog_find_decl()` consulta o índice primeiro e a suíte sintética `tests/semantic/test_catalog_lookup_scale.c` passa com `3504/3504`.
+- Nota de fechamento: o lookup quente de `decl` saiu do caminho linear; o que ainda pode merecer trilha futura de performance são aliases de import e listas de `apply`, mas isso não é mais o problema descrito neste item.
+- Implementação:
+1. Introduzir índice `name -> decl` durante a montagem do catálogo, preservando as regras atuais de namespace e duplicidade.
+2. Se o índice global for invasivo demais neste corte, adicionar memoização por consulta ou cache por módulo como passo intermediário.
+3. Garantir que nomes ambíguos e conflitos continuem produzindo o mesmo diagnóstico observável.
+4. Medir impacto em projetos sintéticos com 2k, 5k e 10k declarações.
+- Testes necessários:
+1. Fixture sintético com milhares de declarações e lookup repetido.
+2. Casos com nomes duplicados/sombreados para garantir que o índice não mascara erro semântico.
+3. Benchmark comparando antes/depois no `check`.
+- Critério de conclusão:
+1. Lookup de declaração deixa de ser O(n) no caminho quente principal.
+2. Diagnósticos e resolução nominal permanecem estáveis.
+
+### BF-13 — Parser e lowering ainda não têm limite estrutural explícito
+- Prioridade: `P3`
+- Estado: `Corrigido no working tree (2026-04-23)`
+- Área: `Frontend / ZIR lowering / Robustez`
+- Evidência original: parser e lowering continuavam recursivos sem depth guard formal para nesting extremo.
+- Avanço no working tree: parser ganhou limite explícito de nesting com `ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED`; o lowering passou a validar profundidade de HIR antes da emissão ZIR; as suítes focadas `tests/frontend/test_parser_depth_guard.c` e `tests/zir/test_lowering_depth_guard.c` passam.
+- Nota de fechamento: o limite atual é guarda de robustez do alpha, não semântica da linguagem.
+- Implementação:
+1. Adicionar contador de profundidade no parser recursivo e no lowering de HIR/ZIR.
+2. Definir limite inicial conservador para alpha e emitir diagnóstico estável quando o limite for ultrapassado.
+3. Cobrir blocos, expressões, tipos genéricos e `match`/`if` profundamente aninhados.
+4. Documentar o limite na spec/README como guarda de robustez, não como parte da semântica da linguagem.
+- Testes necessários:
+1. Fixtures com nesting profundo de `if`, `match`, listas/tipos e expressões.
+2. Caso limítrofe que ainda deve passar.
+3. Caso acima do limite que precisa falhar com diagnóstico e sem crash.
+- Critério de conclusão:
+1. Nenhuma entrada profundamente aninhada derruba parser/lowering por stack overflow silencioso.
+2. O limite é testado e diagnosticado de forma estável.
+
+### BF-14 — `zt_text_from_utf8()` ainda é construtor interno sem validação
+- Prioridade: `P3`
+- Estado: `Corrigido no working tree (2026-04-23)`
+- Área: `Runtime / Invariantes de encoding`
+- Evidência original: a leitura default de arquivo já validava UTF-8 e o host filesystem já aplicava guardrails de path, mas o construtor bruto `zt_text_from_utf8()` continuava aceitando bytes arbitrários.
+- Avanço no working tree: `zt_text_from_utf8()` virou caminho validado, o construtor bruto foi isolado como helper interno `unchecked`, stdin passou a devolver erro controlado para UTF-8 inválido, e a suíte `tests/runtime/c/test_text_utf8_guardrails.c` cobre caminho válido + falha em subprocesso.
+- Nota de fechamento: ainda existem pontos de auditoria futura para `char *` dinâmico vindo do host, mas o construtor público/host descrito neste item deixou de aceitar bytes arbitrários sem validação.
+- Implementação:
+1. Renomear o construtor atual para variante explicitamente `unchecked` interna, ou introduzir um construtor validado público e restringir o bruto ao runtime privado.
+2. Auditar entradas de host (`stdin`, env, cwd, path) para decidir quais precisam retornar `result` em vez de falhar abruptamente.
+3. Consolidar helper único de validação UTF-8 para todas as fronteiras externas.
+4. Documentar claramente a diferença entre caminho validado e caminho interno bruto.
+- Testes necessários:
+1. Bytes com UTF-8 inválido em caminhos user-facing devem falhar com erro controlado.
+2. Guardar regressão para overlong, surrogate e continuation inválida.
+3. Verificar que helpers internos que já recebem dados validados continuam funcionando sem custo extra visível.
+- Critério de conclusão:
+1. Não existe mais API pública/host que consiga fabricar `text` inválido sem passar por validação.
+2. O construtor bruto, se ainda existir, fica isolado e nomeado como operação insegura interna.
+
 ### DOC-01 — Taxonomia de diagnósticos runtime diverge da spec
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Spec / Diagnostics / Tooling`
 - Evidência: a spec exige códigos como `runtime.contract`, `runtime.bounds`, `runtime.map_key`, `runtime.utf8`, `runtime.divide_by_zero`, enquanto o catálogo e o runtime expõem nomes diferentes.
 - Risco: ferramentas, LSP, docs e testes podem falar línguas diferentes sobre o mesmo erro.
+- Avanço no working tree: `language/spec/diagnostics-model.md` e `language/spec/diagnostic-code-catalog.md` agora apontam para a mesma taxonomia alpha (`runtime.assert`, `runtime.check`, `runtime.contract`, `runtime.index`, `runtime.io`, `runtime.math`, `runtime.panic`, `runtime.platform`, `runtime.unwrap`), e `language/surface-implementation-status.md` deixou de tratar isso como risco aberto.
 - Implementação:
 1. Escolher a fonte normativa única: spec ou catálogo atual.
 2. Se a spec vencer, alinhar renderer, runtime e fixtures aos códigos normativos.
@@ -286,10 +362,11 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### DOC-02 — `MVP_OUT_OF_SCOPE`, status de superfície e decisões estão em conflito
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Documentação / Governança`
 - Evidência: multifile, `.ztproj` e ZDoc aparecem como post-MVP em um lugar e conformantes em outro.
 - Risco: roadmap errado, auditoria errada e contribuições desalinhadas.
+- Avanço no working tree: `language/MVP_OUT_OF_SCOPE.md` foi reposicionado como nota histórica + lista de itens ainda deferidos; `language/surface-implementation-status.md` e `README.md` agora apontam explicitamente quais documentos descrevem o corte alpha atual.
 - Implementação:
 1. Escolher o documento canônico para “estado do corte atual”.
 2. Atualizar `language/MVP_OUT_OF_SCOPE.md` para refletir o corte real ou renomeá-lo para histórico.
@@ -302,95 +379,62 @@ Itens refutados e portanto removidos da versão operacional:
 1. Não existem mais conflitos abertos entre status do corte, MVP e superfície conformante.
 2. O time consegue responder “isso é MVP ou não?” em um único documento.
 
-### STDLIB-01 — `std.text` declara 25 externs sem backend correspondente no runtime
+### STDLIB-01 — `std.text` foi alinhado ao subset alpha seguro
 - Prioridade: `P2`
-- Estado: `Confirmado`
-- Área: `Stdlib / Runtime`
-- Funções pendentes:
-1. `zt_text_trim`
-2. `zt_text_trim_start`
-3. `zt_text_trim_end`
-4. `zt_text_contains`
-5. `zt_text_starts_with`
-6. `zt_text_ends_with`
-7. `zt_text_has_whitespace`
-8. `zt_text_index_of`
-9. `zt_text_last_index_of`
-10. `zt_text_replace_all`
-11. `zt_text_replace_first`
-12. `zt_text_split`
-13. `zt_text_split_lines`
-14. `zt_text_join`
-15. `zt_text_is_empty`
-16. `zt_text_to_lower`
-17. `zt_text_to_upper`
-18. `zt_text_capitalize`
-19. `zt_text_truncate`
-20. `zt_text_limit`
-21. `zt_text_pad_left`
-22. `zt_text_pad_right`
-23. `zt_text_mask`
-24. `zt_text_title_case`
-25. `zt_text_is_digits`
-- Risco: a superfície pública sugere capacidade que o backend ainda não entrega por completo.
-- Implementação:
-1. Separar o backlog em três lotes: busca/comparação, trim/split/join, transformação/format helpers.
-2. Implementar primeiro o que pode ser escrito em Zenith puro com primitives existentes, se isso reduzir risco e tempo.
-3. Implementar em C apenas o que exigir performance, UTF-8 cuidadoso ou integração direta com bytes.
-4. Adicionar testes por função e por grupo semântico.
-5. Atualizar ZDoc e matriz de cobertura ao final de cada lote.
-- Testes necessários:
-1. Casos ASCII e UTF-8.
-2. Casos vazios e extremos.
-3. Split/join com separador vazio e múltiplas ocorrências.
-4. Transformações de casing e padding.
+- Estado: `Corrigido no working tree (2026-04-22)`
+- Área: `Stdlib / Surface alignment`
+- Evidência anterior: a decisão e o ZDoc vendiam uma primeira onda ampla, enquanto o runtime real só tinha primitives mínimas.
+- Avanço no working tree: `std.text` deixou de declarar externs fictícios e hoje expõe apenas o subset implementado com segurança no alpha atual:
+1. `trim`, `trim_start`, `trim_end`
+2. `contains`, `starts_with`, `ends_with`, `has_prefix`, `has_suffix`
+3. `has_whitespace`, `index_of`, `last_index_of`
+4. `is_empty`, `is_digits`, `limit`
+5. `to_utf8`, `from_utf8`
+- Validação atual:
+1. `tests/behavior/std_text_basic` passa com `exit 0`
+2. `tests/behavior/std_bytes_utf8` continua cobrindo `to_utf8` / `from_utf8`
+3. ZIR verifier ganhou regressão para falso positivo em `suffix`/`ffi`
+- Nota importante do alpha:
+1. `from_utf8(...)` retorna `result<text, text>` neste corte
+2. `text.Error` tipado, casing, split/join, replace, padding, mask e truncate deixam de ser pendência de backend e passam a ser expansão futura de superfície
+3. as duas arestas de backend que bloqueavam o crescimento imediato de `std.text` foram fechadas neste working tree:
+   - cópia/propagação segura de `result<text,text>` com payload gerenciado
+   - comparação direta entre retorno de chamada `text` e literal no emitter C
+4. permanece uma aresta semântica separada: `case success(value)` e `case error(err)` ainda pedem um passe dedicado para permitir comparação direta do binding com literal sem passar por uma variável `text` explícita
 - Critério de conclusão:
-1. Toda função declarada em `std.text` tem backend ou implementação equivalente entregue.
-2. ZDoc, behavior tests e docs batem com o que existe de verdade.
+1. `std.text` não promete helpers sem implementação real
+2. docs, behavior tests e módulo público batem com a superfície entregue
 
-### STDLIB-02 — `std.fs` declara 15 externs sem backend correspondente no runtime
+### STDLIB-02 — `std.fs` foi fechado no recorte alpha atual
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Stdlib / Host API`
-- Funções pendentes:
-1. `zt_host_fs_append_text`
-2. `zt_host_fs_copy_file`
-3. `zt_host_fs_create_dir`
-4. `zt_host_fs_create_dir_all`
-5. `zt_host_fs_created_at`
-6. `zt_host_fs_is_dir`
-7. `zt_host_fs_is_file`
-8. `zt_host_fs_list`
-9. `zt_host_fs_metadata`
-10. `zt_host_fs_modified_at`
-11. `zt_host_fs_move`
-12. `zt_host_fs_remove_dir`
-13. `zt_host_fs_remove_dir_all`
-14. `zt_host_fs_remove_file`
-15. `zt_host_fs_size`
-- Risco: a stdlib de filesystem fica parcial e inconsistente em relação à API declarada.
-- Implementação:
-1. Criar camada host FS mínima e portátil com wrappers separados para Windows e POSIX.
-2. Definir mapeamento estável de erros para `std.fs.Error`.
-3. Entregar primeiro query/metadados, depois criação/remoção, depois cópia/movimentação e append.
-4. Fechar comportamento para paths inexistentes, permissões, diretório vs arquivo e timestamps.
-- Testes necessários:
-1. Fixtures temporárias em diretório isolado.
-2. Casos de arquivo, diretório, inexistente e permissão negada.
-3. Timestamps e metadata com resultado tipado.
-4. Testes de limpeza para evitar lixo entre execuções.
+- Evidência anterior: `std.fs` declarava uma camada mais rica que a realmente entregue pelo runtime.
+- Avanço no working tree:
+1. o runtime ganhou wrappers portaveis para append, kind checks, create/remove, list, copy, move e timestamps
+2. `std.fs` agora mapeia `core.Error` para `fs.Error`
+3. `fs.Metadata` foi estabilizado com `size_bytes`, `modified_at_ms`, `created_at_ms`, `is_file` e `is_dir`
+4. o nome publico de listagem neste corte ficou `list_dir(...)`
+- Validação atual:
+1. `tests/behavior/std_fs_basic` passa
+2. `tests/behavior/std_fs_ops_basic` passa
+3. `tests/runtime/c/test_host_fs_guardrails.c` passa cobrindo UTF-8 inválido, `ZENITH_HOST_FS_ROOT` e caminho com NUL
+- Nota importante do alpha:
+1. timestamps ficam em Unix milliseconds (`int` / `optional<int>`) neste corte
+2. a decisao e o ZDoc precisam refletir isso, em vez de prometer `time.Instant`
 - Critério de conclusão:
-1. `std.fs` deixa de anunciar funções sem backend.
-2. A suíte cobre create/list/metadata/remove/copy/move em caminhos reais.
+1. `std.fs` deixou de anunciar backend ausente no recorte alpha atual
+2. fixtures reais cobrem create/list/metadata/remove/copy/move
 
 ### STDLIB-03 — lacunas restantes em `std.os` e `std.os.process`
 - Prioridade: `P2`
-- Estado: `Confirmado`
+- Estado: `Corrigido no working tree (2026-04-22)`
 - Área: `Stdlib / Runtime / Host API`
 - Funções pendentes:
 1. `zt_host_os_args`
 2. `zt_host_process_run_capture`
 - Risco: `std.os` e `std.os.process` parecem mais completos do que realmente estão.
+- Avanço no working tree: o runtime passou a capturar `argv` inicial para `os.args()`, ganhou `process.run_capture()` com stdout/stderr separados e exit code, e o fechamento foi validado com suíte C mais os behaviors `std_os_args_basic`, `std_os_basic`, `std_os_process_basic` e `std_os_process_capture_basic`.
 - Implementação:
 1. Introduzir armazenamento inicial de `argv` no host runtime para `zt_host_os_args`.
 2. Implementar `run_capture` com captura separada de stdout e stderr, sem shell.
@@ -406,26 +450,30 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### TEST-01 — backlog focal de hardening ainda aberto
 - Prioridade: `P3`
-- Estado: `Confirmado`
+- Estado: `Parcialmente corrigido no working tree (2026-04-23)`
 - Área: `Qualidade / Testes`
 - Lacunas a fechar:
-1. regressões de segurança para execução de processos;
-2. fuzzing da camada semântica e não só lexer/parser;
-3. testes de paralelismo do compilador e isolamento de contexto;
-4. infraestrutura básica de cobertura;
-5. expansão dos golden tests do formatter além de `case_all`.
+1. integrar mais subconjuntos estáveis de `tests/heavy` ao gate oficial além da fuzz semântica já promovida;
+2. publicar alvo de coverage com relatório simples por arquivo ou por módulo;
+3. decidir se vale promover o harness concorrente também para `pr_gate` ou mantê-lo em `nightly/stress`;
+4. continuar ampliando a matriz do formatter quando novas superfícies entrarem no alpha.
+- Situação atual já presente no repositório:
+1. hardening gates já rodam em `pr_gate`/`nightly`/`stress` via `tests/hardening/*.py`;
+2. existe fuzzing leve em `tests/fuzz/` para lexer/parser;
+3. `tests/heavy/fuzz/semantic/fuzz_semantic.py` agora roda em `nightly/stress` como `stress/fuzz_semantic`, com seed fixa e iterações curtas/longas por suite;
+4. `tests/hardening/test_concurrent_compilation.py` agora valida builds nativos paralelos em cache frio/quente dentro de `nightly/stress`;
+5. `tests/formatter/run_formatter_golden.py` saiu de `case_all` isolado para 9 casos cobrindo imports, structs, match, generics, comments, triple-quoted text, trailing comma em lista e manifesto.
 - Implementação:
-1. Criar suíte `tests/security/` para processo, paths hostis e inputs grandes.
-2. Adicionar mutadores e seeds semânticos ao fuzz atual.
-3. Criar harness de compilação concorrente com múltiplos projetos e múltiplas flags.
-4. Publicar alvo de coverage com relatório simples por arquivo ou por módulo.
-5. Adicionar pelo menos 8 novos casos de formatter cobrindo imports, structs, match, generics, comments, multiline strings, trailing commas e manifests.
+1. Promover mais subconjuntos estáveis de `tests/heavy` ao runner oficial (`nightly` ou `stress`), começando por segurança e stress reprodutíveis.
+2. Publicar alvo de coverage com relatório simples por arquivo ou por módulo.
+3. Revisar periodicamente se `hardening/concurrent_compilation` deve subir para `pr_gate`.
+4. Manter a matriz do formatter alinhada às superfícies novas da linguagem e do manifesto.
 - Testes necessários:
 1. Execução contínua no runner oficial.
-2. Gate de regressão específico para segurança.
+2. Gate de regressão específico para segurança/stress.
 3. Relatório de coverage arquivado por release/nightly.
 - Critério de conclusão:
-1. Segurança, semântica e formatter deixam de depender de cobertura ocasional.
+1. Segurança pesada, fuzz semântico e formatter deixam de depender de cobertura ocasional.
 2. Existe visibilidade objetiva do que ainda não está coberto.
 
 ---
@@ -463,14 +511,12 @@ Itens:
 
 - `BF-03` política explícita de thread-safety;
 - `BF-05` fronteiras UTF-8;
-- `BF-07` COW de queue/stack;
 - `BF-09` compatibilidade com MSVC.
 
 Entregáveis:
 
 - política oficial de thread-safety;
 - semântica de texto documentada e implementada;
-- queue/stack coerentes com o restante das coleções;
 - build compatível em MSVC.
 
 Janela sugerida:
@@ -483,19 +529,19 @@ Janela sugerida:
 
 Itens:
 
-- `STDLIB-03` primeiro, porque depende do novo executor seguro de processo;
-- `STDLIB-02` em seguida, por impacto de tooling e projetos reais;
-- `STDLIB-01` em lotes internos bem definidos.
+- `STDLIB-03` fechado;
+- `STDLIB-02` fechado no recorte alpha atual;
+- `STDLIB-01` fechado por alinhamento de superfície ao subset seguro.
 
 Entregáveis:
 
 - `std.os`/`std.os.process` fechados;
-- `std.fs` utilitário e confiável;
-- backlog de `std.text` dividido em entregas pequenas e testáveis.
+- `std.fs` utilitário e confiável no recorte alpha atual;
+- `std.text` rebaixado para subset honesto e testado.
 
 Janela sugerida:
 
-- 2 a 4 semanas, dependendo da profundidade de UTF-8 e cross-platform.
+- concluida neste passe de fechamento.
 
 ## R4 — Alinhamento documental e normativo
 
@@ -523,13 +569,11 @@ Janela sugerida:
 Itens:
 
 - `BF-10` emitter com streaming/flush;
-- `BF-11` mapa genérico e custo real;
 - `TEST-01` trilhas de hardening.
 
 Entregáveis:
 
 - emissão C mais escalável;
-- contrato honesto de performance para `map<K,V>`;
 - suíte de segurança, fuzz semântico, coverage e formatter fortalecida.
 
 Janela sugerida:
@@ -542,65 +586,72 @@ Janela sugerida:
 
 ### Fase R1
 
-- [ ] remover uso de `system()` do caminho user-facing de `process.run`
-- [ ] introduzir execução segura por `argv` no host runtime
-- [ ] adicionar testes com args hostis e `cwd`
-- [ ] criar helpers de overflow de tamanho
-- [ ] aplicar guards em `zt_text_concat`
-- [ ] aplicar guards em `zt_bytes_join`
+- [x] remover uso de `system()` do caminho user-facing de `process.run`
+- [x] introduzir execução segura por `argv` no host runtime
+- [x] adicionar testes com args hostis e `cwd`
+- [x] criar helpers de overflow de tamanho
+- [x] aplicar guards em `zt_text_concat`
+- [x] aplicar guards em `zt_bytes_join`
 - [ ] revisar concatenações derivadas de path/buffer temporário
-- [ ] remover `zt_detect_cycles`
-- [ ] remover `zt_runtime_check_for_cycles`
-- [ ] eliminar leak em `zt_net_error_kind_index`
-- [ ] substituir `used_params[128]` por estrutura dinâmica
-- [ ] criar fixture de alta aridade
+- [x] remover `zt_detect_cycles`
+- [x] remover `zt_runtime_check_for_cycles`
+- [x] eliminar leak em `zt_net_error_kind_index`
+- [x] substituir `used_params[128]` por estrutura dinâmica
+- [x] criar fixture de alta aridade
 
 ### Fase R2
 
-- [ ] decidir formalmente a política de thread-safety do runtime
-- [ ] documentar a política escolhida em spec e README
-- [ ] migrar globals do driver para contexto explícito ou marcar como single-thread only
-- [ ] definir semântica oficial de index/slice para `text`
-- [ ] implementar fronteiras UTF-8 válidas ou rebaixar/documentar o contrato atual
-- [ ] alinhar queue/stack ao padrão de COW das demais coleções
-- [ ] criar testes de cópia + mutação para queue/stack
-- [ ] encapsular builtins de overflow por compilador
-- [ ] validar build em MSVC
+- [x] decidir formalmente a política de thread-safety do runtime
+- [x] documentar a política escolhida em spec e README
+- [x] alinhar `MVP_OUT_OF_SCOPE.md` e `surface-implementation-status.md` ao modelo atual de ARC/isolate/cycles
+- [x] migrar globals do driver para contexto explícito ou marcar como single-thread only
+- [x] definir semântica oficial de index/slice para `text`
+- [x] implementar fronteiras UTF-8 válidas ou rebaixar/documentar o contrato atual
+- [x] alinhar queue/stack ao padrão de COW das demais coleções
+- [x] criar testes de cópia + mutação para queue/stack
+- [x] encapsular builtins de overflow por compilador
+- [x] validar build em MSVC
 
 ### Fase R3
 
-- [ ] implementar `zt_host_os_args`
-- [ ] implementar `zt_host_process_run_capture`
-- [ ] fechar suíte de testes de `std.os.process`
-- [ ] implementar bloco inicial de `std.fs` query/metadados
-- [ ] implementar bloco de criação/remoção em `std.fs`
-- [ ] implementar bloco de cópia/movimentação em `std.fs`
-- [ ] cobrir `std.fs` com fixtures temporárias isoladas
-- [ ] entregar lote 1 de `std.text` busca/comparação
-- [ ] entregar lote 2 de `std.text` trim/split/join
-- [ ] entregar lote 3 de `std.text` transformações e helpers de apresentação
-- [ ] atualizar ZDocs e matriz de cobertura por lote entregue
+- [x] implementar `zt_host_os_args`
+- [x] implementar `zt_host_process_run_capture`
+- [x] fechar suíte de testes de `std.os.process`
+- [x] implementar bloco inicial de `std.fs` query/metadados
+- [x] implementar bloco de criação/remoção em `std.fs`
+- [x] implementar bloco de cópia/movimentação em `std.fs`
+- [x] cobrir `std.fs` com fixtures temporárias isoladas
+- [x] entregar subset alpha seguro de `std.text` busca/comparação
+- [x] entregar subset alpha seguro de `std.text` trim/predicados/UTF-8
+- [x] remover da superfície alpha os helpers de `std.text` ainda não seguros
+- [x] atualizar ZDocs e matriz de cobertura para o recorte entregue
 
 ### Fase R4
 
-- [ ] escolher a taxonomia runtime oficial
-- [ ] alinhar runtime, catálogo, spec e fixtures aos mesmos códigos
-- [ ] escolher documento canônico para status do corte atual
-- [ ] atualizar `MVP_OUT_OF_SCOPE.md`
-- [ ] atualizar `surface-implementation-status.md`
-- [ ] revisar conformance matrix, README e decisões afetadas
+- [x] escolher a taxonomia runtime oficial
+- [x] alinhar runtime, catálogo, spec e fixtures aos mesmos códigos
+- [x] escolher documento canônico para status do corte atual
+- [x] atualizar `MVP_OUT_OF_SCOPE.md`
+- [x] atualizar `surface-implementation-status.md`
+- [ ] revisar decisões históricas ainda não alinhadas fora deste bloco
 
 ### Fase R5
 
 - [ ] introduzir writer/stream no emitter C
 - [ ] medir pico de memória antes e depois do emitter streaming
-- [ ] decidir contrato real de performance para `map<K,V>`
-- [ ] implementar índice/hash real ou documentar custo atual
-- [ ] criar suíte `tests/security/`
-- [ ] ampliar fuzzing para a camada semântica
-- [ ] criar harness de compilação concorrente
+- [x] decidir contrato real de performance para `map<text,text>` no alpha
+- [x] implementar índice/hash real no runtime atual de `map<text,text>`
+- [x] integrar subconjunto estável de `tests/heavy` ao gate oficial
+- [x] criar harness de compilação concorrente
 - [ ] publicar alvo de coverage
-- [ ] adicionar pelo menos 8 novos casos golden de formatter
+- [x] adicionar pelo menos 8 novos casos golden de formatter
+
+### Relatórios Externos (22-04-2026)
+
+Após cruzar `22-04-2026-gemma4-31b-implementation-report.md`, `22-04-2026-qwen3.5-plus-implementation-report.md` e `22-04-2026-qwen3.6-plus-implementation-report.md` com o código atual, os pontos que ainda se sustentam são:
+
+1. ARC segue não atômico fora do contrato documentado de `single-isolate`.
+2. parte do bloco `tests/heavy` ainda não é gate principal de hardening, embora a fuzz semântica e o harness concorrente já tenham sido promovidos para o runner oficial.
 
 ---
 

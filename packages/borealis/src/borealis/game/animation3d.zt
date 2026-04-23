@@ -1,0 +1,121 @@
+namespace borealis.game.animation3d
+
+public struct AnimatorId
+    id: int
+end
+
+public struct AnimEvent
+    name: text
+    clip_id: int
+end
+
+public struct AnimatorDebugInfo
+    playing: bool
+    speed: float
+    current_clip_id: int
+end
+
+public var animator3d_next_id: int = 1
+public var animator3d_model_id: map<int, int> = {}
+public var animator3d_clip_id: map<int, int> = {}
+public var animator3d_playing: map<int, bool> = {}
+public var animator3d_speed: map<int, float> = {}
+
+public func animator_create(model_id: assets3d.ModelHandle) -> result<animation3d.AnimatorId, core.Error>
+    const id: int = animator3d_next_id
+    animator3d_next_id = animator3d_next_id + 1
+    animator3d_model_id = animation3d.set_int(animator3d_model_id, id, model_id.id)
+    animator3d_playing = animation3d.set_bool(animator3d_playing, id, false)
+    animator3d_speed = animation3d.set_float(animator3d_speed, id, 1.0)
+    return success(animation3d.AnimatorId(id: id))
+end
+
+public func animator_play(id: animation3d.AnimatorId, clip_id: assets3d.AnimClipHandle) -> result<void, core.Error>
+    animator3d_clip_id = animation3d.set_int(animator3d_clip_id, id.id, clip_id.id)
+    animator3d_playing = animation3d.set_bool(animator3d_playing, id.id, true)
+    return success()
+end
+
+public func animator_stop(id: animation3d.AnimatorId) -> result<void, core.Error>
+    animator3d_playing = animation3d.set_bool(animator3d_playing, id.id, false)
+    return success()
+end
+
+public func animator_is_playing(id: animation3d.AnimatorId) -> bool
+    return animation3d.bool_or(animator3d_playing, id.id, false)
+end
+
+public func animator_get_clip(id: animation3d.AnimatorId) -> optional<assets3d.AnimClipHandle>
+    const maybe: optional<int> = animator3d_clip_id.get(id.id)
+    match maybe
+        case value present ->
+            return assets3d.AnimClipHandle(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func animator_set_speed(id: animation3d.AnimatorId, value: float) -> result<void, core.Error>
+    animator3d_speed = animation3d.set_float(animator3d_speed, id.id, value)
+    return success()
+end
+
+public func animator_get_speed(id: animation3d.AnimatorId) -> float
+    return animation3d.float_or(animator3d_speed, id.id, 1.0)
+end
+
+public func animator_debug_info(id: animation3d.AnimatorId) -> animation3d.AnimatorDebugInfo
+    return animation3d.AnimatorDebugInfo(
+        playing: animation3d.animator_is_playing(id),
+        speed: animation3d.animator_get_speed(id),
+        current_clip_id: animation3d.int_or(animator3d_clip_id, id.id, 0)
+    )
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+    const maybe: optional<int> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end

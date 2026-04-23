@@ -14,9 +14,12 @@ Projeto atual: `Borealis` (nome fechado).
 - `R3.B2` input por transicao de frame: implementado.
 - `R3.B3` Render2D base: implementado.
 - `R3.B4` Scene e Entities v1: implementado.
-- `R3.B5` ECS hibrido (subset inicial): em andamento.
+- `R3.B5` ECS hibrido (subset inicial): implementado.
 - `R3.B5` no comportamento atual: fixture ECS validado em `run-pass` (subset de componentes).
 - `R3.B6` scaffolds modulares: implementado (com contratos e extensao de editor).
+- `R3.B7` backend desktop inicial: parcial.
+- `R3.B8` preparo para ZPM: implementado no escopo documental/estrutural.
+- `R3.B9` estabilizacao/release: parcial.
 
 ## Arquivos de referencia
 
@@ -24,6 +27,10 @@ Projeto atual: `Borealis` (nome fechado).
 - decisions: `packages/borealis/decisions/*`
 - baseline da API: `packages/borealis/api-baseline-v1.md`
 - linker profile desktop: `packages/borealis/backend-desktop-linker-profile-v1.md`
+- changelog: `packages/borealis/CHANGELOG.md`
+- limites conhecidos: `packages/borealis/known-limits-v1.md`
+- guia de migracao: `packages/borealis/migration-guide-v1.md`
+- preparo para ZPM: `packages/borealis/zpm-prep-v1.md`
 - riscos ativos: `packages/borealis/risks.md`
 - roadmap: `docs/planning/borealis-roadmap-v1.md`
 - checklist: `docs/planning/borealis-checklist-v1.md`
@@ -58,6 +65,8 @@ No R3.B7, o runtime ganhou hook de adapter desktop (`zt_borealis_desktop_api`) e
 
 Quando Raylib nao estiver disponivel no ambiente, o fallback para stub continua seguro.
 
+No workspace local, `./zt.exe` agora prioriza runtime/stdlib ao lado do executavel antes de usar `ZENITH_HOME`, evitando misturar a instalacao global com o codigo que esta sendo editado.
+
 Detalhes do profile em `packages/borealis/backend-desktop-linker-profile-v1.md`.
 
 ## Rodar exemplo Raylib
@@ -75,3 +84,18 @@ Projeto pronto incluido no repo:
 - `./zt.exe run packages/borealis/examples/raylib_desktop_app/zenith.ztproj`
 
 Se Raylib nao for encontrado, o runtime entra em fallback seguro para `stub`.
+
+## Semver e package
+
+Manifesto atual:
+
+- `name = "borealis"`
+- `version = "0.1.0"`
+- `kind = "lib"`
+- `root_namespace = "borealis"`
+
+Fluxo atual:
+
+- o package ja esta preparado para ZPM
+- o comando `zpm` ainda nao esta disponivel nesta fase
+- a referencia de preparo esta em `packages/borealis/zpm-prep-v1.md`

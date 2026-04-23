@@ -52,6 +52,44 @@ One compact reference for the Borealis runtime, module boundaries, and editor-re
 - `procedural` is separate from `world`.
 - `hud` is a namespace under `ui`.
 
+## 3D Design Track
+
+The current Borealis 1.0 cycle also has a documented 3D design track.
+This track is architectural only for now and does not change the runtime scope of Borealis 1.0.
+
+Core 3D modules:
+
+- `core3d`
+- `render3d`
+- `camera3d`
+- `physics3d`
+- `world3d`
+
+Gameplay-facing 3D helpers:
+
+- `assets3d`
+- `animation3d`
+- `audio3d`
+- `entities3d`
+- `controllers3d`
+- `ai3d`
+- `ui3d`
+- `procedural3d`
+- `debug3d`
+- `postfx`
+- `settings.video`
+
+Shared modules remain shared across 2D and 3D:
+
+- `scene`
+- `save`
+- `events`
+- `services`
+- `storage`
+- `database`
+- `input`
+- `settings`
+
 ## Backend Hook (B7)
 
 Desktop backend integration now follows an adapter contract in runtime C:

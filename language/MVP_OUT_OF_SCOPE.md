@@ -1,6 +1,19 @@
 # MVP Out of Scope
 
-Explicit list of what is **not** part of the minimum viable product frontend.
+Historical MVP note plus current alpha deferred list.
+
+This file is not the canonical source for "what Zenith supports today".
+
+Read these first for the current alpha cut:
+
+- `language/surface-implementation-status.md`
+- `language/spec/diagnostic-code-catalog.md`
+- `README.md`
+
+This file now has a narrower job:
+
+- keep the original MVP boundary visible;
+- list what is still explicitly deferred after the current alpha cut.
 
 ## Language features deferred post-MVP
 
@@ -31,23 +44,28 @@ Explicit list of what is **not** part of the minimum viable product frontend.
 
 ## Standard library deferred post-MVP
 
-- `stdlib/process` — CLI args, env vars, process exit codes beyond `main` return
-- `stdlib/io` — filesystem, networking, pipes
-- `stdlib/math` — `math.pow`, `math.sin`, etc (use `extern c` for now)
-- `stdlib/time` — dates, timestamps
-- `stdlib/regex` — pattern matching on text
+- public API expansion for `std.fs`
+- public API expansion for networking and pipes
+- `stdlib/math` - `math.pow`, `math.sin`, etc (use `extern c` for now)
+- `stdlib/time` - dates, timestamps
+- `stdlib/regex` - pattern matching on text
 
 ## Compiler features deferred post-MVP
 
-- Multi-file compilation (MVP: single file, single namespace)
-- `zenith.ztproj` parsing (MVP: single-file mode via CLI argument)
-- ZDoc parsing
 - Incremental compilation
 - Optimization passes beyond what the C compiler provides
 - Source maps / debug information generation
 - Plugin or extension system
 
 ## Runtime features deferred post-MVP
+
+Current MVP runtime contract before the deferred items below:
+
+- ordinary managed values use non-atomic ARC on single-isolate paths
+- cross-thread work uses isolate/message-passing boundaries, not shared ordinary managed values
+- RC cycles are a known leak risk today; no cycle collector ships in the MVP
+
+Still deferred:
 
 - Cycle collection in RC
 - Thread-safe reference counting
@@ -57,7 +75,7 @@ Explicit list of what is **not** part of the minimum viable product frontend.
 - `list<float>` specialization
 - `optional<float>` and `optional<bool>` specializations
 - Struct runtime support (generic field access)
-- Text operations beyond basic concat/index/slice/eq/len
+- Full `std.text` helper surface beyond the subset already shipped in the alpha runtime
 
 ## Backend targets deferred post-MVP
 
@@ -68,6 +86,6 @@ Explicit list of what is **not** part of the minimum viable product frontend.
 
 ## ZIR contractual status
 
-- ZIR **textual** format (`.zir` files) is for debug, fixtures, and golden tests only
-- ZIR **structured** in-memory representation is the canonical contract between compiler stages
+- ZIR textual format (`.zir` files) is for debug, fixtures, and golden tests only
+- ZIR structured in-memory representation is the canonical contract between compiler stages
 - The frontend never produces or consumes `.zir` files directly

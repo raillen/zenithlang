@@ -1,0 +1,7 @@
+namespace fuzz.where_contract
+
+public func main() -> int
+    -- Contrato onde é impossível satisfazer
+    const x: int where it > 10 and it < 5 = 7
+    return x
+end

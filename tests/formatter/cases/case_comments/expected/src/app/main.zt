@@ -1,0 +1,5 @@
+namespace app.main
+
+-- main comment
+func helper(value: -- main comment
+func helper(value: 

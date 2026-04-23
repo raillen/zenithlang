@@ -1,0 +1,6 @@
+namespace fuzz.unbound_type
+
+public func main() -> int
+    const x: NonExistentType = ???
+    return 0
+end

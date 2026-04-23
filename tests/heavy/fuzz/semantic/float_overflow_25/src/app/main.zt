@@ -1,0 +1,6 @@
+namespace fuzz.float_overflow
+
+public func main() -> int
+    const x: float = 1e309
+    return to_int(x)
+end

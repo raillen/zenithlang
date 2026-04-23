@@ -1,0 +1,139 @@
+namespace borealis.game.ui3d
+
+public enum AnchorMode
+    World
+    Screen
+end
+
+public struct Ui3dId
+    id: int
+end
+
+public struct Ui3dDebugInfo
+    text: text
+    position: game.Vector3
+    visible: bool
+end
+
+public var ui3d_next_id: int = 1
+public var ui3d_text: map<int, text> = {}
+public var ui3d_x: map<int, float> = {}
+public var ui3d_y: map<int, float> = {}
+public var ui3d_z: map<int, float> = {}
+public var ui3d_visible: map<int, bool> = {}
+public var ui3d_entity_id: map<int, int> = {}
+
+public func ui3d_create_label(label: text, position: game.Vector3) -> result<ui3d.Ui3dId, core.Error>
+    return ui3d.ui3d_make(label, position)
+end
+
+public func ui3d_create_prompt(label: text, position: game.Vector3) -> result<ui3d.Ui3dId, core.Error>
+    return ui3d.ui3d_make(label, position)
+end
+
+public func ui3d_set_text(id: ui3d.Ui3dId, label: text) -> result<void, core.Error>
+    ui3d_text = ui3d.set_text(ui3d_text, id.id, label)
+    return success()
+end
+
+public func ui3d_get_text(id: ui3d.Ui3dId) -> text
+    return ui3d.text_or(ui3d_text, id.id, "")
+end
+
+public func ui3d_set_position(id: ui3d.Ui3dId, position: game.Vector3) -> result<void, core.Error>
+    ui3d_x = ui3d.set_float(ui3d_x, id.id, position.x)
+    ui3d_y = ui3d.set_float(ui3d_y, id.id, position.y)
+    ui3d_z = ui3d.set_float(ui3d_z, id.id, position.z)
+    return success()
+end
+
+public func ui3d_get_position(id: ui3d.Ui3dId) -> game.Vector3
+    return game.vec3(ui3d.float_or(ui3d_x, id.id, 0.0), ui3d.float_or(ui3d_y, id.id, 0.0), ui3d.float_or(ui3d_z, id.id, 0.0))
+end
+
+public func ui3d_set_visible(id: ui3d.Ui3dId, visible: bool) -> result<void, core.Error>
+    ui3d_visible = ui3d.set_bool(ui3d_visible, id.id, visible)
+    return success()
+end
+
+public func ui3d_is_visible(id: ui3d.Ui3dId) -> bool
+    return ui3d.bool_or(ui3d_visible, id.id, false)
+end
+
+public func ui3d_bind_entity(id: ui3d.Ui3dId, entity: entities.Entity, offset: game.Vector3) -> result<void, core.Error>
+    ui3d_entity_id = ui3d.set_int(ui3d_entity_id, id.id, entity.id)
+    return ui3d.ui3d_set_position(id, offset)
+end
+
+public func ui3d_world_to_screen(position: game.Vector3) -> game.Point2
+    return game.point2(position.x, position.y)
+end
+
+public func ui3d_debug_info(id: ui3d.Ui3dId) -> ui3d.Ui3dDebugInfo
+    return ui3d.Ui3dDebugInfo(text: ui3d.ui3d_get_text(id), position: ui3d.ui3d_get_position(id), visible: ui3d.ui3d_is_visible(id))
+end
+
+public func ui3d_make(label: text, position: game.Vector3) -> result<ui3d.Ui3dId, core.Error>
+    const id: int = ui3d_next_id
+    ui3d_next_id = ui3d_next_id + 1
+    ui3d_text = ui3d.set_text(ui3d_text, id, label)
+    ui3d_visible = ui3d.set_bool(ui3d_visible, id, true)
+    ui3d_x = ui3d.set_float(ui3d_x, id, position.x)
+    ui3d_y = ui3d.set_float(ui3d_y, id, position.y)
+    ui3d_z = ui3d.set_float(ui3d_z, id, position.z)
+    return success(ui3d.Ui3dId(id: id))
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+    const maybe: optional<text> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end
+
+public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+    var next: map<int, text> = values
+    next[id] = value
+    return next
+end

@@ -61,6 +61,14 @@ typedef struct zir_decl_counts {
     size_t function_count;
 } zir_decl_counts;
 
+typedef struct zir_nesting_guard {
+    zt_diag_list *diagnostics;
+    size_t depth;
+    int limit_hit;
+} zir_nesting_guard;
+
+#define ZIR_LOWER_MAX_NESTING_DEPTH 128u
+
 static void zir_add_lower_diag(
         zt_diag_list *diagnostics,
         zt_source_span span,
@@ -72,6 +80,304 @@ static void zir_add_lower_diag(
         span,
         "%s",
         message != NULL ? message : "lowering error");
+}
+
+static int zir_nesting_push(zir_nesting_guard *guard, zt_source_span span, const char *label) {
+    if (guard == NULL) return 1;
+    if (guard->depth >= ZIR_LOWER_MAX_NESTING_DEPTH) {
+        if (!guard->limit_hit && guard->diagnostics != NULL) {
+            zt_diag_list_add(
+                guard->diagnostics,
+                ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED,
+                span,
+                "%s nesting exceeds ZIR lowering limit (%u levels)",
+                label != NULL ? label : "HIR",
+                (unsigned)ZIR_LOWER_MAX_NESTING_DEPTH);
+        }
+        guard->limit_hit = 1;
+        return 0;
+    }
+    guard->depth += 1;
+    return 1;
+}
+
+static void zir_nesting_pop(zir_nesting_guard *guard) {
+    if (guard != NULL && guard->depth > 0) {
+        guard->depth -= 1;
+    }
+}
+
+static int zir_validate_hir_expr_nesting(zir_nesting_guard *guard, const zt_hir_expr *expr);
+static int zir_validate_hir_stmt_nesting(zir_nesting_guard *guard, const zt_hir_stmt *stmt);
+
+static int zir_validate_hir_expr_list_nesting(zir_nesting_guard *guard, const zt_hir_expr_list *list) {
+    size_t i;
+    if (list == NULL) return 1;
+    for (i = 0; i < list->count; i += 1) {
+        if (!zir_validate_hir_expr_nesting(guard, list->items[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int zir_validate_hir_expr_nesting(zir_nesting_guard *guard, const zt_hir_expr *expr) {
+    size_t i;
+    if (expr == NULL) return 1;
+    if (!zir_nesting_push(guard, expr->span, "expression")) {
+        return 0;
+    }
+
+    switch (expr->kind) {
+        case ZT_HIR_SUCCESS_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.success_expr.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_ERROR_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.error_expr.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_LIST_EXPR:
+            if (!zir_validate_hir_expr_list_nesting(guard, &expr->as.list_expr.elements)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_MAP_EXPR:
+            for (i = 0; i < expr->as.map_expr.entries.count; i += 1) {
+                const zt_hir_map_entry *entry = &expr->as.map_expr.entries.items[i];
+                if (!zir_validate_hir_expr_nesting(guard, entry->key) ||
+                        !zir_validate_hir_expr_nesting(guard, entry->value)) {
+                    zir_nesting_pop(guard);
+                    return 0;
+                }
+            }
+            break;
+        case ZT_HIR_UNARY_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.unary_expr.operand)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_BINARY_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.binary_expr.left) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.binary_expr.right)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_FIELD_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.field_expr.object)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_INDEX_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.index_expr.object) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.index_expr.index)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_SLICE_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.slice_expr.object) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.slice_expr.start) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.slice_expr.end)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_CALL_EXPR:
+            if (!zir_validate_hir_expr_list_nesting(guard, &expr->as.call_expr.args)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_METHOD_CALL_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.method_call_expr.receiver) ||
+                    !zir_validate_hir_expr_list_nesting(guard, &expr->as.method_call_expr.args)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_CONSTRUCT_EXPR:
+            for (i = 0; i < expr->as.construct_expr.fields.count; i += 1) {
+                if (!zir_validate_hir_expr_nesting(guard, expr->as.construct_expr.fields.items[i].value)) {
+                    zir_nesting_pop(guard);
+                    return 0;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    zir_nesting_pop(guard);
+    return 1;
+}
+
+static int zir_validate_hir_stmt_nesting(zir_nesting_guard *guard, const zt_hir_stmt *stmt) {
+    size_t i;
+    if (stmt == NULL) return 1;
+    if (!zir_nesting_push(guard, stmt->span, "statement")) {
+        return 0;
+    }
+
+    switch (stmt->kind) {
+        case ZT_HIR_BLOCK_STMT:
+            for (i = 0; i < stmt->as.block_stmt.statements.count; i += 1) {
+                if (!zir_validate_hir_stmt_nesting(guard, stmt->as.block_stmt.statements.items[i])) {
+                    zir_nesting_pop(guard);
+                    return 0;
+                }
+            }
+            break;
+        case ZT_HIR_IF_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.if_stmt.condition) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.if_stmt.then_block) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.if_stmt.else_block)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_WHILE_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.while_stmt.condition) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.while_stmt.body)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_FOR_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.for_stmt.iterable) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.for_stmt.body)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_REPEAT_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.repeat_stmt.count) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.repeat_stmt.body)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_RETURN_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.return_stmt.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_CONST_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.const_stmt.init_value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_VAR_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.var_stmt.init_value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_ASSIGN_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.assign_stmt.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_INDEX_ASSIGN_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.index_assign_stmt.object) ||
+                    !zir_validate_hir_expr_nesting(guard, stmt->as.index_assign_stmt.index) ||
+                    !zir_validate_hir_expr_nesting(guard, stmt->as.index_assign_stmt.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_FIELD_ASSIGN_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.field_assign_stmt.object) ||
+                    !zir_validate_hir_expr_nesting(guard, stmt->as.field_assign_stmt.value)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        case ZT_HIR_MATCH_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.match_stmt.subject)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            for (i = 0; i < stmt->as.match_stmt.cases.count; i += 1) {
+                const zt_hir_match_case *match_case = &stmt->as.match_stmt.cases.items[i];
+                if (!zir_validate_hir_expr_list_nesting(guard, &match_case->patterns) ||
+                        !zir_validate_hir_stmt_nesting(guard, match_case->body)) {
+                    zir_nesting_pop(guard);
+                    return 0;
+                }
+            }
+            break;
+        case ZT_HIR_EXPR_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.expr_stmt.expr)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
+        default:
+            break;
+    }
+
+    zir_nesting_pop(guard);
+    return 1;
+}
+
+static int zir_validate_module_nesting(const zt_hir_module *module_decl, zt_diag_list *diagnostics) {
+    zir_nesting_guard guard;
+    size_t i;
+
+    guard.diagnostics = diagnostics;
+    guard.depth = 0;
+    guard.limit_hit = 0;
+
+    if (module_decl == NULL) return 0;
+
+    for (i = 0; i < module_decl->module_vars.count; i += 1) {
+        if (!zir_validate_hir_expr_nesting(&guard, module_decl->module_vars.items[i].init_value)) {
+            return 0;
+        }
+    }
+
+    for (i = 0; i < module_decl->declarations.count; i += 1) {
+        const zt_hir_decl *decl = module_decl->declarations.items[i];
+        size_t j;
+        if (decl == NULL) continue;
+        switch (decl->kind) {
+            case ZT_HIR_STRUCT_DECL:
+                for (j = 0; j < decl->as.struct_decl.fields.count; j += 1) {
+                    const zt_hir_field_decl *field = &decl->as.struct_decl.fields.items[j];
+                    if (!zir_validate_hir_expr_nesting(&guard, field->default_value) ||
+                            !zir_validate_hir_expr_nesting(&guard, field->where_clause)) {
+                        return 0;
+                    }
+                }
+                break;
+            case ZT_HIR_FUNC_DECL:
+                for (j = 0; j < decl->as.func_decl.params.count; j += 1) {
+                    if (!zir_validate_hir_expr_nesting(&guard, decl->as.func_decl.params.items[j].where_clause)) {
+                        return 0;
+                    }
+                }
+                if (!zir_validate_hir_stmt_nesting(&guard, decl->as.func_decl.body)) {
+                    return 0;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    return 1;
 }
 
 static char *zir_lower_strdup(const char *text) {
@@ -102,18 +408,6 @@ static const char *zir_last_segment(const char *name) {
     if (name == NULL) return NULL;
     dot = strrchr(name, '.');
     return dot != NULL ? dot + 1 : name;
-}
-
-static const char *zir_prev_segment(const char *name) {
-    const char *last;
-    const char *cursor;
-    if (name == NULL) return NULL;
-    last = strrchr(name, '.');
-    if (last == NULL || last == name) return NULL;
-    cursor = last - 1;
-    while (cursor > name && *cursor != '.') cursor -= 1;
-    if (*cursor == '.') return cursor + 1;
-    return name;
 }
 
 static int zir_name_matches(const char *left, const char *right) {
@@ -157,6 +451,101 @@ static int zir_type_name_is_optional(const char *type_name) {
     return zir_starts_with(type_name, "optional<");
 }
 
+static char *zir_type_name_owned(const zt_type *type);
+
+static void zir_copy_sanitized(char *dest, size_t capacity, const char *source) {
+    size_t out_index = 0;
+    size_t index = 0;
+
+    if (dest == NULL || capacity == 0) {
+        return;
+    }
+
+    while (source != NULL && source[index] != '\0' && out_index + 1 < capacity) {
+        char ch = source[index];
+        if ((ch >= 'a' && ch <= 'z') ||
+                (ch >= 'A' && ch <= 'Z') ||
+                (ch >= '0' && ch <= '9') ||
+                ch == '_') {
+            dest[out_index++] = ch;
+        } else {
+            dest[out_index++] = '_';
+        }
+        index += 1;
+    }
+
+    if (out_index == 0 && capacity > 1) {
+        dest[out_index++] = '_';
+    }
+
+    dest[out_index] = '\0';
+}
+
+static void zir_strip_spaces_in_place(char *text) {
+    size_t read_index = 0;
+    size_t write_index = 0;
+
+    if (text == NULL) {
+        return;
+    }
+
+    while (text[read_index] != '\0') {
+        if (text[read_index] != ' ') {
+            text[write_index++] = text[read_index];
+        }
+        read_index += 1;
+    }
+
+    text[write_index] = '\0';
+}
+
+static int zir_build_map_runtime_name_from_type(
+        const zt_type *map_type,
+        const char *suffix,
+        char *dest,
+        size_t capacity) {
+    char *type_name = NULL;
+    char *key_type_name = NULL;
+    char *value_type_name = NULL;
+    char canonical_name[256];
+    char sanitized[192];
+
+    if (map_type == NULL || suffix == NULL || dest == NULL || capacity == 0) {
+        return 0;
+    }
+
+    if (map_type->kind != ZT_TYPE_MAP || map_type->args.count < 2) {
+        return 0;
+    }
+
+    key_type_name = zir_type_name_owned(map_type->args.items[0]);
+    value_type_name = zir_type_name_owned(map_type->args.items[1]);
+    if (key_type_name == NULL || value_type_name == NULL) {
+        free(key_type_name);
+        free(value_type_name);
+        return 0;
+    }
+
+    zir_strip_spaces_in_place(key_type_name);
+    zir_strip_spaces_in_place(value_type_name);
+
+    snprintf(canonical_name, sizeof(canonical_name), "map<%s,%s>", key_type_name, value_type_name);
+    type_name = canonical_name;
+
+    if (strcmp(type_name, "map<text,text>") == 0) {
+        snprintf(dest, capacity, "zt_map_text_text_%s", suffix);
+        free(key_type_name);
+        free(value_type_name);
+        return 1;
+    }
+
+    zir_copy_sanitized(sanitized, sizeof(sanitized), type_name);
+    snprintf(dest, capacity, "zt_map_generated_%s_%s", sanitized, suffix);
+    free(key_type_name);
+    free(value_type_name);
+    return 1;
+}
+
 static char *zir_optional_inner_type_owned(const char *type_name) {
     const char *start;
     const char *cursor;
@@ -186,6 +575,16 @@ static char *zir_optional_inner_type_owned(const char *type_name) {
     memcpy(inner, start, len);
     inner[len] = '\0';
     return inner;
+}
+
+static char *zir_result_branch_type_owned(const zt_type *type, size_t branch_index) {
+    if (type != NULL &&
+            type->kind == ZT_TYPE_RESULT &&
+            type->args.count > branch_index &&
+            type->args.items[branch_index] != NULL) {
+        return zir_type_name_owned(type->args.items[branch_index]);
+    }
+    return zir_lower_strdup(branch_index == 0 ? "int" : "text");
 }
 
 static zir_span zir_span_from_source(zt_source_span span) {
@@ -513,7 +912,25 @@ static zir_expr *zir_lower_call_expr(
         return call;
     }
     if (zir_name_matches(callee_name, "core.map_get")) {
-        call = zir_expr_make_call_extern("c.zt_map_text_text_get_optional");
+        char runtime_name[224];
+        char callee_buffer[256];
+        const zt_type *map_type = NULL;
+
+        if (expr->as.call_expr.args.count > 0 &&
+                expr->as.call_expr.args.items[0] != NULL) {
+            map_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (!zir_build_map_runtime_name_from_type(
+                map_type,
+                "get_optional",
+                runtime_name,
+                sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_map_text_text_get_optional");
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
@@ -758,7 +1175,8 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
-    if (zir_call_is_module_func(callee_name, "path", "zt_text_concat")) {
+    if (zir_call_is_module_func(callee_name, "path", "zt_text_concat") ||
+            zir_call_is_module_func(callee_name, "text", "zt_text_concat")) {
         call = zir_expr_make_call_extern("c.zt_text_concat");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
@@ -1658,6 +2076,40 @@ static zir_expr *zir_match_single_pattern_condition(
         return zir_expr_make_optional_is_present(zir_expr_make_name(subject_name));
     }
 
+    if (pattern->kind == ZT_HIR_SUCCESS_EXPR) {
+        condition = zir_expr_make_outcome_is_success(zir_expr_make_name(subject_name));
+        if (pattern->as.success_expr.value == NULL ||
+                pattern->as.success_expr.value->kind == ZT_HIR_IDENT_EXPR ||
+                pattern->as.success_expr.value->kind == ZT_HIR_NONE_EXPR) {
+            return condition;
+        }
+        return zir_expr_make_binary(
+            "and",
+            condition,
+            zir_expr_make_binary(
+                "eq",
+                zir_expr_make_outcome_value(zir_expr_make_name(subject_name)),
+                zir_lower_hir_expr(ctx->module_hir, pattern->as.success_expr.value, NULL, NULL, NULL)));
+    }
+
+    if (pattern->kind == ZT_HIR_ERROR_EXPR) {
+        condition = zir_expr_make_binary(
+            "eq",
+            zir_expr_make_outcome_is_success(zir_expr_make_name(subject_name)),
+            zir_expr_make_bool(0));
+        if (pattern->as.error_expr.value == NULL ||
+                pattern->as.error_expr.value->kind == ZT_HIR_IDENT_EXPR) {
+            return condition;
+        }
+        return zir_expr_make_binary(
+            "and",
+            condition,
+            zir_expr_make_binary(
+                "eq",
+                zir_expr_make_get_field(zir_expr_make_name(subject_name), "error"),
+                zir_lower_hir_expr(ctx->module_hir, pattern->as.error_expr.value, NULL, NULL, NULL)));
+    }
+
     if (pattern->kind == ZT_HIR_NONE_EXPR) {
         return zir_expr_make_binary("eq", zir_expr_make_optional_is_present(zir_expr_make_name(subject_name)), zir_expr_make_bool(0));
     }
@@ -1753,6 +2205,38 @@ static void zir_emit_match_case_bindings(
         value_expr = zir_expr_make_optional_value(zir_expr_make_name(subject_name));
         zir_emit_assign_expr(ctx, pattern->as.value_binding_expr.name, type_name, value_expr, span);
         free(type_name);
+        return;
+    }
+
+    if (pattern->kind == ZT_HIR_SUCCESS_EXPR && pattern->as.success_expr.value != NULL) {
+        const zt_hir_expr *value_pattern = pattern->as.success_expr.value;
+        if (value_pattern->kind == ZT_HIR_IDENT_EXPR &&
+                !zir_text_eq(value_pattern->as.ident_expr.name, "_")) {
+            char *type_name = zir_result_branch_type_owned(pattern->type, 0);
+            zir_emit_assign_expr(
+                ctx,
+                value_pattern->as.ident_expr.name,
+                type_name,
+                zir_expr_make_outcome_value(zir_expr_make_name(subject_name)),
+                span);
+            free(type_name);
+        }
+        return;
+    }
+
+    if (pattern->kind == ZT_HIR_ERROR_EXPR && pattern->as.error_expr.value != NULL) {
+        const zt_hir_expr *error_pattern = pattern->as.error_expr.value;
+        if (error_pattern->kind == ZT_HIR_IDENT_EXPR &&
+                !zir_text_eq(error_pattern->as.ident_expr.name, "_")) {
+            char *type_name = zir_result_branch_type_owned(pattern->type, 1);
+            zir_emit_assign_expr(
+                ctx,
+                error_pattern->as.ident_expr.name,
+                type_name,
+                zir_expr_make_get_field(zir_expr_make_name(subject_name), "error"),
+                span);
+            free(type_name);
+        }
         return;
     }
 
@@ -2181,14 +2665,16 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
                     NULL,
                     NULL,
                     NULL);
+                char *value_type_name = zir_type_name_owned(stmt->as.return_stmt.value->type);
                 if (zir_type_name_is_optional(fn_return_type) &&
-                        (stmt->as.return_stmt.value->type == NULL ||
-                         stmt->as.return_stmt.value->type->kind != ZT_TYPE_OPTIONAL)) {
+                        stmt->as.return_stmt.value->kind != ZT_HIR_NONE_EXPR &&
+                        (value_type_name == NULL || !zir_text_eq(value_type_name, fn_return_type))) {
                     return_expr = zir_expr_make_optional_present(return_expr);
                 }
                 zir_set_terminator(
                     ctx,
                     zir_make_return_terminator_expr(return_expr));
+                free(value_type_name);
             }
             return;
 
@@ -2724,6 +3210,21 @@ zir_lower_result zir_lower_hir_to_zir(const zt_hir_module *module_decl) {
             0,
             NULL,
             0);
+        return out;
+    }
+
+    if (!zir_validate_module_nesting(module_decl, &out.diagnostics)) {
+        out.module = zir_make_module_with_decls_and_vars(
+            zir_lower_strdup(module_decl->module_name != NULL ? module_decl->module_name : "main"),
+            NULL,
+            0,
+            NULL,
+            0,
+            NULL,
+            0,
+            NULL,
+            0);
+        out.module.span = zir_span_from_source(module_decl->span);
         return out;
     }
 

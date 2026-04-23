@@ -1,0 +1,13 @@
+namespace fuzz.duplicate
+
+func quux_kmji() -> int
+    return 1
+end
+
+func quux_kmji(x: int) -> int  -- Duplicate
+    return x
+end
+
+public func main() -> int
+    return quux_kmji()
+end

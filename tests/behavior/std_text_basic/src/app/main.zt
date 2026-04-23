@@ -1,0 +1,74 @@
+namespace app.main
+
+import std.text as text
+
+func main() -> int
+    const spaced: text = " \tHello \n"
+    const trimmed: text = text.trim(spaced)
+    const trimmed_start: text = text.trim_start(spaced)
+    const trimmed_end: text = text.trim_end(spaced)
+    const utf8: bytes = text.to_utf8("Ae")
+    const decoded: result<text, text> = text.from_utf8(utf8)
+
+    if trimmed != "Hello"
+        return 1
+    end
+    if trimmed_start != "Hello \n"
+        return 2
+    end
+    if trimmed_end != " \tHello"
+        return 3
+    end
+    if text.contains("zenith", "nit") == false
+        return 4
+    end
+    if text.starts_with("zenith", "zen") == false
+        return 5
+    end
+    if text.ends_with("zenith", "ith") == false
+        return 6
+    end
+    if text.has_prefix("zenith", "zen") == false
+        return 7
+    end
+    if text.has_suffix("zenith", "ith") == false
+        return 8
+    end
+    if text.has_whitespace("zen ith") == false
+        return 9
+    end
+    if text.index_of("banana", "na") != 2
+        return 10
+    end
+    if text.last_index_of("banana", "na") != 4
+        return 11
+    end
+    if text.is_empty("") == false
+        return 12
+    end
+    if text.is_digits("12345") == false or text.is_digits("12a")
+        return 13
+    end
+
+    match decoded
+        case success(value) ->
+            const decoded_text: text = value
+            if decoded_text != "Ae"
+                return 14
+            end
+        case error(err) ->
+            const err_text: text = err
+            if err_text == "bad"
+                return 15
+            end
+            return 16
+    end
+
+    if text.limit("abcdef", 4) != "abcd"
+        return 17
+    end
+    if len(utf8) == 0
+        return 18
+    end
+    return 0
+end

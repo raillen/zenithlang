@@ -1,0 +1,73 @@
+namespace borealis.game.postfx
+
+public struct PostFxState
+    enabled: bool
+    vignette: float
+    grain: float
+    scanlines: float
+    pixel_size: float
+    bloom: float
+    chromatic: float
+    fxaa: bool
+end
+
+public var state: postfx.PostFxState = postfx.PostFxState(
+    enabled: false,
+    vignette: 0.0,
+    grain: 0.0,
+    scanlines: 0.0,
+    pixel_size: 1.0,
+    bloom: 0.0,
+    chromatic: 0.0,
+    fxaa: false
+)
+
+public func postfx_set_enabled(enabled: bool) -> result<void, core.Error>
+    state = postfx.PostFxState(
+        enabled: enabled,
+        vignette: state.vignette,
+        grain: state.grain,
+        scanlines: state.scanlines,
+        pixel_size: state.pixel_size,
+        bloom: state.bloom,
+        chromatic: state.chromatic,
+        fxaa: state.fxaa
+    )
+    return success()
+end
+
+public func postfx_is_enabled() -> bool
+    return state.enabled
+end
+
+public func postfx_reset() -> result<void, core.Error>
+    state = postfx.PostFxState(enabled: false, vignette: 0.0, grain: 0.0, scanlines: 0.0, pixel_size: 1.0, bloom: 0.0, chromatic: 0.0, fxaa: false)
+    return success()
+end
+
+public func fxaa_set_enabled(enabled: bool) -> result<void, core.Error>
+    state = postfx.PostFxState(
+        enabled: state.enabled,
+        vignette: state.vignette,
+        grain: state.grain,
+        scanlines: state.scanlines,
+        pixel_size: state.pixel_size,
+        bloom: state.bloom,
+        chromatic: state.chromatic,
+        fxaa: enabled
+    )
+    return success()
+end
+
+public func fxaa_get_enabled() -> bool
+    return state.fxaa
+end
+
+public func postfx_preset_ps1() -> result<void, core.Error>
+    state = postfx.PostFxState(enabled: true, vignette: 0.2, grain: 0.2, scanlines: 0.35, pixel_size: 2.0, bloom: 0.0, chromatic: 0.0, fxaa: false)
+    return success()
+end
+
+public func postfx_get_state() -> postfx.PostFxState
+    return state
+end

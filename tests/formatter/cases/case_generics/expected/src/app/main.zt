@@ -1,0 +1,15 @@
+namespace app.main
+
+func count_items[T](items: list<T>) -> int 
+    return len(items)
+end
+
+func main() -> int 
+    const names: list<text> = [Ada, Bob]
+    const scores: map<text, int> = {ada: 1, bob: 2}
+    const maybe: optional<text> = none
+    if maybe == none 
+        return count_items(names) + len(scores)
+    end
+    return 0
+end

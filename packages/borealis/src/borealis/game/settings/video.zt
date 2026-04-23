@@ -1,0 +1,133 @@
+namespace borealis.game.settings.video
+
+public enum AntiAliasingMode
+    None
+    Msaa2
+    Msaa4
+    Msaa8
+    Fxaa
+end
+
+public enum QualityProfile
+    Low
+    Medium
+    High
+end
+
+public struct VideoSettings
+    resolution: game.Size2
+    window_size: game.Size2
+    fullscreen: bool
+    borderless: bool
+    resizable: bool
+    vsync: bool
+    target_fps: int
+    antialiasing: video.AntiAliasingMode
+    quality: video.QualityProfile
+    render_scale: float
+end
+
+public var current: video.VideoSettings = video.VideoSettings(
+    resolution: game.size2(1280.0, 720.0),
+    window_size: game.size2(1280.0, 720.0),
+    fullscreen: false,
+    borderless: false,
+    resizable: true,
+    vsync: true,
+    target_fps: 60,
+    antialiasing: video.AntiAliasingMode.None,
+    quality: video.QualityProfile.Medium,
+    render_scale: 1.0
+)
+
+public func video_set_resolution(width: int, height: int) -> result<void, core.Error>
+    current = video.VideoSettings(
+        resolution: game.size2(width, height),
+        window_size: current.window_size,
+        fullscreen: current.fullscreen,
+        borderless: current.borderless,
+        resizable: current.resizable,
+        vsync: current.vsync,
+        target_fps: current.target_fps,
+        antialiasing: current.antialiasing,
+        quality: current.quality,
+        render_scale: current.render_scale
+    )
+    return success()
+end
+
+public func video_get_resolution() -> game.Size2
+    return current.resolution
+end
+
+public func video_set_vsync(enabled: bool) -> result<void, core.Error>
+    current = video.VideoSettings(
+        resolution: current.resolution,
+        window_size: current.window_size,
+        fullscreen: current.fullscreen,
+        borderless: current.borderless,
+        resizable: current.resizable,
+        vsync: enabled,
+        target_fps: current.target_fps,
+        antialiasing: current.antialiasing,
+        quality: current.quality,
+        render_scale: current.render_scale
+    )
+    return success()
+end
+
+public func video_get_vsync() -> bool
+    return current.vsync
+end
+
+public func video_set_antialiasing(mode: video.AntiAliasingMode) -> result<void, core.Error>
+    current = video.VideoSettings(
+        resolution: current.resolution,
+        window_size: current.window_size,
+        fullscreen: current.fullscreen,
+        borderless: current.borderless,
+        resizable: current.resizable,
+        vsync: current.vsync,
+        target_fps: current.target_fps,
+        antialiasing: mode,
+        quality: current.quality,
+        render_scale: current.render_scale
+    )
+    return success()
+end
+
+public func video_get_antialiasing() -> video.AntiAliasingMode
+    return current.antialiasing
+end
+
+public func video_set_quality_profile(level: video.QualityProfile) -> result<void, core.Error>
+    current = video.VideoSettings(
+        resolution: current.resolution,
+        window_size: current.window_size,
+        fullscreen: current.fullscreen,
+        borderless: current.borderless,
+        resizable: current.resizable,
+        vsync: current.vsync,
+        target_fps: current.target_fps,
+        antialiasing: current.antialiasing,
+        quality: level,
+        render_scale: current.render_scale
+    )
+    return success()
+end
+
+public func video_get_quality_profile() -> video.QualityProfile
+    return current.quality
+end
+
+public func video_requires_restart(name: text) -> bool
+    return name == "antialiasing" or name == "fullscreen"
+end
+
+public func video_apply_pending() -> result<void, core.Error>
+    return success()
+end
+
+public func video_get_state() -> video.VideoSettings
+    return current
+end

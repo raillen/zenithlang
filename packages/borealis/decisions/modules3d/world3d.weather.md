@@ -47,12 +47,12 @@ rain, storm, lightning, and wind presets for gameplay.
 - `lightning_trigger() -> result<void, core.Error>`: triggers one lightning strike.
 - `lightning_set_interval(min_seconds: float, max_seconds: float) -> result<void, core.Error>`: configures auto lightning interval.
 - `lightning_get_interval() -> world3d.LightningInterval`: reads auto lightning interval.
-- `lightning_set_flash(color: core.Color, intensity: float, duration: float) -> result<void, core.Error>`: configures flash effect.
+- `lightning_set_flash(color: game.Color, intensity: float, duration: float) -> result<void, core.Error>`: configures flash effect.
 - `lightning_get_last_strike_time() -> float`: reads last strike timestamp.
 
 ### Weather zones
 
-- `weather_zone_create(bounds: world3d.Bounds3D, kind: world3d.WeatherKind, intensity: float) -> result<world3d.WeatherZoneId, core.Error>`: creates a local weather zone.
+- `weather_zone_create(bounds: game.Bounds3D, kind: world3d.WeatherKind, intensity: float) -> result<world3d.WeatherZoneId, core.Error>`: creates a local weather zone.
 - `weather_zone_destroy(id: world3d.WeatherZoneId) -> result<void, core.Error>`: removes a weather zone.
 - `weather_zone_set_enabled(id: world3d.WeatherZoneId, enabled: bool) -> result<void, core.Error>`: toggles a weather zone.
 - `weather_zone_set_kind(id: world3d.WeatherZoneId, kind: world3d.WeatherKind) -> result<void, core.Error>`: sets zone weather kind.
@@ -70,3 +70,4 @@ rain, storm, lightning, and wind presets for gameplay.
 - weather can drive audio, lights, and fog through module integration.
 - realistic volumetric clouds are out of scope for v1.
 - localized fog-like cloud behavior can be achieved with fog zones and weather zones.
+

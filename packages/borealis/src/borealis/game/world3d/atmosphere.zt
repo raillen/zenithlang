@@ -1,0 +1,121 @@
+namespace borealis.game.world3d.atmosphere
+
+public enum FogMode
+    Linear
+    Exp
+    Exp2
+end
+
+public struct FogRange
+    start: float
+    finish: float
+end
+
+public struct HeightFogState
+    enabled: bool
+    base: float
+    falloff: float
+end
+
+public struct FogState
+    enabled: bool
+    color: game.Color
+    mode: atmosphere.FogMode
+    density: float
+    range: atmosphere.FogRange
+    height: atmosphere.HeightFogState
+    dither: bool
+end
+
+public struct WindState
+    direction: game.Vector3
+    strength: float
+end
+
+public struct AmbientProfile
+    name: text
+    ambient: game.Color
+end
+
+public var fog_state: atmosphere.FogState = atmosphere.FogState(
+    enabled: false,
+    color: game.rgb(120, 120, 120),
+    mode: atmosphere.FogMode.Linear,
+    density: 0.05,
+    range: atmosphere.FogRange(start: 6.0, finish: 28.0),
+    height: atmosphere.HeightFogState(enabled: false, base: 0.0, falloff: 1.0),
+    dither: false
+)
+public var wind_state: atmosphere.WindState = atmosphere.WindState(direction: game.vec3(1.0, 0.0, 0.0), strength: 0.0)
+public var current_hour: float = 12.0
+public var current_profile: atmosphere.AmbientProfile = atmosphere.AmbientProfile(name: "default", ambient: game.rgb(180, 180, 180))
+
+public func fog_set_enabled(enabled: bool) -> result<void, core.Error>
+    fog_state = atmosphere.FogState(
+        enabled: enabled,
+        color: fog_state.color,
+        mode: fog_state.mode,
+        density: fog_state.density,
+        range: fog_state.range,
+        height: fog_state.height,
+        dither: fog_state.dither
+    )
+    return success()
+end
+
+public func fog_get_state() -> atmosphere.FogState
+    return fog_state
+end
+
+public func fog_set_color(color: game.Color) -> result<void, core.Error>
+    fog_state = atmosphere.FogState(
+        enabled: fog_state.enabled,
+        color: color,
+        mode: fog_state.mode,
+        density: fog_state.density,
+        range: fog_state.range,
+        height: fog_state.height,
+        dither: fog_state.dither
+    )
+    return success()
+end
+
+public func fog_preset_ps1() -> result<void, core.Error>
+    fog_state = atmosphere.FogState(
+        enabled: true,
+        color: game.rgb(132, 140, 132),
+        mode: atmosphere.FogMode.Linear,
+        density: fog_state.density,
+        range: atmosphere.FogRange(start: 6.0, finish: 28.0),
+        height: fog_state.height,
+        dither: true
+    )
+    return success()
+end
+
+public func time_set(hour: float) -> result<void, core.Error>
+    current_hour = hour
+    return success()
+end
+
+public func time_get() -> float
+    return current_hour
+end
+
+public func wind_set(direction: game.Vector3, strength: float) -> result<void, core.Error>
+    wind_state = atmosphere.WindState(direction: direction, strength: strength)
+    return success()
+end
+
+public func wind_get() -> atmosphere.WindState
+    return wind_state
+end
+
+public func atmosphere_set_ambient_profile(profile: atmosphere.AmbientProfile) -> result<void, core.Error>
+    current_profile = profile
+    return success()
+end
+
+public func atmosphere_get_ambient_profile() -> atmosphere.AmbientProfile
+    return current_profile
+end

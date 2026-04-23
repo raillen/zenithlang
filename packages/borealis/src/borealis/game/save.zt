@@ -8,13 +8,23 @@ public func slot_write(slot: int, snapshot: text) -> result<void, core.Error>
     end
 
     var next: map<int, text> = save_slots
-    next[slot] = snapshot
+    const stored_snapshot: text = snapshot
+    next[slot] = stored_snapshot
     save_slots = next
     return success()
 end
 
 public func slot_read(slot: int) -> optional<text>
-    return save_slots.get(slot)
+    const maybe: optional<text> = save_slots.get(slot)
+    match maybe
+        case value present ->
+            if present == ""
+                return none
+            end
+            return present
+        case none ->
+            return none
+    end
 end
 
 public func slot_delete(slot: int) -> result<void, core.Error>
@@ -23,7 +33,8 @@ public func slot_delete(slot: int) -> result<void, core.Error>
     end
 
     var next: map<int, text> = save_slots
-    next[slot] = ""
+    const cleared_snapshot: text = ""
+    next[slot] = cleared_snapshot
     save_slots = next
     return success()
 end

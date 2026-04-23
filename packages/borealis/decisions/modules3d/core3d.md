@@ -38,3 +38,4 @@ It controls loop, frame timing, and game state flow.
 - rendering belongs to `render3d`.
 - camera belongs to `camera3d`.
 - collisions and movement belong to `physics3d`.
+

@@ -1,0 +1,8 @@
+namespace fuzz.optional_abuse
+
+public func main() -> int
+    const maybe: optional<int> = none
+    -- Tenta usar optional como valor direto
+    const result: int = maybe + 10
+    return result
+end

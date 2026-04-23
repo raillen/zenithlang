@@ -109,9 +109,53 @@ public struct Rect
     height: float
 end
 
+public struct Point2
+    x: float
+    y: float
+end
+
+public struct Size2
+    width: float
+    height: float
+end
+
 public struct Vector2
     x: float
     y: float
+end
+
+public struct Vector3
+    x: float
+    y: float
+    z: float
+end
+
+public struct Point3
+    x: float
+    y: float
+    z: float
+end
+
+public struct Size3
+    width: float
+    height: float
+    depth: float
+end
+
+public struct Transform3D
+    position: game.Vector3
+    rotation: game.Vector3
+    scale: game.Vector3
+end
+
+public struct Bounds3D
+    min: game.Vector3
+    max: game.Vector3
+end
+
+public struct Ray3
+    origin: game.Vector3
+    direction: game.Vector3
 end
 
 public enum Key
@@ -326,4 +370,40 @@ end
 
 public func vec2(x: float, y: float) -> game.Vector2
     return game.Vector2(x: x, y: y)
+end
+
+public func point2(x: float, y: float) -> game.Point2
+    return game.Point2(x: x, y: y)
+end
+
+public func size2(width: float, height: float) -> game.Size2
+    return game.Size2(width: width, height: height)
+end
+
+public func vec3(x: float, y: float, z: float) -> game.Vector3
+    return game.Vector3(x: x, y: y, z: z)
+end
+
+public func point3(x: float, y: float, z: float) -> game.Point3
+    return game.Point3(x: x, y: y, z: z)
+end
+
+public func size3(width: float, height: float, depth: float) -> game.Size3
+    return game.Size3(width: width, height: height, depth: depth)
+end
+
+public func transform3d(
+    position: game.Vector3 = game.vec3(0.0, 0.0, 0.0),
+    rotation: game.Vector3 = game.vec3(0.0, 0.0, 0.0),
+    scale: game.Vector3 = game.vec3(1.0, 1.0, 1.0)
+) -> game.Transform3D
+    return game.Transform3D(position: position, rotation: rotation, scale: scale)
+end
+
+public func bounds3d(min: game.Vector3, max: game.Vector3) -> game.Bounds3D
+    return game.Bounds3D(min: min, max: max)
+end
+
+public func ray3(origin: game.Vector3, direction: game.Vector3) -> game.Ray3
+    return game.Ray3(origin: origin, direction: direction)
 end

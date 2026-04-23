@@ -46,6 +46,7 @@ SUITE_TIME_LIMITS = {
 STABLE_SEEDS = {
     "fuzz_lexer":  20260421,
     "fuzz_parser": 20260421,
+    "fuzz_semantic": 20260423,
     "stress_rt":   20260421,
 }
 
@@ -98,6 +99,7 @@ BEHAVIOR_RUN_PASS = {
     "fmt_interpolation_basic",
     "edge_boundaries_empty",
     "optional_question_basic",
+    "std_collections_queue_stack_cow",
 }
 
 # Optional diagnostic fragment files for invalid behavior tests.
@@ -137,6 +139,7 @@ BEHAVIOR_DIAGNOSTIC_FRAGMENT_FILES = {
 BEHAVIOR_SMOKE_SUBSET = {
     "simple_app",
     "std_io_basic",
+    "std_collections_queue_stack_cow",
     "result_question_basic",
     "optional_result_basic",
     "enum_match_non_exhaustive_error",

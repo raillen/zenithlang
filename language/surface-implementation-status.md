@@ -28,11 +28,12 @@
 | `zt fmt` / `zt fmt --check` | `Conformant` | gate project `tooling_gate_smoke` |
 | `zt doc check` | `Conformant` | gate project `tooling_gate_smoke` |
 | Runtime contracts (`where`) | `Conformant` | positive and negative behavior tests |
+| Runtime diagnostic codes | `Conformant` | canonical alpha contract is `language/spec/diagnostic-code-catalog.md` plus `language/spec/diagnostics-model.md` |
 | Perf nightly gate | `Conformant` | `reports/perf/summary-nightly.json` status `pass` |
 
 ## Open Items
 
 | Item | Label | Notes |
 | --- | --- | --- |
-| Runtime diagnostic taxonomy alignment (`runtime.bounds`, etc.) | `Risk` | tracked as non-blocking alignment work |
-| RC cycles ownership strategy | `Risk` | tracked in scalability/runtime policy |
+| Default runtime thread-safety boundary | `Risk` | default runtime path is single-isolate with non-atomic ARC; cross-thread work must stay behind isolate/message-passing boundaries or future explicit shared wrappers |
+| RC cycles ownership strategy | `Risk` | default runtime ships without cycle collection; cycle-prone APIs remain gated by `language/spec/runtime-model.md` |

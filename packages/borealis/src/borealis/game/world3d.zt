@@ -1,0 +1,185 @@
+namespace borealis.game.world3d
+
+public struct World3D
+    id: int
+end
+
+public struct ChunkCoord
+    x: int
+    z: int
+end
+
+public struct LayerHandle
+    id: int
+end
+
+public struct World3DDebugState
+    name: text
+    origin: game.Vector3
+    bounds: game.Bounds3D
+end
+
+public enum BlendMode
+    Alpha
+    Add
+    Multiply
+end
+
+public struct SkyLayerConfig
+    speed: game.Vector2
+    offset: game.Vector2
+    opacity: float = 1.0
+    enabled: bool = true
+end
+
+public var world3d_next_id: int = 1
+public var world3d_active_id: int = 0
+public var world3d_name: map<int, text> = {}
+public var world3d_origin_x: map<int, float> = {}
+public var world3d_origin_y: map<int, float> = {}
+public var world3d_origin_z: map<int, float> = {}
+public var world3d_min_x: map<int, float> = {}
+public var world3d_min_y: map<int, float> = {}
+public var world3d_min_z: map<int, float> = {}
+public var world3d_max_x: map<int, float> = {}
+public var world3d_max_y: map<int, float> = {}
+public var world3d_max_z: map<int, float> = {}
+public var world3d_chunk_size: map<int, int> = {}
+public var world3d_skybox: map<int, int> = {}
+public var world3d_terrain_material: map<int, int> = {}
+
+public func world3d_create(name: text) -> result<world3d.World3D, core.Error>
+    const id: int = world3d_next_id
+    world3d_next_id = world3d_next_id + 1
+    world3d_name = world3d.set_text(world3d_name, id, name)
+    world3d_origin_x = world3d.set_float(world3d_origin_x, id, 0.0)
+    world3d_origin_y = world3d.set_float(world3d_origin_y, id, 0.0)
+    world3d_origin_z = world3d.set_float(world3d_origin_z, id, 0.0)
+    world3d_chunk_size = world3d.set_int(world3d_chunk_size, id, 16)
+    return success(world3d.World3D(id: id))
+end
+
+public func world3d_set_active(world: world3d.World3D) -> result<void, core.Error>
+    world3d_active_id = world.id
+    return success()
+end
+
+public func world3d_get_active() -> optional<world3d.World3D>
+    if world3d_active_id <= 0
+        return none
+    end
+    return world3d.World3D(id: world3d_active_id)
+end
+
+public func world3d_set_bounds(world: world3d.World3D, min: game.Vector3, max: game.Vector3) -> result<void, core.Error>
+    world3d_min_x = world3d.set_float(world3d_min_x, world.id, min.x)
+    world3d_min_y = world3d.set_float(world3d_min_y, world.id, min.y)
+    world3d_min_z = world3d.set_float(world3d_min_z, world.id, min.z)
+    world3d_max_x = world3d.set_float(world3d_max_x, world.id, max.x)
+    world3d_max_y = world3d.set_float(world3d_max_y, world.id, max.y)
+    world3d_max_z = world3d.set_float(world3d_max_z, world.id, max.z)
+    return success()
+end
+
+public func world3d_get_bounds(world: world3d.World3D) -> game.Bounds3D
+    return game.bounds3d(
+        game.vec3(world3d.float_or(world3d_min_x, world.id, 0.0), world3d.float_or(world3d_min_y, world.id, 0.0), world3d.float_or(world3d_min_z, world.id, 0.0)),
+        game.vec3(world3d.float_or(world3d_max_x, world.id, 0.0), world3d.float_or(world3d_max_y, world.id, 0.0), world3d.float_or(world3d_max_z, world.id, 0.0))
+    )
+end
+
+public func world3d_set_origin(world: world3d.World3D, origin: game.Vector3) -> result<void, core.Error>
+    world3d_origin_x = world3d.set_float(world3d_origin_x, world.id, origin.x)
+    world3d_origin_y = world3d.set_float(world3d_origin_y, world.id, origin.y)
+    world3d_origin_z = world3d.set_float(world3d_origin_z, world.id, origin.z)
+    return success()
+end
+
+public func world3d_get_origin(world: world3d.World3D) -> game.Vector3
+    return game.vec3(
+        world3d.float_or(world3d_origin_x, world.id, 0.0),
+        world3d.float_or(world3d_origin_y, world.id, 0.0),
+        world3d.float_or(world3d_origin_z, world.id, 0.0)
+    )
+end
+
+public func terrain_set_material(world: world3d.World3D, material: assets3d.MaterialHandle) -> result<void, core.Error>
+    world3d_terrain_material = world3d.set_int(world3d_terrain_material, world.id, material.id)
+    return success()
+end
+
+public func terrain_get_material(world: world3d.World3D) -> optional<assets3d.MaterialHandle>
+    const maybe: optional<int> = world3d_terrain_material.get(world.id)
+    match maybe
+        case value present ->
+            return assets3d.MaterialHandle(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func terrain_chunk_set_size(world: world3d.World3D, chunk_size: int) -> result<void, core.Error>
+    world3d_chunk_size = world3d.set_int(world3d_chunk_size, world.id, chunk_size)
+    return success()
+end
+
+public func skybox_set(world: world3d.World3D, sky: assets3d.CubemapId) -> result<void, core.Error>
+    world3d_skybox = world3d.set_int(world3d_skybox, world.id, sky.id)
+    return success()
+end
+
+public func skybox_get(world: world3d.World3D) -> optional<assets3d.CubemapId>
+    const maybe: optional<int> = world3d_skybox.get(world.id)
+    match maybe
+        case value present ->
+            return assets3d.CubemapId(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func world3d_debug_info(world: world3d.World3D) -> world3d.World3DDebugState
+    return world3d.World3DDebugState(
+        name: world3d.text_or(world3d_name, world.id, ""),
+        origin: world3d.world3d_get_origin(world),
+        bounds: world3d.world3d_get_bounds(world)
+    )
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+    const maybe: optional<text> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end
+
+public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+    var next: map<int, text> = values
+    next[id] = value
+    return next
+end

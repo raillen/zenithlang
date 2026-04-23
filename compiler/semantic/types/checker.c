@@ -2,6 +2,10 @@
 
 #include "compiler/semantic/types/types.h"
 
+#include <errno.h>
+#include <limits.h>
+#include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -30,6 +34,11 @@ typedef struct zt_decl_entry {
     const zt_ast_node *node;
 } zt_decl_entry;
 
+typedef struct zt_decl_index_entry {
+    const char *name;
+    const zt_ast_node *node;
+} zt_decl_index_entry;
+
 typedef struct zt_import_entry {
     char *local_name;
     const zt_ast_node *node;
@@ -57,6 +66,8 @@ typedef struct zt_module_catalog {
     zt_decl_list decls;
     zt_import_list imports;
     zt_apply_list applies;
+    zt_decl_index_entry *decl_index;
+    size_t decl_index_capacity;
 } zt_module_catalog;
 
 typedef struct zt_checker {
@@ -231,12 +242,85 @@ static void zt_catalog_dispose(zt_module_catalog *catalog) {
     free(catalog->decls.items);
     free(catalog->imports.items);
     free(catalog->applies.items);
+    free(catalog->decl_index);
     memset(catalog, 0, sizeof(*catalog));
+}
+
+static size_t zt_catalog_hash_name(const char *name) {
+    const unsigned char *cursor = (const unsigned char *)name;
+    size_t hash = (size_t)1469598103934665603ull;
+
+    if (name == NULL) return 0;
+
+    while (*cursor != '\0') {
+        hash ^= (size_t)(*cursor);
+        hash *= (size_t)1099511628211ull;
+        cursor += 1;
+    }
+
+    return hash;
+}
+
+static void zt_catalog_build_decl_index(zt_module_catalog *catalog) {
+    size_t capacity = 8;
+    size_t i;
+    zt_decl_index_entry *index;
+
+    if (catalog == NULL || catalog->decls.count == 0) return;
+
+    while (capacity < catalog->decls.count * 2) {
+        if (capacity > SIZE_MAX / 2) {
+            return;
+        }
+        capacity *= 2;
+    }
+
+    index = (zt_decl_index_entry *)calloc(capacity, sizeof(zt_decl_index_entry));
+    if (index == NULL) return;
+
+    for (i = 0; i < catalog->decls.count; i++) {
+        const char *name = catalog->decls.items[i].name;
+        const zt_ast_node *node = catalog->decls.items[i].node;
+        size_t slot;
+
+        if (name == NULL || node == NULL) continue;
+
+        slot = zt_catalog_hash_name(name) & (capacity - 1);
+        while (index[slot].name != NULL) {
+            if (strcmp(index[slot].name, name) == 0) {
+                break;
+            }
+            slot = (slot + 1) & (capacity - 1);
+        }
+
+        if (index[slot].name == NULL) {
+            index[slot].name = name;
+            index[slot].node = node;
+        }
+    }
+
+    catalog->decl_index = index;
+    catalog->decl_index_capacity = capacity;
 }
 
 static const zt_ast_node *zt_catalog_find_decl(const zt_module_catalog *catalog, const char *name) {
     size_t i;
     if (catalog == NULL || name == NULL) return NULL;
+    if (catalog->decl_index != NULL && catalog->decl_index_capacity > 0) {
+        size_t slot = zt_catalog_hash_name(name) & (catalog->decl_index_capacity - 1);
+        size_t start = slot;
+
+        while (catalog->decl_index[slot].name != NULL) {
+            if (strcmp(catalog->decl_index[slot].name, name) == 0) {
+                return catalog->decl_index[slot].node;
+            }
+            slot = (slot + 1) & (catalog->decl_index_capacity - 1);
+            if (slot == start) {
+                break;
+            }
+        }
+        return NULL;
+    }
     for (i = 0; i < catalog->decls.count; i++) {
         if (strcmp(catalog->decls.items[i].name, name) == 0) return catalog->decls.items[i].node;
     }
@@ -339,6 +423,8 @@ static void zt_catalog_build(zt_module_catalog *catalog, const zt_ast_node *root
                 break;
         }
     }
+
+    zt_catalog_build_decl_index(catalog);
 }
 
 static int zt_name_has_dot(const char *name) {
@@ -461,6 +547,7 @@ static int zt_parse_signed_literal_value(const char *text, long long *out_value)
     for (in_i = 0; text[in_i] != '\0' && out_i + 1 < sizeof(buffer); in_i++) {
         if (text[in_i] != '_') buffer[out_i++] = text[in_i];
     }
+    if (text[in_i] != '\0') return 0;
     buffer[out_i] = '\0';
     value = strtoll(buffer, &end, 0);
     if (end == NULL || *end != '\0') return 0;
@@ -479,9 +566,12 @@ static int zt_parse_double_literal_value(const char *text, double *out_value) {
     for (in_i = 0; text[in_i] != '\0' && out_i + 1 < sizeof(buffer); in_i++) {
         if (text[in_i] != '_') buffer[out_i++] = text[in_i];
     }
+    if (text[in_i] != '\0') return 0;
     buffer[out_i] = '\0';
+    errno = 0;
     value = strtod(buffer, &end);
     if (end == NULL || *end != '\0') return 0;
+    if (errno == ERANGE || !isfinite(value)) return 0;
     *out_value = value;
     return 1;
 }
@@ -530,24 +620,76 @@ static int zt_expr_matches_integral_type(const zt_expr_info *info, const zt_type
     return 0;
 }
 
+static int zt_try_add_i64(long long left, long long right, long long *out_value) {
+    if (out_value == NULL) return 0;
+    if ((right > 0 && left > LLONG_MAX - right) ||
+        (right < 0 && left < LLONG_MIN - right)) {
+        return 0;
+    }
+    *out_value = left + right;
+    return 1;
+}
+
+static int zt_try_sub_i64(long long left, long long right, long long *out_value) {
+    if (out_value == NULL) return 0;
+    if ((right > 0 && left < LLONG_MIN + right) ||
+        (right < 0 && left > LLONG_MAX + right)) {
+        return 0;
+    }
+    *out_value = left - right;
+    return 1;
+}
+
+static int zt_try_mul_i64(long long left, long long right, long long *out_value) {
+    if (out_value == NULL) return 0;
+    if (left == 0 || right == 0) {
+        *out_value = 0;
+        return 1;
+    }
+    if (left == -1) {
+        if (right == LLONG_MIN) return 0;
+        *out_value = -right;
+        return 1;
+    }
+    if (right == -1) {
+        if (left == LLONG_MIN) return 0;
+        *out_value = -left;
+        return 1;
+    }
+    if (left > 0) {
+        if (right > 0) {
+            if (left > LLONG_MAX / right) return 0;
+        } else {
+            if (right < LLONG_MIN / left) return 0;
+        }
+    } else {
+        if (right > 0) {
+            if (left < LLONG_MIN / right) return 0;
+        } else {
+            if (left < LLONG_MAX / right) return 0;
+        }
+    }
+    *out_value = left * right;
+    return 1;
+}
+
 static int zt_checker_compute_integral_binary(zt_token_kind op, long long left, long long right, long long *out_value) {
     if (out_value == NULL) return 0;
     switch (op) {
         case ZT_TOKEN_PLUS:
-            *out_value = left + right;
-            return 1;
+            return zt_try_add_i64(left, right, out_value);
         case ZT_TOKEN_MINUS:
-            *out_value = left - right;
-            return 1;
+            return zt_try_sub_i64(left, right, out_value);
         case ZT_TOKEN_STAR:
-            *out_value = left * right;
-            return 1;
+            return zt_try_mul_i64(left, right, out_value);
         case ZT_TOKEN_SLASH:
             if (right == 0) return 0;
+            if (left == LLONG_MIN && right == -1) return 0;
             *out_value = left / right;
             return 1;
         case ZT_TOKEN_PERCENT:
             if (right == 0) return 0;
+            if (left == LLONG_MIN && right == -1) return 0;
             *out_value = left % right;
             return 1;
         default:
@@ -1414,24 +1556,28 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
 
         if (decl != NULL && decl->kind == ZT_AST_FUNC_DECL) {
             const zt_ast_node *func_decl = decl;
+            size_t param_count = func_decl->as.func_decl.params.count;
             size_t positional_count = node->as.call_expr.positional_args.count;
             size_t named_count = node->as.call_expr.named_args.count;
-            int used_params[128];
+            int *used_params = NULL;
             size_t last_named_index = positional_count == 0 ? 0 : positional_count - 1;
-            memset(used_params, 0, sizeof(used_params));
 
             zt_type_dispose(result.type);
             result.type = zt_checker_resolve_type(checker, func_decl->as.func_decl.return_type, scope);
 
-            if (func_decl->as.func_decl.params.count > sizeof(used_params) / sizeof(used_params[0])) {
-                return result;
+            if (param_count > 0) {
+                used_params = (int *)calloc(param_count, sizeof(int));
+                if (used_params == NULL) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "out of memory validating arguments for call to '%s'", name);
+                    return result;
+                }
             }
 
             for (i = 0; i < positional_count; i++) {
                 const zt_ast_node *param;
                 zt_type *param_type;
                 zt_expr_info arg_info;
-                if (i >= func_decl->as.func_decl.params.count) {
+                if (i >= param_count) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, node->span, "too many positional arguments for '%s'", name);
                     break;
                 }
@@ -1441,7 +1587,7 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 if (!zt_checker_same_or_contextually_assignable(checker, scope, param_type, &arg_info, node->as.call_expr.positional_args.items[i]->span)) {
                     zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, node->as.call_expr.positional_args.items[i]->span, "argument type mismatch", param_type, arg_info.type);
                 }
-                used_params[i] = 1;
+                if (used_params != NULL) used_params[i] = 1;
                 zt_expr_info_dispose(&arg_info);
                 zt_type_dispose(param_type);
             }
@@ -1463,7 +1609,7 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                         } else {
                             last_named_index = p;
                         }
-                        used_params[p] = 1;
+                        if (used_params != NULL) used_params[p] = 1;
                         param_type = zt_checker_resolve_type(checker, param->as.param.type_node, scope);
                         arg_info = zt_checker_check_expression(checker, arg->value, scope, fn_ctx, param_type);
                         if (!zt_checker_same_or_contextually_assignable(checker, scope, param_type, &arg_info, arg->span)) {
@@ -1486,6 +1632,7 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, node->span, "missing argument for parameter '%s' in call to '%s'", param->as.param.name, name);
                 }
             }
+            free(used_params);
             return result;
         }
     }
@@ -1992,6 +2139,17 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
             info.type = zt_type_make(ZT_TYPE_FLOAT);
             info.is_float_literal = 1;
             info.literal_text = node->as.float_expr.value;
+            {
+                double parsed_float = 0.0;
+                if (!zt_parse_double_literal_value(node->as.float_expr.value, &parsed_float)) {
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_INVALID_CONVERSION,
+                        node->span,
+                        "float literal '%s' is out of range",
+                        node->as.float_expr.value);
+                }
+            }
             return info;
         case ZT_AST_STRING_EXPR:
             zt_type_dispose(info.type);
@@ -2300,6 +2458,8 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                         if (!zt_int_value_fits_kind(folded, info.type->kind)) {
                             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                         }
+                    } else if (left_info.has_int_value && (right_info.has_int_value || right_info.is_int_literal)) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                     }
                 } else if (zt_type_is_integral(right_info.type) && zt_expr_matches_integral_type(&left_info, right_info.type)) {
                     long long folded;
@@ -2316,6 +2476,8 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                         if (!zt_int_value_fits_kind(folded, info.type->kind)) {
                             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                         }
+                    } else if ((left_info.has_int_value || left_info.is_int_literal) && right_info.has_int_value) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                     }
                 } else if (zt_type_is_numeric(left_info.type) && zt_type_equals(left_info.type, right_info.type)) {
                     zt_type_dispose(info.type);
@@ -2352,6 +2514,8 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                         if (!zt_int_value_fits_kind(folded, info.type->kind)) {
                             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                         }
+                    } else if (left_info.has_int_value && (right_info.has_int_value || right_info.is_int_literal)) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                     }
                 } else if (zt_type_is_integral(right_info.type) && zt_expr_matches_integral_type(&left_info, right_info.type)) {
                     long long folded;
@@ -2371,6 +2535,8 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                         if (!zt_int_value_fits_kind(folded, info.type->kind)) {
                             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                         }
+                    } else if ((left_info.has_int_value || left_info.is_int_literal) && right_info.has_int_value) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INTEGER_OVERFLOW, node->span, "integer overflow in arithmetic expression");
                     }
                 } else if (zt_type_is_numeric(left_info.type) && zt_type_equals(left_info.type, right_info.type)) {
                     zt_type_dispose(info.type);
@@ -2819,6 +2985,65 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                     continue;
                 }
 
+                if (subject_info.type != NULL && subject_info.type->kind == ZT_TYPE_RESULT) {
+                    for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
+                        const zt_ast_node *pattern = case_node->as.match_case.patterns.items[p];
+                        if (pattern == NULL) continue;
+
+                        if (pattern->kind == ZT_AST_SUCCESS_EXPR) {
+                            const zt_ast_node *inner = pattern->as.success_expr.value;
+                            if (inner != NULL &&
+                                    (inner->kind == ZT_AST_VALUE_BINDING || inner->kind == ZT_AST_IDENT_EXPR)) {
+                                const char *binding_name = inner->kind == ZT_AST_VALUE_BINDING
+                                    ? inner->as.value_binding.name
+                                    : inner->as.ident_expr.name;
+                                if (subject_info.type->args.count > 0 && subject_info.type->args.items[0] != NULL) {
+                                    zt_type *inner_type = zt_type_clone(subject_info.type->args.items[0]);
+                                    if (zt_binding_scope_lookup(&case_scope, binding_name, ZT_BINDING_VALUE) != NULL) {
+                                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, inner->span, "duplicate or shadowed binding '%s' in match case", binding_name);
+                                        zt_type_dispose(inner_type);
+                                    } else {
+                                        zt_binding_scope_declare(&case_scope, ZT_BINDING_VALUE, binding_name, inner_type, 0);
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+
+                        if (pattern->kind == ZT_AST_ERROR_EXPR) {
+                            const zt_ast_node *inner = pattern->as.error_expr.value;
+                            if (inner != NULL &&
+                                    (inner->kind == ZT_AST_VALUE_BINDING || inner->kind == ZT_AST_IDENT_EXPR)) {
+                                const char *binding_name = inner->kind == ZT_AST_VALUE_BINDING
+                                    ? inner->as.value_binding.name
+                                    : inner->as.ident_expr.name;
+                                if (subject_info.type->args.count > 1 && subject_info.type->args.items[1] != NULL) {
+                                    zt_type *inner_type = zt_type_clone(subject_info.type->args.items[1]);
+                                    if (zt_binding_scope_lookup(&case_scope, binding_name, ZT_BINDING_VALUE) != NULL) {
+                                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, inner->span, "duplicate or shadowed binding '%s' in match case", binding_name);
+                                        zt_type_dispose(inner_type);
+                                    } else {
+                                        zt_binding_scope_declare(&case_scope, ZT_BINDING_VALUE, binding_name, inner_type, 0);
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+
+                        {
+                            zt_expr_info pattern_info = zt_checker_check_expression(checker, pattern, &case_scope, fn_ctx, subject_info.type);
+                            if (!zt_checker_same_or_contextually_assignable(checker, &case_scope, subject_info.type, &pattern_info, pattern->span)) {
+                                zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, pattern->span, "match pattern type mismatch", subject_info.type, pattern_info.type);
+                            }
+                            zt_expr_info_dispose(&pattern_info);
+                        }
+                    }
+
+                    zt_checker_check_block(checker, case_node->as.match_case.body, &case_scope, fn_ctx);
+                    zt_binding_scope_dispose(&case_scope);
+                    continue;
+                }
+
                 for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
                     zt_expr_info pattern_info = zt_checker_check_expression(checker, case_node->as.match_case.patterns.items[p], &case_scope, fn_ctx, subject_info.type);
                     if (!zt_checker_same_or_contextually_assignable(checker, &case_scope, subject_info.type, &pattern_info, case_node->as.match_case.patterns.items[p]->span)) {
@@ -2865,6 +3090,28 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 }
                 if (!has_none_case) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on optional is not exhaustive: missing 'case none' pattern");
+                }
+            }
+
+            if (!subject_is_enum && subject_info.type != NULL && subject_info.type->kind == ZT_TYPE_RESULT && !has_default) {
+                int has_success_case = 0;
+                int has_error_case = 0;
+                for (c = 0; c < stmt->as.match_stmt.cases.count; c++) {
+                    const zt_ast_node *case_node = stmt->as.match_stmt.cases.items[c];
+                    size_t p;
+                    if (case_node == NULL || case_node->as.match_case.is_default) continue;
+                    for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
+                        const zt_ast_node *pattern = case_node->as.match_case.patterns.items[p];
+                        if (pattern == NULL) continue;
+                        if (pattern->kind == ZT_AST_SUCCESS_EXPR) has_success_case = 1;
+                        if (pattern->kind == ZT_AST_ERROR_EXPR) has_error_case = 1;
+                    }
+                }
+                if (!has_success_case) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on result is not exhaustive: missing 'case success(...)' pattern");
+                }
+                if (!has_error_case) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on result is not exhaustive: missing 'case error(...)' pattern");
                 }
             }
 

@@ -1,0 +1,11 @@
+namespace fuzz.mutability_violation
+
+struct Immutable
+    value: int
+end
+
+public func main() -> int
+    const x: Immutable = Immutable(value: 42)
+    x.value = 100  -- Error: const struct
+    return x.value
+end

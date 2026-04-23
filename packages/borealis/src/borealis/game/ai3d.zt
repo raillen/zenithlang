@@ -1,0 +1,160 @@
+namespace borealis.game.ai3d
+
+public enum NavigationMode
+    Direct
+    Grid
+    Navpoints
+    Navmesh
+end
+
+public struct Ai3dId
+    id: int
+end
+
+public struct Path3D
+    start: game.Vector3
+    goal: game.Vector3
+end
+
+public struct Ai3dDebugInfo
+    enabled: bool
+    destination: game.Vector3
+    target_id: int
+end
+
+public var ai3d_next_id: int = 1
+public var ai3d_enabled: map<int, bool> = {}
+public var ai3d_entity_id: map<int, int> = {}
+public var ai3d_destination_x: map<int, float> = {}
+public var ai3d_destination_y: map<int, float> = {}
+public var ai3d_destination_z: map<int, float> = {}
+public var ai3d_target_id: map<int, int> = {}
+public var ai3d_navigation_mode: map<int, int> = {}
+
+public func ai3d_create(entity: entities.Entity) -> result<ai3d.Ai3dId, core.Error>
+    const id: int = ai3d_next_id
+    ai3d_next_id = ai3d_next_id + 1
+    ai3d_enabled = ai3d.set_bool(ai3d_enabled, id, true)
+    ai3d_entity_id = ai3d.set_int(ai3d_entity_id, id, entity.id)
+    ai3d_navigation_mode = ai3d.set_int(ai3d_navigation_mode, id, 0)
+    return success(ai3d.Ai3dId(id: id))
+end
+
+public func ai3d_set_enabled(id: ai3d.Ai3dId, enabled: bool) -> result<void, core.Error>
+    ai3d_enabled = ai3d.set_bool(ai3d_enabled, id.id, enabled)
+    return success()
+end
+
+public func ai3d_is_enabled(id: ai3d.Ai3dId) -> bool
+    return ai3d.bool_or(ai3d_enabled, id.id, false)
+end
+
+public func ai3d_seek(id: ai3d.Ai3dId, position: game.Vector3) -> result<void, core.Error>
+    ai3d_destination_x = ai3d.set_float(ai3d_destination_x, id.id, position.x)
+    ai3d_destination_y = ai3d.set_float(ai3d_destination_y, id.id, position.y)
+    ai3d_destination_z = ai3d.set_float(ai3d_destination_z, id.id, position.z)
+    return success()
+end
+
+public func ai3d_set_target(id: ai3d.Ai3dId, target: entities.Entity) -> result<void, core.Error>
+    ai3d_target_id = ai3d.set_int(ai3d_target_id, id.id, target.id)
+    return success()
+end
+
+public func ai3d_get_target(id: ai3d.Ai3dId) -> optional<entities.Entity>
+    const maybe: optional<int> = ai3d_target_id.get(id.id)
+    match maybe
+        case value present ->
+            return entities.Entity(id: present)
+        case none ->
+            return none
+    end
+end
+
+public func ai3d_set_navigation_mode(id: ai3d.Ai3dId, mode: ai3d.NavigationMode) -> result<void, core.Error>
+    ai3d_navigation_mode = ai3d.set_int(ai3d_navigation_mode, id.id, ai3d.mode_code(mode))
+    return success()
+end
+
+public func ai3d_get_navigation_mode(id: ai3d.Ai3dId) -> ai3d.NavigationMode
+    const raw: int = ai3d.int_or(ai3d_navigation_mode, id.id, 0)
+    if raw == 1
+        return ai3d.NavigationMode.Grid
+    end
+    if raw == 2
+        return ai3d.NavigationMode.Navpoints
+    end
+    if raw == 3
+        return ai3d.NavigationMode.Navmesh
+    end
+    return ai3d.NavigationMode.Direct
+end
+
+public func ai3d_debug_info(id: ai3d.Ai3dId) -> ai3d.Ai3dDebugInfo
+    return ai3d.Ai3dDebugInfo(
+        enabled: ai3d.ai3d_is_enabled(id),
+        destination: game.vec3(ai3d.float_or(ai3d_destination_x, id.id, 0.0), ai3d.float_or(ai3d_destination_y, id.id, 0.0), ai3d.float_or(ai3d_destination_z, id.id, 0.0)),
+        target_id: ai3d.int_or(ai3d_target_id, id.id, 0)
+    )
+end
+
+public func mode_code(mode: ai3d.NavigationMode) -> int
+    match mode
+        case ai3d.NavigationMode.Direct ->
+            return 0
+        case ai3d.NavigationMode.Grid ->
+            return 1
+        case ai3d.NavigationMode.Navpoints ->
+            return 2
+        case ai3d.NavigationMode.Navmesh ->
+            return 3
+    end
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+    const maybe: optional<int> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end

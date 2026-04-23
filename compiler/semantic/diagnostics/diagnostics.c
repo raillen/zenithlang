@@ -141,6 +141,7 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_BACKEND_C_LEGALIZE_ERROR: return "backend_c_legalize_error";
         case ZT_DIAG_SYNTAX_ERROR: return "syntax_error";
         case ZT_DIAG_UNEXPECTED_TOKEN: return "unexpected_token";
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED: return "structure_limit_exceeded";
         case ZT_DIAG_DUPLICATE_NAME: return "duplicate_name";
         case ZT_DIAG_SHADOWING: return "shadowing";
         case ZT_DIAG_UNRESOLVED_NAME: return "unresolved_name";
@@ -200,6 +201,7 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_BACKEND_C_LEGALIZE_ERROR: return "backend.c.legalize";
         case ZT_DIAG_SYNTAX_ERROR: return "syntax.error";
         case ZT_DIAG_UNEXPECTED_TOKEN: return "syntax.unexpected_token";
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED: return "compiler.limit_exceeded";
         case ZT_DIAG_DUPLICATE_NAME: return "name.duplicate";
         case ZT_DIAG_SHADOWING: return "name.shadowing";
         case ZT_DIAG_UNRESOLVED_NAME: return "name.unresolved";
@@ -263,6 +265,7 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_BACKEND_C_LEGALIZE_ERROR: return "Adjust sequence expressions to forms supported by C legalization.";
         case ZT_DIAG_SYNTAX_ERROR: return "Review the syntax near the error.";
         case ZT_DIAG_UNEXPECTED_TOKEN: return "Check for missing separators or invalid characters.";
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED: return "Reduce nesting depth or split the construct into smaller parts.";
         case ZT_DIAG_DUPLICATE_NAME: return "Rename one of the declarations in this scope.";
         case ZT_DIAG_SHADOWING: return "Use a different local name to avoid shadowing an outer declaration.";
         case ZT_DIAG_UNRESOLVED_NAME: return "Declare or import this name before using it.";
@@ -466,6 +469,7 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
     switch (code) {
         case ZT_DIAG_SYNTAX_ERROR:
         case ZT_DIAG_UNEXPECTED_TOKEN:
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED:
         case ZT_DIAG_UNRESOLVED_NAME:
         case ZT_DIAG_CONFUSING_NAME:
         case ZT_DIAG_DUPLICATE_NAME:
@@ -526,6 +530,7 @@ const char *zt_diag_action_text(zt_diag_code code) {
         case ZT_DIAG_CONFUSING_NAME: return "Rename this identifier to reduce visual confusion.";
         case ZT_DIAG_SYNTAX_ERROR: return "Fix the syntax near the reported location.";
         case ZT_DIAG_UNEXPECTED_TOKEN: return "Replace or remove the unexpected token.";
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED: return "Split the construct into smaller nested pieces.";
         case ZT_DIAG_TYPE_MISMATCH: return "Convert the value type or change the expected type.";
         case ZT_DIAG_CONST_REASSIGNMENT: return "Use var if the binding must be reassigned.";
         case ZT_DIAG_PARAM_ORDERING: return "Move required parameters before parameters with default values (or add defaults).";

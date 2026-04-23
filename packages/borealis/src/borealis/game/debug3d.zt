@@ -1,0 +1,133 @@
+namespace borealis.game.debug3d
+
+public struct Debug3dOverlayState
+    enabled: bool
+    draw_colliders: bool
+    watch_count: int
+end
+
+public var debug3d_enabled: bool = false
+public var debug3d_colliders: bool = false
+public var debug3d_watch_entity_ids: map<int, int> = {}
+public var debug3d_watch_body_ids: map<int, int> = {}
+public var debug3d_watch_ai_ids: map<int, int> = {}
+public var debug3d_watch_camera_ids: map<int, int> = {}
+public var debug3d_watch_count: int = 0
+
+public func debug3d_set_enabled(enabled: bool) -> result<void, core.Error>
+    debug3d_enabled = enabled
+    return success()
+end
+
+public func debug3d_is_enabled() -> bool
+    return debug3d_enabled
+end
+
+public func debug3d_clear() -> result<void, core.Error>
+    debug3d_colliders = false
+    return success()
+end
+
+public func debug3d_draw_axes(_position: game.Vector3, _size: float) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_grid(_center: game.Vector3, _size: game.Size2, _spacing: float) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_bounds(_bounds: game.Bounds3D, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_text(_position: game.Vector3, _text: text, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_body(_body: physics3d.BodyId, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_colliders(enabled: bool) -> result<void, core.Error>
+    debug3d_colliders = enabled
+    return success()
+end
+
+public func debug3d_draw_ray(_ray: game.Ray3, _color: game.Color, _length: float) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_contacts(_body: physics3d.BodyId, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_chunk_bounds(_world: world3d.World3D, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_navpoints(_points: list<game.Vector3>, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_path(_path: ai3d.Path3D, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_spawn_points(_points: list<procedural3d.SpawnPoint>, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_watch_entity(entity: entities.Entity) -> result<void, core.Error>
+    debug3d_watch_count = debug3d_watch_count + 1
+    debug3d_watch_entity_ids = debug3d.set_int(debug3d_watch_entity_ids, debug3d_watch_count, entity.id)
+    return success()
+end
+
+public func debug3d_watch_body(body: physics3d.BodyId) -> result<void, core.Error>
+    debug3d_watch_count = debug3d_watch_count + 1
+    debug3d_watch_body_ids = debug3d.set_int(debug3d_watch_body_ids, debug3d_watch_count, body.id)
+    return success()
+end
+
+public func debug3d_watch_ai(agent: ai3d.Ai3dId) -> result<void, core.Error>
+    debug3d_watch_count = debug3d_watch_count + 1
+    debug3d_watch_ai_ids = debug3d.set_int(debug3d_watch_ai_ids, debug3d_watch_count, agent.id)
+    return success()
+end
+
+public func debug3d_watch_camera(camera: camera3d.Camera3D) -> result<void, core.Error>
+    debug3d_watch_count = debug3d_watch_count + 1
+    debug3d_watch_camera_ids = debug3d.set_int(debug3d_watch_camera_ids, debug3d_watch_count, camera.id)
+    return success()
+end
+
+public func debug3d_unwatch_all() -> result<void, core.Error>
+    debug3d_watch_entity_ids = {}
+    debug3d_watch_body_ids = {}
+    debug3d_watch_ai_ids = {}
+    debug3d_watch_camera_ids = {}
+    debug3d_watch_count = 0
+    return success()
+end
+
+public func debug3d_draw_ui_anchor(_ui_id: ui3d.Ui3dId, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_draw_audio_range(_instance_id: audio3d.InstanceId, _color: game.Color) -> result<void, core.Error>
+    return success()
+end
+
+public func debug3d_get_overlay_state() -> debug3d.Debug3dOverlayState
+    return debug3d.Debug3dOverlayState(
+        enabled: debug3d_enabled,
+        draw_colliders: debug3d_colliders,
+        watch_count: debug3d_watch_count
+    )
+end
+
+public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+    var next: map<int, int> = values
+    next[id] = value
+    return next
+end

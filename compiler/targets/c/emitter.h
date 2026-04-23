@@ -4,6 +4,7 @@
 #include "compiler/zir/model.h"
 
 #include <stddef.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,7 +27,11 @@ typedef struct c_emit_result {
 typedef struct c_string_buffer {
     char *data;
     size_t length;
+    size_t resident_length;
     size_t capacity;
+    FILE *spill_file;
+    size_t spill_threshold;
+    int spilled;
 } c_string_buffer;
 
 typedef struct c_emitter {
@@ -40,7 +45,8 @@ const char *c_emit_error_code_name(c_emit_error_code code);
 void c_emitter_init(c_emitter *emitter);
 void c_emitter_reset(c_emitter *emitter);
 void c_emitter_dispose(c_emitter *emitter);
-const char *c_emitter_text(const c_emitter *emitter);
+const char *c_emitter_text(c_emitter *emitter);
+int c_emitter_write_file(c_emitter *emitter, const char *path);
 int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result);
 
 #ifdef __cplusplus
@@ -48,4 +54,3 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
 #endif
 
 #endif
-

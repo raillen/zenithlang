@@ -1,0 +1,10 @@
+namespace app.main
+
+func main() -> int
+const values: list<int> = [
+1,
+2,
+3,
+]
+return values[0] + values[1] + values[2]
+end

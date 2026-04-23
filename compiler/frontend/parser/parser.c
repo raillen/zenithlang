@@ -21,7 +21,10 @@ typedef struct zt_parser {
     zt_token *pending_comments;
     size_t pending_comment_count;
     size_t pending_comment_capacity;
+    size_t nesting_depth;
 } zt_parser;
+
+#define ZT_PARSER_MAX_NESTING_DEPTH 512u
 
 static zt_token zt_parser_next_non_comment_token(zt_parser *p) {
     zt_token token;
@@ -154,6 +157,28 @@ static void zt_parser_error_contextual(zt_parser *p, const char *base_message, c
     /* Use contextual message if available, otherwise use base message */
     const char *message = (context_message != NULL) ? context_message : base_message;
     zt_diag_list_add(&p->result->diagnostics, ZT_DIAG_SYNTAX_ERROR, p->current.span, "%s", message);
+}
+
+static int zt_parser_push_nesting(zt_parser *p, zt_source_span span, const char *label) {
+    if (p == NULL) return 0;
+    if (p->nesting_depth >= ZT_PARSER_MAX_NESTING_DEPTH) {
+        zt_diag_list_add(
+            &p->result->diagnostics,
+            ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED,
+            span,
+            "%s nesting exceeds compiler limit (%u levels)",
+            label != NULL ? label : "parser",
+            (unsigned)ZT_PARSER_MAX_NESTING_DEPTH);
+        return 0;
+    }
+    p->nesting_depth += 1;
+    return 1;
+}
+
+static void zt_parser_pop_nesting(zt_parser *p) {
+    if (p != NULL && p->nesting_depth > 0) {
+        p->nesting_depth -= 1;
+    }
 }
 
 static zt_ast_node *zt_parser_ast_make(zt_parser *p, zt_ast_kind kind, zt_source_span span);
@@ -620,7 +645,11 @@ static char *zt_parser_parse_type_name_path(zt_parser *p, zt_source_span *out_sp
 }
 
 static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
+    zt_ast_node *result = NULL;
     zt_source_span type_span = p->current.span;
+    if (!zt_parser_push_nesting(p, type_span, "type")) {
+        return NULL;
+    }
     if (zt_parser_match(p, ZT_TOKEN_DYN)) {
         zt_ast_node *inner = NULL;
         if (zt_parser_match(p, ZT_TOKEN_LT)) {
@@ -633,13 +662,18 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
         if (node != NULL) {
             node->as.type_dyn.inner_type = inner;
         }
-        return node;
+        result = node;
+        zt_parser_pop_nesting(p);
+        return result;
     }
 
     zt_source_span name_span = zt_source_span_unknown();
     char *type_name = zt_parser_parse_type_name_path(p, &name_span);
     zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_SIMPLE, name_span);
-    if (node == NULL) return NULL;
+    if (node == NULL) {
+        zt_parser_pop_nesting(p);
+        return NULL;
+    }
     node->as.type_simple.name = type_name;
 
     if (zt_parser_check(p, ZT_TOKEN_LT)) {
@@ -654,15 +688,21 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
         zt_parser_expect(p, ZT_TOKEN_GT);
 
         zt_ast_node *generic = zt_parser_ast_make(p, ZT_AST_TYPE_GENERIC, name_span);
-        if (generic == NULL) return NULL;
+        if (generic == NULL) {
+            zt_parser_pop_nesting(p);
+            return NULL;
+        }
         generic->as.type_generic.name = node->as.type_simple.name;
         node->as.type_simple.name = NULL;
         generic->as.type_generic.type_args = type_args;
-        
-        return generic;
+        result = generic;
+        zt_parser_pop_nesting(p);
+        return result;
     }
 
-    return node;
+    result = node;
+    zt_parser_pop_nesting(p);
+    return result;
 }
 
 static int zt_is_named_arg_label_token(zt_token_kind kind) {
@@ -1033,7 +1073,13 @@ static zt_ast_node *zt_parser_parse_binary(zt_parser *p, zt_precedence_level min
 }
 
 static zt_ast_node *zt_parser_parse_expression(zt_parser *p) {
-    return zt_parser_parse_binary(p, ZT_PREC_OR);
+    zt_ast_node *result;
+    if (!zt_parser_push_nesting(p, p->current.span, "expression")) {
+        return NULL;
+    }
+    result = zt_parser_parse_binary(p, ZT_PREC_OR);
+    zt_parser_pop_nesting(p);
+    return result;
 }
 
 static zt_ast_node_list zt_parser_parse_params(zt_parser *p) {
@@ -1127,8 +1173,12 @@ static zt_ast_node_list zt_parser_parse_generic_constraints(zt_parser *p) {
 }
 
 static zt_ast_node *zt_parser_parse_block_ex(zt_parser *p, int stop_at_case) {
+    zt_ast_node *block;
     zt_source_span span = p->current.span;
     zt_ast_node_list stmts = zt_ast_node_list_make();
+    if (!zt_parser_push_nesting(p, span, "block")) {
+        return NULL;
+    }
 
     while (!zt_parser_check(p, ZT_TOKEN_END) &&
            !zt_parser_check(p, ZT_TOKEN_ELSE) &&
@@ -1141,10 +1191,11 @@ static zt_ast_node *zt_parser_parse_block_ex(zt_parser *p, int stop_at_case) {
         }
     }
 
-    zt_ast_node *block = zt_parser_ast_make(p, ZT_AST_BLOCK, span);
+    block = zt_parser_ast_make(p, ZT_AST_BLOCK, span);
     if (block != NULL) {
         block->as.block.statements = stmts;
     }
+    zt_parser_pop_nesting(p);
     return block;
 }
 
@@ -1153,7 +1204,11 @@ static zt_ast_node *zt_parser_parse_block(zt_parser *p) {
 }
 
 static zt_ast_node *zt_parser_parse_if_stmt(zt_parser *p) {
+    zt_ast_node *node;
     zt_token if_tok = p->current;
+    if (!zt_parser_push_nesting(p, if_tok.span, "if")) {
+        return NULL;
+    }
     zt_parser_advance(p);
     zt_ast_node *condition = zt_parser_parse_expression(p);
     zt_ast_node *then_block = zt_parser_parse_block(p);
@@ -1170,12 +1225,13 @@ static zt_ast_node *zt_parser_parse_if_stmt(zt_parser *p) {
         zt_parser_expect(p, ZT_TOKEN_END);
     }
 
-    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_IF_STMT, if_tok.span);
+    node = zt_parser_ast_make(p, ZT_AST_IF_STMT, if_tok.span);
     if (node != NULL) {
         node->as.if_stmt.condition = condition;
         node->as.if_stmt.then_block = then_block;
         node->as.if_stmt.else_block = else_block;
     }
+    zt_parser_pop_nesting(p);
     return node;
 }
 
@@ -1255,7 +1311,11 @@ static zt_ast_node *zt_parser_parse_match_pattern(zt_parser *p) {
 }
 
 static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
+    zt_ast_node *node;
     zt_token match_tok = p->current;
+    if (!zt_parser_push_nesting(p, match_tok.span, "match")) {
+        return NULL;
+    }
     zt_parser_advance(p);
     zt_ast_node *subject = zt_parser_parse_expression(p);
     zt_ast_node_list cases = zt_ast_node_list_make();
@@ -1289,11 +1349,12 @@ static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
 
     zt_parser_expect(p, ZT_TOKEN_END);
 
-    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_MATCH_STMT, match_tok.span);
+    node = zt_parser_ast_make(p, ZT_AST_MATCH_STMT, match_tok.span);
     if (node != NULL) {
         node->as.match_stmt.subject = subject;
         node->as.match_stmt.cases = cases;
     }
+    zt_parser_pop_nesting(p);
     return node;
 }
 
@@ -1958,6 +2019,7 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
     parser.pending_comments = NULL;
     parser.pending_comment_count = 0;
     parser.pending_comment_capacity = 0;
+    parser.nesting_depth = 0;
     parser.current = zt_parser_next_non_comment_token(&parser);
 
     zt_ast_node_list imports = zt_ast_node_list_make();

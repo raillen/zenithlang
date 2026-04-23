@@ -1,0 +1,6 @@
+namespace fuzz.generic_overflow
+
+public func main() -> int
+    const x: list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<int>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> = []
+    return len(x)
+end

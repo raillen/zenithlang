@@ -178,6 +178,16 @@ zt_core_error zt_core_error_clone(zt_core_error error);
 void zt_core_error_dispose(zt_core_error *error);
 zt_text *zt_core_error_message_or_default(zt_core_error error);
 
+typedef struct zt_process_exit_status {
+    zt_int code;
+} zt_process_exit_status;
+
+typedef struct zt_process_captured_run {
+    zt_process_exit_status status;
+    zt_text *stdout_text;
+    zt_text *stderr_text;
+} zt_process_captured_run;
+
 typedef struct zt_outcome_i64_text {
     zt_bool is_success;
     zt_int value;
@@ -242,6 +252,12 @@ typedef struct zt_outcome_i64_core_error {
     zt_core_error error;
 } zt_outcome_i64_core_error;
 
+typedef struct zt_outcome_bool_core_error {
+    zt_bool is_success;
+    zt_bool value;
+    zt_core_error error;
+} zt_outcome_bool_core_error;
+
 typedef struct zt_outcome_void_core_error {
     zt_bool is_success;
     zt_core_error error;
@@ -252,6 +268,12 @@ typedef struct zt_outcome_text_core_error {
     zt_text *value;
     zt_core_error error;
 } zt_outcome_text_core_error;
+
+typedef struct zt_outcome_process_captured_run_core_error {
+    zt_bool is_success;
+    zt_process_captured_run value;
+    zt_core_error error;
+} zt_outcome_process_captured_run_core_error;
 
 typedef struct zt_outcome_optional_text_core_error {
     zt_bool is_success;
@@ -277,11 +299,23 @@ typedef struct zt_outcome_list_i64_core_error {
     zt_core_error error;
 } zt_outcome_list_i64_core_error;
 
+typedef struct zt_outcome_list_text_core_error {
+    zt_bool is_success;
+    zt_list_text *value;
+    zt_core_error error;
+} zt_outcome_list_text_core_error;
+
 typedef struct zt_outcome_map_text_text_core_error {
     zt_bool is_success;
     zt_map_text_text *value;
     zt_core_error error;
 } zt_outcome_map_text_text_core_error;
+
+typedef struct zt_outcome_optional_i64_core_error {
+    zt_bool is_success;
+    zt_optional_i64 value;
+    zt_core_error error;
+} zt_outcome_optional_i64_core_error;
 
 typedef struct zt_grid2d_i64 {
     zt_header header;
@@ -447,6 +481,8 @@ zt_text *zt_text_concat(const zt_text *a, const zt_text *b);
 zt_text *zt_text_index(const zt_text *value, zt_int index_0);
 zt_text *zt_text_slice(const zt_text *value, zt_int start_0, zt_int end_0);
 zt_bool zt_text_eq(const zt_text *a, const zt_text *b);
+size_t zt_text_hash(const zt_text *value);
+size_t zt_i64_hash(zt_int value);
 zt_int zt_text_len(const zt_text *value);
 const char *zt_text_data(const zt_text *value);
 
@@ -704,13 +740,16 @@ typedef struct zt_host_api {
     zt_int (*random_next_i64)(void);
     zt_outcome_text_core_error (*os_current_dir)(void);
     zt_outcome_void_core_error (*os_change_dir)(const zt_text *path);
+    zt_list_text *(*os_args)(void);
     zt_optional_text (*os_env)(const zt_text *name);
     zt_int (*os_pid)(void);
     zt_text *(*os_platform)(void);
     zt_text *(*os_arch)(void);
     zt_outcome_i64_core_error (*process_run)(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+    zt_outcome_process_captured_run_core_error (*process_run_capture)(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 } zt_host_api;
 
+void zt_runtime_capture_process_args(int argc, char **argv);
 void zt_host_set_api(const zt_host_api *api);
 const zt_host_api *zt_host_get_api(void);
 zt_outcome_text_core_error zt_host_read_file(const zt_text *path);
@@ -726,11 +765,31 @@ void zt_host_random_seed(zt_int seed);
 zt_int zt_host_random_next_i64(void);
 zt_outcome_text_core_error zt_host_os_current_dir(void);
 zt_outcome_void_core_error zt_host_os_change_dir(const zt_text *path);
+zt_outcome_text_core_error zt_host_os_current_dir_core(void);
+zt_outcome_void_core_error zt_host_os_change_dir_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_append_text_core(const zt_text *path, const zt_text *value);
+zt_outcome_bool_core_error zt_host_fs_is_file_core(const zt_text *path);
+zt_outcome_bool_core_error zt_host_fs_is_dir_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_create_dir_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_create_dir_all_core(const zt_text *path);
+zt_outcome_list_text_core_error zt_host_fs_list_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_remove_file_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_remove_dir_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_remove_dir_all_core(const zt_text *path);
+zt_outcome_void_core_error zt_host_fs_copy_file_core(const zt_text *from_path, const zt_text *to_path);
+zt_outcome_void_core_error zt_host_fs_move_core(const zt_text *from_path, const zt_text *to_path);
+zt_outcome_i64_core_error zt_host_fs_size_core(const zt_text *path);
+zt_outcome_i64_core_error zt_host_fs_modified_at_core(const zt_text *path);
+zt_outcome_optional_i64_core_error zt_host_fs_created_at_core(const zt_text *path);
+zt_list_text *zt_host_os_args(void);
 zt_optional_text zt_host_os_env(const zt_text *name);
 zt_int zt_host_os_pid(void);
 zt_text *zt_host_os_platform(void);
 zt_text *zt_host_os_arch(void);
 zt_outcome_i64_core_error zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+zt_outcome_process_captured_run_core_error zt_host_process_run_capture(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+zt_outcome_i64_core_error zt_host_process_run_core(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+zt_outcome_process_captured_run_core_error zt_host_process_run_capture_core(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 
 zt_outcome_text_text zt_outcome_text_text_success(zt_text *value);
 zt_outcome_text_text zt_outcome_text_text_failure(zt_text *error);
@@ -803,6 +862,15 @@ zt_int zt_outcome_i64_core_error_value(zt_outcome_i64_core_error outcome);
 zt_outcome_i64_core_error zt_outcome_i64_core_error_propagate(zt_outcome_i64_core_error outcome);
 void zt_outcome_i64_core_error_dispose(zt_outcome_i64_core_error *outcome);
 
+zt_outcome_bool_core_error zt_outcome_bool_core_error_success(zt_bool value);
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure(zt_core_error error);
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure_message(const char *message);
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_bool_core_error_is_success(zt_outcome_bool_core_error outcome);
+zt_bool zt_outcome_bool_core_error_value(zt_outcome_bool_core_error outcome);
+zt_outcome_bool_core_error zt_outcome_bool_core_error_propagate(zt_outcome_bool_core_error outcome);
+void zt_outcome_bool_core_error_dispose(zt_outcome_bool_core_error *outcome);
+
 zt_outcome_void_core_error zt_outcome_void_core_error_success(void);
 zt_outcome_void_core_error zt_outcome_void_core_error_failure(zt_core_error error);
 zt_outcome_void_core_error zt_outcome_void_core_error_failure_message(const char *message);
@@ -819,6 +887,13 @@ zt_bool zt_outcome_text_core_error_is_success(zt_outcome_text_core_error outcome
 zt_text *zt_outcome_text_core_error_value(zt_outcome_text_core_error outcome);
 zt_outcome_text_core_error zt_outcome_text_core_error_propagate(zt_outcome_text_core_error outcome);
 void zt_outcome_text_core_error_dispose(zt_outcome_text_core_error *outcome);
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_success(zt_process_captured_run value);
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_failure(zt_core_error error);
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_failure_message(const char *message);
+zt_bool zt_outcome_process_captured_run_core_error_is_success(zt_outcome_process_captured_run_core_error outcome);
+zt_process_captured_run zt_outcome_process_captured_run_core_error_value(zt_outcome_process_captured_run_core_error outcome);
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_propagate(zt_outcome_process_captured_run_core_error outcome);
+void zt_outcome_process_captured_run_core_error_dispose(zt_outcome_process_captured_run_core_error *outcome);
 
 zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_success(zt_optional_text value);
 zt_outcome_optional_text_core_error zt_outcome_optional_text_core_error_failure(zt_core_error error);
@@ -856,6 +931,15 @@ zt_list_i64 *zt_outcome_list_i64_core_error_value(zt_outcome_list_i64_core_error
 zt_outcome_list_i64_core_error zt_outcome_list_i64_core_error_propagate(zt_outcome_list_i64_core_error outcome);
 void zt_outcome_list_i64_core_error_dispose(zt_outcome_list_i64_core_error *outcome);
 
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_success(zt_list_text *value);
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure(zt_core_error error);
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure_message(const char *message);
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_list_text_core_error_is_success(zt_outcome_list_text_core_error outcome);
+zt_list_text *zt_outcome_list_text_core_error_value(zt_outcome_list_text_core_error outcome);
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_propagate(zt_outcome_list_text_core_error outcome);
+void zt_outcome_list_text_core_error_dispose(zt_outcome_list_text_core_error *outcome);
+
 zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_success(zt_map_text_text *value);
 zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_failure(zt_core_error error);
 zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_failure_message(const char *message);
@@ -864,6 +948,15 @@ zt_bool zt_outcome_map_text_text_core_error_is_success(zt_outcome_map_text_text_
 zt_map_text_text *zt_outcome_map_text_text_core_error_value(zt_outcome_map_text_text_core_error outcome);
 zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_propagate(zt_outcome_map_text_text_core_error outcome);
 void zt_outcome_map_text_text_core_error_dispose(zt_outcome_map_text_text_core_error *outcome);
+
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_success(zt_optional_i64 value);
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure(zt_core_error error);
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure_message(const char *message);
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure_text(zt_text *message);
+zt_bool zt_outcome_optional_i64_core_error_is_success(zt_outcome_optional_i64_core_error outcome);
+zt_optional_i64 zt_outcome_optional_i64_core_error_value(zt_outcome_optional_i64_core_error outcome);
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_propagate(zt_outcome_optional_i64_core_error outcome);
+void zt_outcome_optional_i64_core_error_dispose(zt_outcome_optional_i64_core_error *outcome);
 
 zt_outcome_map_text_text_core_error zt_json_parse_map_text_text(const zt_text *input);
 zt_text *zt_json_stringify_map_text_text(const zt_map_text_text *value);

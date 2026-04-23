@@ -291,6 +291,7 @@ zt_list_##SUFFIX *zt_list_##SUFFIX##_slice(                                     
         KEY_IS_PTR,                                                             \
         VALUE_IS_PTR,                                                           \
         KEY_EQ_FN,                                                              \
+        KEY_HASH_FN,                                                            \
         OPTIONAL_PRESENT_FN,                                                    \
         OPTIONAL_EMPTY_FN)                                                      \
                                                                                  \
@@ -313,6 +314,7 @@ typedef struct zt_map_##SUFFIX {                                                
         KEY_IS_PTR,                                                             \
         VALUE_IS_PTR,                                                           \
         KEY_EQ_FN,                                                              \
+        KEY_HASH_FN,                                                            \
         OPTIONAL_PRESENT_FN,                                                    \
         OPTIONAL_EMPTY_FN)                                                      \
 static void zt_free_map_##SUFFIX(zt_map_##SUFFIX *map) {                       \
@@ -372,6 +374,72 @@ static void zt_map_##SUFFIX##_reserve(zt_map_##SUFFIX *map,                    \
     map->capacity = new_capacity;                                               \
 }                                                                               \
                                                                                 \
+static size_t zt_map_##SUFFIX##_hash_target_capacity(size_t min_items) {        \
+    size_t target = 8;                                                          \
+    size_t needed = min_items > 0 ? min_items : 1;                              \
+    while (target < needed * 2u) {                                              \
+        if (target > SIZE_MAX / 2u) {                                           \
+            zt_runtime_error(ZT_ERR_PLATFORM, "map hash capacity overflow");    \
+        }                                                                       \
+        target *= 2u;                                                           \
+    }                                                                           \
+    return target;                                                              \
+}                                                                               \
+                                                                                \
+static void zt_map_##SUFFIX##_hash_clear(                                       \
+        size_t *hash_indices,                                                   \
+        size_t hash_capacity) {                                                 \
+    size_t _i;                                                                  \
+    if (hash_indices == NULL) return;                                           \
+    for (_i = 0; _i < hash_capacity; _i += 1) {                                 \
+        hash_indices[_i] = 0;                                                   \
+    }                                                                           \
+}                                                                               \
+                                                                                \
+static void zt_map_##SUFFIX##_hash_insert_index(                                \
+        zt_map_##SUFFIX *map,                                                   \
+        size_t index) {                                                         \
+    size_t slot;                                                                \
+    size_t mask;                                                                \
+    if (map == NULL || map->hash_indices == NULL || map->hash_capacity == 0) {  \
+        return;                                                                 \
+    }                                                                           \
+    mask = map->hash_capacity - 1u;                                             \
+    slot = KEY_HASH_FN(map->keys[index]) & mask;                                \
+    while (map->hash_indices[slot] != 0) {                                      \
+        slot = (slot + 1u) & mask;                                              \
+    }                                                                           \
+    map->hash_indices[slot] = index + 1u;                                       \
+}                                                                               \
+                                                                                \
+static void zt_map_##SUFFIX##_rebuild_hash(                                     \
+        zt_map_##SUFFIX *map,                                                   \
+        size_t min_items) {                                                     \
+    size_t target_capacity;                                                     \
+    size_t *new_indices = NULL;                                                 \
+    size_t _i;                                                                  \
+    if (map == NULL) {                                                          \
+        zt_runtime_error(ZT_ERR_PANIC,                                          \
+            "zt_map_" #SUFFIX "_rebuild_hash requires map");                    \
+    }                                                                           \
+    target_capacity = zt_map_##SUFFIX##_hash_target_capacity(min_items);        \
+    if (map->hash_capacity != target_capacity || map->hash_indices == NULL) {   \
+        new_indices = (size_t *)calloc(target_capacity, sizeof(size_t));        \
+        if (new_indices == NULL) {                                              \
+            zt_runtime_error(ZT_ERR_PLATFORM,                                   \
+                "failed to allocate map<" #SUFFIX "> hash index");              \
+        }                                                                       \
+        free(map->hash_indices);                                                \
+        map->hash_indices = new_indices;                                        \
+        map->hash_capacity = target_capacity;                                   \
+    } else {                                                                    \
+        zt_map_##SUFFIX##_hash_clear(map->hash_indices, map->hash_capacity);    \
+    }                                                                           \
+    for (_i = 0; _i < map->len; _i += 1) {                                      \
+        zt_map_##SUFFIX##_hash_insert_index(map, _i);                           \
+    }                                                                           \
+}                                                                               \
+                                                                                \
 static size_t zt_map_##SUFFIX##_find_index(                                     \
         const zt_map_##SUFFIX *map,                                             \
         const KEY_TYPE key,                                                     \
@@ -387,6 +455,26 @@ static size_t zt_map_##SUFFIX##_find_index(                                     
                 "zt_map_" #SUFFIX "_find_index requires key");                  \
         }                                                                       \
     )                                                                           \
+    if (map->hash_capacity > 0 && map->hash_indices != NULL) {                  \
+        size_t slot;                                                            \
+        size_t start;                                                           \
+        size_t mask = map->hash_capacity - 1u;                                  \
+        slot = KEY_HASH_FN(key) & mask;                                         \
+        start = slot;                                                           \
+        while (map->hash_indices[slot] != 0) {                                  \
+            _i = map->hash_indices[slot] - 1u;                                  \
+            if (KEY_EQ_FN(map->keys[_i], key)) {                                \
+                if (found != NULL) *found = true;                               \
+                return _i;                                                      \
+            }                                                                   \
+            slot = (slot + 1u) & mask;                                          \
+            if (slot == start) {                                                \
+                break;                                                          \
+            }                                                                   \
+        }                                                                       \
+        if (found != NULL) *found = false;                                      \
+        return map->len;                                                        \
+    }                                                                           \
     for (_i = 0; _i < map->len; _i += 1) {                                      \
         if (KEY_EQ_FN(map->keys[_i], key)) {                                    \
             if (found != NULL) *found = true;                                   \
@@ -458,6 +546,9 @@ void zt_map_##SUFFIX##_set(                                                     
                 "zt_map_" #SUFFIX "_set requires value");                       \
         }                                                                       \
     )                                                                           \
+    if (map->len > 0 && (map->hash_capacity == 0 || map->hash_indices == NULL)) { \
+        zt_map_##SUFFIX##_rebuild_hash(map, map->len);                          \
+    }                                                                           \
     index = zt_map_##SUFFIX##_find_index(map, key, &found);                     \
     if (found) {                                                                \
         ZT_TEMPLATE_IF(VALUE_IS_PTR,                                            \
@@ -477,6 +568,12 @@ void zt_map_##SUFFIX##_set(                                                     
     map->keys[map->len] = key;                                                  \
     map->values[map->len] = value;                                              \
     map->len += 1;                                                              \
+    if (map->hash_capacity == 0 || map->hash_indices == NULL ||                 \
+            (map->len * 10u) >= (map->hash_capacity * 7u)) {                    \
+        zt_map_##SUFFIX##_rebuild_hash(map, map->len);                          \
+    } else {                                                                    \
+        zt_map_##SUFFIX##_hash_insert_index(map, map->len - 1u);                \
+    }                                                                           \
 }                                                                               \
                                                                                 \
 static zt_map_##SUFFIX *zt_map_##SUFFIX##_deep_copy(                            \
@@ -647,6 +744,7 @@ zt_int zt_map_##SUFFIX##_len(const zt_map_##SUFFIX *map) {                     \
         KEY_IS_PTR,                                                             \
         VALUE_IS_PTR,                                                           \
         KEY_EQ_FN,                                                              \
+        KEY_HASH_FN,                                                            \
         OPTIONAL_PRESENT_FN,                                                    \
         OPTIONAL_EMPTY_FN)                                                      \
     ZT_DEFINE_MAP_STRUCT(                                                       \
@@ -658,6 +756,7 @@ zt_int zt_map_##SUFFIX##_len(const zt_map_##SUFFIX *map) {                     \
         KEY_IS_PTR,                                                             \
         VALUE_IS_PTR,                                                           \
         KEY_EQ_FN,                                                              \
+        KEY_HASH_FN,                                                            \
         OPTIONAL_PRESENT_FN,                                                    \
         OPTIONAL_EMPTY_FN)                                                      \
     ZT_DEFINE_MAP_IMPL(                                                         \
@@ -669,6 +768,7 @@ zt_int zt_map_##SUFFIX##_len(const zt_map_##SUFFIX *map) {                     \
         KEY_IS_PTR,                                                             \
         VALUE_IS_PTR,                                                           \
         KEY_EQ_FN,                                                              \
+        KEY_HASH_FN,                                                            \
         OPTIONAL_PRESENT_FN,                                                    \
         OPTIONAL_EMPTY_FN)
 
@@ -2134,7 +2234,13 @@ VAL_TYPE zt_outcome_##SUFFIX##_value(zt_outcome_##SUFFIX outcome) {             
                                                                                  \
 zt_outcome_##SUFFIX zt_outcome_##SUFFIX##_propagate(                            \
         zt_outcome_##SUFFIX outcome) {                                           \
-    return outcome;                                                              \
+    if (outcome.is_success) {                                                    \
+        if (VAL_IS_PTR) {                                                        \
+            return zt_outcome_##SUFFIX##_success(outcome.value);                 \
+        }                                                                        \
+        return outcome;                                                          \
+    }                                                                            \
+    return zt_outcome_##SUFFIX##_failure(outcome.error);                         \
 }
 
 #endif /* ZENITH_RT_TEMPLATES_H */

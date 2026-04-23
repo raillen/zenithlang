@@ -1,14 +1,9 @@
 --- @target: namespace
-# std.text — Operações de Texto
+# std.text - current alpha text module
 
-Módulo puro, locale-neutral, para inspeção e transformação de texto.
-Trabalha com code points (na semântica do MVP) e não realiza IO ou alocação dinâmica desnecessária.
-Inclui também a conversão explícita entre `text` e `bytes` via UTF-8.
----
-
---- @target: Error
-Enumeração que descreve os erros possíveis durante a manipulação de texto.
-Atualmente suporta: `invalid_utf8`.
+Pure, locale-neutral text helpers for the current alpha cut.
+The module works by code point in the current MVP model.
+Only the delivered and safe subset is documented here.
 ---
 
 --- @target: to_utf8
@@ -16,23 +11,16 @@ Atualmente suporta: `invalid_utf8`.
 public func to_utf8(value: text) -> bytes
 ```
 
-Converte um `text` UTF-8 nativo e validado em uma sequência bruta de `bytes`.
-A conversão é infalível.
-
-@param value O texto a ser convertido.
-@return Sequência de bytes UTF-8 correspondente.
+Converts valid Zenith `text` into UTF-8 `bytes`.
 ---
 
 --- @target: from_utf8
 ```zt
-public func from_utf8(value: bytes) -> result<text, text.Error>
+public func from_utf8(value: bytes) -> result<text, text>
 ```
 
-Tenta decodificar uma sequência de `bytes` para uma string `text`.
-Retorna erro de decodificação se os bytes não formarem UTF-8 válido.
-
-@param value Os bytes a serem analisados.
-@return `text` validado em caso de sucesso, ou erro de UTF-8.
+Decodes UTF-8 `bytes`.
+In the current alpha cut, the error is still represented as `text`.
 ---
 
 --- @target: trim
@@ -40,10 +28,7 @@ Retorna erro de decodificação se os bytes não formarem UTF-8 válido.
 public func trim(value: text) -> text
 ```
 
-Remove os espaços em branco do início e do final do texto.
-
-@param value Texto original.
-@return Novo texto sem os espaços das extremidades.
+Removes whitespace from both ends.
 ---
 
 --- @target: trim_start
@@ -51,10 +36,7 @@ Remove os espaços em branco do início e do final do texto.
 public func trim_start(value: text) -> text
 ```
 
-Remove os espaços em branco apenas do início do texto.
-
-@param value Texto original.
-@return Novo texto sem espaços à esquerda.
+Removes leading whitespace.
 ---
 
 --- @target: trim_end
@@ -62,10 +44,7 @@ Remove os espaços em branco apenas do início do texto.
 public func trim_end(value: text) -> text
 ```
 
-Remove os espaços em branco apenas do final do texto.
-
-@param value Texto original.
-@return Novo texto sem espaços à direita.
+Removes trailing whitespace.
 ---
 
 --- @target: contains
@@ -73,11 +52,7 @@ Remove os espaços em branco apenas do final do texto.
 public func contains(value: text, needle: text) -> bool
 ```
 
-Verifica se o texto contém a substring `needle`.
-
-@param value Texto completo.
-@param needle Substring buscada.
-@return Verdadeiro se a substring for encontrada.
+Returns `true` when `needle` appears in `value`.
 ---
 
 --- @target: starts_with
@@ -85,11 +60,7 @@ Verifica se o texto contém a substring `needle`.
 public func starts_with(value: text, prefix: text) -> bool
 ```
 
-Verifica se o texto começa com a substring fornecida.
-
-@param value Texto completo.
-@param prefix Substring a validar como prefixo.
-@return Verdadeiro se começar com o prefixo.
+Returns `true` when `value` starts with `prefix`.
 ---
 
 --- @target: ends_with
@@ -97,11 +68,7 @@ Verifica se o texto começa com a substring fornecida.
 public func ends_with(value: text, suffix: text) -> bool
 ```
 
-Verifica se o texto termina com a substring fornecida.
-
-@param value Texto completo.
-@param suffix Substring a validar como sufixo.
-@return Verdadeiro se terminar com o sufixo.
+Returns `true` when `value` ends with `suffix`.
 ---
 
 --- @target: has_prefix
@@ -109,11 +76,7 @@ Verifica se o texto termina com a substring fornecida.
 public func has_prefix(value: text, prefix: text) -> bool
 ```
 
-Verifica se o texto começa com a substring fornecida (Alias semântico explícito para `starts_with`).
-
-@param value Texto completo.
-@param prefix Substring a validar.
-@return Verdadeiro se for um prefixo compatível.
+Explicit semantic alias for `starts_with`.
 ---
 
 --- @target: has_suffix
@@ -121,11 +84,7 @@ Verifica se o texto começa com a substring fornecida (Alias semântico explíci
 public func has_suffix(value: text, suffix: text) -> bool
 ```
 
-Verifica se o texto termina com a substring fornecida (Alias semântico explícito para `ends_with`).
-
-@param value Texto completo.
-@param suffix Substring a validar.
-@return Verdadeiro se for um sufixo compatível.
+Explicit semantic alias for `ends_with`.
 ---
 
 --- @target: has_whitespace
@@ -133,32 +92,7 @@ Verifica se o texto termina com a substring fornecida (Alias semântico explíci
 public func has_whitespace(value: text) -> bool
 ```
 
-Verifica se o texto possui pelo menos um caractere de espaço em branco.
-
-@param value Texto a inspecionar.
-@return Verdadeiro se houver qualquer whitespace.
----
-
---- @target: is_empty
-```zt
-public func is_empty(value: text) -> bool
-```
-
-Verifica se o texto não possui nenhum caractere.
-
-@param value Texto a inspecionar.
-@return Verdadeiro se o tamanho for 0.
----
-
---- @target: is_digits
-```zt
-public func is_digits(value: text) -> bool
-```
-
-Retorna verdadeiro se o texto for não vazio e contiver exclusivamente dígitos ASCII (`0` até `9`).
-
-@param value Texto a inspecionar.
-@return Verdadeiro se todos os caracteres forem números Unicode válidos.
+Returns `true` when at least one whitespace character is present.
 ---
 
 --- @target: index_of
@@ -166,11 +100,7 @@ Retorna verdadeiro se o texto for não vazio e contiver exclusivamente dígitos 
 public func index_of(value: text, needle: text) -> int
 ```
 
-Encontra o índice da primeira ocorrência da substring.
-
-@param value O texto onde deseja procurar.
-@param needle A substring a encontrar.
-@return O índice da posição, ou `-1` se não for encontrada.
+Returns the first matching index, or `-1`.
 ---
 
 --- @target: last_index_of
@@ -178,156 +108,23 @@ Encontra o índice da primeira ocorrência da substring.
 public func last_index_of(value: text, needle: text) -> int
 ```
 
-Encontra o índice da última ocorrência da substring (de trás para frente).
-
-@param value O texto onde deseja procurar.
-@param needle A substring a encontrar.
-@return O último índice da posição, ou `-1` se não for encontrada.
+Returns the last matching index, or `-1`.
 ---
 
---- @target: replace_all
+--- @target: is_empty
 ```zt
-public func replace_all(value: text, search: text, replacement: text) -> text
+public func is_empty(value: text) -> bool
 ```
 
-Substitui todas as ocorrências de uma substring por outra. Não é sensível a colisões sobrepostas.
-
-@param value Texto original.
-@param search O que será buscado e retirado.
-@param replacement O que será injetado no lugar.
-@return O texto resultante da substituição total.
+Returns `true` when the text is empty.
 ---
 
---- @target: replace_first
+--- @target: is_digits
 ```zt
-public func replace_first(value: text, search: text, replacement: text) -> text
+public func is_digits(value: text) -> bool
 ```
 
-Substitui estritamente apenas a primeira ocorrência detectada.
-
-@param value Texto original.
-@param search Substring visada pela primeira troca.
-@param replacement Substring de substituição local.
-@return O texto com a mudança efetuada, se encontrada.
----
-
---- @target: split
-```zt
-public func split(value: text, separator: text) -> list<text>
-```
-
-Divide a string inteira fornecida numa lista `list<text>` de trechos, baseando no separador.
-
-@param value A string inicial que será dividida.
-@param separator O caractere/palavra que atua quebrando a string.
-@return Lista alocada contendo partes separadas pelo valor indicado.
----
-
---- @target: split_lines
-```zt
-public func split_lines(value: text) -> list<text>
-```
-
-Separa o texto a cada salto de linha detectado. Resolve problemas híbridos de OS.
-
-@param value Texto bruto formatado com espaçamentos explícitos.
-@return Lista com as linhas segmentadas para tratamento serial.
----
-
---- @target: join
-```zt
-public func join(values: list<text>, separator: text = "") -> text
-```
-
-Pega uma listagem de textos separados em `values` e monta novamente concatenando.
-
-@param values A lista encadeada ou contígua de dados a processar.
-@param separator Colinha adicionada no momento de ajuntar as partes individuais (Padrão: `""`).
-@return Texto extenso perfeitamente montado entre separadores unânimes.
----
-
---- @target: to_lower
-```zt
-public func to_lower(value: text) -> text
-```
-
-Converte integralmente qualquer letra de caixa-alta para caixa-baixa através das lookup tables nativas.
-
-@param value O modelo de string normal submetido.
-@return A string minúscula com code points inalterados em length.
----
-
---- @target: to_upper
-```zt
-public func to_upper(value: text) -> text
-```
-
-Reverte e injeta em formato de caixa-alta integral com lookup tables nativas do sistema.
-
-@param value A representação da string base enviada.
-@return O reflexo contendo o espectro uppercased limpo.
----
-
---- @target: capitalize
-```zt
-public func capitalize(value: text) -> text
-```
-
-Modifica o primeiro code point deixando a primeira letra em maiúscula mantendo o resto intacto.
-
-@param value Variável que exige reformatação literal.
-@return String nova onde somente `value[0]` passa pelas transforms.
----
-
---- @target: title_case
-```zt
-public func title_case(value: text) -> text
-```
-
-Transforma cada porção de palavras inicias em caixa alta dentro das especificações de string.
-
-@param value Alvo formativo da diretiva de estilo.
-@return Texto convertido com strong normalizations para visibilidade.
----
-
---- @target: pad_left
-```zt
-public func pad_left(value: text, width: int, fill: text = " ") -> text
-```
-
-Garante que o texto obtenha um comprimento mínimo em relação à margem pela esquerda preenchendo as ausências do `width`.
-
-@param value String que pode possuir ausência dimensional.
-@param width Total que as variáveis conjuntas devem preencher do final.
-@param fill Preenchimento a injetar no `pad` ausente.
-@return A string perfeitamente contornada à premissa de limites.
----
-
---- @target: pad_right
-```zt
-public func pad_right(value: text, width: int, fill: text = " ") -> text
-```
-
-Cria um offset limitador mas alinhado perfeitamente da direita usando sufixos dinâmicos.
-
-@param value Parâmetro direcional alocado.
-@param width Comprimento alvo a fixar as strings combinadas de resultado.
-@param fill A máscara opcional, devendo ter ao menos valid preenchimento de `1 char`.
-@return A string de `pad` terminada adequadamente sem desvios fora da formatação.
----
-
---- @target: mask
-```zt
-public func mask(value: text, visible_start: int = 0, visible_end: int = 0, fill: text = "*") -> text
-```
-
-Preserva e oculta porções intencionais da string (e.g., ofusca CPF no meio das laterais predefinidas).
-
-@param value Texto base bruto de seguridade a encobrir certas partições visuais.
-@param visible_start O espaço perfeitamente legível nos blocos à extrema esquerda sem afetar comissão da máscara limit.
-@param visible_end O resquício seguro para visibilidade da lateral à extrema direita comissão.
-@param fill Símbolo ou constante visual (e.g. `*` padrão ou `-`) ocupadora para tampar a opacidade interna.
-@return Nova cadeia encobrindo as áreas com o recheio estipulado mas expondo pontualmente o `start` e `end`.
+Returns `true` only for non-empty text made of ASCII digits `0-9`.
 ---
 
 --- @target: limit
@@ -335,22 +132,5 @@ Preserva e oculta porções intencionais da string (e.g., ofusca CPF no meio das
 public func limit(value: text, max_len: int) -> text
 ```
 
-Realiza corte linear agressivo no payload de string a não passar em hipótese alguma da quantia requisitada em comprimento (code points em MVP). Sem sufixos adjuntos ou reticenciais.
-
-@param value Base enviada sobre verificação de extensão.
-@param max_len Medida a obedecer antes da subtruncagem absoluta.
-@return A porção do limite se `value` os passar, caso contrário o reflexo da base original.
----
-
---- @target: truncate
-```zt
-public func truncate(value: text, max_len: int, suffix: text = "...") -> text
-```
-
-Corta de modo a abrigar na contagem exata e impõe no trecho final os demarcadores explícitos (reticências de sufixo), engolindo a quantidade correspondente de code points originais equivalentes no fim.
-
-@param value Cadeia base suscetível de corte representativo visual.
-@param max_len A demarcação limite somado ao tamanho virtual final de sufixo no cálculo compensado.
-@param suffix Elemento adicionante final. Padrão unânime (`...`).
-@return Fragmentos encolocados perfeitamente ajustados à métrica final ou a via intocada caso não passasse com folga de margem.
+Cuts text to at most `max_len` code points, without adding a suffix.
 ---

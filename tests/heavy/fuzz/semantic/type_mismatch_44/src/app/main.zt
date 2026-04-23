@@ -1,0 +1,7 @@
+namespace fuzz.type_mismatch
+
+public func main() -> int
+    const waldo_tuaj: list<int> = "definitely_not_list<int>"
+    const result: int8 = waldo_tuaj
+    return 0
+end

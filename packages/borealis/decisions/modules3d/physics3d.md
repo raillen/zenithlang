@@ -21,17 +21,17 @@ It focuses on useful gameplay behavior instead of full simulation complexity.
 
 ### Body lifecycle and movement
 
-- `body3d_create(kind: physics3d.BodyKind, transform: math.Transform3D) -> result<physics3d.BodyId, core.Error>`: creates a physics body.
+- `body3d_create(kind: physics3d.BodyKind, transform: game.Transform3D) -> result<physics3d.BodyId, core.Error>`: creates a physics body.
 - `body3d_destroy(id: physics3d.BodyId) -> result<void, core.Error>`: removes a physics body.
 - `body3d_exists(id: physics3d.BodyId) -> bool`: checks if body exists.
-- `body3d_set_velocity(id: physics3d.BodyId, velocity: math.Vector3) -> result<void, core.Error>`: sets velocity.
-- `body3d_get_velocity(id: physics3d.BodyId) -> result<math.Vector3, core.Error>`: reads velocity.
-- `body3d_add_force(id: physics3d.BodyId, force: math.Vector3) -> result<void, core.Error>`: adds continuous force.
-- `body3d_apply_impulse(id: physics3d.BodyId, impulse: math.Vector3) -> result<void, core.Error>`: applies instant impulse.
-- `body3d_move_and_slide(id: physics3d.BodyId, input: math.Vector3, dt: float) -> result<void, core.Error>`: character-style movement with sliding.
+- `body3d_set_velocity(id: physics3d.BodyId, velocity: game.Vector3) -> result<void, core.Error>`: sets velocity.
+- `body3d_get_velocity(id: physics3d.BodyId) -> result<game.Vector3, core.Error>`: reads velocity.
+- `body3d_add_force(id: physics3d.BodyId, force: game.Vector3) -> result<void, core.Error>`: adds continuous force.
+- `body3d_apply_impulse(id: physics3d.BodyId, impulse: game.Vector3) -> result<void, core.Error>`: applies instant impulse.
+- `body3d_move_and_slide(id: physics3d.BodyId, input: game.Vector3, dt: float) -> result<void, core.Error>`: character-style movement with sliding.
 - `body3d_on_ground(id: physics3d.BodyId) -> bool`: checks if body is grounded.
 - `body3d_stop(id: physics3d.BodyId) -> result<void, core.Error>`: clears linear and angular velocity.
-- `body3d_teleport(id: physics3d.BodyId, position: math.Vector3) -> result<void, core.Error>`: instant move without path simulation.
+- `body3d_teleport(id: physics3d.BodyId, position: game.Vector3) -> result<void, core.Error>`: instant move without path simulation.
 - `body3d_snap_to_ground(id: physics3d.BodyId, max_distance: float) -> result<bool, core.Error>`: snaps body to nearest ground.
 
 ### Body properties
@@ -53,17 +53,17 @@ It focuses on useful gameplay behavior instead of full simulation complexity.
 
 ### Colliders
 
-- `collider_set_box(id: physics3d.BodyId, size: math.Vector3) -> result<void, core.Error>`: sets AABB collider.
+- `collider_set_box(id: physics3d.BodyId, size: game.Vector3) -> result<void, core.Error>`: sets AABB collider.
 - `collider_set_sphere(id: physics3d.BodyId, radius: float) -> result<void, core.Error>`: sets sphere collider.
 - `collider_set_capsule(id: physics3d.BodyId, radius: float, height: float) -> result<void, core.Error>`: sets capsule collider.
 
 ### Queries and contacts
 
-- `raycast(origin: math.Vector3, direction: math.Vector3, distance: float, mask: int) -> optional<physics3d.RayHit>`: single-hit ray query.
-- `raycast_all(origin: math.Vector3, direction: math.Vector3, distance: float, mask: int) -> list<physics3d.RayHit>`: multi-hit ray query.
-- `shape_overlap(shape: physics3d.QueryShape, transform: math.Transform3D, mask: int) -> list<physics3d.BodyId>`: overlap query by shape.
-- `overlap_box(center: math.Vector3, size: math.Vector3, mask: int) -> list<physics3d.BodyId>`: box overlap query.
-- `overlap_sphere(center: math.Vector3, radius: float, mask: int) -> list<physics3d.BodyId>`: sphere overlap query.
+- `raycast(origin: game.Vector3, direction: game.Vector3, distance: float, mask: int) -> optional<game.Ray3Hit>`: single-hit ray query.
+- `raycast_all(origin: game.Vector3, direction: game.Vector3, distance: float, mask: int) -> list<game.Ray3Hit>`: multi-hit ray query.
+- `shape_overlap(shape: physics3d.QueryShape, transform: game.Transform3D, mask: int) -> list<physics3d.BodyId>`: overlap query by shape.
+- `overlap_box(center: game.Vector3, size: game.Vector3, mask: int) -> list<physics3d.BodyId>`: box overlap query.
+- `overlap_sphere(center: game.Vector3, radius: float, mask: int) -> list<physics3d.BodyId>`: sphere overlap query.
 - `body3d_get_contacts(id: physics3d.BodyId) -> list<physics3d.Contact>`: returns active contacts.
 
 ### Simulation step
@@ -74,10 +74,11 @@ It focuses on useful gameplay behavior instead of full simulation complexity.
 
 ### Gameplay effects
 
-- `physics3d_explosion(center: math.Vector3, radius: float, force: float, mask: int) -> result<void, core.Error>`: radial impulse effect.
-- `body3d_apply_knockback(id: physics3d.BodyId, origin: math.Vector3, force: float) -> result<void, core.Error>`: pushes body away from an origin.
+- `physics3d_explosion(center: game.Vector3, radius: float, force: float, mask: int) -> result<void, core.Error>`: radial impulse effect.
+- `body3d_apply_knockback(id: physics3d.BodyId, origin: game.Vector3, force: float) -> result<void, core.Error>`: pushes body away from an origin.
 
 ## Notes
 
 - API is focused on gameplay usefulness and easy onboarding.
 - deeper simulation features can remain in `borealis.engine` for advanced use.
+

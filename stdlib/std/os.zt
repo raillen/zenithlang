@@ -34,8 +34,24 @@ extern c
     func zt_host_os_pid() -> int
     func zt_host_os_platform() -> text
     func zt_host_os_arch() -> text
-    func zt_host_os_current_dir() -> result<text, os.Error>
-    func zt_host_os_change_dir(dir_path: text) -> result<void, os.Error>
+    func zt_host_os_current_dir_core() -> result<text, core.Error>
+    func zt_host_os_change_dir_core(dir_path: text) -> result<void, core.Error>
+end
+
+func map_host_error(err: core.Error) -> os.Error
+    if err.message == "No such file or directory" or err.message == "The system cannot find the file specified" or err.message == "The system cannot find the path specified"
+        return os.Error.NotFound
+    end
+
+    if err.message == "Permission denied"
+        return os.Error.PermissionDenied
+    end
+
+    if err.message == "Input/output error"
+        return os.Error.IOError
+    end
+
+    return os.Error.Unknown
 end
 
 public func args() -> list<text>
@@ -79,9 +95,19 @@ public func arch() -> os.Arch
 end
 
 public func current_dir() -> result<text, os.Error>
-    return os.zt_host_os_current_dir()
+    match os.zt_host_os_current_dir_core()
+        case success(value) ->
+            return success(value)
+        case error(err) ->
+            return error(os.map_host_error(err))
+    end
 end
 
 public func change_dir(dir_path: text) -> result<void, os.Error>
-    return os.zt_host_os_change_dir(dir_path)
+    match os.zt_host_os_change_dir_core(dir_path)
+        case success() ->
+            return success()
+        case error(err) ->
+            return error(os.map_host_error(err))
+    end
 end

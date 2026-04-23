@@ -1,0 +1,11 @@
+namespace fuzz.result_propagation
+
+func might_fail() -> result<int, text>
+    return error("failed")
+end
+
+public func main() -> int
+    -- ? fora de contexto result
+    const value: int = might_fail()
+    return value
+end

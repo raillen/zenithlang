@@ -1,8 +1,8 @@
 # Zenith Diagnostic Code Catalog
 
-- Status: canonical catalog for M23 (current implementation)
-- Date: 2026-04-22
-- Source of truth: `compiler/semantic/diagnostics/diagnostics.h` and `compiler/semantic/diagnostics/diagnostics.c`
+- Status: canonical catalog for current alpha implementation
+- Date: 2026-04-23
+- Source of truth: compiler diagnostics come from `compiler/semantic/diagnostics/diagnostics.h` and `compiler/semantic/diagnostics/diagnostics.c`; runtime codes come from `runtime/c/zenith_rt.h` and `runtime/c/zenith_rt.c`
 
 ## Purpose
 
@@ -37,6 +37,7 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | --- | --- | --- |
 | `ZT_DIAG_SYNTAX_ERROR` | `syntax.error` | Review syntax around the span |
 | `ZT_DIAG_UNEXPECTED_TOKEN` | `syntax.unexpected_token` | Check separators, delimiters, and ordering |
+| `ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED` | `compiler.limit_exceeded` | Split deeply nested constructs into smaller parts |
 
 ## Semantic/Binder/Type Codes
 
@@ -90,11 +91,24 @@ Runtime errors emit the same detailed shape (`error[...]`, `where`, `code`, `hel
 | --- | --- |
 | `ZT_ERR_ASSERT` | `runtime.assert` |
 | `ZT_ERR_CHECK` | `runtime.check` |
-| `ZT_ERR_PANIC` | `runtime.panic` |
-| `ZT_ERR_UNWRAP` | `runtime.unwrap` |
-| `ZT_ERR_IO` | `runtime.io` |
+| `ZT_ERR_CONTRACT` | `runtime.contract` |
 | `ZT_ERR_INDEX` | `runtime.index` |
+| `ZT_ERR_IO` | `runtime.io` |
+| `ZT_ERR_MATH` | `runtime.math` |
+| `ZT_ERR_PANIC` | `runtime.panic` |
 | `ZT_ERR_PLATFORM` | `runtime.platform` |
+| `ZT_ERR_UNWRAP` | `runtime.unwrap` |
+
+Historical note:
+
+- older proposal names such as `runtime.bounds`, `runtime.divide_by_zero`, `runtime.utf8`, `runtime.allocation`, and `runtime.map_key` are not the current alpha runtime contract.
+
+## Test Runtime Codes
+
+| Runtime kind | Stable code |
+| --- | --- |
+| `ZT_ERR_TEST_FAILED` | `test.fail` |
+| `ZT_ERR_TEST_SKIPPED` | `test.skip` |
 
 ## Current Stage Coverage in Renderer
 

@@ -1,0 +1,112 @@
+namespace borealis.game.physics3d
+
+public enum BodyKind
+    Static
+    Dynamic
+    Kinematic
+end
+
+public struct BodyId
+    id: int
+end
+
+public struct Contact
+    point: game.Vector3
+    normal: game.Vector3
+    depth: float
+end
+
+public struct RayHit
+    body: physics3d.BodyId
+    point: game.Vector3
+    distance: float
+end
+
+public var body3d_next_id: int = 1
+public var body3d_alive: map<int, bool> = {}
+public var body3d_enabled: map<int, bool> = {}
+public var body3d_velocity_x: map<int, float> = {}
+public var body3d_velocity_y: map<int, float> = {}
+public var body3d_velocity_z: map<int, float> = {}
+
+public func body3d_create(_kind: physics3d.BodyKind, _transform: game.Transform3D) -> result<physics3d.BodyId, core.Error>
+    const id: int = body3d_next_id
+    body3d_next_id = body3d_next_id + 1
+    body3d_alive = physics3d.set_bool(body3d_alive, id, true)
+    body3d_enabled = physics3d.set_bool(body3d_enabled, id, true)
+    return success(physics3d.BodyId(id: id))
+end
+
+public func body3d_exists(id: physics3d.BodyId) -> bool
+    return physics3d.bool_or(body3d_alive, id.id, false)
+end
+
+public func body3d_set_velocity(id: physics3d.BodyId, velocity: game.Vector3) -> result<void, core.Error>
+    body3d_velocity_x = physics3d.set_float(body3d_velocity_x, id.id, velocity.x)
+    body3d_velocity_y = physics3d.set_float(body3d_velocity_y, id.id, velocity.y)
+    body3d_velocity_z = physics3d.set_float(body3d_velocity_z, id.id, velocity.z)
+    return success()
+end
+
+public func body3d_get_velocity(id: physics3d.BodyId) -> result<game.Vector3, core.Error>
+    return success(
+        game.vec3(
+            physics3d.float_or(body3d_velocity_x, id.id, 0.0),
+            physics3d.float_or(body3d_velocity_y, id.id, 0.0),
+            physics3d.float_or(body3d_velocity_z, id.id, 0.0)
+        )
+    )
+end
+
+public func body3d_set_enabled(id: physics3d.BodyId, enabled: bool) -> result<void, core.Error>
+    body3d_enabled = physics3d.set_bool(body3d_enabled, id.id, enabled)
+    return success()
+end
+
+public func body3d_is_enabled(id: physics3d.BodyId) -> bool
+    return physics3d.bool_or(body3d_enabled, id.id, false)
+end
+
+public func physics3d_step(_dt: float) -> result<void, core.Error>
+    return success()
+end
+
+public func raycast(_origin: game.Vector3, _direction: game.Vector3, _distance: float, _mask: int) -> optional<physics3d.RayHit>
+    return none
+end
+
+public func body3d_on_ground(_id: physics3d.BodyId) -> bool
+    return false
+end
+
+public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+    const maybe: optional<bool> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+    const maybe: optional<float> = values.get(id)
+    match maybe
+        case value present ->
+            return present
+        case none ->
+            return fallback
+    end
+end
+
+public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+    var next: map<int, bool> = values
+    next[id] = value
+    return next
+end
+
+public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+    var next: map<int, float> = values
+    next[id] = value
+    return next
+end

@@ -1,0 +1,67 @@
+namespace app.main
+
+import app.model as model
+
+func is_missing(sample: optional<model.Profile>) -> bool
+    match sample
+        case value present ->
+            return false
+        case none ->
+            return true
+    end
+end
+
+func main() -> int
+    const found: optional<model.Profile> = model.find_profile(1)
+    const copied: optional<model.Profile> = found
+    const missing: optional<model.Profile> = model.find_profile(99)
+
+    if is_missing(missing) == false
+        return 1
+    end
+
+    var left: model.Profile = model.empty_profile()
+    var right: model.Profile = model.empty_profile()
+
+    match found
+        case value profile ->
+            left = profile
+        case none ->
+            return 2
+    end
+
+    match copied
+        case value profile ->
+            right = profile
+        case none ->
+            return 3
+    end
+
+    if left.pos.x != 3
+        return 4
+    end
+
+    if left.pos.y != 4
+        return 5
+    end
+
+    if left.tags[0] != "wind"
+        return 6
+    end
+
+    right.tags[0] = "stone"
+
+    if left.tags[0] != "wind"
+        return 7
+    end
+
+    if right.tags[0] != "stone"
+        return 8
+    end
+
+    if right.name != "Lina"
+        return 9
+    end
+
+    return 0
+end

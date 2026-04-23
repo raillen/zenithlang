@@ -1,0 +1,17 @@
+namespace app.main
+
+import std.os as os
+
+func main() -> result<void, core.Error>
+    const values: list<text> = os.args()
+
+    if len(values) < 1
+        return error("std.os.args should include at least argv[0]")
+    end
+
+    if len(values[0]) == 0
+        return error("std.os.args returned empty argv[0]")
+    end
+
+    return success()
+end

@@ -1,4 +1,4 @@
-﻿# Planning Docs
+# Planning Docs
 
 ## Objetivo
 

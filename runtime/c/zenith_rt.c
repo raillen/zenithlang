@@ -18,9 +18,11 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <direct.h>
+#include <io.h>
 #include <process.h>
 #include <windows.h>
 #else
+#include <dirent.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/select.h>
@@ -79,6 +81,25 @@ static const char *zt_safe_message(const char *message) {
     return message != NULL ? message : "runtime error";
 }
 
+static zt_bool zt_text_equals_literal(const zt_text *value, const char *literal) {
+    size_t literal_len;
+
+    if (value == NULL || literal == NULL) {
+        return false;
+    }
+
+    literal_len = strlen(literal);
+    if (value->len != literal_len) {
+        return false;
+    }
+
+    if (literal_len == 0) {
+        return true;
+    }
+
+    return memcmp(value->data, literal, literal_len) == 0;
+}
+
 static void zt_runtime_append_text(char *buffer, size_t capacity, const char *text) {
     size_t length;
     size_t available;
@@ -93,6 +114,117 @@ static void zt_runtime_append_text(char *buffer, size_t capacity, const char *te
     if (copy_length > available) copy_length = available;
     memcpy(buffer + length, text, copy_length);
     buffer[length + copy_length] = '\0';
+}
+
+static zt_bool zt_try_add_size(size_t left, size_t right, size_t *out) {
+    if (out == NULL) {
+        return false;
+    }
+    if (left > (SIZE_MAX - right)) {
+        return false;
+    }
+    *out = left + right;
+    return true;
+}
+
+#if !defined(ZT_FORCE_PORTABLE_OVERFLOW) && (defined(__clang__) || defined(__GNUC__))
+#define ZT_USE_COMPILER_OVERFLOW_BUILTINS 1
+#else
+#define ZT_USE_COMPILER_OVERFLOW_BUILTINS 0
+#endif
+
+static zt_bool zt_try_add_i64(zt_int a, zt_int b, zt_int *out) {
+#if ZT_USE_COMPILER_OVERFLOW_BUILTINS
+    return __builtin_add_overflow(a, b, out) ? true : false;
+#else
+    uint64_t ua = (uint64_t)a;
+    uint64_t ub = (uint64_t)b;
+    uint64_t ur = ua + ub;
+    if (out != NULL) {
+        *out = (zt_int)ur;
+    }
+    return ((~(ua ^ ub) & (ua ^ ur)) >> 63) != 0u ? true : false;
+#endif
+}
+
+static zt_bool zt_try_sub_i64(zt_int a, zt_int b, zt_int *out) {
+#if ZT_USE_COMPILER_OVERFLOW_BUILTINS
+    return __builtin_sub_overflow(a, b, out) ? true : false;
+#else
+    uint64_t ua = (uint64_t)a;
+    uint64_t ub = (uint64_t)b;
+    uint64_t ur = ua - ub;
+    if (out != NULL) {
+        *out = (zt_int)ur;
+    }
+    return (((ua ^ ub) & (ua ^ ur)) >> 63) != 0u ? true : false;
+#endif
+}
+
+static zt_bool zt_try_mul_i64(zt_int a, zt_int b, zt_int *out) {
+#if ZT_USE_COMPILER_OVERFLOW_BUILTINS
+    return __builtin_mul_overflow(a, b, out) ? true : false;
+#else
+    if (out == NULL) {
+        return true;
+    }
+
+    if (a == 0 || b == 0) {
+        *out = 0;
+        return false;
+    }
+
+    if (a == -1) {
+        if (b == INT64_MIN) {
+            return true;
+        }
+        *out = -b;
+        return false;
+    }
+
+    if (b == -1) {
+        if (a == INT64_MIN) {
+            return true;
+        }
+        *out = -a;
+        return false;
+    }
+
+    if (a > 0) {
+        if (b > 0) {
+            if (a > INT64_MAX / b) {
+                return true;
+            }
+        } else {
+            if (b < INT64_MIN / a) {
+                return true;
+            }
+        }
+    } else {
+        if (b > 0) {
+            if (a < INT64_MIN / b) {
+                return true;
+            }
+        } else {
+            if (a < INT64_MAX / b) {
+                return true;
+            }
+        }
+    }
+
+    *out = a * b;
+    return false;
+#endif
+}
+
+static size_t zt_require_added_size(size_t left, size_t right, const char *message) {
+    size_t result = 0;
+
+    if (!zt_try_add_size(left, right, &result)) {
+        zt_runtime_error(ZT_ERR_PLATFORM, message);
+    }
+
+    return result;
 }
 
 static zt_runtime_error_info zt_last_error;
@@ -253,6 +385,296 @@ zt_outcome_list_i64_text zt_outcome_list_i64_text_failure_message(const char *me
     return outcome;
 }
 
+static zt_bool zt_fs_is_separator(char ch) {
+    return ch == '/' || ch == '\\';
+}
+
+static zt_core_error zt_fs_core_error_from_code_message(const char *code, const char *message) {
+    return zt_core_error_from_message(code != NULL ? code : "fs.unknown", zt_safe_message(message));
+}
+
+static zt_core_error zt_fs_core_error_from_errno(int error_code, const char *fallback_message) {
+    const char *code = "fs.io";
+    const char *message = fallback_message;
+
+    if ((message == NULL || message[0] == '\0') && error_code != 0) {
+        message = strerror(error_code);
+    }
+    if (message == NULL || message[0] == '\0') {
+        message = "filesystem error";
+    }
+
+    switch (error_code) {
+        case 0:
+            code = "fs.unknown";
+            break;
+        case ENOENT:
+            code = "fs.not_found";
+            break;
+        case EACCES:
+        case EPERM:
+            code = "fs.permission_denied";
+            break;
+        case EEXIST:
+            code = "fs.already_exists";
+            break;
+#ifdef ENOTDIR
+        case ENOTDIR:
+            code = "fs.not_a_directory";
+            break;
+#endif
+#ifdef EISDIR
+        case EISDIR:
+            code = "fs.is_a_directory";
+            break;
+#endif
+#ifdef EINVAL
+        case EINVAL:
+            code = "fs.invalid_path";
+            break;
+#endif
+#ifdef ENAMETOOLONG
+        case ENAMETOOLONG:
+            code = "fs.invalid_path";
+            break;
+#endif
+        default:
+            code = "fs.io";
+            break;
+    }
+
+    return zt_fs_core_error_from_code_message(code, message);
+}
+
+#ifdef _WIN32
+static void zt_fs_windows_error_message(DWORD error_code, char *buffer, size_t buffer_size) {
+    DWORD written;
+
+    if (buffer == NULL || buffer_size == 0) {
+        return;
+    }
+
+    written = FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        error_code,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        buffer,
+        (DWORD)buffer_size,
+        NULL);
+    if (written == 0) {
+        snprintf(buffer, buffer_size, "Windows error %lu", (unsigned long)error_code);
+        return;
+    }
+
+    while (written > 0 && (buffer[written - 1] == '\r' || buffer[written - 1] == '\n' || buffer[written - 1] == ' ')) {
+        buffer[written - 1] = '\0';
+        written -= 1;
+    }
+}
+
+static zt_core_error zt_fs_core_error_from_windows(DWORD error_code, const char *fallback_message) {
+    const char *code = "fs.io";
+    char message_buffer[256];
+    const char *message = fallback_message;
+
+    if (message == NULL || message[0] == '\0') {
+        zt_fs_windows_error_message(error_code, message_buffer, sizeof(message_buffer));
+        message = message_buffer;
+    }
+
+    switch (error_code) {
+        case ERROR_FILE_NOT_FOUND:
+        case ERROR_PATH_NOT_FOUND:
+            code = "fs.not_found";
+            break;
+        case ERROR_ACCESS_DENIED:
+        case ERROR_SHARING_VIOLATION:
+            code = "fs.permission_denied";
+            break;
+        case ERROR_ALREADY_EXISTS:
+        case ERROR_FILE_EXISTS:
+            code = "fs.already_exists";
+            break;
+        case ERROR_DIRECTORY:
+            code = "fs.not_a_directory";
+            break;
+        case ERROR_INVALID_NAME:
+        case ERROR_BAD_PATHNAME:
+            code = "fs.invalid_path";
+            break;
+        default:
+            code = "fs.io";
+            break;
+    }
+
+    return zt_fs_core_error_from_code_message(code, message);
+}
+#endif
+
+static zt_outcome_void_core_error zt_fs_outcome_void_failure_error(zt_core_error error) {
+    zt_outcome_void_core_error outcome = zt_outcome_void_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_text_core_error zt_fs_outcome_text_failure_error(zt_core_error error) {
+    zt_outcome_text_core_error outcome = zt_outcome_text_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_bool_core_error zt_fs_outcome_bool_failure_error(zt_core_error error) {
+    zt_outcome_bool_core_error outcome = zt_outcome_bool_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_i64_core_error zt_fs_outcome_i64_failure_error(zt_core_error error) {
+    zt_outcome_i64_core_error outcome = zt_outcome_i64_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_list_text_core_error zt_fs_outcome_list_text_failure_error(zt_core_error error) {
+    zt_outcome_list_text_core_error outcome = zt_outcome_list_text_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static zt_outcome_optional_i64_core_error zt_fs_outcome_optional_i64_failure_error(zt_core_error error) {
+    zt_outcome_optional_i64_core_error outcome = zt_outcome_optional_i64_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+static char *zt_fs_join_path(const char *base, const char *name) {
+    size_t base_len;
+    size_t name_len;
+    size_t total_len;
+    size_t offset = 0;
+    char *joined;
+    zt_bool needs_sep;
+
+    if (base == NULL || name == NULL) {
+        return NULL;
+    }
+
+    base_len = strlen(base);
+    name_len = strlen(name);
+    needs_sep = base_len > 0 && !zt_fs_is_separator(base[base_len - 1]);
+
+    if (!zt_try_add_size(base_len, name_len, &total_len)) {
+        return NULL;
+    }
+    if (needs_sep && !zt_try_add_size(total_len, 1, &total_len)) {
+        return NULL;
+    }
+    if (!zt_try_add_size(total_len, 1, &total_len)) {
+        return NULL;
+    }
+
+    joined = (char *)malloc(total_len);
+    if (joined == NULL) {
+        return NULL;
+    }
+
+    if (base_len > 0) {
+        memcpy(joined, base, base_len);
+        offset = base_len;
+    }
+    if (needs_sep) {
+#ifdef _WIN32
+        joined[offset++] = '\\';
+#else
+        joined[offset++] = '/';
+#endif
+    }
+    if (name_len > 0) {
+        memcpy(joined + offset, name, name_len);
+        offset += name_len;
+    }
+    joined[offset] = '\0';
+    return joined;
+}
+
+static zt_outcome_void_core_error zt_fs_create_dir_path(const char *path_data) {
+    struct stat info;
+
+    if (path_data == NULL || path_data[0] == '\0') {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_code_message("fs.invalid_path", "path cannot be empty"));
+    }
+
+    if (stat(path_data, &info) == 0) {
+        if (S_ISDIR(info.st_mode)) {
+            return zt_outcome_void_core_error_success();
+        }
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_code_message("fs.already_exists", "path already exists"));
+    }
+    if (errno != ENOENT) {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+#ifdef _WIN32
+    if (_mkdir(path_data) != 0) {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+#else
+    if (mkdir(path_data, 0777) != 0) {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+#endif
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_fs_create_dir_all_path(const char *path_data) {
+    zt_outcome_void_core_error outcome;
+    char *copy;
+    size_t len;
+    size_t index;
+
+    if (path_data == NULL || path_data[0] == '\0') {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_code_message("fs.invalid_path", "path cannot be empty"));
+    }
+
+    len = strlen(path_data);
+    copy = (char *)malloc(len + 1);
+    if (copy == NULL) {
+        return zt_outcome_void_core_error_failure_message("failed to allocate directory path buffer");
+    }
+    memcpy(copy, path_data, len + 1);
+
+    for (index = 0; index < len; index += 1) {
+        char saved;
+
+        if (!zt_fs_is_separator(copy[index])) {
+            continue;
+        }
+        if (index == 0 || zt_fs_is_separator(copy[index - 1])) {
+            continue;
+        }
+#ifdef _WIN32
+        if (index == 2 && copy[1] == ':') {
+            continue;
+        }
+#endif
+        saved = copy[index];
+        copy[index] = '\0';
+        if (copy[0] != '\0') {
+            outcome = zt_fs_create_dir_path(copy);
+            if (!outcome.is_success) {
+                free(copy);
+                return outcome;
+            }
+        }
+        copy[index] = saved;
+    }
+
+    outcome = zt_fs_create_dir_path(copy);
+    free(copy);
+    return outcome;
+}
+
 static zt_outcome_text_core_error zt_host_default_read_file(const zt_text *path);
 static zt_outcome_void_core_error zt_host_default_write_file(const zt_text *path, const zt_text *value);
 static zt_bool zt_host_default_path_exists(const zt_text *path);
@@ -266,11 +688,28 @@ static void zt_host_default_random_seed(zt_int seed);
 static zt_int zt_host_default_random_next_i64(void);
 static zt_outcome_text_core_error zt_host_default_os_current_dir(void);
 static zt_outcome_void_core_error zt_host_default_os_change_dir(const zt_text *path);
+static zt_list_text *zt_host_default_os_args(void);
 static zt_optional_text zt_host_default_os_env(const zt_text *name);
 static zt_int zt_host_default_os_pid(void);
 static zt_text *zt_host_default_os_platform(void);
 static zt_text *zt_host_default_os_arch(void);
+static zt_outcome_void_core_error zt_host_default_fs_append_text(const zt_text *path, const zt_text *value);
+static zt_outcome_bool_core_error zt_host_default_fs_is_file(const zt_text *path);
+static zt_outcome_bool_core_error zt_host_default_fs_is_dir(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_create_dir(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_create_dir_all(const zt_text *path);
+static zt_outcome_list_text_core_error zt_host_default_fs_list(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_remove_file(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_remove_dir(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_remove_dir_all(const zt_text *path);
+static zt_outcome_void_core_error zt_host_default_fs_copy_file(const zt_text *from_path, const zt_text *to_path);
+static zt_outcome_void_core_error zt_host_default_fs_move(const zt_text *from_path, const zt_text *to_path);
+static zt_outcome_i64_core_error zt_host_default_fs_size(const zt_text *path);
+static zt_outcome_i64_core_error zt_host_default_fs_modified_at(const zt_text *path);
+static zt_outcome_optional_i64_core_error zt_host_default_fs_created_at(const zt_text *path);
+static char *zt_host_prepare_path_copy(const zt_text *path, const char *label, zt_core_error *out_error);
 static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
+static zt_outcome_process_captured_run_core_error zt_host_default_process_run_capture(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);
 
 static zt_host_api zt_host_api_state = {
     zt_host_default_read_file,
@@ -286,12 +725,30 @@ static zt_host_api zt_host_api_state = {
     zt_host_default_random_next_i64,
     zt_host_default_os_current_dir,
     zt_host_default_os_change_dir,
+    zt_host_default_os_args,
     zt_host_default_os_env,
     zt_host_default_os_pid,
     zt_host_default_os_platform,
     zt_host_default_os_arch,
-    zt_host_default_process_run
+    zt_host_default_process_run,
+    zt_host_default_process_run_capture
 };
+
+static zt_list_text *zt_host_captured_process_args = NULL;
+
+typedef struct zt_process_capture_redirect {
+    int saved_stdout_fd;
+    int saved_stderr_fd;
+    zt_bool active;
+#ifdef _WIN32
+    HANDLE saved_stdout_handle;
+    HANDLE saved_stderr_handle;
+#endif
+} zt_process_capture_redirect;
+
+static zt_outcome_void_core_error zt_host_restore_process_stdio(zt_process_capture_redirect *redirect);
+static void zt_process_captured_run_retain(zt_process_captured_run value);
+static void zt_process_captured_run_dispose(zt_process_captured_run *value);
 
 zt_runtime_span zt_runtime_span_unknown(void) {
     zt_runtime_span span;
@@ -515,6 +972,32 @@ static size_t zt_normalize_slice_end(size_t length, zt_int end_0) {
 ZT_DEFINE_LIST_IMPL(i64, zt_int, ZT_HEAP_LIST_I64, 0)
 ZT_DEFINE_LIST_IMPL(text, zt_text *, ZT_HEAP_LIST_TEXT, 1)
 ZT_DEFINE_LIST_IMPL(f64, zt_float, ZT_HEAP_LIST_F64, 0)
+size_t zt_text_hash(const zt_text *value) {
+    uint64_t hash = UINT64_C(1469598103934665603);
+    size_t index;
+
+    if (value == NULL || value->data == NULL) {
+        return 0u;
+    }
+
+    for (index = 0; index < value->len; index += 1) {
+        hash ^= (uint8_t)value->data[index];
+        hash *= UINT64_C(1099511628211);
+    }
+
+    return (size_t)hash;
+}
+
+size_t zt_i64_hash(zt_int value) {
+    uint64_t x = (uint64_t)value;
+
+    x ^= x >> 33;
+    x *= UINT64_C(0xff51afd7ed558ccd);
+    x ^= x >> 33;
+    x *= UINT64_C(0xc4ceb9fe1a85ec53);
+    x ^= x >> 33;
+    return (size_t)x;
+}
 ZT_DEFINE_MAP_IMPL(
     text_text,
     zt_text *,
@@ -524,6 +1007,7 @@ ZT_DEFINE_MAP_IMPL(
     1,
     1,
     zt_text_eq,
+    zt_text_hash,
     zt_optional_text_present,
     zt_optional_text_empty)
 
@@ -773,6 +1257,125 @@ static zt_bool zt_utf8_validate(const uint8_t *data, size_t len, size_t *error_i
         *error_reason = NULL;
     }
     return true;
+}
+
+static size_t zt_utf8_sequence_width_or_error(const uint8_t *data, size_t len, size_t offset, const char *context) {
+    uint8_t first;
+
+    if (data == NULL || offset >= len) {
+        zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+    }
+
+    first = data[offset];
+    if (first <= 0x7Fu) {
+        return 1;
+    }
+
+    if (first >= 0xC2u && first <= 0xDFu) {
+        if (offset + 1 >= len || !zt_utf8_is_continuation(data[offset + 1])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 2;
+    }
+
+    if (first == 0xE0u) {
+        if (offset + 2 >= len ||
+            !(data[offset + 1] >= 0xA0u && data[offset + 1] <= 0xBFu) ||
+            !zt_utf8_is_continuation(data[offset + 2])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 3;
+    }
+
+    if ((first >= 0xE1u && first <= 0xECu) || (first >= 0xEEu && first <= 0xEFu)) {
+        if (offset + 2 >= len ||
+            !zt_utf8_is_continuation(data[offset + 1]) ||
+            !zt_utf8_is_continuation(data[offset + 2])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 3;
+    }
+
+    if (first == 0xEDu) {
+        if (offset + 2 >= len ||
+            !(data[offset + 1] >= 0x80u && data[offset + 1] <= 0x9Fu) ||
+            !zt_utf8_is_continuation(data[offset + 2])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 3;
+    }
+
+    if (first == 0xF0u) {
+        if (offset + 3 >= len ||
+            !(data[offset + 1] >= 0x90u && data[offset + 1] <= 0xBFu) ||
+            !zt_utf8_is_continuation(data[offset + 2]) ||
+            !zt_utf8_is_continuation(data[offset + 3])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 4;
+    }
+
+    if (first >= 0xF1u && first <= 0xF3u) {
+        if (offset + 3 >= len ||
+            !zt_utf8_is_continuation(data[offset + 1]) ||
+            !zt_utf8_is_continuation(data[offset + 2]) ||
+            !zt_utf8_is_continuation(data[offset + 3])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 4;
+    }
+
+    if (first == 0xF4u) {
+        if (offset + 3 >= len ||
+            !(data[offset + 1] >= 0x80u && data[offset + 1] <= 0x8Fu) ||
+            !zt_utf8_is_continuation(data[offset + 2]) ||
+            !zt_utf8_is_continuation(data[offset + 3])) {
+            zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+        }
+        return 4;
+    }
+
+    zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+    return 0;
+}
+
+static size_t zt_text_codepoint_count(const zt_text *value, const char *context) {
+    const uint8_t *data;
+    size_t offset = 0;
+    size_t count = 0;
+
+    zt_runtime_require_text(value, "zt_text_codepoint_count requires text");
+    data = (const uint8_t *)value->data;
+
+    while (offset < value->len) {
+        offset += zt_utf8_sequence_width_or_error(data, value->len, offset, context);
+        count += 1;
+    }
+
+    return count;
+}
+
+static size_t zt_text_byte_offset_for_codepoint(
+        const zt_text *value,
+        size_t codepoint_index,
+        const char *context) {
+    const uint8_t *data;
+    size_t offset = 0;
+    size_t current = 0;
+
+    zt_runtime_require_text(value, "zt_text_byte_offset_for_codepoint requires text");
+    data = (const uint8_t *)value->data;
+
+    while (offset < value->len && current < codepoint_index) {
+        offset += zt_utf8_sequence_width_or_error(data, value->len, offset, context);
+        current += 1;
+    }
+
+    if (current != codepoint_index) {
+        zt_runtime_error(ZT_ERR_PLATFORM, context != NULL ? context : "invalid UTF-8 text invariant");
+    }
+
+    return offset;
 }
 
 /* zt_list_i64_reserve and zt_list_text_reserve: generated by ZT_DEFINE_LIST_IMPL */
@@ -1454,15 +2057,17 @@ void zt_contract_failed_bool(const char *message, zt_bool value, zt_runtime_span
     zt_contract_failed(full_message, span);
 }
 
-zt_text *zt_text_from_utf8(const char *data, size_t len) {
+static zt_text *zt_text_from_utf8_unchecked(const char *data, size_t len) {
     zt_text *value;
+    size_t byte_count;
 
     value = (zt_text *)calloc(1, sizeof(zt_text));
     if (value == NULL) {
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate text header");
     }
 
-    value->data = (char *)malloc(len + 1);
+    byte_count = zt_require_added_size(len, 1, "text size overflow");
+    value->data = (char *)malloc(byte_count);
     if (value->data == NULL) {
         free(value);
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate text bytes");
@@ -1479,18 +2084,44 @@ zt_text *zt_text_from_utf8(const char *data, size_t len) {
     return value;
 }
 
-zt_text *zt_text_from_utf8_literal(const char *data) {
+zt_text *zt_text_from_utf8(const char *data, size_t len) {
+    size_t error_index = 0;
+    const char *error_reason = NULL;
+    char message[256];
+
     if (data == NULL) {
-        return zt_text_from_utf8("", 0);
+        if (len == 0) {
+            return zt_text_from_utf8_unchecked("", 0);
+        }
+        zt_runtime_error(ZT_ERR_CONTRACT, "zt_text_from_utf8 requires UTF-8 bytes");
     }
 
-    return zt_text_from_utf8(data, strlen(data));
+    if (!zt_utf8_validate((const uint8_t *)data, len, &error_index, &error_reason)) {
+        snprintf(
+            message,
+            sizeof(message),
+            "zt_text_from_utf8 received invalid UTF-8 at byte %zu (%s)",
+            error_index,
+            error_reason != NULL ? error_reason : "invalid encoding");
+        zt_runtime_error(ZT_ERR_CONTRACT, message);
+    }
+
+    return zt_text_from_utf8_unchecked(data, len);
+}
+
+zt_text *zt_text_from_utf8_literal(const char *data) {
+    if (data == NULL) {
+        return zt_text_from_utf8_unchecked("", 0);
+    }
+
+    return zt_text_from_utf8_unchecked(data, strlen(data));
 }
 
 zt_text *zt_text_concat(const zt_text *a, const zt_text *b) {
     zt_text *value;
     size_t left_len;
     size_t right_len;
+    size_t total_len;
 
     zt_runtime_require_text(a, "zt_text_concat requires left text");
     zt_runtime_require_text(b, "zt_text_concat requires right text");
@@ -1506,30 +2137,47 @@ zt_text *zt_text_concat(const zt_text *a, const zt_text *b) {
         return (zt_text *)a;
     }
 
-    value = zt_text_from_utf8(NULL, left_len + right_len);
+    total_len = zt_require_added_size(left_len, right_len, "text concat size overflow");
+    value = zt_text_from_utf8_unchecked(NULL, total_len);
     if (left_len > 0) {
         memcpy(value->data, a->data, left_len);
     }
     if (right_len > 0) {
         memcpy(value->data + left_len, b->data, right_len);
     }
-    value->data[left_len + right_len] = '\0';
+    value->data[total_len] = '\0';
     return value;
 }
 
 zt_text *zt_text_index(const zt_text *value, zt_int index_0) {
+    const uint8_t *data;
+    size_t codepoint_count;
+    size_t byte_offset;
+    size_t byte_width;
+
     zt_runtime_require_text(value, "zt_text_index requires text");
 
-    if (index_0 < 0 || (size_t)index_0 >= value->len) {
+    if (index_0 < 0) {
         zt_runtime_error(ZT_ERR_INDEX, "text index out of bounds");
     }
 
-    return zt_text_from_utf8(value->data + (size_t)index_0, 1);
+    codepoint_count = zt_text_codepoint_count(value, "text value contains invalid UTF-8");
+    if ((size_t)index_0 >= codepoint_count) {
+        zt_runtime_error(ZT_ERR_INDEX, "text index out of bounds");
+    }
+
+    data = (const uint8_t *)value->data;
+    byte_offset = zt_text_byte_offset_for_codepoint(value, (size_t)index_0, "text value contains invalid UTF-8");
+    byte_width = zt_utf8_sequence_width_or_error(data, value->len, byte_offset, "text value contains invalid UTF-8");
+    return zt_text_from_utf8(value->data + byte_offset, byte_width);
 }
 
 zt_text *zt_text_slice(const zt_text *value, zt_int start_0, zt_int end_0) {
-    size_t start_pos;
-    size_t end_pos;
+    size_t codepoint_count;
+    size_t start_index;
+    size_t end_index;
+    size_t start_byte;
+    size_t end_exclusive_byte;
 
     zt_runtime_require_text(value, "zt_text_slice requires text");
 
@@ -1541,19 +2189,27 @@ zt_text *zt_text_slice(const zt_text *value, zt_int start_0, zt_int end_0) {
         return zt_text_from_utf8("", 0);
     }
 
-    start_pos = (size_t)start_0;
-    end_pos = zt_normalize_slice_end(value->len, end_0);
+    codepoint_count = zt_text_codepoint_count(value, "text value contains invalid UTF-8");
+    start_index = (size_t)start_0;
+    end_index = zt_normalize_slice_end(codepoint_count, end_0);
 
-    if (start_pos >= value->len || end_pos < start_pos) {
+    if (start_index >= codepoint_count || end_index < start_index) {
         return zt_text_from_utf8("", 0);
     }
 
-    if (start_pos == 0 && end_pos + 1 == value->len) {
+    start_byte = zt_text_byte_offset_for_codepoint(value, start_index, "text value contains invalid UTF-8");
+    if (end_index + 1 >= codepoint_count) {
+        end_exclusive_byte = value->len;
+    } else {
+        end_exclusive_byte = zt_text_byte_offset_for_codepoint(value, end_index + 1, "text value contains invalid UTF-8");
+    }
+
+    if (start_byte == 0 && end_exclusive_byte == value->len) {
         zt_retain((void *)value);
         return (zt_text *)value;
     }
 
-    return zt_text_from_utf8(value->data + start_pos, end_pos - start_pos + 1);
+    return zt_text_from_utf8(value->data + start_byte, end_exclusive_byte - start_byte);
 }
 
 zt_bool zt_text_eq(const zt_text *a, const zt_text *b) {
@@ -1581,7 +2237,7 @@ zt_bool zt_text_eq(const zt_text *a, const zt_text *b) {
 
 zt_int zt_text_len(const zt_text *value) {
     zt_runtime_require_text(value, "zt_text_len requires text");
-    return (zt_int)value->len;
+    return (zt_int)zt_text_codepoint_count(value, "text value contains invalid UTF-8");
 }
 
 const char *zt_text_data(const zt_text *value) {
@@ -1670,11 +2326,13 @@ zt_list_i64 *zt_bytes_to_list_i64(const zt_bytes *value) {
 
 zt_bytes *zt_bytes_join(const zt_bytes *left, const zt_bytes *right) {
     zt_bytes *joined;
+    size_t total_len;
 
     zt_runtime_require_bytes(left, "zt_bytes_join requires left bytes");
     zt_runtime_require_bytes(right, "zt_bytes_join requires right bytes");
 
-    joined = zt_bytes_from_array(NULL, left->len + right->len);
+    total_len = zt_require_added_size(left->len, right->len, "bytes join size overflow");
+    joined = zt_bytes_from_array(NULL, total_len);
     if (left->len > 0) {
         memcpy(joined->data, left->data, left->len);
     }
@@ -2288,6 +2946,65 @@ zt_text *zt_core_error_message_or_default(zt_core_error error) {
     return zt_text_from_utf8_literal("error");
 }
 
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_success(zt_process_captured_run value) {
+    zt_outcome_process_captured_run_core_error outcome;
+    outcome.is_success = true;
+    outcome.value = value;
+    outcome.error = (zt_core_error){0};
+    zt_process_captured_run_retain(value);
+    return outcome;
+}
+
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_failure(zt_core_error error) {
+    zt_outcome_process_captured_run_core_error outcome;
+    outcome.is_success = false;
+    outcome.value.status.code = 0;
+    outcome.value.stdout_text = NULL;
+    outcome.value.stderr_text = NULL;
+    outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
+    return outcome;
+}
+
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_failure_message(const char *message) {
+    zt_core_error error = zt_core_error_from_message("error", message);
+    zt_outcome_process_captured_run_core_error outcome = zt_outcome_process_captured_run_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_bool zt_outcome_process_captured_run_core_error_is_success(zt_outcome_process_captured_run_core_error outcome) {
+    return outcome.is_success;
+}
+
+zt_process_captured_run zt_outcome_process_captured_run_core_error_value(zt_outcome_process_captured_run_core_error outcome) {
+    zt_process_captured_run value;
+    if (!outcome.is_success) {
+        zt_runtime_error(ZT_ERR_UNWRAP, "outcome_value on failure");
+    }
+    value = outcome.value;
+    zt_process_captured_run_retain(value);
+    return value;
+}
+
+zt_outcome_process_captured_run_core_error zt_outcome_process_captured_run_core_error_propagate(zt_outcome_process_captured_run_core_error outcome) {
+    if (outcome.is_success) {
+        return zt_outcome_process_captured_run_core_error_success(outcome.value);
+    }
+    return zt_outcome_process_captured_run_core_error_failure(outcome.error);
+}
+
+void zt_outcome_process_captured_run_core_error_dispose(zt_outcome_process_captured_run_core_error *outcome) {
+    if (outcome == NULL) {
+        return;
+    }
+    if (outcome->is_success) {
+        zt_process_captured_run_dispose(&outcome->value);
+    } else {
+        zt_core_error_dispose(&outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
 /* ── Monomorphization: outcome<V,text> ─────────────────────────────────────── */
 ZT_DEFINE_OUTCOME_IMPL(i64_text,  zt_int,     zt_text *, 0)
 ZT_DEFINE_OUTCOME_IMPL(text_text, zt_text *,  zt_text *, 1)
@@ -2598,6 +3315,56 @@ zt_outcome_i64_core_error zt_outcome_i64_core_error_propagate(zt_outcome_i64_cor
 }
 
 void zt_outcome_i64_core_error_dispose(zt_outcome_i64_core_error *outcome) {
+    if (outcome == NULL) return;
+    if (!outcome->is_success) zt_core_error_dispose(&outcome->error);
+    memset(outcome, 0, sizeof(*outcome));
+}
+
+zt_outcome_bool_core_error zt_outcome_bool_core_error_success(zt_bool value) {
+    zt_outcome_bool_core_error outcome;
+    outcome.is_success = true;
+    outcome.value = value;
+    outcome.error = (zt_core_error){0};
+    return outcome;
+}
+
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure(zt_core_error error) {
+    zt_outcome_bool_core_error outcome;
+    outcome.is_success = false;
+    outcome.value = false;
+    outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
+    return outcome;
+}
+
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure_message(const char *message) {
+    zt_core_error error = zt_core_error_from_message("error", message);
+    zt_outcome_bool_core_error outcome = zt_outcome_bool_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_outcome_bool_core_error zt_outcome_bool_core_error_failure_text(zt_text *message) {
+    zt_core_error error = zt_core_error_from_text("error", message);
+    zt_outcome_bool_core_error outcome = zt_outcome_bool_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_bool zt_outcome_bool_core_error_is_success(zt_outcome_bool_core_error outcome) {
+    return outcome.is_success;
+}
+
+zt_bool zt_outcome_bool_core_error_value(zt_outcome_bool_core_error outcome) {
+    if (!outcome.is_success) zt_runtime_error(ZT_ERR_UNWRAP, "outcome_value on failure");
+    return outcome.value;
+}
+
+zt_outcome_bool_core_error zt_outcome_bool_core_error_propagate(zt_outcome_bool_core_error outcome) {
+    if (outcome.is_success) return outcome;
+    return zt_outcome_bool_core_error_failure(outcome.error);
+}
+
+void zt_outcome_bool_core_error_dispose(zt_outcome_bool_core_error *outcome) {
     if (outcome == NULL) return;
     if (!outcome->is_success) zt_core_error_dispose(&outcome->error);
     memset(outcome, 0, sizeof(*outcome));
@@ -2948,6 +3715,64 @@ void zt_outcome_list_i64_core_error_dispose(zt_outcome_list_i64_core_error *outc
     memset(outcome, 0, sizeof(*outcome));
 }
 
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_success(zt_list_text *value) {
+    zt_outcome_list_text_core_error outcome;
+    zt_runtime_require_list_text(value, "zt_outcome_list_text_core_error_success requires value list");
+    memset(&outcome, 0, sizeof(outcome));
+    outcome.is_success = true;
+    outcome.value = value;
+    zt_retain(value);
+    return outcome;
+}
+
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure(zt_core_error error) {
+    zt_outcome_list_text_core_error outcome;
+    memset(&outcome, 0, sizeof(outcome));
+    outcome.is_success = false;
+    outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
+    return outcome;
+}
+
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure_message(const char *message) {
+    zt_core_error error = zt_core_error_from_message("error", message);
+    zt_outcome_list_text_core_error outcome = zt_outcome_list_text_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_failure_text(zt_text *message) {
+    zt_core_error error = zt_core_error_from_text("error", message);
+    zt_outcome_list_text_core_error outcome = zt_outcome_list_text_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_bool zt_outcome_list_text_core_error_is_success(zt_outcome_list_text_core_error outcome) {
+    return outcome.is_success;
+}
+
+zt_list_text *zt_outcome_list_text_core_error_value(zt_outcome_list_text_core_error outcome) {
+    if (!outcome.is_success) zt_runtime_error(ZT_ERR_UNWRAP, "outcome_value on failure");
+    zt_runtime_require_list_text(outcome.value, "outcome<list<text>,core.Error> success value cannot be null");
+    zt_retain(outcome.value);
+    return outcome.value;
+}
+
+zt_outcome_list_text_core_error zt_outcome_list_text_core_error_propagate(zt_outcome_list_text_core_error outcome) {
+    if (outcome.is_success) return zt_outcome_list_text_core_error_success(outcome.value);
+    return zt_outcome_list_text_core_error_failure(outcome.error);
+}
+
+void zt_outcome_list_text_core_error_dispose(zt_outcome_list_text_core_error *outcome) {
+    if (outcome == NULL) return;
+    if (outcome->is_success) {
+        if (outcome->value != NULL) zt_release(outcome->value);
+    } else {
+        zt_core_error_dispose(&outcome->error);
+    }
+    memset(outcome, 0, sizeof(*outcome));
+}
+
 zt_outcome_map_text_text_core_error zt_outcome_map_text_text_core_error_success(zt_map_text_text *value) {
     zt_outcome_map_text_text_core_error outcome;
     zt_runtime_require_map_text_text(value, "zt_outcome_map_text_text_success requires value map");
@@ -3006,38 +3831,54 @@ void zt_outcome_map_text_text_core_error_dispose(zt_outcome_map_text_text_core_e
     memset(outcome, 0, sizeof(*outcome));
 }
 
-
-// Initial ARC cycle detection scaffolding
-void zt_detect_cycles(zt_header *header) {
-    if (header == NULL || header->rc == 0) {
-        return;
-    }
-
-    // Marcar o objeto como visitado
-    header->rc |= 0x80000000; // Usar o bit mais significativo como marcador
-
-    // Iterate internal references (example for lists and maps)
-    if (header->kind == ZT_HEAP_LIST_I64) {
-        zt_list_i64 *list = (zt_list_i64 *)header;
-        for (size_t i = 0; i < list->len; i++) {
-            zt_detect_cycles((zt_header *)list->data[i]);
-        }
-    } else if (header->kind == ZT_HEAP_MAP_TEXT_TEXT) {
-        zt_map_text_text *map = (zt_map_text_text *)header;
-        for (size_t i = 0; i < map->len; i++) {
-            zt_detect_cycles((zt_header *)map->keys[i]);
-            zt_detect_cycles((zt_header *)map->values[i]);
-        }
-    }
-
-    // Clear visit mark after verification
-    header->rc &= ~0x80000000;
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_success(zt_optional_i64 value) {
+    zt_outcome_optional_i64_core_error outcome;
+    outcome.is_success = true;
+    outcome.value = value;
+    outcome.error = (zt_core_error){0};
+    return outcome;
 }
 
-void zt_runtime_check_for_cycles(void) {
-    // Public function to inspect cycles on managed objects
-    // Exemplo simplificado: iterar sobre todos os objetos conhecidos
-    // Real implementation depends on a global managed-object registry
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure(zt_core_error error) {
+    zt_outcome_optional_i64_core_error outcome;
+    outcome.is_success = false;
+    outcome.value = zt_optional_i64_empty();
+    outcome.error = error.message != NULL ? zt_core_error_clone(error) : zt_core_error_from_message("error", "error");
+    return outcome;
+}
+
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure_message(const char *message) {
+    zt_core_error error = zt_core_error_from_message("error", message);
+    zt_outcome_optional_i64_core_error outcome = zt_outcome_optional_i64_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_failure_text(zt_text *message) {
+    zt_core_error error = zt_core_error_from_text("error", message);
+    zt_outcome_optional_i64_core_error outcome = zt_outcome_optional_i64_core_error_failure(error);
+    zt_core_error_dispose(&error);
+    return outcome;
+}
+
+zt_bool zt_outcome_optional_i64_core_error_is_success(zt_outcome_optional_i64_core_error outcome) {
+    return outcome.is_success;
+}
+
+zt_optional_i64 zt_outcome_optional_i64_core_error_value(zt_outcome_optional_i64_core_error outcome) {
+    if (!outcome.is_success) zt_runtime_error(ZT_ERR_UNWRAP, "outcome_value on failure");
+    return outcome.value;
+}
+
+zt_outcome_optional_i64_core_error zt_outcome_optional_i64_core_error_propagate(zt_outcome_optional_i64_core_error outcome) {
+    if (outcome.is_success) return outcome;
+    return zt_outcome_optional_i64_core_error_failure(outcome.error);
+}
+
+void zt_outcome_optional_i64_core_error_dispose(zt_outcome_optional_i64_core_error *outcome) {
+    if (outcome == NULL) return;
+    if (!outcome->is_success) zt_core_error_dispose(&outcome->error);
+    memset(outcome, 0, sizeof(*outcome));
 }
 
 // Memory pool scaffolding for frequently-used types
@@ -3106,58 +3947,86 @@ void zt_validate_and_free_map_text_text(zt_map_text_text *map) {
 }
 
 static zt_outcome_text_core_error zt_host_default_read_file(const zt_text *path) {
-    const char *path_data;
+    char *path_data;
     FILE *file;
     long size_long;
     size_t size;
     char *buffer;
     size_t read_count;
+    size_t error_index;
+    const char *error_reason;
     zt_text *value;
+    zt_core_error path_error;
     zt_outcome_text_core_error outcome;
 
-    zt_runtime_require_text(path, "zt_host_read_file requires path");
-    path_data = zt_text_data(path);
+    path_data = zt_host_prepare_path_copy(path, "zt_host_read_file requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_text_failure_error(path_error);
+    }
 
     file = fopen(path_data, "rb");
     if (file == NULL) {
-        return zt_outcome_text_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
     if (fseek(file, 0, SEEK_END) != 0) {
         fclose(file);
-        return zt_outcome_text_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
     size_long = ftell(file);
     if (size_long < 0) {
         fclose(file);
-        return zt_outcome_text_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
     if (fseek(file, 0, SEEK_SET) != 0) {
         fclose(file);
-        return zt_outcome_text_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
     size = (size_t)size_long;
     buffer = (char *)malloc(size + 1);
     if (buffer == NULL) {
         fclose(file);
-        return zt_outcome_text_core_error_failure_message("failed to allocate file buffer");
+        free(path_data);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_code_message("fs.io", "failed to allocate file buffer"));
     }
 
     read_count = 0;
     if (size > 0) {
         read_count = fread(buffer, 1, size, file);
         if (read_count != size) {
+            int had_error = ferror(file);
             free(buffer);
             fclose(file);
-            return zt_outcome_text_core_error_failure_message(ferror(file) ? strerror(errno) : "failed to read full file");
+            free(path_data);
+            if (had_error) {
+                return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+            }
+            return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_code_message("fs.io", "failed to read full file"));
         }
     }
 
     buffer[size] = '\0';
     fclose(file);
+    free(path_data);
+
+    if (!zt_utf8_validate((const uint8_t *)buffer, size, &error_index, &error_reason)) {
+        char decode_message[256];
+        snprintf(
+            decode_message,
+            sizeof(decode_message),
+            "file content is not valid UTF-8 at byte %zu (%s)",
+            error_index,
+            error_reason != NULL ? error_reason : "invalid encoding");
+        free(buffer);
+        return zt_fs_outcome_text_failure_error(zt_fs_core_error_from_code_message("fs.io", decode_message));
+    }
 
     value = zt_text_from_utf8(buffer, size);
     free(buffer);
@@ -3167,42 +4036,624 @@ static zt_outcome_text_core_error zt_host_default_read_file(const zt_text *path)
 }
 
 static zt_outcome_void_core_error zt_host_default_write_file(const zt_text *path, const zt_text *value) {
-    const char *path_data;
+    char *path_data;
     FILE *file;
     size_t write_count;
+    zt_core_error path_error;
 
-    zt_runtime_require_text(path, "zt_host_write_file requires path");
+    path_data = zt_host_prepare_path_copy(path, "zt_host_write_file requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
     zt_runtime_require_text(value, "zt_host_write_file requires value");
-
-    path_data = zt_text_data(path);
     file = fopen(path_data, "wb");
     if (file == NULL) {
-        return zt_outcome_void_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
     if (value->len > 0) {
         write_count = fwrite(value->data, 1, value->len, file);
         if (write_count != value->len) {
             fclose(file);
-            return zt_outcome_void_core_error_failure_message(strerror(errno));
+            free(path_data);
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
         }
     }
 
     if (fclose(file) != 0) {
-        return zt_outcome_void_core_error_failure_message(strerror(errno));
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
     }
 
+    free(path_data);
     return zt_outcome_void_core_error_success();
 }
 
 static zt_bool zt_host_default_path_exists(const zt_text *path) {
     struct stat info;
-    const char *path_data;
+    char *path_data;
+    zt_core_error path_error;
+    zt_bool exists;
 
-    zt_runtime_require_text(path, "zt_host_path_exists requires path");
-    path_data = zt_text_data(path);
+    path_data = zt_host_prepare_path_copy(path, "zt_host_path_exists requires path", &path_error);
+    if (path_data == NULL) {
+        zt_core_error_dispose(&path_error);
+        return false;
+    }
 
-    return stat(path_data, &info) == 0;
+    exists = stat(path_data, &info) == 0;
+    free(path_data);
+    return exists;
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_append_text(const zt_text *path, const zt_text *value) {
+    char *path_data;
+    FILE *file;
+    size_t write_count;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_append_text_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+    zt_runtime_require_text(value, "zt_host_fs_append_text_core requires value");
+
+    file = fopen(path_data, "ab");
+    if (file == NULL) {
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    if (value->len > 0) {
+        write_count = fwrite(value->data, 1, value->len, file);
+        if (write_count != value->len) {
+            fclose(file);
+            free(path_data);
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+    }
+
+    if (fclose(file) != 0) {
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    free(path_data);
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_bool_core_error zt_host_default_fs_is_file(const zt_text *path) {
+    char *path_data;
+    struct stat info;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_is_file_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_bool_failure_error(path_error);
+    }
+
+    if (stat(path_data, &info) != 0) {
+        free(path_data);
+        return zt_fs_outcome_bool_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    free(path_data);
+    return zt_outcome_bool_core_error_success(S_ISREG(info.st_mode));
+}
+
+static zt_outcome_bool_core_error zt_host_default_fs_is_dir(const zt_text *path) {
+    char *path_data;
+    struct stat info;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_is_dir_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_bool_failure_error(path_error);
+    }
+
+    if (stat(path_data, &info) != 0) {
+        free(path_data);
+        return zt_fs_outcome_bool_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    free(path_data);
+    return zt_outcome_bool_core_error_success(S_ISDIR(info.st_mode));
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_create_dir(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+    zt_outcome_void_core_error outcome;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_create_dir_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+    outcome = zt_fs_create_dir_path(path_data);
+    free(path_data);
+    return outcome;
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_create_dir_all(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+    zt_outcome_void_core_error outcome;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_create_dir_all_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+    outcome = zt_fs_create_dir_all_path(path_data);
+    free(path_data);
+    return outcome;
+}
+
+static zt_outcome_list_text_core_error zt_host_default_fs_list(const zt_text *path) {
+    char *path_data;
+    struct stat info;
+    zt_list_text *items;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_list_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_list_text_failure_error(path_error);
+    }
+
+    if (stat(path_data, &info) != 0) {
+        free(path_data);
+        return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    if (!S_ISDIR(info.st_mode)) {
+        free(path_data);
+        return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_code_message("fs.not_a_directory", "path is not a directory"));
+    }
+
+    items = zt_list_text_new();
+#ifdef _WIN32
+    {
+        char *pattern = zt_fs_join_path(path_data, "*");
+        WIN32_FIND_DATAA entry;
+        HANDLE handle;
+
+        if (pattern == NULL) {
+            zt_release(items);
+            free(path_data);
+            return zt_outcome_list_text_core_error_failure_message("failed to allocate directory listing path");
+        }
+
+        handle = FindFirstFileA(pattern, &entry);
+        free(pattern);
+        if (handle == INVALID_HANDLE_VALUE) {
+            zt_release(items);
+            free(path_data);
+            return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_windows(GetLastError(), NULL));
+        }
+
+        do {
+            zt_text *item;
+            const char *name = entry.cFileName;
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                continue;
+            }
+            item = zt_text_from_utf8_literal(name);
+            zt_list_text_push(items, item);
+            zt_release(item);
+        } while (FindNextFileA(handle, &entry) != 0);
+
+        if (GetLastError() != ERROR_NO_MORE_FILES) {
+            DWORD error_code = GetLastError();
+            FindClose(handle);
+            zt_release(items);
+            free(path_data);
+            return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_windows(error_code, NULL));
+        }
+
+        FindClose(handle);
+        free(path_data);
+    }
+#else
+    {
+        DIR *dir = opendir(path_data);
+        struct dirent *entry;
+
+        if (dir == NULL) {
+            zt_release(items);
+            free(path_data);
+            return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+
+        while ((entry = readdir(dir)) != NULL) {
+            zt_text *item;
+            const char *name = entry->d_name;
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                continue;
+            }
+            item = zt_text_from_utf8_literal(name);
+            zt_list_text_push(items, item);
+            zt_release(item);
+        }
+
+        if (closedir(dir) != 0) {
+            zt_release(items);
+            free(path_data);
+            return zt_fs_outcome_list_text_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+
+        free(path_data);
+    }
+#endif
+
+    {
+        zt_outcome_list_text_core_error outcome = zt_outcome_list_text_core_error_success(items);
+        zt_release(items);
+        return outcome;
+    }
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_remove_file(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_remove_file_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+
+    if (remove(path_data) != 0) {
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    free(path_data);
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_remove_dir(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_remove_dir_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+
+#ifdef _WIN32
+    if (_rmdir(path_data) != 0) {
+#else
+    if (rmdir(path_data) != 0) {
+#endif
+        free(path_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    free(path_data);
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_fs_remove_dir_all_path(const char *path_data) {
+    struct stat info;
+
+    if (stat(path_data, &info) != 0) {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    if (!S_ISDIR(info.st_mode)) {
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_code_message("fs.not_a_directory", "path is not a directory"));
+    }
+
+#ifdef _WIN32
+    {
+        char *pattern = zt_fs_join_path(path_data, "*");
+        WIN32_FIND_DATAA entry;
+        HANDLE handle;
+
+        if (pattern == NULL) {
+            return zt_outcome_void_core_error_failure_message("failed to allocate recursive directory pattern");
+        }
+
+        handle = FindFirstFileA(pattern, &entry);
+        free(pattern);
+        if (handle == INVALID_HANDLE_VALUE) {
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_windows(GetLastError(), NULL));
+        }
+
+        do {
+            const char *name = entry.cFileName;
+            char *child_path;
+            zt_outcome_void_core_error outcome;
+
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                continue;
+            }
+
+            child_path = zt_fs_join_path(path_data, name);
+            if (child_path == NULL) {
+                FindClose(handle);
+                return zt_outcome_void_core_error_failure_message("failed to allocate recursive child path");
+            }
+
+            if ((entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+                outcome = zt_fs_remove_dir_all_path(child_path);
+            } else {
+                if (DeleteFileA(child_path) == 0) {
+                    outcome = zt_fs_outcome_void_failure_error(zt_fs_core_error_from_windows(GetLastError(), NULL));
+                } else {
+                    outcome = zt_outcome_void_core_error_success();
+                }
+            }
+
+            free(child_path);
+            if (!outcome.is_success) {
+                FindClose(handle);
+                return outcome;
+            }
+        } while (FindNextFileA(handle, &entry) != 0);
+
+        if (GetLastError() != ERROR_NO_MORE_FILES) {
+            DWORD error_code = GetLastError();
+            FindClose(handle);
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_windows(error_code, NULL));
+        }
+
+        FindClose(handle);
+        if (_rmdir(path_data) != 0) {
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+    }
+#else
+    {
+        DIR *dir = opendir(path_data);
+        struct dirent *entry;
+
+        if (dir == NULL) {
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+
+        while ((entry = readdir(dir)) != NULL) {
+            const char *name = entry->d_name;
+            char *child_path;
+            struct stat child_info;
+            zt_outcome_void_core_error outcome;
+
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                continue;
+            }
+
+            child_path = zt_fs_join_path(path_data, name);
+            if (child_path == NULL) {
+                closedir(dir);
+                return zt_outcome_void_core_error_failure_message("failed to allocate recursive child path");
+            }
+
+            if (stat(child_path, &child_info) != 0) {
+                free(child_path);
+                closedir(dir);
+                return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+            }
+
+            if (S_ISDIR(child_info.st_mode)) {
+                outcome = zt_fs_remove_dir_all_path(child_path);
+            } else {
+                if (remove(child_path) != 0) {
+                    outcome = zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+                } else {
+                    outcome = zt_outcome_void_core_error_success();
+                }
+            }
+
+            free(child_path);
+            if (!outcome.is_success) {
+                closedir(dir);
+                return outcome;
+            }
+        }
+
+        if (closedir(dir) != 0) {
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+        if (rmdir(path_data) != 0) {
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+    }
+#endif
+
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_remove_dir_all(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+    zt_outcome_void_core_error outcome;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_remove_dir_all_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_void_failure_error(path_error);
+    }
+    outcome = zt_fs_remove_dir_all_path(path_data);
+    free(path_data);
+    return outcome;
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_copy_file(const zt_text *from_path, const zt_text *to_path) {
+    char *from_data;
+    char *to_data;
+    FILE *from_file;
+    FILE *to_file;
+    unsigned char buffer[8192];
+    zt_core_error from_error;
+    zt_core_error to_error;
+
+    from_data = zt_host_prepare_path_copy(from_path, "zt_host_fs_copy_file_core requires from_path", &from_error);
+    if (from_data == NULL) {
+        return zt_fs_outcome_void_failure_error(from_error);
+    }
+    to_data = zt_host_prepare_path_copy(to_path, "zt_host_fs_copy_file_core requires to_path", &to_error);
+    if (to_data == NULL) {
+        free(from_data);
+        return zt_fs_outcome_void_failure_error(to_error);
+    }
+
+    from_file = fopen(from_data, "rb");
+    if (from_file == NULL) {
+        free(from_data);
+        free(to_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    to_file = fopen(to_data, "wb");
+    if (to_file == NULL) {
+        fclose(from_file);
+        free(from_data);
+        free(to_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    while (!feof(from_file)) {
+        size_t read_count = fread(buffer, 1, sizeof(buffer), from_file);
+        if (read_count > 0) {
+            size_t written = fwrite(buffer, 1, read_count, to_file);
+            if (written != read_count) {
+                fclose(from_file);
+                fclose(to_file);
+                remove(to_data);
+                free(from_data);
+                free(to_data);
+                return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+            }
+        }
+        if (ferror(from_file)) {
+            fclose(from_file);
+            fclose(to_file);
+            remove(to_data);
+            free(from_data);
+            free(to_data);
+            return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+    }
+
+    if (fclose(from_file) != 0) {
+        fclose(to_file);
+        remove(to_data);
+        free(from_data);
+        free(to_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    if (fclose(to_file) != 0) {
+        remove(to_data);
+        free(from_data);
+        free(to_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    free(from_data);
+    free(to_data);
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_host_default_fs_move(const zt_text *from_path, const zt_text *to_path) {
+    char *from_data;
+    char *to_data;
+    zt_core_error from_error;
+    zt_core_error to_error;
+
+    from_data = zt_host_prepare_path_copy(from_path, "zt_host_fs_move_core requires from_path", &from_error);
+    if (from_data == NULL) {
+        return zt_fs_outcome_void_failure_error(from_error);
+    }
+    to_data = zt_host_prepare_path_copy(to_path, "zt_host_fs_move_core requires to_path", &to_error);
+    if (to_data == NULL) {
+        free(from_data);
+        return zt_fs_outcome_void_failure_error(to_error);
+    }
+
+    if (rename(from_data, to_data) != 0) {
+        free(from_data);
+        free(to_data);
+        return zt_fs_outcome_void_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+    free(from_data);
+    free(to_data);
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_i64_core_error zt_host_default_fs_size(const zt_text *path) {
+    char *path_data;
+    struct stat info;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_size_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_i64_failure_error(path_error);
+    }
+
+    if (stat(path_data, &info) != 0) {
+        free(path_data);
+        return zt_fs_outcome_i64_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    free(path_data);
+    return zt_outcome_i64_core_error_success((zt_int)info.st_size);
+}
+
+static zt_outcome_i64_core_error zt_host_default_fs_modified_at(const zt_text *path) {
+    char *path_data;
+    struct stat info;
+    long long millis;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_modified_at_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_i64_failure_error(path_error);
+    }
+
+    if (stat(path_data, &info) != 0) {
+        free(path_data);
+        return zt_fs_outcome_i64_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+    }
+
+    millis = (long long)info.st_mtime * 1000LL;
+    free(path_data);
+    return zt_outcome_i64_core_error_success((zt_int)millis);
+}
+
+static zt_outcome_optional_i64_core_error zt_host_default_fs_created_at(const zt_text *path) {
+    char *path_data;
+    zt_core_error path_error;
+
+    path_data = zt_host_prepare_path_copy(path, "zt_host_fs_created_at_core requires path", &path_error);
+    if (path_data == NULL) {
+        return zt_fs_outcome_optional_i64_failure_error(path_error);
+    }
+
+#ifdef _WIN32
+    {
+        WIN32_FILE_ATTRIBUTE_DATA data;
+        ULARGE_INTEGER ticks;
+        unsigned long long windows_ticks;
+        unsigned long long unix_ticks;
+
+        if (GetFileAttributesExA(path_data, GetFileExInfoStandard, &data) == 0) {
+            free(path_data);
+            return zt_fs_outcome_optional_i64_failure_error(zt_fs_core_error_from_windows(GetLastError(), NULL));
+        }
+
+        ticks.LowPart = data.ftCreationTime.dwLowDateTime;
+        ticks.HighPart = data.ftCreationTime.dwHighDateTime;
+        windows_ticks = ticks.QuadPart;
+        unix_ticks = windows_ticks - UINT64_C(116444736000000000);
+        free(path_data);
+        return zt_outcome_optional_i64_core_error_success(zt_optional_i64_present((zt_int)(unix_ticks / 10000ULL)));
+    }
+#else
+    {
+        struct stat info;
+
+        if (stat(path_data, &info) != 0) {
+            free(path_data);
+            return zt_fs_outcome_optional_i64_failure_error(zt_fs_core_error_from_errno(errno, NULL));
+        }
+        free(path_data);
+        return zt_outcome_optional_i64_core_error_success(zt_optional_i64_empty());
+    }
+#endif
 }
 
 static zt_outcome_optional_text_core_error zt_host_default_read_line_stdin(void) {
@@ -3257,7 +4708,11 @@ static zt_outcome_optional_text_core_error zt_host_default_read_line_stdin(void)
         zt_text *line;
         zt_optional_text value;
 
-        line = zt_text_from_utf8(buffer, len);
+        if (!zt_utf8_validate((const uint8_t *)buffer, len, NULL, NULL)) {
+            free(buffer);
+            return zt_outcome_optional_text_core_error_failure_message("stdin line is not valid UTF-8");
+        }
+        line = zt_text_from_utf8_unchecked(buffer, len);
         free(buffer);
 
         value = zt_optional_text_present(line);
@@ -3300,7 +4755,11 @@ static zt_outcome_text_core_error zt_host_default_read_all_stdin(void) {
         return zt_outcome_text_core_error_failure_message(strerror(errno));
     }
 
-    value = zt_text_from_utf8(buffer, len);
+    if (!zt_utf8_validate((const uint8_t *)buffer, len, NULL, NULL)) {
+        free(buffer);
+        return zt_outcome_text_core_error_failure_message("stdin content is not valid UTF-8");
+    }
+    value = zt_text_from_utf8_unchecked(buffer, len);
     free(buffer);
     outcome = zt_outcome_text_core_error_success(value);
     zt_release(value);
@@ -3398,13 +4857,119 @@ static zt_int zt_host_default_random_next_i64(void) {
 
 static char *zt_host_strdup_text(const zt_text *value, const char *label) {
     char *copy;
+    size_t byte_count;
     if (value == NULL) {
         zt_runtime_error(ZT_ERR_PANIC, label);
     }
-    copy = (char *)malloc(value->len + 1);
+    byte_count = zt_require_added_size(value->len, 1, "host string size overflow");
+    copy = (char *)malloc(byte_count);
     if (copy == NULL) {
         zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate host string");
     }
+    memcpy(copy, value->data, value->len);
+    copy[value->len] = '\0';
+    return copy;
+}
+
+static zt_bool zt_host_path_char_eq(char left, char right) {
+#ifdef _WIN32
+    return (char)tolower((unsigned char)left) == (char)tolower((unsigned char)right);
+#else
+    return left == right;
+#endif
+}
+
+static zt_bool zt_host_path_is_within_root(const zt_text *path, const zt_text *root) {
+    size_t index;
+
+    if (path == NULL || root == NULL) return false;
+    if (root->len == 0) return false;
+
+    if (root->len == 1 && root->data[0] == '/') {
+        return path->len > 0 && path->data[0] == '/';
+    }
+
+    if (path->len < root->len) return false;
+    for (index = 0; index < root->len; index += 1) {
+        if (!zt_host_path_char_eq(path->data[index], root->data[index])) {
+            return false;
+        }
+    }
+
+    if (path->len == root->len) return true;
+    if (root->data[root->len - 1] == '/') return true;
+    return path->data[root->len] == '/';
+}
+
+static char *zt_host_prepare_path_copy(const zt_text *path, const char *label, zt_core_error *out_error) {
+    zt_outcome_text_core_error cwd_now;
+    zt_text *normalized = NULL;
+    zt_text *absolute = NULL;
+    zt_text *root_text = NULL;
+    zt_text *root_absolute = NULL;
+    const char *root_env;
+    char *copy = NULL;
+
+    if (out_error == NULL) return NULL;
+    memset(out_error, 0, sizeof(*out_error));
+
+    zt_runtime_require_text(path, label);
+
+    if (memchr(path->data, '\0', path->len) != NULL) {
+        *out_error = zt_fs_core_error_from_code_message("fs.invalid_path", "path contains NUL byte");
+        return NULL;
+    }
+
+    cwd_now = zt_host_default_os_current_dir();
+    if (!cwd_now.is_success) {
+        *out_error = zt_core_error_clone(cwd_now.error);
+        zt_core_error_dispose(&cwd_now.error);
+        return NULL;
+    }
+
+    normalized = zt_path_normalize(path);
+    absolute = zt_path_absolute(normalized, cwd_now.value);
+
+    root_env = getenv("ZENITH_HOST_FS_ROOT");
+    if (root_env != NULL && root_env[0] != '\0') {
+        root_text = zt_text_from_utf8_literal(root_env);
+        root_absolute = zt_path_absolute(root_text, cwd_now.value);
+        if (!zt_host_path_is_within_root(absolute, root_absolute)) {
+            *out_error = zt_fs_core_error_from_code_message(
+                "fs.permission_denied",
+                "path escapes configured host fs root");
+            goto cleanup;
+        }
+    }
+
+    copy = zt_host_strdup_text(absolute, label);
+
+cleanup:
+    if (root_absolute != NULL) zt_release(root_absolute);
+    if (root_text != NULL) zt_release(root_text);
+    if (absolute != NULL) zt_release(absolute);
+    if (normalized != NULL) zt_release(normalized);
+    zt_release(cwd_now.value);
+    return copy;
+}
+
+static char *zt_host_try_strdup_text(const zt_text *value) {
+    char *copy;
+    size_t byte_count;
+
+    if (value == NULL) {
+        return NULL;
+    }
+
+    if (!zt_try_add_size(value->len, 1, &byte_count)) {
+        return NULL;
+    }
+
+    copy = (char *)malloc(byte_count);
+    if (copy == NULL) {
+        return NULL;
+    }
+
     memcpy(copy, value->data, value->len);
     copy[value->len] = '\0';
     return copy;
@@ -3455,8 +5020,13 @@ static zt_outcome_text_core_error zt_host_default_os_current_dir(void) {
 }
 
 static zt_outcome_void_core_error zt_host_default_os_change_dir(const zt_text *path) {
-    char *path_copy = zt_host_strdup_text(path, "os.change_dir requires path text");
+    zt_core_error path_error;
+    char *path_copy = zt_host_prepare_path_copy(path, "os.change_dir requires path text", &path_error);
     int rc;
+
+    if (path_copy == NULL) {
+        return zt_outcome_void_core_error_failure(path_error);
+    }
 #ifdef _WIN32
     rc = _chdir(path_copy);
 #else
@@ -3523,40 +5093,344 @@ static zt_text *zt_host_default_os_arch(void) {
 #endif
 }
 
-static int zt_host_command_append(char **buffer, size_t *length, size_t *capacity, const char *text) {
-    size_t text_len;
-    size_t needed;
-    char *grown;
+static int zt_host_stream_fd(FILE *stream) {
+    if (stream == NULL) {
+        return -1;
+    }
+#ifdef _WIN32
+    return _fileno(stream);
+#else
+    return fileno(stream);
+#endif
+}
 
-    if (buffer == NULL || length == NULL || capacity == NULL || text == NULL) {
-        return 0;
+static int zt_host_dup_fd(int fd) {
+#ifdef _WIN32
+    return _dup(fd);
+#else
+    return dup(fd);
+#endif
+}
+
+static int zt_host_dup2_fd(int source_fd, int target_fd) {
+#ifdef _WIN32
+    return _dup2(source_fd, target_fd);
+#else
+    return dup2(source_fd, target_fd);
+#endif
+}
+
+static void zt_host_close_fd(int fd) {
+    if (fd < 0) {
+        return;
+    }
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+}
+
+static void zt_process_capture_redirect_init(zt_process_capture_redirect *redirect) {
+    if (redirect == NULL) {
+        return;
+    }
+    redirect->saved_stdout_fd = -1;
+    redirect->saved_stderr_fd = -1;
+    redirect->active = false;
+#ifdef _WIN32
+    redirect->saved_stdout_handle = NULL;
+    redirect->saved_stderr_handle = NULL;
+#endif
+}
+
+static zt_outcome_void_core_error zt_host_redirect_process_stdio(
+        FILE *stdout_stream,
+        FILE *stderr_stream,
+        zt_process_capture_redirect *redirect) {
+    int stdout_fd;
+    int stderr_fd;
+    int capture_stdout_fd;
+    int capture_stderr_fd;
+
+    if (stdout_stream == NULL || stderr_stream == NULL || redirect == NULL) {
+        return zt_outcome_void_core_error_failure_message("process.run_capture requires valid capture streams");
     }
 
-    text_len = strlen(text);
-    needed = *length + text_len + 1;
-    if (needed > *capacity) {
-        size_t next_capacity = (*capacity == 0) ? 128 : *capacity;
-        while (next_capacity < needed) {
-            if (next_capacity > (SIZE_MAX / 2)) return 0;
-            next_capacity *= 2;
+    stdout_fd = zt_host_stream_fd(stdout);
+    stderr_fd = zt_host_stream_fd(stderr);
+    capture_stdout_fd = zt_host_stream_fd(stdout_stream);
+    capture_stderr_fd = zt_host_stream_fd(stderr_stream);
+    if (stdout_fd < 0 || stderr_fd < 0 || capture_stdout_fd < 0 || capture_stderr_fd < 0) {
+        return zt_outcome_void_core_error_failure_message("process.run_capture failed to resolve stdio file descriptors");
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+
+    zt_process_capture_redirect_init(redirect);
+    redirect->saved_stdout_fd = zt_host_dup_fd(stdout_fd);
+    if (redirect->saved_stdout_fd < 0) {
+        return zt_outcome_void_core_error_failure_message(strerror(errno));
+    }
+
+    redirect->saved_stderr_fd = zt_host_dup_fd(stderr_fd);
+    if (redirect->saved_stderr_fd < 0) {
+        int saved_errno = errno;
+        zt_host_close_fd(redirect->saved_stdout_fd);
+        redirect->saved_stdout_fd = -1;
+        return zt_outcome_void_core_error_failure_message(strerror(saved_errno));
+    }
+
+#ifdef _WIN32
+    redirect->saved_stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    redirect->saved_stderr_handle = GetStdHandle(STD_ERROR_HANDLE);
+#endif
+
+    if (zt_host_dup2_fd(capture_stdout_fd, stdout_fd) < 0) {
+        int saved_errno = errno;
+        zt_host_close_fd(redirect->saved_stdout_fd);
+        zt_host_close_fd(redirect->saved_stderr_fd);
+        zt_process_capture_redirect_init(redirect);
+        return zt_outcome_void_core_error_failure_message(strerror(saved_errno));
+    }
+
+    if (zt_host_dup2_fd(capture_stderr_fd, stderr_fd) < 0) {
+        int saved_errno = errno;
+        (void)zt_host_dup2_fd(redirect->saved_stdout_fd, stdout_fd);
+        zt_host_close_fd(redirect->saved_stdout_fd);
+        zt_host_close_fd(redirect->saved_stderr_fd);
+        zt_process_capture_redirect_init(redirect);
+        return zt_outcome_void_core_error_failure_message(strerror(saved_errno));
+    }
+
+    redirect->active = true;
+
+#ifdef _WIN32
+    if (!SetStdHandle(STD_OUTPUT_HANDLE, (HANDLE)_get_osfhandle(capture_stdout_fd)) ||
+            !SetStdHandle(STD_ERROR_HANDLE, (HANDLE)_get_osfhandle(capture_stderr_fd))) {
+        zt_outcome_void_core_error restore_outcome = zt_host_restore_process_stdio(redirect);
+        if (!restore_outcome.is_success) {
+            return restore_outcome;
         }
-        grown = (char *)realloc(*buffer, next_capacity);
-        if (grown == NULL) return 0;
-        *buffer = grown;
-        *capacity = next_capacity;
+        return zt_outcome_void_core_error_failure_message("process.run_capture failed to redirect Windows stdio handles");
+    }
+#endif
+
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_void_core_error zt_host_restore_process_stdio(zt_process_capture_redirect *redirect) {
+    int stdout_fd;
+    int stderr_fd;
+    int saved_errno = 0;
+    zt_bool handle_error = false;
+
+    if (redirect == NULL || !redirect->active) {
+        return zt_outcome_void_core_error_success();
     }
 
-    memcpy((*buffer) + *length, text, text_len);
-    *length += text_len;
-    (*buffer)[*length] = '\0';
-    return 1;
+    stdout_fd = zt_host_stream_fd(stdout);
+    stderr_fd = zt_host_stream_fd(stderr);
+    if (stdout_fd < 0 || stderr_fd < 0) {
+        saved_errno = errno != 0 ? errno : EINVAL;
+    } else {
+        fflush(stdout);
+        fflush(stderr);
+        if (zt_host_dup2_fd(redirect->saved_stdout_fd, stdout_fd) < 0 && saved_errno == 0) {
+            saved_errno = errno;
+        }
+        if (zt_host_dup2_fd(redirect->saved_stderr_fd, stderr_fd) < 0 && saved_errno == 0) {
+            saved_errno = errno;
+        }
+    }
+
+#ifdef _WIN32
+    if (redirect->saved_stdout_handle != NULL &&
+            !SetStdHandle(STD_OUTPUT_HANDLE, redirect->saved_stdout_handle)) {
+        handle_error = true;
+    }
+    if (redirect->saved_stderr_handle != NULL &&
+            !SetStdHandle(STD_ERROR_HANDLE, redirect->saved_stderr_handle)) {
+        handle_error = true;
+    }
+#endif
+
+    zt_host_close_fd(redirect->saved_stdout_fd);
+    zt_host_close_fd(redirect->saved_stderr_fd);
+    zt_process_capture_redirect_init(redirect);
+
+    if (saved_errno != 0) {
+        return zt_outcome_void_core_error_failure_message(strerror(saved_errno));
+    }
+    if (handle_error) {
+        return zt_outcome_void_core_error_failure_message("process.run_capture failed to restore stdio handles");
+    }
+    return zt_outcome_void_core_error_success();
+}
+
+static zt_outcome_text_core_error zt_host_read_stream_text(FILE *stream, const char *empty_label) {
+    long size_long;
+    size_t size;
+    char *buffer;
+    size_t read_count = 0;
+    zt_text *value;
+    zt_outcome_text_core_error outcome;
+    size_t error_index = 0;
+    const char *error_reason = NULL;
+
+    if (stream == NULL) {
+        return zt_outcome_text_core_error_failure_message(empty_label);
+    }
+
+    if (fseek(stream, 0, SEEK_END) != 0) {
+        return zt_outcome_text_core_error_failure_message(strerror(errno));
+    }
+    size_long = ftell(stream);
+    if (size_long < 0) {
+        return zt_outcome_text_core_error_failure_message(strerror(errno));
+    }
+    if (fseek(stream, 0, SEEK_SET) != 0) {
+        return zt_outcome_text_core_error_failure_message(strerror(errno));
+    }
+
+    size = (size_t)size_long;
+    buffer = (char *)malloc(zt_require_added_size(size, 1, "process capture buffer overflow"));
+    if (buffer == NULL) {
+        return zt_outcome_text_core_error_failure_message("process.run_capture buffer allocation failed");
+    }
+
+    if (size > 0) {
+        read_count = fread(buffer, 1, size, stream);
+        if (read_count != size) {
+            zt_outcome_text_core_error failure = zt_outcome_text_core_error_failure_message(
+                ferror(stream) ? strerror(errno) : "failed to read captured process output"
+            );
+            free(buffer);
+            return failure;
+        }
+    }
+    buffer[size] = '\0';
+
+    if (!zt_utf8_validate((const uint8_t *)buffer, size, &error_index, &error_reason)) {
+        char decode_message[256];
+        zt_core_error error;
+
+        snprintf(
+            decode_message,
+            sizeof(decode_message),
+            "captured process output is not valid UTF-8 at byte %zu (%s)",
+            error_index,
+            error_reason != NULL ? error_reason : "invalid encoding"
+        );
+        error = zt_core_error_from_message("process.decode", decode_message);
+        outcome = zt_outcome_text_core_error_failure(error);
+        zt_core_error_dispose(&error);
+        free(buffer);
+        return outcome;
+    }
+
+    value = zt_text_from_utf8(buffer, size);
+    free(buffer);
+    outcome = zt_outcome_text_core_error_success(value);
+    zt_release(value);
+    return outcome;
+}
+
+static void zt_process_captured_run_retain(zt_process_captured_run value) {
+    if (value.stdout_text != NULL) {
+        zt_retain(value.stdout_text);
+    }
+    if (value.stderr_text != NULL) {
+        zt_retain(value.stderr_text);
+    }
+}
+
+static void zt_process_captured_run_dispose(zt_process_captured_run *value) {
+    if (value == NULL) {
+        return;
+    }
+    if (value->stdout_text != NULL) {
+        zt_release(value->stdout_text);
+        value->stdout_text = NULL;
+    }
+    if (value->stderr_text != NULL) {
+        zt_release(value->stderr_text);
+        value->stderr_text = NULL;
+    }
+    value->status.code = 0;
+}
+
+void zt_runtime_capture_process_args(int argc, char **argv) {
+    zt_list_text *captured;
+    int index;
+
+    if (zt_host_captured_process_args != NULL) {
+        zt_release(zt_host_captured_process_args);
+        zt_host_captured_process_args = NULL;
+    }
+
+    captured = zt_list_text_new();
+    for (index = 0; index < argc; index += 1) {
+        const char *arg_value = (argv != NULL && argv[index] != NULL) ? argv[index] : "";
+        zt_text *arg_text = zt_text_from_utf8_literal(arg_value);
+        zt_list_text_push(captured, arg_text);
+        zt_release(arg_text);
+    }
+
+    zt_host_captured_process_args = captured;
+}
+
+static zt_list_text *zt_host_default_os_args(void) {
+    zt_list_text *copy = zt_list_text_new();
+    size_t index;
+
+    if (zt_host_captured_process_args == NULL) {
+        return copy;
+    }
+
+    for (index = 0; index < zt_host_captured_process_args->len; index += 1) {
+        zt_list_text_push(copy, zt_host_captured_process_args->data[index]);
+    }
+
+    return copy;
+}
+
+static void zt_host_free_process_argv(char **argv, size_t count) {
+    size_t index;
+
+    if (argv == NULL) {
+        return;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        free(argv[index]);
+    }
+
+    free(argv);
+}
+
+static void zt_host_restore_cwd_ignored(const char *saved_cwd) {
+    zt_text *saved;
+    zt_outcome_void_core_error restore_ignored;
+
+    if (saved_cwd == NULL) {
+        return;
+    }
+
+    saved = zt_text_from_utf8_literal(saved_cwd);
+    restore_ignored = zt_host_default_os_change_dir(saved);
+    if (!restore_ignored.is_success) {
+        zt_core_error_dispose(&restore_ignored.error);
+    }
+    zt_release(saved);
 }
 
 static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd) {
-    char *command = NULL;
-    size_t length = 0;
-    size_t capacity = 0;
-    int system_status;
+    char **argv = NULL;
+    size_t arg_count = 0;
+    size_t argv_capacity = 0;
+    size_t copied = 0;
     int exit_code;
     char *saved_cwd = NULL;
     zt_bool cwd_changed = false;
@@ -3569,37 +5443,47 @@ static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *prog
         return zt_outcome_i64_core_error_failure_message("process.run requires args list");
     }
 
-    if (!zt_host_command_append(&command, &length, &capacity, zt_text_data(program))) {
-        free(command);
+    if (!zt_try_add_size(args->len, 1, &arg_count) ||
+        !zt_try_add_size(arg_count, 1, &argv_capacity)) {
+        return zt_outcome_i64_core_error_failure_message("process.run args too large");
+    }
+
+    argv = (char **)calloc(argv_capacity, sizeof(char *));
+    if (argv == NULL) {
         return zt_outcome_i64_core_error_failure_message("process.run command allocation failed");
     }
+
+    argv[0] = zt_host_try_strdup_text(program);
+    if (argv[0] == NULL) {
+        zt_host_free_process_argv(argv, copied);
+        return zt_outcome_i64_core_error_failure_message("process.run command allocation failed");
+    }
+    copied = 1;
 
     {
         size_t i;
         for (i = 0; i < args->len; i += 1) {
             zt_text *arg = args->data[i];
             if (arg == NULL) {
-                free(command);
+                zt_host_free_process_argv(argv, copied);
                 return zt_outcome_i64_core_error_failure_message("process.run args cannot contain null text");
             }
-            if (!zt_host_command_append(&command, &length, &capacity, " ")) {
-                free(command);
+            argv[copied] = zt_host_try_strdup_text(arg);
+            if (argv[copied] == NULL) {
+                zt_host_free_process_argv(argv, copied);
                 return zt_outcome_i64_core_error_failure_message("process.run command allocation failed");
             }
-            if (!zt_host_command_append(&command, &length, &capacity, zt_text_data(arg))) {
-                free(command);
-                return zt_outcome_i64_core_error_failure_message("process.run command allocation failed");
-            }
+            copied += 1;
         }
     }
 
     if (cwd.is_present) {
         zt_outcome_text_core_error cwd_now = zt_host_default_os_current_dir();
         if (!cwd_now.is_success) {
-            free(command);
             {
                 zt_outcome_i64_core_error fail_outcome = zt_outcome_i64_core_error_failure(cwd_now.error);
                 zt_core_error_dispose(&cwd_now.error);
+                zt_host_free_process_argv(argv, copied);
                 return fail_outcome;
             }
         }
@@ -3607,7 +5491,7 @@ static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *prog
         zt_release(cwd_now.value);
 
         if (cwd.value == NULL) {
-            free(command);
+            zt_host_free_process_argv(argv, copied);
             free(saved_cwd);
             return zt_outcome_i64_core_error_failure_message("process.run cwd present with null text");
         }
@@ -3615,7 +5499,7 @@ static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *prog
         {
             zt_outcome_void_core_error cd_outcome = zt_host_default_os_change_dir(cwd.value);
             if (!cd_outcome.is_success) {
-                free(command);
+                zt_host_free_process_argv(argv, copied);
                 free(saved_cwd);
                 {
                     zt_outcome_i64_core_error fail_outcome = zt_outcome_i64_core_error_failure(cd_outcome.error);
@@ -3627,33 +5511,94 @@ static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *prog
         }
     }
 
-    system_status = system(command);
-    free(command);
-
-    if (system_status == -1) {
-        if (cwd_changed) {
-            zt_text *saved = zt_text_from_utf8_literal(saved_cwd);
-            zt_outcome_void_core_error restore_ignored = zt_host_default_os_change_dir(saved);
-            if (!restore_ignored.is_success) {
-                zt_core_error_dispose(&restore_ignored.error);
+    #ifdef _WIN32
+    {
+        intptr_t spawn_status = _spawnvp(_P_WAIT, argv[0], (const char * const *)argv);
+        if (spawn_status == -1) {
+            int saved_errno = errno;
+            if (cwd_changed) {
+                zt_host_restore_cwd_ignored(saved_cwd);
             }
-            zt_release(saved);
+            free(saved_cwd);
+            zt_host_free_process_argv(argv, copied);
+            return zt_outcome_i64_core_error_failure_message(strerror(saved_errno));
         }
-        free(saved_cwd);
-        return zt_outcome_i64_core_error_failure_message(strerror(errno));
+        exit_code = (int)spawn_status;
     }
+    #else
+    {
+        int error_pipe[2] = { -1, -1 };
+        int status = 0;
+        int child_errno = 0;
+        ssize_t child_error_size = 0;
+        pid_t pid;
 
-#ifdef _WIN32
-    exit_code = system_status;
-#else
-    if (WIFEXITED(system_status)) {
-        exit_code = WEXITSTATUS(system_status);
-    } else if (WIFSIGNALED(system_status)) {
-        exit_code = 128 + WTERMSIG(system_status);
-    } else {
-        exit_code = system_status;
+        if (pipe(error_pipe) != 0) {
+            int saved_errno = errno;
+            if (cwd_changed) {
+                zt_host_restore_cwd_ignored(saved_cwd);
+            }
+            free(saved_cwd);
+            zt_host_free_process_argv(argv, copied);
+            return zt_outcome_i64_core_error_failure_message(strerror(saved_errno));
+        }
+
+        (void)fcntl(error_pipe[1], F_SETFD, FD_CLOEXEC);
+        pid = fork();
+        if (pid < 0) {
+            int saved_errno = errno;
+            close(error_pipe[0]);
+            close(error_pipe[1]);
+            if (cwd_changed) {
+                zt_host_restore_cwd_ignored(saved_cwd);
+            }
+            free(saved_cwd);
+            zt_host_free_process_argv(argv, copied);
+            return zt_outcome_i64_core_error_failure_message(strerror(saved_errno));
+        }
+
+        if (pid == 0) {
+            close(error_pipe[0]);
+            execvp(argv[0], argv);
+            child_errno = errno;
+            (void)write(error_pipe[1], &child_errno, sizeof(child_errno));
+            close(error_pipe[1]);
+            _exit(127);
+        }
+
+        close(error_pipe[1]);
+        if (waitpid(pid, &status, 0) < 0) {
+            int saved_errno = errno;
+            close(error_pipe[0]);
+            if (cwd_changed) {
+                zt_host_restore_cwd_ignored(saved_cwd);
+            }
+            free(saved_cwd);
+            zt_host_free_process_argv(argv, copied);
+            return zt_outcome_i64_core_error_failure_message(strerror(saved_errno));
+        }
+
+        child_error_size = read(error_pipe[0], &child_errno, sizeof(child_errno));
+        close(error_pipe[0]);
+
+        if (child_error_size == (ssize_t)sizeof(child_errno)) {
+            if (cwd_changed) {
+                zt_host_restore_cwd_ignored(saved_cwd);
+            }
+            free(saved_cwd);
+            zt_host_free_process_argv(argv, copied);
+            return zt_outcome_i64_core_error_failure_message(strerror(child_errno));
+        }
+
+        if (WIFEXITED(status)) {
+            exit_code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            exit_code = 128 + WTERMSIG(status);
+        } else {
+            exit_code = status;
+        }
     }
-#endif
+    #endif
 
     if (cwd_changed) {
         zt_text *saved = zt_text_from_utf8_literal(saved_cwd);
@@ -3664,12 +5609,116 @@ static zt_outcome_i64_core_error zt_host_default_process_run(const zt_text *prog
             {
                 zt_outcome_i64_core_error fail_outcome = zt_outcome_i64_core_error_failure(restore.error);
                 zt_core_error_dispose(&restore.error);
+                zt_host_free_process_argv(argv, copied);
                 return fail_outcome;
             }
         }
+    } else {
+        free(saved_cwd);
     }
 
+    zt_host_free_process_argv(argv, copied);
     return zt_outcome_i64_core_error_success((zt_int)exit_code);
+}
+
+static zt_outcome_process_captured_run_core_error zt_host_default_process_run_capture(
+        const zt_text *program,
+        const zt_list_text *args,
+        zt_optional_text cwd) {
+    FILE *stdout_capture = NULL;
+    FILE *stderr_capture = NULL;
+    zt_process_capture_redirect redirect;
+    zt_outcome_void_core_error redirect_outcome;
+    zt_outcome_i64_core_error run_outcome;
+    zt_outcome_void_core_error restore_outcome;
+    zt_outcome_text_core_error stdout_outcome;
+    zt_outcome_text_core_error stderr_outcome;
+    zt_text *stdout_text = NULL;
+    zt_text *stderr_text = NULL;
+    zt_process_captured_run captured;
+    zt_int exit_code;
+    zt_outcome_process_captured_run_core_error result;
+
+    zt_process_capture_redirect_init(&redirect);
+    captured.status.code = 0;
+    captured.stdout_text = NULL;
+    captured.stderr_text = NULL;
+
+    stdout_capture = tmpfile();
+    if (stdout_capture == NULL) {
+        return zt_outcome_process_captured_run_core_error_failure_message(strerror(errno));
+    }
+
+    stderr_capture = tmpfile();
+    if (stderr_capture == NULL) {
+        int saved_errno = errno;
+        fclose(stdout_capture);
+        return zt_outcome_process_captured_run_core_error_failure_message(strerror(saved_errno));
+    }
+
+    redirect_outcome = zt_host_redirect_process_stdio(stdout_capture, stderr_capture, &redirect);
+    if (!redirect_outcome.is_success) {
+        result = zt_outcome_process_captured_run_core_error_failure(redirect_outcome.error);
+        zt_outcome_void_core_error_dispose(&redirect_outcome);
+        fclose(stdout_capture);
+        fclose(stderr_capture);
+        return result;
+    }
+
+    run_outcome = zt_host_default_process_run(program, args, cwd);
+    restore_outcome = zt_host_restore_process_stdio(&redirect);
+    if (!restore_outcome.is_success) {
+        result = zt_outcome_process_captured_run_core_error_failure(restore_outcome.error);
+        zt_outcome_void_core_error_dispose(&restore_outcome);
+        zt_outcome_i64_core_error_dispose(&run_outcome);
+        fclose(stdout_capture);
+        fclose(stderr_capture);
+        return result;
+    }
+
+    if (!run_outcome.is_success) {
+        result = zt_outcome_process_captured_run_core_error_failure(run_outcome.error);
+        zt_outcome_i64_core_error_dispose(&run_outcome);
+        fclose(stdout_capture);
+        fclose(stderr_capture);
+        return result;
+    }
+
+    exit_code = zt_outcome_i64_core_error_value(run_outcome);
+    zt_outcome_i64_core_error_dispose(&run_outcome);
+
+    stdout_outcome = zt_host_read_stream_text(stdout_capture, "process.run_capture missing stdout capture");
+    if (!stdout_outcome.is_success) {
+        result = zt_outcome_process_captured_run_core_error_failure(stdout_outcome.error);
+        zt_outcome_text_core_error_dispose(&stdout_outcome);
+        fclose(stdout_capture);
+        fclose(stderr_capture);
+        return result;
+    }
+
+    stderr_outcome = zt_host_read_stream_text(stderr_capture, "process.run_capture missing stderr capture");
+    if (!stderr_outcome.is_success) {
+        result = zt_outcome_process_captured_run_core_error_failure(stderr_outcome.error);
+        zt_outcome_text_core_error_dispose(&stdout_outcome);
+        zt_outcome_text_core_error_dispose(&stderr_outcome);
+        fclose(stdout_capture);
+        fclose(stderr_capture);
+        return result;
+    }
+
+    stdout_text = zt_outcome_text_core_error_value(stdout_outcome);
+    stderr_text = zt_outcome_text_core_error_value(stderr_outcome);
+    zt_outcome_text_core_error_dispose(&stdout_outcome);
+    zt_outcome_text_core_error_dispose(&stderr_outcome);
+    fclose(stdout_capture);
+    fclose(stderr_capture);
+
+    captured.status.code = exit_code;
+    captured.stdout_text = stdout_text;
+    captured.stderr_text = stderr_text;
+    result = zt_outcome_process_captured_run_core_error_success(captured);
+    zt_process_captured_run_dispose(&captured);
+    return result;
 }
 
 void zt_host_set_api(const zt_host_api *api) {
@@ -3687,11 +5736,13 @@ void zt_host_set_api(const zt_host_api *api) {
         zt_host_api_state.random_next_i64 = zt_host_default_random_next_i64;
         zt_host_api_state.os_current_dir = zt_host_default_os_current_dir;
         zt_host_api_state.os_change_dir = zt_host_default_os_change_dir;
+        zt_host_api_state.os_args = zt_host_default_os_args;
         zt_host_api_state.os_env = zt_host_default_os_env;
         zt_host_api_state.os_pid = zt_host_default_os_pid;
         zt_host_api_state.os_platform = zt_host_default_os_platform;
         zt_host_api_state.os_arch = zt_host_default_os_arch;
         zt_host_api_state.process_run = zt_host_default_process_run;
+        zt_host_api_state.process_run_capture = zt_host_default_process_run_capture;
         return;
     }
 
@@ -3708,11 +5759,13 @@ void zt_host_set_api(const zt_host_api *api) {
     zt_host_api_state.random_next_i64 = api->random_next_i64 != NULL ? api->random_next_i64 : zt_host_default_random_next_i64;
     zt_host_api_state.os_current_dir = api->os_current_dir != NULL ? api->os_current_dir : zt_host_default_os_current_dir;
     zt_host_api_state.os_change_dir = api->os_change_dir != NULL ? api->os_change_dir : zt_host_default_os_change_dir;
+    zt_host_api_state.os_args = api->os_args != NULL ? api->os_args : zt_host_default_os_args;
     zt_host_api_state.os_env = api->os_env != NULL ? api->os_env : zt_host_default_os_env;
     zt_host_api_state.os_pid = api->os_pid != NULL ? api->os_pid : zt_host_default_os_pid;
     zt_host_api_state.os_platform = api->os_platform != NULL ? api->os_platform : zt_host_default_os_platform;
     zt_host_api_state.os_arch = api->os_arch != NULL ? api->os_arch : zt_host_default_os_arch;
     zt_host_api_state.process_run = api->process_run != NULL ? api->process_run : zt_host_default_process_run;
+    zt_host_api_state.process_run_capture = api->process_run_capture != NULL ? api->process_run_capture : zt_host_default_process_run_capture;
 }
 
 const zt_host_api *zt_host_get_api(void) {
@@ -3771,6 +5824,74 @@ zt_outcome_void_core_error zt_host_os_change_dir(const zt_text *path) {
     return zt_host_api_state.os_change_dir(path);
 }
 
+zt_outcome_text_core_error zt_host_os_current_dir_core(void) {
+    return zt_host_os_current_dir();
+}
+
+zt_outcome_void_core_error zt_host_os_change_dir_core(const zt_text *path) {
+    return zt_host_os_change_dir(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_append_text_core(const zt_text *path, const zt_text *value) {
+    return zt_host_default_fs_append_text(path, value);
+}
+
+zt_outcome_bool_core_error zt_host_fs_is_file_core(const zt_text *path) {
+    return zt_host_default_fs_is_file(path);
+}
+
+zt_outcome_bool_core_error zt_host_fs_is_dir_core(const zt_text *path) {
+    return zt_host_default_fs_is_dir(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_create_dir_core(const zt_text *path) {
+    return zt_host_default_fs_create_dir(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_create_dir_all_core(const zt_text *path) {
+    return zt_host_default_fs_create_dir_all(path);
+}
+
+zt_outcome_list_text_core_error zt_host_fs_list_core(const zt_text *path) {
+    return zt_host_default_fs_list(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_remove_file_core(const zt_text *path) {
+    return zt_host_default_fs_remove_file(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_remove_dir_core(const zt_text *path) {
+    return zt_host_default_fs_remove_dir(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_remove_dir_all_core(const zt_text *path) {
+    return zt_host_default_fs_remove_dir_all(path);
+}
+
+zt_outcome_void_core_error zt_host_fs_copy_file_core(const zt_text *from_path, const zt_text *to_path) {
+    return zt_host_default_fs_copy_file(from_path, to_path);
+}
+
+zt_outcome_void_core_error zt_host_fs_move_core(const zt_text *from_path, const zt_text *to_path) {
+    return zt_host_default_fs_move(from_path, to_path);
+}
+
+zt_outcome_i64_core_error zt_host_fs_size_core(const zt_text *path) {
+    return zt_host_default_fs_size(path);
+}
+
+zt_outcome_i64_core_error zt_host_fs_modified_at_core(const zt_text *path) {
+    return zt_host_default_fs_modified_at(path);
+}
+
+zt_outcome_optional_i64_core_error zt_host_fs_created_at_core(const zt_text *path) {
+    return zt_host_default_fs_created_at(path);
+}
+
+zt_list_text *zt_host_os_args(void) {
+    return zt_host_api_state.os_args();
+}
+
 zt_optional_text zt_host_os_env(const zt_text *name) {
     return zt_host_api_state.os_env(name);
 }
@@ -3789,6 +5910,24 @@ zt_text *zt_host_os_arch(void) {
 
 zt_outcome_i64_core_error zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd) {
     return zt_host_api_state.process_run(program, args, cwd);
+}
+
+zt_outcome_process_captured_run_core_error zt_host_process_run_capture(
+        const zt_text *program,
+        const zt_list_text *args,
+        zt_optional_text cwd) {
+    return zt_host_api_state.process_run_capture(program, args, cwd);
+}
+
+zt_outcome_i64_core_error zt_host_process_run_core(const zt_text *program, const zt_list_text *args, zt_optional_text cwd) {
+    return zt_host_process_run(program, args, cwd);
+}
+
+zt_outcome_process_captured_run_core_error zt_host_process_run_capture_core(
+        const zt_text *program,
+        const zt_list_text *args,
+        zt_optional_text cwd) {
+    return zt_host_process_run_capture(program, args, cwd);
 }
 
 static const char *zt_json_skip_whitespace(const char *cursor, const char *end) {
@@ -4231,14 +6370,6 @@ static uint64_t zt_u64_magnitude(zt_int value) {
         return (uint64_t)value;
     }
     return (uint64_t)(-(value + 1)) + 1u;
-}
-
-static zt_bool zt_text_equals_literal(const zt_text *value, const char *literal) {
-    size_t literal_len;
-    if (value == NULL || literal == NULL) return false;
-    literal_len = strlen(literal);
-    if (value->len != literal_len) return false;
-    return memcmp(value->data, literal, literal_len) == 0;
 }
 
 static zt_int zt_format_clamp_decimals(zt_int decimals) {
@@ -5012,17 +7143,17 @@ zt_bool zt_net_is_closed(const zt_net_connection *connection) {
 zt_int zt_net_error_kind_index(zt_core_error error) {
     const zt_text *code = error.code;
 
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.ConnectionRefused"))) return 1;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.HostUnreachable"))) return 2;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.DnsFailed"))) return 2;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.Timeout"))) return 3;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.AddressInUse"))) return 4;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.AlreadyConnected"))) return 5;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.NotConnected"))) return 6;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.NetworkDown"))) return 7;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.Overflow"))) return 8;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.PeerReset"))) return 9;
-    if (zt_text_eq(code, zt_text_from_utf8_literal("net.SystemLimit"))) return 10;
+    if (zt_text_equals_literal(code, "net.ConnectionRefused")) return 1;
+    if (zt_text_equals_literal(code, "net.HostUnreachable")) return 2;
+    if (zt_text_equals_literal(code, "net.DnsFailed")) return 2;
+    if (zt_text_equals_literal(code, "net.Timeout")) return 3;
+    if (zt_text_equals_literal(code, "net.AddressInUse")) return 4;
+    if (zt_text_equals_literal(code, "net.AlreadyConnected")) return 5;
+    if (zt_text_equals_literal(code, "net.NotConnected")) return 6;
+    if (zt_text_equals_literal(code, "net.NetworkDown")) return 7;
+    if (zt_text_equals_literal(code, "net.Overflow")) return 8;
+    if (zt_text_equals_literal(code, "net.PeerReset")) return 9;
+    if (zt_text_equals_literal(code, "net.SystemLimit")) return 10;
     return 0;
 }
 
@@ -6391,7 +8522,7 @@ zt_text *zt_path_relative(const zt_text *value, const zt_text *from) {
 
 zt_int zt_add_i64(zt_int a, zt_int b) {
     zt_int result;
-    if (__builtin_add_overflow(a, b, &result)) {
+    if (zt_try_add_i64(a, b, &result)) {
         zt_runtime_error(ZT_ERR_MATH, "arithmetic overflow");
     }
     return result;
@@ -6399,7 +8530,7 @@ zt_int zt_add_i64(zt_int a, zt_int b) {
 
 zt_int zt_sub_i64(zt_int a, zt_int b) {
     zt_int result;
-    if (__builtin_sub_overflow(a, b, &result)) {
+    if (zt_try_sub_i64(a, b, &result)) {
         zt_runtime_error(ZT_ERR_MATH, "arithmetic overflow");
     }
     return result;
@@ -6407,7 +8538,7 @@ zt_int zt_sub_i64(zt_int a, zt_int b) {
 
 zt_int zt_mul_i64(zt_int a, zt_int b) {
     zt_int result;
-    if (__builtin_mul_overflow(a, b, &result)) {
+    if (zt_try_mul_i64(a, b, &result)) {
         zt_runtime_error(ZT_ERR_MATH, "arithmetic overflow");
     }
     return result;

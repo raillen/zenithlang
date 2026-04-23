@@ -29,7 +29,7 @@ Foco do ciclo:
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
 
-Status: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial)
+Status: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial; R3.B8 concluido; R3.B9 parcial)
 Data: 2026-04-22
 Base: Borealis package + stub runtime + linker hook
 
@@ -39,11 +39,14 @@ Progresso atual:
 - R3.B1 concluido.
 - R3.B2 concluido.
 - R3.B3 concluido.
-- R3.B4 concluido (API/scaffold); fixture `run-pass` de scene tipada ainda bloqueada no emitter C.
+- R3.B4 concluido (API/scaffold); fixture `run-pass` de scene tipada ainda bloqueada no backend C por `optional<entities.Entity>` e structs tipadas de modulo.
 - R3.B5 concluido (subset ECS interno + facade inicial de componentes).
 - R3.B6 concluido (scaffolds + contratos + extensao editor + mapa de dependencias).
 - R3.B7 em andamento (adapter Raylib inicial + fallback + E2E fallback).
-- Proxima etapa ativa: R3.B7 (validacao em ambiente com Raylib instalado).
+- R3.B8 concluido no escopo de package prep/documentacao.
+- R3.B9 parcial no escopo de docs, limites e relatorios.
+- toolchain local alinhado: `./zt.exe` agora prioriza runtime/stdlib do workspace antes de `ZENITH_HOME`, evitando misturar instalacao global com codigo em edicao.
+- Proxima etapa ativa: backend C (fechar compatibilidade para os cenarios Borealis ainda bloqueados).
 
 ## Diretrizes do ciclo Borealis
 
@@ -200,7 +203,9 @@ Status parcial da execucao:
 - adapter Raylib inicial implementado no runtime por carga dinamica de biblioteca;
 - fallback seguro para stub quando `backend_id=1` e adapter nao esta disponivel no ambiente;
 - profile de linker desktop publicado em `packages/borealis/backend-desktop-linker-profile-v1.md`;
-- E2E de janela + input + draw publicado em `tests/behavior/borealis_backend_fallback_stub`.
+- E2E de janela + input + draw publicado em `tests/behavior/borealis_backend_fallback_stub`;
+- exemplo desktop completo validado em `packages/borealis/examples/raylib_desktop_app`;
+- validacao do backend Raylib real continua dependente da biblioteca nativa estar disponivel no ambiente.
 
 ## R3.B8 - Pronto para ZPM
 
@@ -214,6 +219,8 @@ Entregas:
 - guia de migracao de versao (se houver alias/deprecacao);
 - semver inicial da lib definido.
 
+Status da fase: concluida no escopo de preparo documental e estrutural; instalacao/publicacao real segue dependente do comando `zpm`.
+
 ## R3.B9 - Estabilizacao e release Borealis 1.0
 
 Objetivo:
@@ -225,6 +232,8 @@ Entregas:
 - changelog do ciclo Borealis;
 - relatorio final de qualidade/compatibilidade;
 - limites conhecidos e risco residual publicados.
+
+Status da fase: parcial. A parte documental de release foi fechada, mas a validacao final continua dependente dos bloqueios ainda abertos no backend C.
 
 ## Catalogo funcional por modulos (alinhado com as decisions)
 
@@ -242,9 +251,11 @@ Fonte canonica:
 
 - `packages/borealis/architecture-summary.md`
 - `packages/borealis/decisions/modules/*.md`
+- `packages/borealis/decisions/modules3d/*.md`
 - `packages/borealis/decisions/005-editor-ready-architecture.md`
 - `packages/borealis/decisions/006-borealis-stack.md`
 - `packages/borealis/decisions/007-borealis-flow.md`
+- `packages/borealis/decisions/009-borealis-3d-performance-phasing.md`
 
 ## Regras canonicas de naming ja fechadas
 
@@ -298,15 +309,65 @@ Fonte canonica:
 - `editor`: metadados de ferramenta (label/note/group/lock/hidden) ligados por stable id.
 - editor futuro deve consumir o mesmo modelo de runtime para `entities`, `scene`, `assets`, `components` e snapshots.
 
+### Trilha 3D (documental nesta fase, com scaffolds experimentais)
+
+- `core3d`: loop, tempo e estados de runtime 3D.
+- `render3d`: meshes, modelos, luzes, depth, billboards e perfil de qualidade.
+- `camera3d`: camera base + `camera.presets`.
+- `physics3d`: corpos, colisores, raycast, overlap e efeitos simples.
+- `world3d`: terreno, chunks, skybox, atmosfera, clima e grid logico.
+- `assets3d`: meshes, modelos, materiais, imagens, texturas, cubemaps e clips.
+- `animation3d`: playback de clips, blend e eventos.
+- `audio3d`: audio espacial e listener.
+- `entities3d`: helper opcional sobre `entities`.
+- `controllers3d`: presets de controle para `fps`, `tps`, `platformer3d` e afins.
+- `ai3d`: navegacao, percepcao, steering e combate simples.
+- `ui3d`: interface em world-space e ponte para tela.
+- `procedural3d`: terreno, scatter, navpoints, chunks e recipes.
+- `postfx`: efeitos full-screen, incluindo `fxaa`.
+- `settings.video`: resolucao, fullscreen, `vsync`, `msaa`, `render_scale` e perfis.
+- `debug3d`: gizmos, colliders, rays, paths, chunks e watches.
+- modulos compartilhados permanecem compartilhados entre 2D e 3D:
+  - `scene`
+  - `save`
+  - `events`
+  - `services`
+  - `storage`
+  - `database`
+  - `input`
+  - `settings`
+
+## Trilha 3D (arquitetural, sem runtime 1.0)
+
+Objetivo:
+
+- fechar uma base de design coerente para 3D classico sem comprometer o foco do Borealis 1.0.
+
+Entregas:
+
+- decisions por modulo em `packages/borealis/decisions/modules3d`;
+- decision transversal de performance por fases;
+- regras explicitas de quais modulos continuam compartilhados entre 2D e 3D;
+- alinhamento entre `render3d`, `world3d` e `assets3d`.
+
+Status:
+
+- baseline documental concluida em 2026-04-22.
+- scaffolds experimentais de API iniciados em `packages/borealis/src/borealis/game` e validados em `./zt.exe check packages/borealis/zenith.ztproj --all`.
+
 ## Fora de escopo do Borealis 1.0
 
 - editor visual completo
 - tilemap editor completo
 - pipeline de importacao de assets avancado
-- 3D
+- runtime 3D implementado
 - netcode multiplayer completo
 - banco de dados completo na runtime inicial
 - no-code completo cobrindo toda a engine
+
+Observacao:
+
+- a trilha 3D atual entra como design/arquitetura com scaffolds experimentais de API, sem prometer runtime 3D completo neste ciclo.
 
 ## Definicao de pronto por milestone
 

@@ -1,0 +1,11 @@
+namespace fuzz.self_reference
+
+struct SelfRef
+    value: int
+    ref: SelfRef  -- Struct contém a si mesma (não opcional)
+end
+
+public func main() -> int
+    const s: SelfRef = SelfRef(value: 1, ref: ???)
+    return 0
+end

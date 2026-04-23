@@ -1,0 +1,59 @@
+namespace borealis.game.world3d.weather
+
+public enum WeatherKind
+    Clear
+    Rain
+    Storm
+    Snow
+    Foggy
+end
+
+public struct WeatherState
+    enabled: bool
+    kind: weather.WeatherKind
+    intensity: float
+end
+
+public var weather_state: weather.WeatherState = weather.WeatherState(enabled: false, kind: weather.WeatherKind.Clear, intensity: 0.0)
+
+public func weather_set_enabled(enabled: bool) -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: enabled, kind: weather_state.kind, intensity: weather_state.intensity)
+    return success()
+end
+
+public func weather_is_enabled() -> bool
+    return weather_state.enabled
+end
+
+public func weather_set_kind(kind: weather.WeatherKind) -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: weather_state.enabled, kind: kind, intensity: weather_state.intensity)
+    return success()
+end
+
+public func weather_get_kind() -> weather.WeatherKind
+    return weather_state.kind
+end
+
+public func weather_set_intensity(value: float) -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: weather_state.enabled, kind: weather_state.kind, intensity: value)
+    return success()
+end
+
+public func weather_get_intensity() -> float
+    return weather_state.intensity
+end
+
+public func weather_preset_clear() -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: false, kind: weather.WeatherKind.Clear, intensity: 0.0)
+    return success()
+end
+
+public func weather_preset_rain_light() -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: true, kind: weather.WeatherKind.Rain, intensity: 0.35)
+    return success()
+end
+
+public func weather_preset_storm_heavy() -> result<void, core.Error>
+    weather_state = weather.WeatherState(enabled: true, kind: weather.WeatherKind.Storm, intensity: 1.0)
+    return success()
+end
