@@ -1215,6 +1215,77 @@ zt_outcome_void_core_error zt_borealis_raylib_unload_sound(zt_int sound_handle);
 zt_outcome_void_core_error zt_borealis_raylib_play_sound(zt_int sound_handle);
 zt_outcome_void_core_error zt_borealis_raylib_stop_sound(zt_int sound_handle);
 zt_outcome_void_core_error zt_borealis_raylib_set_sound_volume(zt_int sound_handle, zt_float volume);
+zt_outcome_void_core_error zt_borealis_raylib_begin_mode3d(
+    zt_int window_id,
+    zt_float position_x,
+    zt_float position_y,
+    zt_float position_z,
+    zt_float target_x,
+    zt_float target_y,
+    zt_float target_z,
+    zt_float up_x,
+    zt_float up_y,
+    zt_float up_z,
+    zt_float fov_y,
+    zt_int projection);
+zt_outcome_void_core_error zt_borealis_raylib_end_mode3d(zt_int window_id);
+zt_outcome_void_core_error zt_borealis_raylib_draw_cube(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float z,
+    zt_float width,
+    zt_float height,
+    zt_float depth,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_raylib_draw_grid(
+    zt_int window_id,
+    zt_int slices,
+    zt_float spacing);
+zt_outcome_i64_core_error zt_borealis_raylib_load_model(const zt_text *path);
+zt_outcome_void_core_error zt_borealis_raylib_unload_model(zt_int model_handle);
+zt_outcome_void_core_error zt_borealis_raylib_draw_model(
+    zt_int window_id,
+    zt_int model_handle,
+    zt_float position_x,
+    zt_float position_y,
+    zt_float position_z,
+    zt_float rotation_x,
+    zt_float rotation_y,
+    zt_float rotation_z,
+    zt_float scale_x,
+    zt_float scale_y,
+    zt_float scale_z,
+    zt_int tint_r,
+    zt_int tint_g,
+    zt_int tint_b,
+    zt_int tint_a);
+zt_outcome_void_core_error zt_borealis_raylib_draw_billboard(
+    zt_int window_id,
+    zt_int texture_handle,
+    zt_float camera_position_x,
+    zt_float camera_position_y,
+    zt_float camera_position_z,
+    zt_float camera_target_x,
+    zt_float camera_target_y,
+    zt_float camera_target_z,
+    zt_float camera_up_x,
+    zt_float camera_up_y,
+    zt_float camera_up_z,
+    zt_float camera_fov_y,
+    zt_int camera_projection,
+    zt_float position_x,
+    zt_float position_y,
+    zt_float position_z,
+    zt_float size_x,
+    zt_float size_y,
+    zt_int tint_r,
+    zt_int tint_g,
+    zt_int tint_b,
+    zt_int tint_a);
 zt_float zt_borealis_raylib_vector2_length(zt_float x, zt_float y);
 zt_float zt_borealis_raylib_vector2_distance(zt_float ax, zt_float ay, zt_float bx, zt_float by);
 zt_float zt_borealis_raylib_lerp(zt_float start, zt_float finish, zt_float amount);

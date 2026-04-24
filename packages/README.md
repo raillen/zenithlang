@@ -9,4 +9,4 @@ Goal:
 
 Current packages:
 
-- `borealis` (Borealis) - initial 2D framework skeleton.
+- `borealis` (Borealis) - game framework with 2D runtime/editor foundations and an experimental Raylib-backed 3D slice.

@@ -1,6 +1,7 @@
 # Borealis
 
-Package de game dev 2D da Zenith com duas camadas publicas:
+Package de game dev da Zenith com base 2D e primeiro slice 3D experimental.
+Ele mantem duas camadas publicas:
 
 - `borealis.game`: camada facil (onboarding rapido).
 - `borealis.engine`: camada tecnica (controle explicito).
@@ -20,6 +21,7 @@ Projeto atual: `Borealis` (nome fechado).
 - `R3.B6` scaffolds modulares: implementado (com contratos e extensao de editor).
 - `R3.B6` no comportamento atual: fixture foundations validando assets, events com listeners/queue, debug, UI/HUD, editor metadata, save, storage, services, database e settings persistente.
 - `R3.B7` backend desktop inicial: parcial, com fallback seguro e smoke do binding Raylib validados.
+- `R3.B7.3D` slice 3D experimental: `BeginMode3D/EndMode3D`, grid, cubo, OBJ model, billboard e smoke Raylib real.
 - `R3.B8` preparo para ZPM: implementado no escopo documental/estrutural.
 - `R3.B9` estabilizacao/release: parcial.
 
@@ -130,7 +132,9 @@ Para diagnostico, a API expoe:
 
 Para usar nomes mais proximos da Raylib, importe `borealis.raylib`. Esse
 modulo ja cobre a base de janela/frame, shapes, texto, input, `measure_text`,
-handles simples de textura/som e helpers de `raymath`/`reasings`.
+handles simples de textura/som/modelo, helpers de `raymath`/`reasings` e o
+primeiro caminho 3D Raylib (`begin_mode3d`, `draw_cube`, `draw_grid`,
+`load_model`, `draw_model` e `draw_billboard`).
 
 Para fluxos que realmente dependem da DLL nativa, como carregar textura, som ou
 inicializar audio, use `borealis.raylib.require_available()?` antes do passo
@@ -141,6 +145,7 @@ Smoke test incluido no repo:
 
 - `./zt.exe run tests/behavior/borealis_raylib_binding_stub/zenith.ztproj`
 - `./zt.exe run tests/behavior/borealis_raylib_assets_real/zenith.ztproj`
+- `./zt.exe run tests/behavior/borealis_render3d_basic/zenith.ztproj`
 
 Projeto pronto incluido no repo:
 

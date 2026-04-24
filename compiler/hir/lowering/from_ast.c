@@ -408,22 +408,38 @@ static zt_func_param_meta *zt_push_func_param_meta(zt_func_meta *meta) {
 
 static const zt_struct_meta *zt_find_struct_meta(const zt_lower_ctx *ctx, const char *name) {
     size_t i;
+    const zt_struct_meta *fallback = NULL;
     if (name == NULL) return NULL;
     for (i = 0; i < ctx->struct_count; i += 1) {
-        if (zt_name_eq(ctx->structs[i].name, name)) return &ctx->structs[i];
+        if (zt_text_eq(ctx->structs[i].name, name)) return &ctx->structs[i];
     }
-    return NULL;
+    for (i = 0; i < ctx->struct_count; i += 1) {
+        if (zt_name_eq(ctx->structs[i].name, name)) {
+            if (fallback != NULL) return NULL;
+            fallback = &ctx->structs[i];
+        }
+    }
+    return fallback;
 }
 
 static const zt_ast_node *zt_find_enum_decl_ast(const zt_lower_ctx *ctx, const char *name) {
     size_t i;
+    const zt_ast_node *fallback = NULL;
     if (ctx == NULL || ctx->root_ast == NULL || ctx->root_ast->kind != ZT_AST_FILE || name == NULL) return NULL;
     for (i = 0; i < ctx->root_ast->as.file.declarations.count; i += 1) {
         const zt_ast_node *decl = ctx->root_ast->as.file.declarations.items[i];
         if (decl == NULL || decl->kind != ZT_AST_ENUM_DECL) continue;
-        if (zt_name_eq(decl->as.enum_decl.name, name)) return decl;
+        if (zt_text_eq(decl->as.enum_decl.name, name)) return decl;
     }
-    return NULL;
+    for (i = 0; i < ctx->root_ast->as.file.declarations.count; i += 1) {
+        const zt_ast_node *decl = ctx->root_ast->as.file.declarations.items[i];
+        if (decl == NULL || decl->kind != ZT_AST_ENUM_DECL) continue;
+        if (zt_name_eq(decl->as.enum_decl.name, name)) {
+            if (fallback != NULL) return NULL;
+            fallback = decl;
+        }
+    }
+    return fallback;
 }
 
 static const zt_ast_node *zt_find_enum_variant_ast(const zt_ast_node *enum_decl, const char *variant_name, size_t *out_index) {

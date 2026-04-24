@@ -57,6 +57,6 @@ These are not duplicated for 3D:
 
 ## Notes
 
-- this file is still architectural first, but now has matching experimental scaffolds under `packages/borealis/src/borealis/game`.
-- these scaffolds compile and help keep naming/types coherent.
-- Borealis 1.0 still does not promise implemented runtime 3D in the current cycle.
+- this file is still architectural first, but the first runtime-backed 3D slice now exists.
+- implemented slice: `render3d_begin/end`, `draw_cube`, `draw_grid`, `draw_model`, `draw_billboard`, Raylib model loading and native texture handles.
+- still pending: direct `draw_mesh`, materials, generated meshes, lighting shaders, animation and full 3D scene/editor integration.

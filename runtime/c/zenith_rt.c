@@ -7207,6 +7207,7 @@ zt_int zt_net_error_kind_index(zt_core_error error) {
 #define ZT_BOREALIS_MAX_KEYS_PER_WINDOW 64
 #define ZT_BOREALIS_MAX_RAYLIB_TEXTURES 256
 #define ZT_BOREALIS_MAX_RAYLIB_SOUNDS 128
+#define ZT_BOREALIS_MAX_RAYLIB_MODELS 128
 #define ZT_BOREALIS_PATH_CAPACITY 4096
 
 #ifdef _WIN32
@@ -7338,6 +7339,47 @@ typedef struct zt_borealis_raylib_vector2 {
     float y;
 } zt_borealis_raylib_vector2;
 
+typedef struct zt_borealis_raylib_rectangle {
+    float x;
+    float y;
+    float width;
+    float height;
+} zt_borealis_raylib_rectangle;
+
+typedef struct zt_borealis_raylib_vector3 {
+    float x;
+    float y;
+    float z;
+} zt_borealis_raylib_vector3;
+
+typedef struct zt_borealis_raylib_vector4 {
+    float x;
+    float y;
+    float z;
+    float w;
+} zt_borealis_raylib_vector4;
+
+typedef zt_borealis_raylib_vector4 zt_borealis_raylib_quaternion;
+
+typedef struct zt_borealis_raylib_matrix {
+    float m0;
+    float m4;
+    float m8;
+    float m12;
+    float m1;
+    float m5;
+    float m9;
+    float m13;
+    float m2;
+    float m6;
+    float m10;
+    float m14;
+    float m3;
+    float m7;
+    float m11;
+    float m15;
+} zt_borealis_raylib_matrix;
+
 typedef struct zt_borealis_raylib_texture {
     unsigned int id;
     int width;
@@ -7359,6 +7401,81 @@ typedef struct zt_borealis_raylib_sound {
     unsigned int frameCount;
 } zt_borealis_raylib_sound;
 
+typedef struct zt_borealis_raylib_camera3d {
+    zt_borealis_raylib_vector3 position;
+    zt_borealis_raylib_vector3 target;
+    zt_borealis_raylib_vector3 up;
+    float fovy;
+    int projection;
+} zt_borealis_raylib_camera3d;
+
+typedef struct zt_borealis_raylib_mesh {
+    int vertexCount;
+    int triangleCount;
+    float *vertices;
+    float *texcoords;
+    float *texcoords2;
+    float *normals;
+    float *tangents;
+    unsigned char *colors;
+    unsigned short *indices;
+    int boneCount;
+    unsigned char *boneIndices;
+    float *boneWeights;
+    float *animVertices;
+    float *animNormals;
+    unsigned int vaoId;
+    unsigned int *vboId;
+} zt_borealis_raylib_mesh;
+
+typedef struct zt_borealis_raylib_shader {
+    unsigned int id;
+    int *locs;
+} zt_borealis_raylib_shader;
+
+typedef struct zt_borealis_raylib_material_map {
+    zt_borealis_raylib_texture texture;
+    zt_borealis_raylib_color color;
+    float value;
+} zt_borealis_raylib_material_map;
+
+typedef struct zt_borealis_raylib_material {
+    zt_borealis_raylib_shader shader;
+    zt_borealis_raylib_material_map *maps;
+    float params[4];
+} zt_borealis_raylib_material;
+
+typedef struct zt_borealis_raylib_transform {
+    zt_borealis_raylib_vector3 translation;
+    zt_borealis_raylib_quaternion rotation;
+    zt_borealis_raylib_vector3 scale;
+} zt_borealis_raylib_transform;
+
+typedef zt_borealis_raylib_transform *zt_borealis_raylib_model_anim_pose;
+
+typedef struct zt_borealis_raylib_bone_info {
+    char name[32];
+    int parent;
+} zt_borealis_raylib_bone_info;
+
+typedef struct zt_borealis_raylib_model_skeleton {
+    int boneCount;
+    zt_borealis_raylib_bone_info *bones;
+    zt_borealis_raylib_model_anim_pose bindPose;
+} zt_borealis_raylib_model_skeleton;
+
+typedef struct zt_borealis_raylib_model {
+    zt_borealis_raylib_matrix transform;
+    int meshCount;
+    int materialCount;
+    zt_borealis_raylib_mesh *meshes;
+    zt_borealis_raylib_material *materials;
+    int *meshMaterial;
+    zt_borealis_raylib_model_skeleton skeleton;
+    zt_borealis_raylib_model_anim_pose currentPose;
+    zt_borealis_raylib_matrix *boneMatrices;
+} zt_borealis_raylib_model;
+
 typedef void (*zt_borealis_raylib_init_window_fn)(int width, int height, const char *title);
 typedef void (*zt_borealis_raylib_close_window_fn)(void);
 typedef int (*zt_borealis_raylib_window_should_close_fn)(void);
@@ -7366,6 +7483,8 @@ typedef int (*zt_borealis_raylib_is_window_ready_fn)(void);
 typedef void (*zt_borealis_raylib_set_target_fps_fn)(int fps);
 typedef void (*zt_borealis_raylib_begin_drawing_fn)(void);
 typedef void (*zt_borealis_raylib_end_drawing_fn)(void);
+typedef void (*zt_borealis_raylib_begin_mode3d_fn)(zt_borealis_raylib_camera3d camera);
+typedef void (*zt_borealis_raylib_end_mode3d_fn)(void);
 typedef void (*zt_borealis_raylib_clear_background_fn)(zt_borealis_raylib_color color);
 typedef void (*zt_borealis_raylib_draw_rectangle_fn)(int pos_x, int pos_y, int width, int height, zt_borealis_raylib_color color);
 typedef void (*zt_borealis_raylib_draw_rectangle_lines_fn)(int pos_x, int pos_y, int width, int height, zt_borealis_raylib_color color);
@@ -7376,6 +7495,15 @@ typedef void (*zt_borealis_raylib_draw_text_fn)(const char *text, int pos_x, int
 typedef int (*zt_borealis_raylib_is_key_fn)(int key);
 typedef void (*zt_borealis_raylib_draw_triangle_fn)(zt_borealis_raylib_vector2 v1, zt_borealis_raylib_vector2 v2, zt_borealis_raylib_vector2 v3, zt_borealis_raylib_color color);
 typedef void (*zt_borealis_raylib_draw_ellipse_fn)(int center_x, int center_y, float radius_h, float radius_v, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_cube_v_fn)(zt_borealis_raylib_vector3 position, zt_borealis_raylib_vector3 size, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_grid_fn)(int slices, float spacing);
+typedef void (*zt_borealis_raylib_draw_billboard_rec_fn)(
+    zt_borealis_raylib_camera3d camera,
+    zt_borealis_raylib_texture texture,
+    zt_borealis_raylib_rectangle source,
+    zt_borealis_raylib_vector3 position,
+    zt_borealis_raylib_vector2 size,
+    zt_borealis_raylib_color tint);
 typedef int (*zt_borealis_raylib_measure_text_fn)(const char *text, int font_size);
 typedef zt_borealis_raylib_texture (*zt_borealis_raylib_load_texture_fn)(const char *file_name);
 typedef void (*zt_borealis_raylib_unload_texture_fn)(zt_borealis_raylib_texture texture);
@@ -7390,12 +7518,23 @@ typedef void (*zt_borealis_raylib_unload_sound_fn)(zt_borealis_raylib_sound soun
 typedef void (*zt_borealis_raylib_play_sound_fn)(zt_borealis_raylib_sound sound);
 typedef void (*zt_borealis_raylib_stop_sound_fn)(zt_borealis_raylib_sound sound);
 typedef void (*zt_borealis_raylib_set_sound_volume_fn)(zt_borealis_raylib_sound sound, float volume);
+typedef zt_borealis_raylib_model (*zt_borealis_raylib_load_model_fn)(const char *file_name);
+typedef int (*zt_borealis_raylib_is_model_valid_fn)(zt_borealis_raylib_model model);
+typedef void (*zt_borealis_raylib_unload_model_fn)(zt_borealis_raylib_model model);
+typedef void (*zt_borealis_raylib_draw_model_ex_fn)(
+    zt_borealis_raylib_model model,
+    zt_borealis_raylib_vector3 position,
+    zt_borealis_raylib_vector3 rotation_axis,
+    float rotation_angle,
+    zt_borealis_raylib_vector3 scale,
+    zt_borealis_raylib_color tint);
 
 typedef struct zt_borealis_raylib_runtime {
     zt_bool load_attempted;
     zt_bool loaded;
     zt_bool window_open;
     zt_bool frame_open;
+    zt_bool mode3d_open;
     zt_int window_id;
     void *library;
     char loaded_path[ZT_BOREALIS_PATH_CAPACITY];
@@ -7406,6 +7545,8 @@ typedef struct zt_borealis_raylib_runtime {
     zt_borealis_raylib_set_target_fps_fn set_target_fps;
     zt_borealis_raylib_begin_drawing_fn begin_drawing;
     zt_borealis_raylib_end_drawing_fn end_drawing;
+    zt_borealis_raylib_begin_mode3d_fn begin_mode3d;
+    zt_borealis_raylib_end_mode3d_fn end_mode3d;
     zt_borealis_raylib_clear_background_fn clear_background;
     zt_borealis_raylib_draw_rectangle_fn draw_rectangle;
     zt_borealis_raylib_draw_rectangle_lines_fn draw_rectangle_lines;
@@ -7418,6 +7559,9 @@ typedef struct zt_borealis_raylib_runtime {
     zt_borealis_raylib_is_key_fn is_key_released;
     zt_borealis_raylib_draw_triangle_fn draw_triangle;
     zt_borealis_raylib_draw_ellipse_fn draw_ellipse;
+    zt_borealis_raylib_draw_cube_v_fn draw_cube_v;
+    zt_borealis_raylib_draw_grid_fn draw_grid;
+    zt_borealis_raylib_draw_billboard_rec_fn draw_billboard_rec;
     zt_borealis_raylib_measure_text_fn measure_text;
     zt_borealis_raylib_load_texture_fn load_texture;
     zt_borealis_raylib_unload_texture_fn unload_texture;
@@ -7432,6 +7576,10 @@ typedef struct zt_borealis_raylib_runtime {
     zt_borealis_raylib_play_sound_fn play_sound;
     zt_borealis_raylib_stop_sound_fn stop_sound;
     zt_borealis_raylib_set_sound_volume_fn set_sound_volume;
+    zt_borealis_raylib_load_model_fn load_model;
+    zt_borealis_raylib_is_model_valid_fn is_model_valid;
+    zt_borealis_raylib_unload_model_fn unload_model;
+    zt_borealis_raylib_draw_model_ex_fn draw_model_ex;
 } zt_borealis_raylib_runtime;
 
 typedef struct zt_borealis_raylib_texture_slot {
@@ -7446,11 +7594,19 @@ typedef struct zt_borealis_raylib_sound_slot {
     zt_borealis_raylib_sound sound;
 } zt_borealis_raylib_sound_slot;
 
+typedef struct zt_borealis_raylib_model_slot {
+    zt_bool used;
+    zt_int handle;
+    zt_borealis_raylib_model model;
+} zt_borealis_raylib_model_slot;
+
 static zt_borealis_raylib_runtime zt_borealis_raylib = {0};
 static zt_borealis_raylib_texture_slot zt_borealis_raylib_textures[ZT_BOREALIS_MAX_RAYLIB_TEXTURES];
 static zt_borealis_raylib_sound_slot zt_borealis_raylib_sounds[ZT_BOREALIS_MAX_RAYLIB_SOUNDS];
+static zt_borealis_raylib_model_slot zt_borealis_raylib_models[ZT_BOREALIS_MAX_RAYLIB_MODELS];
 static zt_int zt_borealis_raylib_next_texture_handle = 1;
 static zt_int zt_borealis_raylib_next_sound_handle = 1;
+static zt_int zt_borealis_raylib_next_model_handle = 1;
 
 static void *zt_borealis_dynlib_open(const char *name) {
 #ifdef _WIN32
@@ -7617,6 +7773,67 @@ static zt_borealis_raylib_color zt_borealis_make_raylib_color(zt_int r, zt_int g
     return color;
 }
 
+static zt_borealis_raylib_vector3 zt_borealis_make_raylib_vector3(zt_float x, zt_float y, zt_float z) {
+    zt_borealis_raylib_vector3 value;
+    value.x = (float)x;
+    value.y = (float)y;
+    value.z = (float)z;
+    return value;
+}
+
+static zt_borealis_raylib_rectangle zt_borealis_make_raylib_rectangle(
+        zt_float x,
+        zt_float y,
+        zt_float width,
+        zt_float height) {
+    zt_borealis_raylib_rectangle value;
+    value.x = (float)x;
+    value.y = (float)y;
+    value.width = (float)width;
+    value.height = (float)height;
+    return value;
+}
+
+static zt_borealis_raylib_camera3d zt_borealis_make_raylib_camera3d(
+        zt_float position_x,
+        zt_float position_y,
+        zt_float position_z,
+        zt_float target_x,
+        zt_float target_y,
+        zt_float target_z,
+        zt_float up_x,
+        zt_float up_y,
+        zt_float up_z,
+        zt_float fov_y,
+        zt_int projection) {
+    zt_borealis_raylib_camera3d camera;
+    camera.position = zt_borealis_make_raylib_vector3(position_x, position_y, position_z);
+    camera.target = zt_borealis_make_raylib_vector3(target_x, target_y, target_z);
+    camera.up = zt_borealis_make_raylib_vector3(up_x, up_y, up_z);
+    if (fabsf(camera.up.x) < 0.0001f &&
+        fabsf(camera.up.y) < 0.0001f &&
+        fabsf(camera.up.z) < 0.0001f) {
+        camera.up = zt_borealis_make_raylib_vector3(0.0, 1.0, 0.0);
+    }
+    camera.fovy = (float)fov_y;
+    camera.projection = (int)projection;
+    return camera;
+}
+
+static zt_bool zt_borealis_raylib_mode3d_ready(zt_int window_id) {
+    return zt_borealis_raylib.window_open &&
+           window_id == zt_borealis_raylib.window_id &&
+           zt_borealis_raylib.frame_open &&
+           zt_borealis_raylib.mode3d_open;
+}
+
+static zt_bool zt_borealis_raylib_model_loaded(zt_borealis_raylib_model model) {
+    if (zt_borealis_raylib.is_model_valid != NULL) {
+        return zt_borealis_raylib.is_model_valid(model) ? true : false;
+    }
+    return model.meshCount > 0 ? true : false;
+}
+
 static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
     if (zt_borealis_raylib.library == NULL) {
         return false;
@@ -7629,6 +7846,8 @@ static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
     zt_borealis_raylib.set_target_fps = (zt_borealis_raylib_set_target_fps_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "SetTargetFPS");
     zt_borealis_raylib.begin_drawing = (zt_borealis_raylib_begin_drawing_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "BeginDrawing");
     zt_borealis_raylib.end_drawing = (zt_borealis_raylib_end_drawing_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "EndDrawing");
+    zt_borealis_raylib.begin_mode3d = (zt_borealis_raylib_begin_mode3d_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "BeginMode3D");
+    zt_borealis_raylib.end_mode3d = (zt_borealis_raylib_end_mode3d_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "EndMode3D");
     zt_borealis_raylib.clear_background = (zt_borealis_raylib_clear_background_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "ClearBackground");
     zt_borealis_raylib.draw_rectangle = (zt_borealis_raylib_draw_rectangle_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawRectangle");
     zt_borealis_raylib.draw_rectangle_lines = (zt_borealis_raylib_draw_rectangle_lines_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawRectangleLines");
@@ -7641,6 +7860,9 @@ static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
     zt_borealis_raylib.is_key_released = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyReleased");
     zt_borealis_raylib.draw_triangle = (zt_borealis_raylib_draw_triangle_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawTriangle");
     zt_borealis_raylib.draw_ellipse = (zt_borealis_raylib_draw_ellipse_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawEllipse");
+    zt_borealis_raylib.draw_cube_v = (zt_borealis_raylib_draw_cube_v_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawCubeV");
+    zt_borealis_raylib.draw_grid = (zt_borealis_raylib_draw_grid_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawGrid");
+    zt_borealis_raylib.draw_billboard_rec = (zt_borealis_raylib_draw_billboard_rec_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawBillboardRec");
     zt_borealis_raylib.measure_text = (zt_borealis_raylib_measure_text_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "MeasureText");
     zt_borealis_raylib.load_texture = (zt_borealis_raylib_load_texture_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "LoadTexture");
     zt_borealis_raylib.unload_texture = (zt_borealis_raylib_unload_texture_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "UnloadTexture");
@@ -7655,6 +7877,10 @@ static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
     zt_borealis_raylib.play_sound = (zt_borealis_raylib_play_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "PlaySound");
     zt_borealis_raylib.stop_sound = (zt_borealis_raylib_stop_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "StopSound");
     zt_borealis_raylib.set_sound_volume = (zt_borealis_raylib_set_sound_volume_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "SetSoundVolume");
+    zt_borealis_raylib.load_model = (zt_borealis_raylib_load_model_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "LoadModel");
+    zt_borealis_raylib.is_model_valid = (zt_borealis_raylib_is_model_valid_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsModelValid");
+    zt_borealis_raylib.unload_model = (zt_borealis_raylib_unload_model_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "UnloadModel");
+    zt_borealis_raylib.draw_model_ex = (zt_borealis_raylib_draw_model_ex_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawModelEx");
 
     return zt_borealis_raylib.init_window != NULL &&
            zt_borealis_raylib.close_window != NULL &&
@@ -7916,6 +8142,34 @@ static zt_borealis_raylib_sound_slot *zt_borealis_raylib_alloc_sound(void) {
     return NULL;
 }
 
+static zt_borealis_raylib_model_slot *zt_borealis_raylib_find_model(zt_int handle) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_MODELS; index += 1) {
+        if (zt_borealis_raylib_models[index].used &&
+            zt_borealis_raylib_models[index].handle == handle) {
+            return &zt_borealis_raylib_models[index];
+        }
+    }
+    return NULL;
+}
+
+static zt_borealis_raylib_model_slot *zt_borealis_raylib_alloc_model(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_MODELS; index += 1) {
+        if (!zt_borealis_raylib_models[index].used) {
+            memset(&zt_borealis_raylib_models[index], 0, sizeof(zt_borealis_raylib_model_slot));
+            zt_borealis_raylib_models[index].used = true;
+            zt_borealis_raylib_models[index].handle = zt_borealis_raylib_next_model_handle;
+            zt_borealis_raylib_next_model_handle += 1;
+            if (zt_borealis_raylib_next_model_handle <= 0) {
+                zt_borealis_raylib_next_model_handle = 1;
+            }
+            return &zt_borealis_raylib_models[index];
+        }
+    }
+    return NULL;
+}
+
 static void zt_borealis_raylib_release_all_textures(void) {
     size_t index;
     for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_TEXTURES; index += 1) {
@@ -7939,6 +8193,19 @@ static void zt_borealis_raylib_release_all_sounds(void) {
             zt_borealis_raylib.unload_sound(zt_borealis_raylib_sounds[index].sound);
         }
         memset(&zt_borealis_raylib_sounds[index], 0, sizeof(zt_borealis_raylib_sound_slot));
+    }
+}
+
+static void zt_borealis_raylib_release_all_models(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_MODELS; index += 1) {
+        if (!zt_borealis_raylib_models[index].used) {
+            continue;
+        }
+        if (zt_borealis_raylib.unload_model != NULL) {
+            zt_borealis_raylib.unload_model(zt_borealis_raylib_models[index].model);
+        }
+        memset(&zt_borealis_raylib_models[index], 0, sizeof(zt_borealis_raylib_model_slot));
     }
 }
 
@@ -7973,6 +8240,7 @@ static zt_outcome_i64_core_error zt_borealis_raylib_open_window(
     zt_borealis_raylib.set_target_fps((int)target_fps);
     zt_borealis_raylib.window_open = true;
     zt_borealis_raylib.frame_open = false;
+    zt_borealis_raylib.mode3d_open = false;
     return zt_outcome_i64_core_error_success(zt_borealis_raylib.window_id);
 }
 
@@ -7985,6 +8253,10 @@ static zt_outcome_void_core_error zt_borealis_raylib_close_window(zt_int window_
         return zt_outcome_void_core_error_failure_message("borealis: unknown desktop window id");
     }
 
+    if (zt_borealis_raylib.mode3d_open && zt_borealis_raylib.end_mode3d != NULL) {
+        zt_borealis_raylib.end_mode3d();
+        zt_borealis_raylib.mode3d_open = false;
+    }
     if (zt_borealis_raylib.frame_open) {
         zt_borealis_raylib.end_drawing();
         zt_borealis_raylib.frame_open = false;
@@ -7992,6 +8264,7 @@ static zt_outcome_void_core_error zt_borealis_raylib_close_window(zt_int window_
 
     zt_borealis_raylib_release_all_textures();
     zt_borealis_raylib_release_all_sounds();
+    zt_borealis_raylib_release_all_models();
     if (zt_borealis_raylib.close_audio_device != NULL &&
         zt_borealis_raylib.is_audio_device_ready != NULL &&
         zt_borealis_raylib.is_audio_device_ready()) {
@@ -8000,6 +8273,7 @@ static zt_outcome_void_core_error zt_borealis_raylib_close_window(zt_int window_
 
     zt_borealis_raylib.close_window();
     zt_borealis_raylib.window_open = false;
+    zt_borealis_raylib.mode3d_open = false;
     return zt_outcome_void_core_error_success();
 }
 
@@ -8027,6 +8301,7 @@ static zt_outcome_void_core_error zt_borealis_raylib_begin_frame(
     zt_borealis_raylib.begin_drawing();
     zt_borealis_raylib.clear_background(zt_borealis_make_raylib_color(clear_r, clear_g, clear_b, clear_a));
     zt_borealis_raylib.frame_open = true;
+    zt_borealis_raylib.mode3d_open = false;
     return zt_outcome_void_core_error_success();
 }
 
@@ -8039,6 +8314,10 @@ static zt_outcome_void_core_error zt_borealis_raylib_end_frame(zt_int window_id)
         return zt_outcome_void_core_error_success();
     }
 
+    if (zt_borealis_raylib.mode3d_open && zt_borealis_raylib.end_mode3d != NULL) {
+        zt_borealis_raylib.end_mode3d();
+        zt_borealis_raylib.mode3d_open = false;
+    }
     zt_borealis_raylib.end_drawing();
     zt_borealis_raylib.frame_open = false;
     return zt_outcome_void_core_error_success();
@@ -8523,6 +8802,313 @@ zt_outcome_void_core_error zt_borealis_raylib_set_sound_volume(zt_int sound_hand
         return zt_outcome_void_core_error_failure_message("borealis: Raylib SetSoundVolume is not available");
     }
     zt_borealis_raylib.set_sound_volume(slot->sound, (float)volume);
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_begin_mode3d(
+        zt_int window_id,
+        zt_float position_x,
+        zt_float position_y,
+        zt_float position_z,
+        zt_float target_x,
+        zt_float target_y,
+        zt_float target_z,
+        zt_float up_x,
+        zt_float up_y,
+        zt_float up_z,
+        zt_float fov_y,
+        zt_int projection) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib_try_load() ||
+        zt_borealis_raylib.begin_mode3d == NULL ||
+        zt_borealis_raylib.end_mode3d == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib 3D support is not available");
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib.frame_open) {
+        return zt_outcome_void_core_error_failure_message("borealis: frame_begin is required before BeginMode3D");
+    }
+    if (zt_borealis_raylib.mode3d_open) {
+        return zt_outcome_void_core_error_failure_message("borealis: BeginMode3D called twice without EndMode3D");
+    }
+
+    zt_borealis_raylib.begin_mode3d(
+        zt_borealis_make_raylib_camera3d(
+            position_x,
+            position_y,
+            position_z,
+            target_x,
+            target_y,
+            target_z,
+            up_x,
+            up_y,
+            up_z,
+            fov_y,
+            projection));
+    zt_borealis_raylib.mode3d_open = true;
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_end_mode3d(zt_int window_id) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib.mode3d_open) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (zt_borealis_raylib.end_mode3d == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib EndMode3D is not available");
+    }
+
+    zt_borealis_raylib.end_mode3d();
+    zt_borealis_raylib.mode3d_open = false;
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_cube(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float z,
+        zt_float width,
+        zt_float height,
+        zt_float depth,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib_mode3d_ready(window_id)) {
+        return zt_outcome_void_core_error_failure_message("borealis: BeginMode3D is required before 3D drawing");
+    }
+    if (zt_borealis_raylib.draw_cube_v == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawCubeV is not available");
+    }
+
+    zt_borealis_raylib.draw_cube_v(
+        zt_borealis_make_raylib_vector3(x, y, z),
+        zt_borealis_make_raylib_vector3(width, height, depth),
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_grid(
+        zt_int window_id,
+        zt_int slices,
+        zt_float spacing) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib_mode3d_ready(window_id)) {
+        return zt_outcome_void_core_error_failure_message("borealis: BeginMode3D is required before 3D drawing");
+    }
+    if (zt_borealis_raylib.draw_grid == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawGrid is not available");
+    }
+
+    zt_borealis_raylib.draw_grid((int)slices, (float)spacing);
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_i64_core_error zt_borealis_raylib_load_model(const zt_text *path) {
+    const char *file_name;
+    zt_borealis_raylib_model model;
+    zt_borealis_raylib_model_slot *slot;
+
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.load_model == NULL) {
+        return zt_outcome_i64_core_error_failure_message("borealis: Raylib model support is not available");
+    }
+
+    file_name = path != NULL ? zt_text_data(path) : "";
+    model = zt_borealis_raylib.load_model(file_name);
+    if (!zt_borealis_raylib_model_loaded(model)) {
+        return zt_outcome_i64_core_error_failure_message("borealis: failed to load Raylib model");
+    }
+
+    slot = zt_borealis_raylib_alloc_model();
+    if (slot == NULL) {
+        if (zt_borealis_raylib.unload_model != NULL) {
+            zt_borealis_raylib.unload_model(model);
+        }
+        return zt_outcome_i64_core_error_failure_message("borealis: no free Raylib model slots");
+    }
+
+    slot->model = model;
+    return zt_outcome_i64_core_error_success(slot->handle);
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_unload_model(zt_int model_handle) {
+    zt_borealis_raylib_model_slot *slot = zt_borealis_raylib_find_model(model_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (zt_borealis_raylib.unload_model != NULL) {
+        zt_borealis_raylib.unload_model(slot->model);
+    }
+    memset(slot, 0, sizeof(zt_borealis_raylib_model_slot));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_model(
+        zt_int window_id,
+        zt_int model_handle,
+        zt_float position_x,
+        zt_float position_y,
+        zt_float position_z,
+        zt_float rotation_x,
+        zt_float rotation_y,
+        zt_float rotation_z,
+        zt_float scale_x,
+        zt_float scale_y,
+        zt_float scale_z,
+        zt_int tint_r,
+        zt_int tint_g,
+        zt_int tint_b,
+        zt_int tint_a) {
+    zt_borealis_raylib_model_slot *slot;
+    zt_borealis_raylib_vector3 position;
+    zt_borealis_raylib_vector3 rotation_axis;
+    zt_borealis_raylib_vector3 scale;
+    float rotation_angle;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib_mode3d_ready(window_id)) {
+        return zt_outcome_void_core_error_failure_message("borealis: BeginMode3D is required before 3D drawing");
+    }
+    if (zt_borealis_raylib.draw_model_ex == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawModelEx is not available");
+    }
+    slot = zt_borealis_raylib_find_model(model_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib model handle");
+    }
+
+    position = zt_borealis_make_raylib_vector3(position_x, position_y, position_z);
+    rotation_axis = zt_borealis_make_raylib_vector3(rotation_x, rotation_y, rotation_z);
+    scale = zt_borealis_make_raylib_vector3(scale_x, scale_y, scale_z);
+    if (fabsf(scale.x) < 0.0001f &&
+        fabsf(scale.y) < 0.0001f &&
+        fabsf(scale.z) < 0.0001f) {
+        scale = zt_borealis_make_raylib_vector3(1.0, 1.0, 1.0);
+    }
+
+    rotation_angle = sqrtf(
+        (rotation_axis.x * rotation_axis.x) +
+        (rotation_axis.y * rotation_axis.y) +
+        (rotation_axis.z * rotation_axis.z));
+    if (rotation_angle < 0.0001f) {
+        rotation_axis = zt_borealis_make_raylib_vector3(0.0, 1.0, 0.0);
+        rotation_angle = 0.0f;
+    } else {
+        rotation_axis.x /= rotation_angle;
+        rotation_axis.y /= rotation_angle;
+        rotation_axis.z /= rotation_angle;
+    }
+
+    zt_borealis_raylib.draw_model_ex(
+        slot->model,
+        position,
+        rotation_axis,
+        rotation_angle,
+        scale,
+        zt_borealis_make_raylib_color(tint_r, tint_g, tint_b, tint_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_billboard(
+        zt_int window_id,
+        zt_int texture_handle,
+        zt_float camera_position_x,
+        zt_float camera_position_y,
+        zt_float camera_position_z,
+        zt_float camera_target_x,
+        zt_float camera_target_y,
+        zt_float camera_target_z,
+        zt_float camera_up_x,
+        zt_float camera_up_y,
+        zt_float camera_up_z,
+        zt_float camera_fov_y,
+        zt_int camera_projection,
+        zt_float position_x,
+        zt_float position_y,
+        zt_float position_z,
+        zt_float size_x,
+        zt_float size_y,
+        zt_int tint_r,
+        zt_int tint_g,
+        zt_int tint_b,
+        zt_int tint_a) {
+    zt_borealis_raylib_texture_slot *slot;
+    zt_borealis_raylib_camera3d camera;
+    zt_borealis_raylib_vector3 position;
+    zt_borealis_raylib_vector2 size;
+    zt_borealis_raylib_rectangle source;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (!zt_borealis_raylib_mode3d_ready(window_id)) {
+        return zt_outcome_void_core_error_failure_message("borealis: BeginMode3D is required before 3D drawing");
+    }
+    if (zt_borealis_raylib.draw_billboard_rec == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawBillboardRec is not available");
+    }
+    slot = zt_borealis_raylib_find_texture(texture_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib texture handle");
+    }
+
+    camera = zt_borealis_make_raylib_camera3d(
+        camera_position_x,
+        camera_position_y,
+        camera_position_z,
+        camera_target_x,
+        camera_target_y,
+        camera_target_z,
+        camera_up_x,
+        camera_up_y,
+        camera_up_z,
+        camera_fov_y,
+        camera_projection);
+    position = zt_borealis_make_raylib_vector3(position_x, position_y, position_z);
+    size.x = (float)size_x;
+    size.y = (float)size_y;
+    source = zt_borealis_make_raylib_rectangle(
+        0.0,
+        0.0,
+        (zt_float)slot->texture.width,
+        (zt_float)slot->texture.height);
+
+    zt_borealis_raylib.draw_billboard_rec(
+        camera,
+        slot->texture,
+        source,
+        position,
+        size,
+        zt_borealis_make_raylib_color(tint_r, tint_g, tint_b, tint_a));
     return zt_outcome_void_core_error_success();
 }
 
