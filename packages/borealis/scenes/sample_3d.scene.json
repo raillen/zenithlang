@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "name": "sample_3d",
+  "document_id": "scene:sample_3d",
+  "entities": [
+    {
+      "stable_id": "camera-3d",
+      "name": "Camera 3D",
+      "layer": "world3d",
+      "tags": ["camera", "3d"],
+      "transform": {
+        "x": 120,
+        "y": -120,
+        "z": 120,
+        "rotation_x": -35,
+        "rotation_y": 35,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "camera3d",
+          "projection": "perspective"
+        }
+      ]
+    },
+    {
+      "stable_id": "cube-01",
+      "name": "Cube 01",
+      "layer": "world3d",
+      "tags": ["3d"],
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "z": 24,
+        "rotation_x": 0,
+        "rotation_y": 0,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "cube3d",
+          "size": 48
+        }
+      ]
+    },
+    {
+      "stable_id": "triangle-model",
+      "name": "Triangle Model",
+      "layer": "world3d",
+      "tags": ["3d", "asset"],
+      "transform": {
+        "x": 96,
+        "y": 64,
+        "z": 0,
+        "rotation_x": 0,
+        "rotation_y": 0,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "model3d",
+          "asset": "assets/triangle.obj"
+        }
+      ]
+    }
+  ]
+}

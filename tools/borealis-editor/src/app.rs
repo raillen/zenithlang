@@ -1,4 +1,5 @@
 use crate::ipc::{ConnectionState, PreviewBridge};
+use crate::messages::PreviewStatus;
 use crate::project::{
     load_project_summary, ProjectSummary, ProjectTree, ProjectTreeItem, ProjectTreeItemKind,
 };
@@ -21,6 +22,7 @@ const LABEL_HIERARCHY: &str = "Hierarchy";
 const LABEL_PROJECT: &str = "Project";
 const LABEL_INSPECTOR: &str = "Inspector";
 const LABEL_SCENE_VIEW: &str = "Scene";
+const LABEL_SCENE_3D: &str = "Scene 3D";
 const LABEL_CONSOLE: &str = "Console";
 const LABEL_GAME: &str = "Game";
 const LABEL_TOOLBAR: &str = "Toolbar";
@@ -32,8 +34,15 @@ enum BottomDockTab {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssetViewMode {
+    Icon,
+    List,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ViewportTab {
     Scene,
+    Scene3D,
     Game,
 }
 
@@ -50,6 +59,13 @@ enum ViewportFocusRequest {
     None,
     Selected,
     All,
+}
+
+#[derive(Debug, Clone)]
+struct ProjectDragPayload {
+    label: String,
+    path: String,
+    kind: ProjectTreeItemKind,
 }
 
 pub struct BorealisEditorApp {
@@ -73,6 +89,7 @@ pub struct BorealisEditorApp {
     scene_dirty: bool,
     auto_sync_preview: bool,
     bottom_dock_tab: BottomDockTab,
+    asset_view_mode: AssetViewMode,
     hierarchy_filter: String,
     viewport_tab: ViewportTab,
     transform_tool: TransformTool,
@@ -130,6 +147,7 @@ impl BorealisEditorApp {
             scene_dirty: false,
             auto_sync_preview: true,
             bottom_dock_tab: BottomDockTab::Project,
+            asset_view_mode: AssetViewMode::List,
             hierarchy_filter: String::new(),
             viewport_tab: ViewportTab::Scene,
             transform_tool: TransformTool::Move,
@@ -306,8 +324,9 @@ impl BorealisEditorApp {
             };
 
             for section in tree.sections {
+                let section_title = section.title.clone();
                 egui::CollapsingHeader::new(
-                    egui::RichText::new(section.title)
+                    egui::RichText::new(section_title.clone())
                         .size(11.5)
                         .strong()
                         .color(color_text()),
@@ -321,6 +340,35 @@ impl BorealisEditorApp {
                                 .monospace()
                                 .color(color_text_faint()),
                         );
+                        return;
+                    }
+
+                    if self.asset_view_mode == AssetViewMode::Icon && section_title == "Assets" {
+                        ui.horizontal_wrapped(|ui| {
+                            for item in section.items {
+                                let selected = self.selected_tree_item == item.id;
+                                let response = ui.add_sized(
+                                    [118.0, 36.0],
+                                    egui::Button::new(
+                                        egui::RichText::new(format!("asset\n{}", item.label))
+                                            .size(10.5)
+                                            .monospace()
+                                            .color(if selected {
+                                                rgb(238, 245, 255)
+                                            } else {
+                                                color_text()
+                                            }),
+                                    )
+                                    .fill(if selected {
+                                        color_accent()
+                                    } else {
+                                        color_field()
+                                    })
+                                    .corner_radius(egui::CornerRadius::same(2)),
+                                );
+                                self.handle_project_item_response(response, &item);
+                            }
+                        });
                         return;
                     }
 
@@ -343,23 +391,32 @@ impl BorealisEditorApp {
                                     color_text()
                                 }),
                         );
-                        if response.clicked() {
-                            self.selected_tree_item = item.id.clone();
-                            match item.kind {
-                                ProjectTreeItemKind::SceneCandidate
-                                | ProjectTreeItemKind::Example
-                                | ProjectTreeItemKind::Module => {
-                                    self.scene_path = item.path.clone();
-                                }
-                                ProjectTreeItemKind::Asset => {}
-                            }
-                            self.push_transcript(format!("Selecionado na arvore: {}", item.path));
-                        }
-                        response.on_hover_text(&item.path);
+                        self.handle_project_item_response(response, &item);
                     }
                 });
             }
         });
+    }
+
+    fn handle_project_item_response(&mut self, response: egui::Response, item: &ProjectTreeItem) {
+        if response.clicked() {
+            self.selected_tree_item = item.id.clone();
+            match &item.kind {
+                ProjectTreeItemKind::SceneCandidate
+                | ProjectTreeItemKind::Example
+                | ProjectTreeItemKind::Module => {
+                    self.scene_path = item.path.clone();
+                }
+                ProjectTreeItemKind::Asset => {}
+            }
+            self.push_transcript(format!("Selecionado na arvore: {}", item.path));
+        }
+        response.dnd_set_drag_payload(ProjectDragPayload {
+            label: item.label.clone(),
+            path: item.path.clone(),
+            kind: item.kind.clone(),
+        });
+        response.on_hover_text(&item.path);
     }
 
     fn selected_project_item(&self) -> Option<ProjectTreeItem> {
@@ -558,6 +615,7 @@ impl BorealisEditorApp {
         parent: String,
         tags: Vec<String>,
         transform: Transform2D,
+        model_asset: String,
     ) {
         if let Some(entity) = self.scene_entity_info_mut(stable_id) {
             entity.name = name;
@@ -565,6 +623,7 @@ impl BorealisEditorApp {
             entity.parent = parent;
             entity.tags = tags;
             entity.transform = transform;
+            entity.model_asset = model_asset;
         }
         self.scene_dirty = true;
     }
@@ -604,12 +663,11 @@ impl BorealisEditorApp {
             parent: String::new(),
             tags: Vec::new(),
             components: Vec::new(),
+            model_asset: String::new(),
             transform: Transform2D {
                 x: 96.0 + (index as f32 * 24.0),
                 y: 96.0 + (index as f32 * 16.0),
-                rotation: 0.0,
-                scale_x: 1.0,
-                scale_y: 1.0,
+                ..Transform2D::default()
             },
         };
 
@@ -618,6 +676,99 @@ impl BorealisEditorApp {
         self.scene_dirty = true;
         self.request_focus_selected_in_viewport();
         self.push_transcript(format!("Entidade criada: {} ({})", name, stable_id));
+    }
+
+    fn create_scene_primitive_in_model(&mut self, component: &str, name: &str) {
+        let index = self.next_scene_entity_index();
+        let stable_id = format!("entity-{index:02}");
+        let x = 96.0 + (index as f32 * 28.0);
+        let y = 96.0 + (index as f32 * 18.0);
+
+        let Some(document) = self.scene_document.as_mut() else {
+            self.push_transcript("nenhuma cena carregada para criar objeto 3D");
+            return;
+        };
+
+        let entity = SceneEntity {
+            stable_id: stable_id.clone(),
+            name: name.to_string(),
+            layer: "world3d".to_string(),
+            parent: String::new(),
+            tags: vec!["3d".to_string()],
+            components: vec![component.to_string()],
+            model_asset: String::new(),
+            transform: Transform2D {
+                x,
+                y,
+                z: if component == "camera3d" { 96.0 } else { 0.0 },
+                ..Transform2D::default()
+            },
+        };
+
+        document.entities.push(entity);
+        self.viewport_tab = ViewportTab::Scene3D;
+        self.set_selected_scene_entity(&stable_id, name, true);
+        self.scene_dirty = true;
+        self.request_focus_selected_in_viewport();
+        self.push_transcript(format!("Objeto 3D criado: {} ({})", name, stable_id));
+    }
+
+    fn create_scene_entity_from_asset(
+        &mut self,
+        payload: &ProjectDragPayload,
+        x: f32,
+        y: f32,
+        z: f32,
+    ) {
+        let index = self.next_scene_entity_index();
+        let stable_id = format!("entity-{index:02}");
+        let name = asset_entity_name(&payload.label);
+        let is_model = asset_is_model3d(&payload.path);
+        let component = if is_model { "model3d" } else { "sprite" };
+
+        let Some(document) = self.scene_document.as_mut() else {
+            self.push_transcript("nenhuma cena carregada para receber asset");
+            return;
+        };
+
+        let entity = SceneEntity {
+            stable_id: stable_id.clone(),
+            name: name.clone(),
+            layer: if is_model {
+                "world3d".to_string()
+            } else {
+                "default".to_string()
+            },
+            parent: String::new(),
+            tags: if is_model {
+                vec!["3d".to_string(), "asset".to_string()]
+            } else {
+                vec!["asset".to_string()]
+            },
+            components: vec![component.to_string()],
+            model_asset: if is_model {
+                payload.path.clone()
+            } else {
+                String::new()
+            },
+            transform: Transform2D {
+                x,
+                y,
+                z,
+                ..Transform2D::default()
+            },
+        };
+
+        document.entities.push(entity);
+        if is_model {
+            self.viewport_tab = ViewportTab::Scene3D;
+        }
+        self.set_selected_scene_entity(&stable_id, &name, true);
+        self.scene_dirty = true;
+        self.push_transcript(format!(
+            "Asset solto na cena: {} -> {}",
+            payload.path, stable_id
+        ));
     }
 
     fn remove_selected_scene_entity_from_model(&mut self) {
@@ -834,9 +985,14 @@ impl BorealisEditorApp {
         let mut tags = entity.tags.join(", ");
         let mut x = entity.transform.x;
         let mut y = entity.transform.y;
+        let mut z = entity.transform.z;
         let mut rotation = entity.transform.rotation;
+        let mut rotation_x = entity.transform.rotation_x;
+        let mut rotation_y = entity.transform.rotation_y;
         let mut scale_x = entity.transform.scale_x;
         let mut scale_y = entity.transform.scale_y;
+        let mut scale_z = entity.transform.scale_z;
+        let mut model_asset = entity.model_asset.clone();
         let mut changed = false;
 
         changed |= inspector_text_field(ui, "Name", &mut name);
@@ -861,6 +1017,9 @@ impl BorealisEditorApp {
             changed |= ui
                 .add(egui::DragValue::new(&mut y).speed(1.0).prefix("y "))
                 .changed();
+            changed |= ui
+                .add(egui::DragValue::new(&mut z).speed(1.0).prefix("z "))
+                .changed();
         });
 
         ui.horizontal(|ui| {
@@ -878,6 +1037,9 @@ impl BorealisEditorApp {
             changed |= ui
                 .add(egui::DragValue::new(&mut scale_y).speed(0.05).prefix("y "))
                 .changed();
+            changed |= ui
+                .add(egui::DragValue::new(&mut scale_z).speed(0.05).prefix("z "))
+                .changed();
         });
 
         ui.horizontal(|ui| {
@@ -890,9 +1052,28 @@ impl BorealisEditorApp {
                 ),
             );
             changed |= ui
-                .add(egui::DragValue::new(&mut rotation).speed(1.0))
+                .add(
+                    egui::DragValue::new(&mut rotation_x)
+                        .speed(1.0)
+                        .prefix("x "),
+                )
+                .changed();
+            changed |= ui
+                .add(
+                    egui::DragValue::new(&mut rotation_y)
+                        .speed(1.0)
+                        .prefix("y "),
+                )
+                .changed();
+            changed |= ui
+                .add(egui::DragValue::new(&mut rotation).speed(1.0).prefix("z "))
                 .changed();
         });
+
+        if entity_is_3d(&entity) {
+            section_caption(ui, "3D Asset");
+            changed |= inspector_text_field(ui, "Model", &mut model_asset);
+        }
 
         let mut remove_component = None;
         let mut add_component = None;
@@ -939,6 +1120,10 @@ impl BorealisEditorApp {
                 "ai",
                 "collider2d",
                 "script",
+                "model3d",
+                "cube3d",
+                "camera3d",
+                "light3d",
             ] {
                 if ui.button(component).clicked() {
                     add_component = Some(component.to_string());
@@ -957,10 +1142,15 @@ impl BorealisEditorApp {
                 Transform2D {
                     x,
                     y,
+                    z,
                     rotation,
+                    rotation_x,
+                    rotation_y,
                     scale_x,
                     scale_y,
+                    scale_z,
                 },
+                model_asset,
             );
         }
 
@@ -1292,6 +1482,16 @@ impl BorealisEditorApp {
         }
     }
 
+    fn pause_play_mode_from_ui(&mut self) {
+        match self.preview.pause_play_mode() {
+            Ok(_) => {
+                self.flush_preview_messages();
+                self.push_transcript("Play mode paused".to_string());
+            }
+            Err(error) => self.push_transcript(format!("erro ao pausar: {error}")),
+        }
+    }
+
     fn stop_preview_from_ui(&mut self) {
         match self.preview.stop_preview() {
             Ok(_) => {
@@ -1356,6 +1556,12 @@ impl BorealisEditorApp {
                     ui.menu_button("GameObject", |ui| {
                         if ui.button("Create Entity").clicked() {
                             self.create_scene_entity_in_model();
+                        }
+                        if ui.button("Create 3D Cube").clicked() {
+                            self.create_scene_primitive_in_model("cube3d", "Cube 3D");
+                        }
+                        if ui.button("Create 3D Camera").clicked() {
+                            self.create_scene_primitive_in_model("camera3d", "Camera 3D");
                         }
                         if ui.button("Delete Selected").clicked() {
                             self.remove_selected_scene_entity_from_model();
@@ -1448,6 +1654,84 @@ impl BorealisEditorApp {
                 }
                 ui.separator();
 
+                let is_playing = self.preview.current_status() == PreviewStatus::Playing;
+                let is_paused = self.preview.current_status() == PreviewStatus::Paused;
+
+                if ui
+                    .add(
+                        egui::Button::new(
+                            egui::RichText::new(if is_playing { "\u{25A0}" } else { "\u{25B6}" })
+                                .size(12.0)
+                                .strong()
+                                .color(if is_playing {
+                                    rgb(255, 255, 255)
+                                } else {
+                                    rgb(255, 255, 255)
+                                }),
+                        )
+                        .fill(if is_playing {
+                            color_play()
+                        } else {
+                            rgb(72, 145, 72)
+                        })
+                        .min_size(egui::vec2(28.0, 24.0))
+                        .corner_radius(egui::CornerRadius::same(3)),
+                    )
+                    .on_hover_text(if is_playing { "Stop Play" } else { "Play" })
+                    .clicked()
+                {
+                    if is_playing {
+                        self.stop_preview_from_ui();
+                    } else {
+                        self.enter_play_mode_from_ui();
+                    }
+                }
+
+                let pause_button = egui::Button::new(
+                    egui::RichText::new("\u{23EA}")
+                        .size(12.0)
+                        .strong()
+                        .color(rgb(255, 255, 255)),
+                )
+                .fill(if is_paused {
+                    rgb(180, 140, 50)
+                } else {
+                    rgb(120, 120, 120)
+                })
+                .min_size(egui::vec2(28.0, 24.0))
+                .corner_radius(egui::CornerRadius::same(3));
+                if ui
+                    .add_enabled(!is_playing || is_paused, pause_button)
+                    .on_hover_text("Pause")
+                    .clicked()
+                {
+                    if is_playing {
+                        self.pause_play_mode_from_ui();
+                    } else {
+                        self.enter_play_mode_from_ui();
+                        self.pause_play_mode_from_ui();
+                    }
+                }
+
+                let step_button = egui::Button::new(
+                    egui::RichText::new("\u{23E9}")
+                        .size(12.0)
+                        .strong()
+                        .color(rgb(255, 255, 255)),
+                )
+                .fill(rgb(120, 120, 120))
+                .min_size(egui::vec2(28.0, 24.0))
+                .corner_radius(egui::CornerRadius::same(3));
+                if ui
+                    .add_enabled(is_playing || is_paused, step_button)
+                    .on_hover_text("Step Forward")
+                    .clicked()
+                {
+                    self.push_transcript("Step forward (frame by frame)".to_string());
+                }
+
+                ui.separator();
+
                 if mini_button(ui, "Start", "Iniciar preview").clicked() {
                     self.start_preview_from_ui();
                 }
@@ -1459,21 +1743,6 @@ impl BorealisEditorApp {
                 }
 
                 ui.separator();
-                if ui
-                    .add(
-                        egui::Button::new(egui::RichText::new("Play").size(11.0))
-                            .fill(rgb(54, 86, 58))
-                            .min_size(egui::vec2(46.0, 20.0))
-                            .corner_radius(egui::CornerRadius::same(2)),
-                    )
-                    .on_hover_text("Entrar em play mode")
-                    .clicked()
-                {
-                    self.enter_play_mode_from_ui();
-                }
-                if mini_button(ui, "Stop", "Parar preview").clicked() {
-                    self.stop_preview_from_ui();
-                }
                 if mini_button(ui, "Ping", "Enviar ping ao preview").clicked() {
                     self.ping_preview_from_ui();
                 }
@@ -1657,6 +1926,16 @@ impl BorealisEditorApp {
                         }
                         if mini_toggle(
                             ui,
+                            self.viewport_tab == ViewportTab::Scene3D,
+                            LABEL_SCENE_3D,
+                            "Scene view 3D",
+                        )
+                        .clicked()
+                        {
+                            self.viewport_tab = ViewportTab::Scene3D;
+                        }
+                        if mini_toggle(
+                            ui,
                             self.viewport_tab == ViewportTab::Game,
                             LABEL_GAME,
                             "Game view",
@@ -1694,7 +1973,15 @@ impl BorealisEditorApp {
                                 format!("{:.0}%", self.viewport_zoom * 100.0),
                                 color_text_dim(),
                             );
-                            status_chip(ui, "2D", color_text_dim());
+                            status_chip(
+                                ui,
+                                if self.viewport_tab == ViewportTab::Scene3D {
+                                    "3D"
+                                } else {
+                                    "2D"
+                                },
+                                color_text_dim(),
+                            );
                             status_chip(ui, "Shaded", color_text_dim());
                         });
                     });
@@ -1760,11 +2047,81 @@ impl BorealisEditorApp {
                 egui::Stroke::new(1.0, color_border_dark()),
                 egui::StrokeKind::Inside,
             );
-            if self.viewport_tab == ViewportTab::Scene {
-                draw_viewport_grid(ui, rect, self.viewport_pan, self.viewport_zoom);
-                draw_viewport_gizmo(ui, rect);
+            match self.viewport_tab {
+                ViewportTab::Scene => {
+                    draw_viewport_grid(ui, rect, self.viewport_pan, self.viewport_zoom);
+                    draw_viewport_gizmo(ui, rect);
+                }
+                ViewportTab::Scene3D => {
+                    draw_viewport_grid_3d(ui, rect, self.viewport_pan, self.viewport_zoom);
+                    draw_viewport_gizmo_3d(ui, rect);
+                }
+                ViewportTab::Game => {}
             }
             let entity_interaction = self.draw_scene_entities(ui, rect);
+
+            if let Some(payload) = response.dnd_hover_payload::<ProjectDragPayload>() {
+                let is_supported = payload.kind == ProjectTreeItemKind::Asset
+                    && (asset_is_model3d(&payload.path) || asset_is_image2d(&payload.path));
+                let text = if is_supported {
+                    format!("Drop {}", payload.label)
+                } else {
+                    format!("Cannot drop {}", payload.label)
+                };
+                let overlay_rect =
+                    egui::Rect::from_center_size(rect.center(), egui::vec2(220.0, 38.0));
+                ui.painter().rect_filled(overlay_rect, 3.0, rgb(42, 42, 42));
+                ui.painter().rect_stroke(
+                    overlay_rect,
+                    3.0,
+                    egui::Stroke::new(
+                        1.0,
+                        if is_supported {
+                            color_accent()
+                        } else {
+                            color_warning()
+                        },
+                    ),
+                    egui::StrokeKind::Inside,
+                );
+                ui.painter().text(
+                    overlay_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    text,
+                    egui::FontId::monospace(11.0),
+                    color_text(),
+                );
+            }
+
+            if let Some(payload) = response.dnd_release_payload::<ProjectDragPayload>() {
+                if payload.kind == ProjectTreeItemKind::Asset
+                    && (asset_is_model3d(&payload.path) || asset_is_image2d(&payload.path))
+                {
+                    let pointer = ui
+                        .input(|input| input.pointer.interact_pos())
+                        .unwrap_or(rect.center());
+                    if self.viewport_tab == ViewportTab::Scene3D || asset_is_model3d(&payload.path)
+                    {
+                        let (x, y) = viewport_to_scene3d_ground(
+                            rect,
+                            self.viewport_pan,
+                            self.viewport_zoom,
+                            pointer,
+                            0.0,
+                        );
+                        self.create_scene_entity_from_asset(&payload, x, y, 0.0);
+                    } else {
+                        let (x, y) =
+                            viewport_to_scene(rect, self.viewport_pan, self.viewport_zoom, pointer);
+                        self.create_scene_entity_from_asset(&payload, x, y, 0.0);
+                    }
+                } else {
+                    self.push_transcript(format!(
+                        "Drop ignorado: {} nao e asset visual suportado",
+                        payload.path
+                    ));
+                }
+            }
 
             match self.viewport_tab {
                 ViewportTab::Scene => {
@@ -1779,6 +2136,22 @@ impl BorealisEditorApp {
                         rect.left_bottom() + egui::vec2(10.0, -10.0),
                         egui::Align2::LEFT_BOTTOM,
                         "Middle mouse pans. Wheel zooms. Move tool drags objects.",
+                        egui::FontId::monospace(10.5),
+                        color_text_faint(),
+                    );
+                }
+                ViewportTab::Scene3D => {
+                    ui.painter().text(
+                        rect.left_top() + egui::vec2(10.0, 8.0),
+                        egui::Align2::LEFT_TOP,
+                        "Scene 3D | Pivot | Global",
+                        egui::FontId::monospace(10.5),
+                        color_text_dim(),
+                    );
+                    ui.painter().text(
+                        rect.left_bottom() + egui::vec2(10.0, -10.0),
+                        egui::Align2::LEFT_BOTTOM,
+                        "Drag models from Project. Move tool drags on ground plane.",
                         egui::FontId::monospace(10.5),
                         color_text_faint(),
                     );
@@ -1801,7 +2174,7 @@ impl BorealisEditorApp {
                 }
             }
 
-            if self.viewport_tab == ViewportTab::Scene
+            if matches!(self.viewport_tab, ViewportTab::Scene | ViewportTab::Scene3D)
                 && response.clicked_by(egui::PointerButton::Primary)
                 && !entity_interaction
             {
@@ -1824,24 +2197,39 @@ impl BorealisEditorApp {
         let Some(document) = self.scene_document.clone() else {
             return false;
         };
-        let allow_transform =
-            self.viewport_tab == ViewportTab::Scene && self.transform_tool == TransformTool::Move;
-        let allow_selection = self.viewport_tab == ViewportTab::Scene;
+        let is_scene_view = matches!(self.viewport_tab, ViewportTab::Scene | ViewportTab::Scene3D);
+        let is_scene_3d = self.viewport_tab == ViewportTab::Scene3D;
+        let allow_transform = is_scene_view && self.transform_tool == TransformTool::Move;
+        let allow_selection = is_scene_view;
         let mut entity_interaction = false;
         let mut selected_gizmo = None;
 
         for entity in document.entities {
             let id = ui.make_persistent_id(("scene_entity", entity.stable_id.clone()));
-            let position = scene_to_viewport(
-                rect,
-                self.viewport_pan,
-                self.viewport_zoom,
-                entity.transform.x,
-                entity.transform.y,
-            );
+            let position = if is_scene_3d {
+                scene3d_to_viewport(
+                    rect,
+                    self.viewport_pan,
+                    self.viewport_zoom,
+                    entity.transform.x,
+                    entity.transform.y,
+                    entity.transform.z,
+                )
+            } else {
+                scene_to_viewport(
+                    rect,
+                    self.viewport_pan,
+                    self.viewport_zoom,
+                    entity.transform.x,
+                    entity.transform.y,
+                )
+            };
             let size = egui::vec2(
                 (54.0 * entity.transform.scale_x * self.viewport_zoom).max(18.0),
-                (34.0 * entity.transform.scale_y * self.viewport_zoom).max(14.0),
+                ((if is_scene_3d { 46.0 } else { 34.0 })
+                    * entity.transform.scale_y
+                    * self.viewport_zoom)
+                    .max(14.0),
             );
             let entity_rect = egui::Rect::from_center_size(position, size);
             let response = ui.interact(
@@ -1864,8 +2252,17 @@ impl BorealisEditorApp {
                 self.viewport_drag_grab_offset = ui
                     .input(|input| input.pointer.interact_pos())
                     .map(|pointer| {
-                        let (scene_x, scene_y) =
-                            viewport_to_scene(rect, self.viewport_pan, self.viewport_zoom, pointer);
+                        let (scene_x, scene_y) = if is_scene_3d {
+                            viewport_to_scene3d_ground(
+                                rect,
+                                self.viewport_pan,
+                                self.viewport_zoom,
+                                pointer,
+                                entity.transform.z,
+                            )
+                        } else {
+                            viewport_to_scene(rect, self.viewport_pan, self.viewport_zoom, pointer)
+                        };
                         (entity.transform.x - scene_x, entity.transform.y - scene_y)
                     });
                 self.viewport_drag_moved = false;
@@ -1879,8 +2276,17 @@ impl BorealisEditorApp {
                     ui.input(|input| input.pointer.interact_pos()),
                     self.viewport_drag_grab_offset,
                 ) {
-                    let (scene_x, scene_y) =
-                        viewport_to_scene(rect, self.viewport_pan, self.viewport_zoom, pointer);
+                    let (scene_x, scene_y) = if is_scene_3d {
+                        viewport_to_scene3d_ground(
+                            rect,
+                            self.viewport_pan,
+                            self.viewport_zoom,
+                            pointer,
+                            entity.transform.z,
+                        )
+                    } else {
+                        viewport_to_scene(rect, self.viewport_pan, self.viewport_zoom, pointer)
+                    };
                     self.update_scene_entity_position(
                         &entity.stable_id,
                         scene_x + grab_x,
@@ -1898,27 +2304,33 @@ impl BorealisEditorApp {
             } else if entity
                 .components
                 .iter()
-                .any(|component| component == "camera2d")
+                .any(|component| component == "camera2d" || component == "camera3d")
             {
                 color_camera()
+            } else if entity_is_3d(&entity) {
+                rgb(86, 90, 96)
             } else {
                 color_entity()
             };
 
-            ui.painter().rect_filled(entity_rect, 2.0, fill);
-            ui.painter().rect_stroke(
-                entity_rect,
-                2.0,
-                egui::Stroke::new(
-                    if selected { 2.0 } else { 1.0 },
-                    if selected {
-                        rgb(166, 203, 244)
-                    } else {
-                        rgb(118, 118, 118)
-                    },
-                ),
-                egui::StrokeKind::Inside,
-            );
+            if is_scene_3d && entity_is_3d(&entity) {
+                draw_entity_box_3d(ui, entity_rect, fill, selected);
+            } else {
+                ui.painter().rect_filled(entity_rect, 2.0, fill);
+                ui.painter().rect_stroke(
+                    entity_rect,
+                    2.0,
+                    egui::Stroke::new(
+                        if selected { 2.0 } else { 1.0 },
+                        if selected {
+                            rgb(166, 203, 244)
+                        } else {
+                            rgb(118, 118, 118)
+                        },
+                    ),
+                    egui::StrokeKind::Inside,
+                );
+            }
             if selected {
                 selected_gizmo = Some((entity.clone(), entity_rect));
                 ui.painter().rect_stroke(
@@ -1935,13 +2347,18 @@ impl BorealisEditorApp {
                 egui::FontId::monospace(11.0),
                 rgb(236, 236, 236),
             );
+            if is_scene_view {
+                draw_entity_pivot_gizmo(ui, position, is_scene_3d);
+            }
             response.on_hover_text(format!(
-                "{}\nid: {}\nposition: {:.1}, {:.1}\ncomponents: {}",
+                "{}\nid: {}\nposition: {:.1}, {:.1}, {:.1}\ncomponents: {}\nmodel: {}",
                 entity.name,
                 entity.stable_id,
                 entity.transform.x,
                 entity.transform.y,
-                list_label(&entity.components)
+                entity.transform.z,
+                list_label(&entity.components),
+                empty_as_dash(&entity.model_asset)
             ));
         }
 
@@ -1952,6 +2369,7 @@ impl BorealisEditorApp {
                 entity_rect,
                 self.transform_tool,
                 self.viewport_zoom,
+                is_scene_3d,
             );
         }
 
@@ -1980,7 +2398,31 @@ impl BorealisEditorApp {
 
             ui.vertical(|ui| {
                 ui.set_width((ui.available_width() * 0.42).clamp(260.0, 420.0));
-                section_caption(ui, "Assets and scripts");
+                ui.horizontal(|ui| {
+                    section_caption(ui, "Assets and scripts");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if mini_toggle(
+                            ui,
+                            self.asset_view_mode == AssetViewMode::List,
+                            "List",
+                            "List view",
+                        )
+                        .clicked()
+                        {
+                            self.asset_view_mode = AssetViewMode::List;
+                        }
+                        if mini_toggle(
+                            ui,
+                            self.asset_view_mode == AssetViewMode::Icon,
+                            "Grid",
+                            "Grid view",
+                        )
+                        .clicked()
+                        {
+                            self.asset_view_mode = AssetViewMode::Icon;
+                        }
+                    });
+                });
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
@@ -2156,8 +2598,8 @@ impl eframe::App for BorealisEditorApp {
 
         egui::SidePanel::right(INSPECTOR_DOCK_ID)
             .resizable(true)
-            .default_width(252.0)
-            .width_range(218.0..=380.0)
+            .default_width(236.0)
+            .width_range(198.0..=340.0)
             .frame(dock_frame())
             .show(ctx, |ui| {
                 self.render_right_dock(ui);
@@ -2243,6 +2685,46 @@ fn list_label(items: &[String]) -> String {
     }
 }
 
+fn entity_is_3d(entity: &SceneEntity) -> bool {
+    !entity.model_asset.is_empty()
+        || entity.transform.z.abs() > f32::EPSILON
+        || entity.components.iter().any(|component| {
+            matches!(
+                component.as_str(),
+                "model3d" | "mesh3d" | "cube3d" | "camera3d" | "light3d" | "static_model"
+            )
+        })
+}
+
+fn asset_is_model3d(path: &str) -> bool {
+    matches!(
+        path_extension(path).as_str(),
+        "obj" | "glb" | "gltf" | "fbx" | "iqm" | "m3d"
+    )
+}
+
+fn asset_is_image2d(path: &str) -> bool {
+    matches!(
+        path_extension(path).as_str(),
+        "png" | "jpg" | "jpeg" | "webp"
+    )
+}
+
+fn asset_entity_name(label: &str) -> String {
+    let base = label.rsplit('/').next().unwrap_or(label);
+    base.rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(base)
+        .replace('_', " ")
+        .replace('-', " ")
+}
+
+fn path_extension(path: &str) -> String {
+    path.rsplit_once('.')
+        .map(|(_, extension)| extension.to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
 fn parse_tags_input(value: &str) -> Vec<String> {
     value
         .split(',')
@@ -2280,9 +2762,17 @@ fn scene_hierarchy_label(entity: &SceneEntity, selected: bool) -> egui::RichText
     let icon = if entity
         .components
         .iter()
+        .any(|component| component == "camera3d")
+    {
+        "cam3"
+    } else if entity
+        .components
+        .iter()
         .any(|component| component == "camera2d")
     {
         "cam"
+    } else if entity_is_3d(entity) {
+        "3d"
     } else if entity.parent.is_empty() {
         "obj"
     } else {
@@ -2316,6 +2806,87 @@ fn viewport_to_scene(
         (position.x - rect.left() - pan.x) / zoom,
         (position.y - rect.top() - pan.y) / zoom,
     )
+}
+
+fn scene3d_to_viewport(
+    rect: egui::Rect,
+    pan: egui::Vec2,
+    zoom: f32,
+    x: f32,
+    y: f32,
+    z: f32,
+) -> egui::Pos2 {
+    let projected_x = x - (y * 0.72);
+    let projected_y = (x * 0.18) + (y * 0.42) - z;
+    egui::pos2(
+        rect.left() + pan.x + (projected_x * zoom),
+        rect.top() + pan.y + (projected_y * zoom),
+    )
+}
+
+fn viewport_to_scene3d_ground(
+    rect: egui::Rect,
+    pan: egui::Vec2,
+    zoom: f32,
+    position: egui::Pos2,
+    z: f32,
+) -> (f32, f32) {
+    let projected_x = (position.x - rect.left() - pan.x) / zoom;
+    let projected_y = ((position.y - rect.top() - pan.y) / zoom) + z;
+    let y = (projected_y - (0.18 * projected_x)) / 0.5496;
+    let x = projected_x + (0.72 * y);
+    (x, y)
+}
+
+fn draw_viewport_grid_3d(ui: &egui::Ui, rect: egui::Rect, pan: egui::Vec2, zoom: f32) {
+    let minor = egui::Stroke::new(1.0, color_grid_minor());
+    let major = egui::Stroke::new(1.0, color_grid_major());
+    let axis_x = egui::Stroke::new(1.4, color_axis_x());
+    let axis_y = egui::Stroke::new(1.4, color_axis_y());
+    let axis_z = egui::Stroke::new(1.6, color_axis_z());
+    let extent = 2048.0;
+    let step = 64.0;
+
+    for index in -24..=24 {
+        let value = index as f32 * step;
+        let stroke = if index % 4 == 0 { major } else { minor };
+        ui.painter().line_segment(
+            [
+                scene3d_to_viewport(rect, pan, zoom, value, -extent, 0.0),
+                scene3d_to_viewport(rect, pan, zoom, value, extent, 0.0),
+            ],
+            stroke,
+        );
+        ui.painter().line_segment(
+            [
+                scene3d_to_viewport(rect, pan, zoom, -extent, value, 0.0),
+                scene3d_to_viewport(rect, pan, zoom, extent, value, 0.0),
+            ],
+            stroke,
+        );
+    }
+
+    ui.painter().line_segment(
+        [
+            scene3d_to_viewport(rect, pan, zoom, -extent, 0.0, 0.0),
+            scene3d_to_viewport(rect, pan, zoom, extent, 0.0, 0.0),
+        ],
+        axis_x,
+    );
+    ui.painter().line_segment(
+        [
+            scene3d_to_viewport(rect, pan, zoom, 0.0, -extent, 0.0),
+            scene3d_to_viewport(rect, pan, zoom, 0.0, extent, 0.0),
+        ],
+        axis_y,
+    );
+    ui.painter().line_segment(
+        [
+            scene3d_to_viewport(rect, pan, zoom, 0.0, 0.0, 0.0),
+            scene3d_to_viewport(rect, pan, zoom, 0.0, 0.0, 240.0),
+        ],
+        axis_z,
+    );
 }
 
 fn draw_viewport_grid(ui: &egui::Ui, rect: egui::Rect, pan: egui::Vec2, zoom: f32) {
@@ -2417,12 +2988,88 @@ fn draw_viewport_gizmo(ui: &egui::Ui, rect: egui::Rect) {
     );
 }
 
+fn draw_viewport_gizmo_3d(ui: &egui::Ui, rect: egui::Rect) {
+    let origin = rect.right_top() + egui::vec2(-66.0, 54.0);
+    let x_end = origin + egui::vec2(34.0, 8.0);
+    let y_end = origin + egui::vec2(-28.0, 14.0);
+    let z_end = origin + egui::vec2(0.0, -36.0);
+
+    draw_gizmo_arrow(ui.painter(), origin, x_end, color_axis_x());
+    draw_gizmo_arrow(ui.painter(), origin, y_end, color_axis_y());
+    draw_gizmo_arrow(ui.painter(), origin, z_end, color_axis_z());
+    ui.painter().circle_filled(origin, 3.0, color_text_dim());
+    ui.painter().text(
+        x_end + egui::vec2(4.0, 1.0),
+        egui::Align2::LEFT_CENTER,
+        "X",
+        egui::FontId::monospace(10.0),
+        color_axis_x(),
+    );
+    ui.painter().text(
+        y_end + egui::vec2(-4.0, 2.0),
+        egui::Align2::RIGHT_CENTER,
+        "Y",
+        egui::FontId::monospace(10.0),
+        color_axis_y(),
+    );
+    ui.painter().text(
+        z_end + egui::vec2(0.0, -4.0),
+        egui::Align2::CENTER_BOTTOM,
+        "Z",
+        egui::FontId::monospace(10.0),
+        color_axis_z(),
+    );
+}
+
+fn draw_entity_box_3d(ui: &egui::Ui, rect: egui::Rect, fill: egui::Color32, selected: bool) {
+    let top_offset = egui::vec2(-8.0, -8.0);
+    let side_offset = egui::vec2(10.0, -5.0);
+    let top = rect.translate(top_offset);
+    let side = rect.translate(side_offset);
+    let stroke = egui::Stroke::new(
+        if selected { 2.0 } else { 1.0 },
+        if selected {
+            rgb(166, 203, 244)
+        } else {
+            rgb(104, 104, 104)
+        },
+    );
+
+    ui.painter().rect_filled(side, 2.0, rgb(45, 47, 50));
+    ui.painter().rect_filled(rect, 2.0, fill);
+    ui.painter().rect_filled(top, 2.0, rgb(94, 98, 106));
+    ui.painter()
+        .rect_stroke(rect, 2.0, stroke, egui::StrokeKind::Inside);
+    ui.painter()
+        .rect_stroke(top, 2.0, stroke, egui::StrokeKind::Inside);
+}
+
+fn draw_entity_pivot_gizmo(ui: &egui::Ui, center: egui::Pos2, is_3d: bool) {
+    let painter = ui.painter();
+    painter.circle_filled(center, 2.5, rgb(236, 236, 236));
+    painter.line_segment(
+        [center, center + egui::vec2(14.0, 0.0)],
+        egui::Stroke::new(1.4, color_axis_x()),
+    );
+    painter.line_segment(
+        [center, center + egui::vec2(0.0, -14.0)],
+        egui::Stroke::new(1.4, color_axis_y()),
+    );
+    if is_3d {
+        painter.line_segment(
+            [center, center + egui::vec2(-10.0, -9.0)],
+            egui::Stroke::new(1.4, color_axis_z()),
+        );
+    }
+}
+
 fn draw_selected_entity_gizmo(
     ui: &egui::Ui,
     entity: &SceneEntity,
     entity_rect: egui::Rect,
     tool: TransformTool,
     zoom: f32,
+    is_3d: bool,
 ) {
     let center = entity_rect.center();
     let arm = (38.0 * zoom).clamp(28.0, 78.0);
@@ -2461,6 +3108,14 @@ fn draw_selected_entity_gizmo(
                 center + egui::vec2(0.0, -arm),
                 color_axis_y(),
             );
+            if is_3d {
+                draw_gizmo_arrow(
+                    painter,
+                    center,
+                    center + egui::vec2(-arm * 0.62, -arm * 0.48),
+                    color_axis_z(),
+                );
+            }
             draw_gizmo_square_handle(painter, center + egui::vec2(12.0, -12.0), 9.0, color_text());
         }
         TransformTool::Rotate => {
@@ -2485,6 +3140,11 @@ fn draw_selected_entity_gizmo(
 
             painter.line_segment([center, x_end], egui::Stroke::new(2.0, color_axis_x()));
             painter.line_segment([center, y_end], egui::Stroke::new(2.0, color_axis_y()));
+            if is_3d {
+                let z_end = center + egui::vec2(-arm * 0.62, -arm * 0.48);
+                painter.line_segment([center, z_end], egui::Stroke::new(2.0, color_axis_z()));
+                draw_gizmo_square_handle(painter, z_end, 10.0, color_axis_z());
+            }
             painter.line_segment([x_end, corner], egui::Stroke::new(1.5, color_text_dim()));
             painter.line_segment([y_end, corner], egui::Stroke::new(1.5, color_text_dim()));
             draw_gizmo_square_handle(painter, x_end, 10.0, color_axis_x());
@@ -2638,11 +3298,15 @@ fn color_grid_major() -> egui::Color32 {
 }
 
 fn color_axis_x() -> egui::Color32 {
-    rgb(146, 77, 73)
+    rgb(196, 84, 80)
 }
 
 fn color_axis_y() -> egui::Color32 {
-    rgb(88, 126, 78)
+    rgb(98, 151, 86)
+}
+
+fn color_axis_z() -> egui::Color32 {
+    rgb(80, 139, 206)
 }
 
 fn top_bar_frame() -> egui::Frame {
@@ -2961,6 +3625,50 @@ mod tests {
             .expect("player entity should exist");
         assert_eq!(entity.components, vec!["sprite", "collider2d"]);
         assert!(app.scene_dirty);
+    }
+
+    #[test]
+    fn creating_3d_primitive_switches_to_3d_scene_view() {
+        let ctx = egui::Context::default();
+        let mut app = BorealisEditorApp::new_with_context(&ctx);
+
+        app.create_scene_primitive_in_model("cube3d", "Cube 3D");
+
+        let entity = app
+            .scene_entity_info(&app.selected_scene_entity)
+            .expect("created 3d entity should exist");
+        assert_eq!(app.viewport_tab, ViewportTab::Scene3D);
+        assert!(entity
+            .components
+            .iter()
+            .any(|component| component == "cube3d"));
+        assert_eq!(entity.layer, "world3d");
+        assert!(app.scene_dirty);
+    }
+
+    #[test]
+    fn dropping_3d_asset_creates_model_entity() {
+        let ctx = egui::Context::default();
+        let mut app = BorealisEditorApp::new_with_context(&ctx);
+        let payload = ProjectDragPayload {
+            label: "triangle.obj".to_string(),
+            path: "assets/triangle.obj".to_string(),
+            kind: ProjectTreeItemKind::Asset,
+        };
+
+        app.create_scene_entity_from_asset(&payload, 16.0, 24.0, 8.0);
+
+        let entity = app
+            .scene_entity_info(&app.selected_scene_entity)
+            .expect("dropped model entity should exist");
+        assert_eq!(app.viewport_tab, ViewportTab::Scene3D);
+        assert_eq!(entity.name, "triangle");
+        assert_eq!(entity.model_asset, "assets/triangle.obj");
+        assert_eq!(entity.transform.z, 8.0);
+        assert!(entity
+            .components
+            .iter()
+            .any(|component| component == "model3d"));
     }
 
     #[test]

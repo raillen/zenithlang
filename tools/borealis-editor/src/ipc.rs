@@ -305,6 +305,13 @@ impl PreviewBridge {
         Ok(line)
     }
 
+    pub fn pause_play_mode(&mut self) -> Result<String, String> {
+        self.current_status = PreviewStatus::Paused;
+        let line = self.send(PreviewChannel::Command, PreviewPayload::PausePlayMode)?;
+        self.flush_outgoing()?;
+        Ok(line)
+    }
+
     pub fn select_entity(&mut self, stable_id: String) -> Result<String, String> {
         let line = self.send(
             PreviewChannel::Command,
@@ -402,6 +409,21 @@ impl PreviewBridge {
                         PreviewChannel::Event,
                         PreviewPayload::Status {
                             status: PreviewStatus::Playing,
+                        },
+                    );
+                    if let Ok(line) = resp.to_json_line() {
+                        if let Ok(mock_env) = PreviewEnvelope::from_json_line(&line) {
+                            self.incoming.push(mock_env);
+                        }
+                    }
+                }
+                PreviewPayload::PausePlayMode => {
+                    let seq = self.alloc_seq();
+                    let resp = PreviewEnvelope::new(
+                        seq,
+                        PreviewChannel::Event,
+                        PreviewPayload::Status {
+                            status: PreviewStatus::Paused,
                         },
                     );
                     if let Ok(line) = resp.to_json_line() {

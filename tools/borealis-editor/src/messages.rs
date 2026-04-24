@@ -25,6 +25,7 @@ pub enum PreviewStatus {
     Loading,
     Ready,
     Playing,
+    Paused,
     Stopped,
 }
 
@@ -50,6 +51,7 @@ pub enum PreviewPayload {
         path: String,
     },
     EnterPlayMode,
+    PausePlayMode,
     StopPlayMode,
     SelectEntity {
         stable_id: String,
@@ -111,6 +113,7 @@ impl PreviewEnvelope {
             PreviewPayload::OpenProject { path } => format!("open_project path={path}"),
             PreviewPayload::OpenScene { path } => format!("open_scene path={path}"),
             PreviewPayload::EnterPlayMode => "enter_play_mode".to_owned(),
+            PreviewPayload::PausePlayMode => "pause_play_mode".to_owned(),
             PreviewPayload::StopPlayMode => "stop_play_mode".to_owned(),
             PreviewPayload::SelectEntity { stable_id } => {
                 format!("select_entity stable_id={stable_id}")

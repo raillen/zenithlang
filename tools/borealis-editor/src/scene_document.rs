@@ -30,6 +30,7 @@ pub struct SceneEntity {
     pub parent: String,
     pub tags: Vec<String>,
     pub components: Vec<String>,
+    pub model_asset: String,
     pub transform: Transform2D,
 }
 
@@ -37,9 +38,13 @@ pub struct SceneEntity {
 pub struct Transform2D {
     pub x: f32,
     pub y: f32,
+    pub z: f32,
     pub rotation: f32,
+    pub rotation_x: f32,
+    pub rotation_y: f32,
     pub scale_x: f32,
     pub scale_y: f32,
+    pub scale_z: f32,
 }
 
 impl Default for Transform2D {
@@ -47,9 +52,13 @@ impl Default for Transform2D {
         Self {
             x: 0.0,
             y: 0.0,
+            z: 0.0,
             rotation: 0.0,
+            rotation_x: 0.0,
+            rotation_y: 0.0,
             scale_x: 1.0,
             scale_y: 1.0,
+            scale_z: 1.0,
         }
     }
 }
@@ -161,6 +170,7 @@ fn load_json_scene(path: &Path, raw: &str) -> Result<SceneDocument, String> {
                 parent: json_text(entity, &["parent", "parent_id"]).unwrap_or_default(),
                 tags: json_tags(entity),
                 components: json_components(entity),
+                model_asset: json_model_asset(entity).unwrap_or_default(),
                 transform: json_transform(entity),
             });
         }
@@ -209,6 +219,7 @@ fn load_zt_scene(path: &Path, raw: &str) -> SceneDocument {
             parent: String::new(),
             tags: Vec::new(),
             components: Vec::new(),
+            model_asset: String::new(),
             transform: Transform2D::default(),
         });
     }
@@ -327,10 +338,30 @@ fn json_transform(value: &Value) -> Transform2D {
     Transform2D {
         x: json_number(transform, "x").unwrap_or(0.0),
         y: json_number(transform, "y").unwrap_or(0.0),
-        rotation: json_number(transform, "rotation").unwrap_or(0.0),
+        z: json_number(transform, "z").unwrap_or(0.0),
+        rotation: json_number(transform, "rotation")
+            .or_else(|| json_number(transform, "rotation_z"))
+            .unwrap_or(0.0),
+        rotation_x: json_number(transform, "rotation_x").unwrap_or(0.0),
+        rotation_y: json_number(transform, "rotation_y").unwrap_or(0.0),
         scale_x: json_number(transform, "scale_x").unwrap_or(1.0),
         scale_y: json_number(transform, "scale_y").unwrap_or(1.0),
+        scale_z: json_number(transform, "scale_z").unwrap_or(1.0),
     }
+}
+
+fn json_model_asset(value: &Value) -> Option<String> {
+    let components = value.get("components").and_then(Value::as_array)?;
+    for component in components {
+        let kind = json_text(component, &["kind", "type"])?;
+        if matches!(kind.as_str(), "model3d" | "mesh3d" | "static_model") {
+            if let Some(asset) = json_text(component, &["asset", "model", "path"]) {
+                return Some(asset);
+            }
+        }
+    }
+
+    None
 }
 
 fn json_number(value: &Value, key: &str) -> Option<f32> {
@@ -371,8 +402,21 @@ fn build_json_entity(entity: &SceneEntity, previous_entities: &[Value]) -> Value
         Value::Object(Map::from_iter([
             ("x".to_string(), json_number_value(entity.transform.x)),
             ("y".to_string(), json_number_value(entity.transform.y)),
+            ("z".to_string(), json_number_value(entity.transform.z)),
             (
                 "rotation".to_string(),
+                json_number_value(entity.transform.rotation),
+            ),
+            (
+                "rotation_x".to_string(),
+                json_number_value(entity.transform.rotation_x),
+            ),
+            (
+                "rotation_y".to_string(),
+                json_number_value(entity.transform.rotation_y),
+            ),
+            (
+                "rotation_z".to_string(),
                 json_number_value(entity.transform.rotation),
             ),
             (
@@ -383,6 +427,10 @@ fn build_json_entity(entity: &SceneEntity, previous_entities: &[Value]) -> Value
                 "scale_y".to_string(),
                 json_number_value(entity.transform.scale_y),
             ),
+            (
+                "scale_z".to_string(),
+                json_number_value(entity.transform.scale_z),
+            ),
         ])),
     );
     let previous_components = value
@@ -390,7 +438,11 @@ fn build_json_entity(entity: &SceneEntity, previous_entities: &[Value]) -> Value
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let rebuilt_components = build_json_components(&entity.components, &previous_components);
+    let rebuilt_components = build_json_components(
+        &entity.components,
+        &entity.model_asset,
+        &previous_components,
+    );
     if rebuilt_components.is_empty() {
         remove_value_key(&mut value, "components");
     } else {
@@ -400,7 +452,11 @@ fn build_json_entity(entity: &SceneEntity, previous_entities: &[Value]) -> Value
     value
 }
 
-fn build_json_components(components: &[String], previous_components: &[Value]) -> Vec<Value> {
+fn build_json_components(
+    components: &[String],
+    model_asset: &str,
+    previous_components: &[Value],
+) -> Vec<Value> {
     let mut reused = vec![false; previous_components.len()];
     let mut rebuilt = Vec::with_capacity(components.len());
 
@@ -428,6 +484,12 @@ fn build_json_components(components: &[String], previous_components: &[Value]) -
             set_value_string(&mut value, "type", component);
         } else {
             set_value_string(&mut value, "kind", component);
+        }
+
+        if matches!(component.as_str(), "model3d" | "mesh3d" | "static_model")
+            && !model_asset.is_empty()
+        {
+            set_value_string(&mut value, "asset", model_asset);
         }
 
         rebuilt.push(value);
@@ -513,6 +575,34 @@ mod tests {
     }
 
     #[test]
+    fn loads_borealis_sample_3d_scene_json() {
+        let project_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("packages/borealis");
+        let summary = ProjectSummary {
+            project_dir: normalize_path(&project_dir),
+            source_root: "src".to_string(),
+            ..ProjectSummary::default()
+        };
+
+        let document = load_scene_document(&summary, "scenes/sample_3d.scene.json")
+            .expect("sample 3d scene should load");
+        let model = document
+            .entities
+            .iter()
+            .find(|entity| entity.stable_id == "triangle-model")
+            .expect("model entity should exist");
+
+        assert_eq!(document.entities.len(), 3);
+        assert_eq!(model.model_asset, "assets/triangle.obj");
+        assert_eq!(model.transform.z, 0.0);
+        assert!(model
+            .components
+            .iter()
+            .any(|component| component == "model3d"));
+    }
+
+    #[test]
     fn saves_scene_document_roundtrip_with_edits() {
         let scene_source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -583,12 +673,17 @@ mod tests {
             parent: String::new(),
             tags: vec!["npc".to_string()],
             components: vec!["dialog".to_string()],
+            model_asset: String::new(),
             transform: Transform2D {
                 x: 320.0,
                 y: 180.0,
+                z: 0.0,
                 rotation: 0.0,
+                rotation_x: 0.0,
+                rotation_y: 0.0,
                 scale_x: 1.0,
                 scale_y: 1.0,
+                scale_z: 1.0,
             },
         });
         save_scene_document(&document).expect("scene should save");

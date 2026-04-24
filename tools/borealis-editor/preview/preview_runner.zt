@@ -27,6 +27,8 @@ func main() -> result<void, core.Error>
                     next_seq = respond_hello(next_seq)?
                 else if text.contains(trimmed, "\"kind\":\"enter_play_mode\"")
                     next_seq = respond_play_mode(next_seq)?
+                else if text.contains(trimmed, "\"kind\":\"pause_play_mode\"")
+                    next_seq = respond_pause_play_mode(next_seq)?
                 else if text.contains(trimmed, "\"kind\":\"stop_play_mode\"")
                     next_seq = respond_stop_play_mode(next_seq)?
                 else if text.contains(trimmed, "\"kind\":\"ping\"")
@@ -62,6 +64,12 @@ end
 
 func respond_play_mode(seq: int) -> result<int, core.Error>
     const status_resp: text = build_envelope(seq, "event", "status", "{\"status\":\"playing\"}")
+    io.write(status_resp)?
+    return success(seq + 1)
+end
+
+func respond_pause_play_mode(seq: int) -> result<int, core.Error>
+    const status_resp: text = build_envelope(seq, "event", "status", "{\"status\":\"paused\"}")
     io.write(status_resp)?
     return success(seq + 1)
 end

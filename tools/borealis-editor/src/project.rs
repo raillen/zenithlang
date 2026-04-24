@@ -214,7 +214,7 @@ pub fn load_project_summary(project_path: &str) -> Result<ProjectSummary, String
     let assets = collect_files_with_extensions(
         project_dir,
         &[
-            "png", "jpg", "jpeg", "wav", "ogg", "mp3", "glb", "gltf", "json",
+            "png", "jpg", "jpeg", "wav", "ogg", "mp3", "glb", "gltf", "json", "obj",
         ],
         256,
     )?;

@@ -33,10 +33,10 @@ Hoje este editor ja esta pronto para um uso inicial de cena:
    - Console embaixo.
 12. usa IDs estaveis para os docks principais, facilitando testes futuros;
 13. carrega a cena inicial automaticamente e mostra a entidade selecionada no Inspector;
-14. desenha uma pre-visualizacao simples da cena com grid e entidades no Scene View;
+14. desenha uma pre-visualizacao simples da cena com grid, entidades e gizmos no Scene View;
 15. permite selecionar entidades pelo `Scene View`, sincronizando com o Inspector;
 16. permite arrastar entidades no `Scene View`, atualizando o `transform` carregado;
-17. permite editar `name`, `layer`, `parent`, `tags` e `transform` pelo Inspector;
+17. permite editar `name`, `layer`, `parent`, `tags` e `transform` 2D/3D pelo Inspector;
 18. salva de volta o `scene.json` preservando o contrato atual e os componentes existentes;
 19. permite editar `name` e `document_id` da cena, com status `dirty/saved`;
 20. oferece `Save Scene`, `Save + Sync` e `Reload Scene` no fluxo do Inspector;
@@ -46,7 +46,9 @@ Hoje este editor ja esta pronto para um uso inicial de cena:
 24. bloqueia troca e recarga de cena quando ha alteracoes locais nao salvas;
 25. aceita preview compilado ou `zt.exe` como runner do preview;
 26. tem smoke test do estado inicial do editor e do contrato de cena;
-27. prepara a separacao entre:
+27. adiciona uma aba `Scene 3D` com grid isometrico, eixos XYZ, criacao de `cube3d`/`camera3d` e drop de modelos;
+28. reconhece assets `.obj` no Project e inclui uma cena exemplo 3D em `sample_3d.scene.json`;
+29. prepara a separacao entre:
    - app do editor;
    - mensagens;
    - bridge de preview;
@@ -57,20 +59,21 @@ Hoje este editor ja esta pronto para um uso inicial de cena:
 1. abrir o editor;
 2. carregar `packages/borealis/scenes/sample.scene.json`;
 3. selecionar e arrastar entidades no `Scene View`;
-4. editar `name`, `layer`, `tags`, `parent` e `transform` no `Inspector`;
-5. criar e remover entidades;
-6. salvar a cena e reabrir;
-7. iniciar o preview em modo mock;
-8. apontar para o preview real compilado ou para `zt.exe`;
-9. sincronizar a cena atual com o preview.
+4. abrir `Scene 3D`, criar objetos 3D e soltar modelos do Project na viewport;
+5. editar `name`, `layer`, `tags`, `parent` e `transform` no `Inspector`;
+6. criar e remover entidades;
+7. salvar a cena e reabrir;
+8. iniciar o preview em modo mock;
+9. apontar para o preview real compilado ou para `zt.exe`;
+10. sincronizar a cena atual com o preview.
 
 ## O que ainda falta depois do uso inicial
 
-1. gizmos e manipuladores mais completos no viewport;
+1. manipuladores por eixo com constraint real de X/Y/Z;
 2. componentes editaveis por tipo, nao so por lista;
-3. hierarquia de cena com parent/child visual;
+3. hierarquia de cena com parent/child visual mais rica;
 4. preview visual realmente embutido;
-5. fluxo de assets e prefabs.
+5. fluxo de prefabs e materiais.
 
 ## Arquivos principais
 
@@ -88,6 +91,8 @@ Hoje este editor ja esta pronto para um uso inicial de cena:
   - leitura minima de cenas JSON e exemplos Zenith com entidades.
 - `packages/borealis/scenes/sample.scene.json`
   - fixture inicial de cena compartilhada com o package Borealis.
+- `packages/borealis/scenes/sample_3d.scene.json`
+  - fixture inicial para edicao visual 3D.
 
 ## Como rodar
 
