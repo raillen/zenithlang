@@ -30,6 +30,9 @@ Goal: future editor can attach labels/notes/groups/visibility/lock flags by stab
 - `set_locked`, `is_locked`
 - `set_hidden`, `is_hidden`
 - `inspect(stable_id)` -> `EntityMeta`
+- `has_meta(stable_id)` -> `bool`
+- `clear(stable_id)`
+- `reset()`
 
 ## Notes
 

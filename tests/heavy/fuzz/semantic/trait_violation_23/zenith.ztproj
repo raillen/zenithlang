@@ -1,8 +1,15 @@
-{
-  "project": {
-    "name": "fuzz_test",
-    "version": "0.1.0",
-    "source": { "root": "src" },
-    "build": { "target": "native", "mode": "debug" }
-  }
-}
+[project]
+name = "trait_violation_23"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.trait_violation"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

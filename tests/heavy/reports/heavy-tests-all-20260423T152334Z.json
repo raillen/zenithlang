@@ -1,0 +1,20 @@
+{
+  "suite": "all",
+  "generated_at_utc": "20260423T152334Z",
+  "results": [
+    {
+      "task_id": "heavy/semantic_curated",
+      "passed": true,
+      "duration_ms": 624.6356964111328,
+      "note": "Replay curado sobre fixtures pesados modernizados.",
+      "output": "heavy semantic curated replay ok\n"
+    },
+    {
+      "task_id": "heavy/fuzz_semantic",
+      "passed": true,
+      "duration_ms": 3221.630334854126,
+      "note": "Campanha semantica reproducivel.",
+      "output": "\n============================================================\nSemantic Fuzzer - Zenith Language\nSeed: 20260423\nIterations: 80\nTimeout: 10.0s\n============================================================\n\n[1/80] unbound_type: OK REJECTED_OK\n[2/80] generic_overflow: OK REJECTED_OK\n[3/80] where_contract: OK REJECTED_OK\n[4/80] trait_violation: OK REJECTED_OK\n[5/80] array_overflow: OK REJECTED_OK\n[6/80] optional_abuse: OK REJECTED_OK\n[7/80] result_propagation: OK REJECTED_OK\n[8/80] optional_abuse: OK REJECTED_OK\n[9/80] method_receiver: OK REJECTED_OK\n[10/80] generic_overflow: OK REJECTED_OK\n[11/80] type_mismatch: OK REJECTED_OK\n[12/80] generic_overflow: OK REJECTED_OK\n[13/80] result_propagation: OK REJECTED_OK\n[14/80] where_contract: OK REJECTED_OK\n[15/80] float_overflow: OK REJECTED_OK\n[16/80] self_reference: OK REJECTED_OK\n[17/80] float_overflow: OK REJECTED_OK\n[18/80] duplicate_symbol: OK REJECTED_OK\n[19/80] method_receiver: OK REJECTED_OK\n[20/80] where_contract: OK REJECTED_OK\n[21/80] result_propagation: OK REJECTED_OK\n[22/80] optional_abuse: OK REJECTED_OK\n[23/80] circular_type: OK REJECTED_OK\n[24/80] trait_violation: OK REJECTED_OK\n[25/80] deep_if: OK REJECTED_OK\n[26/80] float_over"
+    }
+  ]
+}

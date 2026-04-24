@@ -1,7 +1,7 @@
 # Zenith Surface Implementation Status
 
 - Status: current compiler cut snapshot
-- Date: 2026-04-22
+- Date: 2026-04-23
 - Labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`, `Executable`, `Conformant`, `Deferred`, `Risk`, `Rejected`
 
 ## Language Surface
@@ -26,6 +26,7 @@
 | Area | Status | Notes |
 | --- | --- | --- |
 | `zt fmt` / `zt fmt --check` | `Conformant` | gate project `tooling_gate_smoke` |
+| `zt fmt` idempotence (`fmt(fmt(x)) == fmt(x)`) | `Conformant` | gate runner `tests/formatter/run_formatter_idempotence.py`, integrado ao `pr_gate` tooling; cobre os 9 casos em `tests/formatter/cases/` |
 | `zt doc check` | `Conformant` | gate project `tooling_gate_smoke` |
 | Runtime contracts (`where`) | `Conformant` | positive and negative behavior tests |
 | Runtime diagnostic codes | `Conformant` | canonical alpha contract is `language/spec/diagnostic-code-catalog.md` plus `language/spec/diagnostics-model.md` |
@@ -35,5 +36,5 @@
 
 | Item | Label | Notes |
 | --- | --- | --- |
-| Default runtime thread-safety boundary | `Risk` | default runtime path is single-isolate with non-atomic ARC; cross-thread work must stay behind isolate/message-passing boundaries or future explicit shared wrappers |
+| Default runtime thread-safety boundary | `Risk` | default runtime path is single-isolate with non-atomic ARC; cross-thread work must stay behind isolate/message-passing boundaries; the first public transfer slice is `std.concurrent.copy_*`, while workers/jobs/channels remain future surface |
 | RC cycles ownership strategy | `Risk` | default runtime ships without cycle collection; cycle-prone APIs remain gated by `language/spec/runtime-model.md` |

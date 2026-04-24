@@ -290,6 +290,7 @@ static size_t zir_count_function_definitions(const zir_module *module_decl, cons
 
     if (module_decl != NULL) {
         count += module_decl->module_var_count;
+        count += module_decl->function_count;
     }
 
     count += function_decl->param_count;
@@ -324,6 +325,12 @@ static int zir_collect_function_definitions(
         for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
             if (!zir_symbol_table_add_unique(defined, module_decl->module_vars[module_var_index].name)) {
                 zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register module variable");
+                return 0;
+            }
+        }
+        for (size_t fn_index = 0; fn_index < module_decl->function_count; fn_index += 1) {
+            if (!zir_symbol_table_add_unique(defined, module_decl->functions[fn_index].name)) {
+                zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register function");
                 return 0;
             }
         }
@@ -677,6 +684,30 @@ static int zir_verify_expr(
             if (!zir_verify_metadata_text(expr->as.call.callee_name, context, span, result)) return 0;
             for (i = 0; i < expr->as.call.args.count; i++) {
                 if (!zir_verify_expr(expr->as.call.args.items[i], defined, context, span, result)) return 0;
+            }
+            return 1;
+        }
+
+        case ZIR_EXPR_CALL_DYN: {
+            size_t i;
+            if (!zir_verify_expr(expr->as.dyn_call.receiver, defined, context, span, result)) return 0;
+            if (!zir_verify_metadata_text(expr->as.dyn_call.method_name, context, span, result)) return 0;
+            if (!zir_verify_metadata_text(expr->as.dyn_call.trait_name, context, span, result)) return 0;
+            for (i = 0; i < expr->as.dyn_call.args.count; i++) {
+                if (!zir_verify_expr(expr->as.dyn_call.args.items[i], defined, context, span, result)) return 0;
+            }
+            return 1;
+        }
+
+        case ZIR_EXPR_FUNC_REF:
+            return zir_verify_metadata_text(expr->as.func_ref.func_name, context, span, result) &&
+                   zir_verify_type_name(expr->as.func_ref.callable_type_name, context, span, result);
+
+        case ZIR_EXPR_CALL_INDIRECT: {
+            size_t i;
+            if (!zir_verify_expr(expr->as.call_indirect.callable, defined, context, span, result)) return 0;
+            for (i = 0; i < expr->as.call_indirect.args.count; i++) {
+                if (!zir_verify_expr(expr->as.call_indirect.args.items[i], defined, context, span, result)) return 0;
             }
             return 1;
         }

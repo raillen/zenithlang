@@ -76,6 +76,12 @@ typedef struct zt_checker {
     zt_module_catalog catalog;
 } zt_checker;
 
+typedef struct zt_transfer_stack {
+    char **items;
+    size_t count;
+    size_t capacity;
+} zt_transfer_stack;
+
 typedef struct zt_expr_info {
     zt_type *type;
     int is_int_literal;
@@ -244,6 +250,64 @@ static void zt_catalog_dispose(zt_module_catalog *catalog) {
     free(catalog->applies.items);
     free(catalog->decl_index);
     memset(catalog, 0, sizeof(*catalog));
+}
+
+static void zt_transfer_stack_init(zt_transfer_stack *stack) {
+    if (stack == NULL) return;
+    stack->items = NULL;
+    stack->count = 0;
+    stack->capacity = 0;
+}
+
+static void zt_transfer_stack_dispose(zt_transfer_stack *stack) {
+    size_t i;
+
+    if (stack == NULL) return;
+    for (i = 0; i < stack->count; i++) {
+        free(stack->items[i]);
+    }
+    free(stack->items);
+    stack->items = NULL;
+    stack->count = 0;
+    stack->capacity = 0;
+}
+
+static int zt_transfer_stack_contains(const zt_transfer_stack *stack, const char *type_name) {
+    size_t i;
+
+    if (stack == NULL || type_name == NULL) return 0;
+    for (i = 0; i < stack->count; i++) {
+        if (stack->items[i] != NULL && strcmp(stack->items[i], type_name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int zt_transfer_stack_push(zt_transfer_stack *stack, const char *type_name) {
+    char **new_items;
+    size_t new_capacity;
+
+    if (stack == NULL || type_name == NULL) return 0;
+    if (stack->count >= stack->capacity) {
+        new_capacity = stack->capacity == 0 ? 8 : stack->capacity * 2;
+        new_items = (char **)realloc(stack->items, new_capacity * sizeof(char *));
+        if (new_items == NULL) return 0;
+        stack->items = new_items;
+        stack->capacity = new_capacity;
+    }
+
+    stack->items[stack->count] = zt_checker_strdup(type_name);
+    if (stack->items[stack->count] == NULL) return 0;
+    stack->count += 1;
+    return 1;
+}
+
+static void zt_transfer_stack_pop(zt_transfer_stack *stack) {
+    if (stack == NULL || stack->count == 0) return;
+    stack->count -= 1;
+    free(stack->items[stack->count]);
+    stack->items[stack->count] = NULL;
 }
 
 static size_t zt_catalog_hash_name(const char *name) {
@@ -735,6 +799,96 @@ static int zt_checker_type_implements_trait(zt_checker *checker, zt_binding_scop
 static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *node, zt_binding_scope *scope);
 static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_ast_node *node, zt_binding_scope *scope, zt_function_context *fn_ctx, const zt_type *expected_type);
 static void zt_checker_check_block(zt_checker *checker, const zt_ast_node *block, zt_binding_scope *parent_scope, zt_function_context *fn_ctx);
+static int zt_checker_type_is_transferable_inner(zt_checker *checker, zt_binding_scope *scope, const zt_type *type, zt_transfer_stack *stack);
+
+/* R3.M4: Validate that a trait can be used with dyn<Trait> per the minimum subset rules.
+ * Returns 1 if valid, 0 if invalid (diagnostic emitted). */
+static int zt_checker_validate_dyn_trait(zt_checker *checker, const zt_ast_node *trait_decl_node, zt_source_span use_span) {
+    const zt_ast_node *method;
+    size_t i, p;
+
+    if (trait_decl_node == NULL || trait_decl_node->kind != ZT_AST_TRAIT_DECL) {
+        return 0;
+    }
+
+    /* Rule: no generic traits */
+    if (trait_decl_node->as.trait_decl.type_params.count > 0) {
+        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_GENERIC_TRAIT, use_span,
+            "dyn dispatch does not support generic traits in R3.M4 subset: trait '%s' has type parameters",
+            trait_decl_node->as.trait_decl.name);
+        return 0;
+    }
+
+    /* Rule: max 8 methods */
+    if (trait_decl_node->as.trait_decl.methods.count > 8) {
+        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_TOO_MANY_METHODS, use_span,
+            "dyn trait '%s' has %zu methods; maximum is 8 for R3.M4 subset",
+            trait_decl_node->as.trait_decl.name, trait_decl_node->as.trait_decl.methods.count);
+        return 0;
+    }
+
+    /* Rule: no mut methods, all params/returns must be copyable */
+    for (i = 0; i < trait_decl_node->as.trait_decl.methods.count; i++) {
+        method = trait_decl_node->as.trait_decl.methods.items[i];
+        if (method == NULL) continue;
+
+        /* Rule: no mut func */
+        if (method->as.trait_method.is_mutating) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_MUT_METHOD, use_span,
+                "dyn dispatch does not support mutating methods in R3.M4 subset: trait '%s' has mut func '%s'",
+                trait_decl_node->as.trait_decl.name, method->as.trait_method.name);
+            return 0;
+        }
+
+        /* Rule: params must be copyable */
+        for (p = 0; p < method->as.trait_method.params.count; p++) {
+            const zt_ast_node *param = method->as.trait_method.params.items[p];
+            if (param != NULL && param->kind == ZT_AST_PARAM && param->as.param.type_node != NULL) {
+                zt_type *param_type = zt_checker_resolve_type(checker, param->as.param.type_node, NULL);
+                int copyable = 0;
+                if (param_type != NULL) {
+                    int is_scalar = (param_type->kind >= ZT_TYPE_INT8 && param_type->kind <= ZT_TYPE_UINT64) ||
+                                    param_type->kind == ZT_TYPE_INT || param_type->kind == ZT_TYPE_FLOAT;
+                    copyable = is_scalar ||
+                               param_type->kind == ZT_TYPE_TEXT ||
+                               param_type->kind == ZT_TYPE_BYTES ||
+                               param_type->kind == ZT_TYPE_BOOL;
+                    zt_type_dispose(param_type);
+                }
+                if (!copyable) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_UNCOPYABLE, use_span,
+                        "dyn method '%s' has parameter type which is not copyable in R3.M4 subset",
+                        method->as.trait_method.name);
+                    return 0;
+                }
+            }
+        }
+
+        /* Rule: return type must be copyable */
+        if (method->as.trait_method.return_type != NULL) {
+            zt_type *ret_type = zt_checker_resolve_type(checker, method->as.trait_method.return_type, NULL);
+            int copyable = 0;
+            if (ret_type != NULL) {
+                int is_scalar = (ret_type->kind >= ZT_TYPE_INT8 && ret_type->kind <= ZT_TYPE_UINT64) ||
+                                ret_type->kind == ZT_TYPE_INT || ret_type->kind == ZT_TYPE_FLOAT;
+                copyable = is_scalar ||
+                           ret_type->kind == ZT_TYPE_TEXT ||
+                           ret_type->kind == ZT_TYPE_BYTES ||
+                           ret_type->kind == ZT_TYPE_BOOL ||
+                           ret_type->kind == ZT_TYPE_VOID;
+                zt_type_dispose(ret_type);
+            }
+            if (!copyable) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_UNCOPYABLE, use_span,
+                    "dyn method '%s' has return type which is not copyable in R3.M4 subset",
+                    method->as.trait_method.name);
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
 
 static zt_type *zt_checker_make_core_constraint_type(const char *trait_name) {
     zt_type_list args = zt_type_list_make();
@@ -846,9 +1000,42 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
         return zt_checker_resolve_user_type(checker, name, zt_type_list_make(), node->span);
     }
 
+    if (node->kind == ZT_AST_TYPE_CALLABLE) {
+        zt_type_list params = zt_type_list_make();
+        zt_type *return_type = NULL;
+        size_t pi;
+        for (pi = 0; pi < node->as.type_callable.params.count; pi++) {
+            zt_type *pt = zt_checker_resolve_type(checker, node->as.type_callable.params.items[pi], scope);
+            /* Phase 1 rejects container element callables. Reject callable
+             * parameter whose own kind is callable? Callables-of-callables
+             * are allowed as parameters; only container element positions
+             * are blocked, enforced separately when resolving list/map/etc.
+             */
+            zt_type_list_push(&params, pt);
+        }
+        return_type = zt_checker_resolve_type(checker, node->as.type_callable.return_type, scope);
+        return zt_type_make_callable(return_type, params);
+    }
+
     if (node->kind == ZT_AST_TYPE_DYN) {
         zt_type_list dyn_args = zt_type_list_make();
         zt_type_list_push(&dyn_args, zt_checker_resolve_type(checker, node->as.type_dyn.inner_type, scope));
+
+        /* R3.M4: Validate dyn<Trait> minimum subset rules */
+        {
+            const char *trait_name = NULL;
+            const zt_ast_node *inner = node->as.type_dyn.inner_type;
+            if (inner != NULL && inner->kind == ZT_AST_TYPE_SIMPLE) {
+                trait_name = inner->as.type_simple.name;
+            }
+            if (trait_name != NULL) {
+                const zt_ast_node *trait_decl = zt_catalog_find_decl(&checker->catalog, trait_name);
+                if (trait_decl != NULL) {
+                    zt_checker_validate_dyn_trait(checker, trait_decl, node->span);
+                }
+            }
+        }
+
         return zt_type_make_with_args(ZT_TYPE_DYN, NULL, dyn_args);
     }
 
@@ -868,6 +1055,17 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "type '%s' expects %d type arguments but got %d", name, expected_arity, (int)args.count);
             zt_type_list_dispose(&args);
             return zt_type_make(ZT_TYPE_UNKNOWN);
+        }
+
+        /* R3.M5 Phase 2: callable cannot appear as a container element type. */
+        {
+            size_t ci;
+            for (ci = 0; ci < args.count; ci++) {
+                if (args.items[ci] != NULL && args.items[ci]->kind == ZT_TYPE_CALLABLE) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_ESCAPE_CONTAINER, node->span,
+                        "callable type cannot be used as an argument of '%s'", name);
+                }
+            }
         }
 
         if (strcmp(name, "optional") == 0) return zt_type_make_with_args(ZT_TYPE_OPTIONAL, NULL, args);
@@ -1137,6 +1335,36 @@ static void zt_checker_bind_struct_field_type_params(zt_binding_scope *scope, co
     }
 }
 
+static const zt_ast_node_list *zt_decl_type_params(const zt_ast_node *decl) {
+    if (decl == NULL) return NULL;
+    switch (decl->kind) {
+        case ZT_AST_STRUCT_DECL: return &decl->as.struct_decl.type_params;
+        case ZT_AST_ENUM_DECL: return &decl->as.enum_decl.type_params;
+        default: return NULL;
+    }
+}
+
+static void zt_checker_bind_decl_type_params(zt_binding_scope *scope, const zt_ast_node *decl, const zt_type *concrete_type) {
+    const zt_ast_node_list *type_params;
+    size_t i;
+
+    if (scope == NULL || decl == NULL || concrete_type == NULL) return;
+    type_params = zt_decl_type_params(decl);
+    if (type_params == NULL) return;
+
+    for (i = 0; i < type_params->count && i < concrete_type->args.count; i++) {
+        const zt_ast_node *param = type_params->items[i];
+        if (param != NULL && param->kind == ZT_AST_TYPE_SIMPLE) {
+            zt_binding_scope_declare(
+                scope,
+                ZT_BINDING_TYPE_PARAM,
+                param->as.type_simple.name,
+                zt_type_clone(concrete_type->args.items[i]),
+                0);
+        }
+    }
+}
+
 static const zt_ast_node *zt_checker_find_struct_field_decl(const zt_ast_node *struct_decl, const char *field_name) {
     size_t i;
     if (struct_decl == NULL || struct_decl->kind != ZT_AST_STRUCT_DECL || field_name == NULL) return NULL;
@@ -1205,6 +1433,131 @@ static const zt_ast_node *zt_checker_find_apply_method(const zt_checker *checker
     }
 
     return NULL;
+}
+
+static int zt_checker_type_is_transferable_user_decl(
+        zt_checker *checker,
+        zt_binding_scope *scope,
+        const zt_type *type,
+        const zt_ast_node *decl,
+        zt_transfer_stack *stack) {
+    zt_binding_scope type_scope;
+    char type_name[256];
+    size_t i;
+    int is_transferable = 1;
+
+    if (checker == NULL || type == NULL || decl == NULL || stack == NULL) return 0;
+
+    zt_type_format(type, type_name, sizeof(type_name));
+    if (zt_transfer_stack_contains(stack, type_name)) {
+        return 1;
+    }
+    if (!zt_transfer_stack_push(stack, type_name)) {
+        return 0;
+    }
+
+    zt_binding_scope_init(&type_scope, scope);
+    zt_checker_bind_decl_type_params(&type_scope, decl, type);
+
+    if (decl->kind == ZT_AST_STRUCT_DECL) {
+        for (i = 0; i < decl->as.struct_decl.fields.count; i++) {
+            const zt_ast_node *field = decl->as.struct_decl.fields.items[i];
+            zt_type *field_type;
+            if (field == NULL || field->kind != ZT_AST_STRUCT_FIELD) continue;
+            field_type = zt_checker_resolve_type(checker, field->as.struct_field.type_node, &type_scope);
+            if (!zt_checker_type_is_transferable_inner(checker, &type_scope, field_type, stack)) {
+                is_transferable = 0;
+            }
+            zt_type_dispose(field_type);
+            if (!is_transferable) break;
+        }
+    } else if (decl->kind == ZT_AST_ENUM_DECL) {
+        for (i = 0; i < decl->as.enum_decl.variants.count; i++) {
+            const zt_ast_node *variant = decl->as.enum_decl.variants.items[i];
+            size_t f;
+            if (variant == NULL || variant->kind != ZT_AST_ENUM_VARIANT) continue;
+            for (f = 0; f < variant->as.enum_variant.fields.count; f++) {
+                const zt_ast_node *field = variant->as.enum_variant.fields.items[f];
+                const zt_ast_node *field_type_node = zt_checker_enum_variant_field_type_node(field);
+                zt_type *field_type = zt_checker_resolve_type(checker, field_type_node, &type_scope);
+                if (!zt_checker_type_is_transferable_inner(checker, &type_scope, field_type, stack)) {
+                    is_transferable = 0;
+                }
+                zt_type_dispose(field_type);
+                if (!is_transferable) break;
+            }
+            if (!is_transferable) break;
+        }
+    } else {
+        is_transferable = 0;
+    }
+
+    zt_binding_scope_dispose(&type_scope);
+    zt_transfer_stack_pop(stack);
+    return is_transferable;
+}
+
+static int zt_checker_type_is_transferable_inner(
+        zt_checker *checker,
+        zt_binding_scope *scope,
+        const zt_type *type,
+        zt_transfer_stack *stack) {
+    zt_binding *binding;
+    const zt_ast_node *decl;
+
+    if (type == NULL) return 0;
+
+    switch (type->kind) {
+        case ZT_TYPE_BOOL:
+        case ZT_TYPE_INT:
+        case ZT_TYPE_INT8:
+        case ZT_TYPE_INT16:
+        case ZT_TYPE_INT32:
+        case ZT_TYPE_INT64:
+        case ZT_TYPE_UINT8:
+        case ZT_TYPE_UINT16:
+        case ZT_TYPE_UINT32:
+        case ZT_TYPE_UINT64:
+        case ZT_TYPE_FLOAT:
+        case ZT_TYPE_FLOAT32:
+        case ZT_TYPE_FLOAT64:
+        case ZT_TYPE_TEXT:
+        case ZT_TYPE_BYTES:
+        case ZT_TYPE_VOID:
+        case ZT_TYPE_CORE_ERROR:
+            return 1;
+        case ZT_TYPE_OPTIONAL:
+        case ZT_TYPE_LIST:
+            return type->args.count == 1 &&
+                   zt_checker_type_is_transferable_inner(checker, scope, type->args.items[0], stack);
+        case ZT_TYPE_RESULT:
+        case ZT_TYPE_MAP:
+            return type->args.count == 2 &&
+                   zt_checker_type_is_transferable_inner(checker, scope, type->args.items[0], stack) &&
+                   zt_checker_type_is_transferable_inner(checker, scope, type->args.items[1], stack);
+        case ZT_TYPE_TYPE_PARAM:
+            binding = zt_binding_scope_lookup(scope, type->name, ZT_BINDING_TYPE_PARAM);
+            if (binding == NULL || binding->type == NULL || binding->type == type) return 0;
+            return zt_checker_type_is_transferable_inner(checker, scope, binding->type, stack);
+        case ZT_TYPE_USER:
+            if (checker == NULL || type->name == NULL) return 0;
+            decl = zt_catalog_find_decl(&checker->catalog, type->name);
+            if (decl == NULL) return 0;
+            return zt_checker_type_is_transferable_user_decl(checker, scope, type, decl, stack);
+        case ZT_TYPE_NONE_LITERAL:
+        case ZT_TYPE_SUCCESS_WRAPPER:
+        case ZT_TYPE_ERROR_WRAPPER:
+        case ZT_TYPE_GRID2D:
+        case ZT_TYPE_PQUEUE:
+        case ZT_TYPE_CIRCBUF:
+        case ZT_TYPE_BTREEMAP:
+        case ZT_TYPE_BTREESET:
+        case ZT_TYPE_GRID3D:
+        case ZT_TYPE_DYN:
+        case ZT_TYPE_UNKNOWN:
+        default:
+            return 0;
+    }
 }
 
 static int zt_checker_build_qualified_name(const zt_ast_node *node, char *buffer, size_t buffer_size) {
@@ -1389,6 +1742,43 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
     if (callee->kind == ZT_AST_IDENT_EXPR) {
         const char *name = callee->as.ident_expr.name;
         const zt_ast_node *decl = zt_catalog_find_decl(&checker->catalog, name);
+
+        /* R3.M5 Phase 2: indirect call through a local callable binding. */
+        {
+            zt_binding *value_binding = zt_binding_scope_lookup(scope, name, ZT_BINDING_VALUE);
+            if (value_binding != NULL && value_binding->type != NULL &&
+                value_binding->type->kind == ZT_TYPE_CALLABLE) {
+                const zt_type *callable_type = value_binding->type;
+                size_t expected_params = zt_type_callable_param_count(callable_type);
+                size_t positional_count = node->as.call_expr.positional_args.count;
+                size_t named_count = node->as.call_expr.named_args.count;
+                size_t ai;
+
+                zt_type_dispose(result.type);
+                result.type = zt_type_clone(zt_type_callable_return(callable_type));
+
+                if (named_count > 0) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, node->span,
+                        "named arguments are not supported when calling through a callable in v1");
+                    return result;
+                }
+                if (positional_count != expected_params) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH, node->span,
+                        "callable '%s' expects %zu argument(s) but got %zu", name, expected_params, positional_count);
+                    return result;
+                }
+                for (ai = 0; ai < positional_count; ai++) {
+                    const zt_type *pt = zt_type_callable_param(callable_type, ai);
+                    zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[ai], scope, fn_ctx, pt);
+                    if (!zt_checker_same_or_contextually_assignable(checker, scope, pt, &arg_info, node->as.call_expr.positional_args.items[ai]->span)) {
+                        zt_checker_diag_type(checker, ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH, node->as.call_expr.positional_args.items[ai]->span,
+                            "callable argument type mismatch", (zt_type *)pt, arg_info.type);
+                    }
+                    zt_expr_info_dispose(&arg_info);
+                }
+                return result;
+            }
+        }
 
         if (zt_checker_is_numeric_conversion_target(name)) {
             zt_expr_info arg_info;
@@ -2077,6 +2467,16 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             zt_type_dispose(result.type);
             zt_binding_scope_init(&method_scope, scope);
 
+            if (method_decl->as.func_decl.is_mutating &&
+                !zt_checker_expression_is_mutable_target(callee->as.field_expr.object, scope, fn_ctx)) {
+                zt_diag_list_add(
+                    &checker->result->diagnostics,
+                    ZT_DIAG_INVALID_MUTATION,
+                    node->span,
+                    "mutating method '%s' requires a mutable receiver",
+                    callee->as.field_expr.field_name);
+            }
+
             if (apply_decl != NULL && apply_decl->as.apply_decl.trait_name == NULL) {
                 for (p = 0; p < apply_decl->as.apply_decl.target_type_params.count && p < object_info.type->args.count; p++) {
                     const zt_ast_node *tp = apply_decl->as.apply_decl.target_type_params.items[p];
@@ -2227,6 +2627,36 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
             if (binding != NULL) {
                 zt_type_dispose(info.type);
                 info.type = zt_type_clone(binding->type);
+                return info;
+            }
+            /* R3.M5 Phase 2: bare top-level function used as a callable value.
+             * Allowed only when the expected type is ZT_TYPE_CALLABLE. */
+            if (expected_type != NULL && expected_type->kind == ZT_TYPE_CALLABLE) {
+                const zt_ast_node *fn_decl = zt_catalog_find_decl(&checker->catalog, node->as.ident_expr.name);
+                if (fn_decl != NULL && fn_decl->kind == ZT_AST_FUNC_DECL) {
+                    if (fn_decl->as.func_decl.type_params.count > 0) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_INVALID_FUNC_REF, node->span,
+                            "generic function '%s' cannot be used as a callable value", node->as.ident_expr.name);
+                        return info;
+                    }
+                    if (fn_decl->as.func_decl.is_mutating) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_INVALID_FUNC_REF, node->span,
+                            "mutating function '%s' cannot be used as a callable value", node->as.ident_expr.name);
+                        return info;
+                    }
+                    {
+                        zt_type_list callable_params = zt_type_list_make();
+                        zt_type *callable_ret;
+                        size_t pi;
+                        for (pi = 0; pi < fn_decl->as.func_decl.params.count; pi++) {
+                            const zt_ast_node *param = fn_decl->as.func_decl.params.items[pi];
+                            zt_type_list_push(&callable_params, zt_checker_resolve_type(checker, param->as.param.type_node, scope));
+                        }
+                        callable_ret = zt_checker_resolve_type(checker, fn_decl->as.func_decl.return_type, scope);
+                        zt_type_dispose(info.type);
+                        info.type = zt_type_make_callable(callable_ret, callable_params);
+                    }
+                }
             }
             return info;
         case ZT_AST_GROUPED_EXPR:
@@ -2945,14 +3375,11 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 }
 
                 if (subject_info.type != NULL && subject_info.type->kind == ZT_TYPE_OPTIONAL) {
-                    int case_has_value = 0;
-                    int case_has_none = 0;
                     for (p = 0; p < case_node->as.match_case.patterns.count; p++) {
                         const zt_ast_node *pattern = case_node->as.match_case.patterns.items[p];
                         if (pattern == NULL) continue;
 
                         if (pattern->kind == ZT_AST_VALUE_BINDING) {
-                            case_has_value = 1;
                             if (subject_info.type->args.count > 0 && subject_info.type->args.items[0] != NULL) {
                                 zt_type *inner_type = zt_type_clone(subject_info.type->args.items[0]);
                                 if (zt_binding_scope_lookup(&case_scope, pattern->as.value_binding.name, ZT_BINDING_VALUE) != NULL) {
@@ -2969,7 +3396,6 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                         }
 
                         if (pattern->kind == ZT_AST_NONE_EXPR) {
-                            case_has_none = 1;
                             continue;
                         }
 
@@ -3316,6 +3742,11 @@ static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) 
             for (i = 0; i < decl->as.struct_decl.fields.count; i++) {
                 const zt_ast_node *field = decl->as.struct_decl.fields.items[i];
                 zt_type *field_type = zt_checker_resolve_type(checker, field->as.struct_field.type_node, &scope);
+                if (field_type != NULL && field_type->kind == ZT_TYPE_CALLABLE) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD,
+                        field->span, "field '%s' cannot hold a callable value in v1",
+                        field->as.struct_field.name);
+                }
                 if (field->as.struct_field.default_value != NULL) {
                     zt_expr_info default_info = zt_checker_check_expression(checker, field->as.struct_field.default_value, &scope, NULL, field_type);
                     if (!zt_checker_same_or_contextually_assignable(checker, &scope, field_type, &default_info, field->as.struct_field.default_value->span)) {
@@ -3406,6 +3837,11 @@ static void zt_checker_check_decl(zt_checker *checker, const zt_ast_node *decl) 
         case ZT_AST_VAR_DECL:
             zt_checker_seed_module_value_aliases(checker, &scope, decl->as.var_decl.name);
             decl_type = zt_checker_resolve_type(checker, decl->as.var_decl.type_node, &scope);
+            if (decl_type != NULL && decl_type->kind == ZT_TYPE_CALLABLE && decl->as.var_decl.is_public) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR,
+                    decl->span, "public var '%s' cannot hold a callable value in v1",
+                    decl->as.var_decl.name != NULL ? decl->as.var_decl.name : "<anon>");
+            }
             expr_info = zt_checker_check_expression(checker, decl->as.var_decl.init_value, &scope, NULL, decl_type);
             if (!zt_checker_same_or_contextually_assignable(checker, &scope, decl_type, &expr_info, decl->as.var_decl.init_value != NULL ? decl->as.var_decl.init_value->span : decl->span)) {
                 zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, decl->span, "var initializer type mismatch", decl_type, expr_info.type);
@@ -3439,6 +3875,30 @@ zt_check_result zt_check_file(const zt_ast_node *root) {
 
     zt_catalog_dispose(&checker.catalog);
     return result;
+}
+
+int zt_checker_type_is_transferable(const zt_ast_node *root, const zt_type *type) {
+    zt_check_result scratch_result;
+    zt_checker checker;
+    zt_binding_scope scope;
+    zt_transfer_stack stack;
+    int is_transferable;
+
+    scratch_result.diagnostics = zt_diag_list_make();
+    checker.root = root;
+    checker.result = &scratch_result;
+    zt_catalog_init(&checker.catalog);
+    zt_catalog_build(&checker.catalog, root);
+    zt_binding_scope_init(&scope, NULL);
+    zt_transfer_stack_init(&stack);
+
+    is_transferable = zt_checker_type_is_transferable_inner(&checker, &scope, type, &stack);
+
+    zt_transfer_stack_dispose(&stack);
+    zt_binding_scope_dispose(&scope);
+    zt_catalog_dispose(&checker.catalog);
+    zt_check_result_dispose(&scratch_result);
+    return is_transferable;
 }
 
 void zt_check_result_dispose(zt_check_result *result) {

@@ -19,10 +19,6 @@ static void sb_init(sb_t *sb) {
     sb->indent_level = 0;
 }
 
-static void sb_free(sb_t *sb) {
-    if (sb->data) free(sb->data);
-}
-
 static void sb_append_len(sb_t *sb, const char *str, size_t len) {
     if (!sb->data || !str || len == 0) return;
     if (sb->length + len + 1 > sb->capacity) {
@@ -45,19 +41,12 @@ static void sb_append(sb_t *sb, const char *str) {
 static void sb_append_string_value(sb_t *sb, const char *value) {
     if (!value) return;
 
-    int needs_escape = 0;
-    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
-        if (*p == '\n' || *p == '\r' || *p == '\t' || *p == '"' || *p == '\\') {
-            needs_escape = 1;
-            break;
-        }
-    }
-
-    if (!needs_escape) {
-        sb_append(sb, value);
-        return;
-    }
-
+    /* String literals always require surrounding double quotes. The
+     * previous version skipped them when the payload had no escapable
+     * characters, which made `fmt(fmt(x))` re-parse as a bare
+     * identifier (`"Ada"` becoming `Ada`). Always quote and always
+     * escape the control characters that would otherwise break the
+     * literal. */
     sb_append(sb, "\"");
     for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
         switch (*p) {
@@ -179,9 +168,9 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             if (node->as.func_decl.is_mutating) sb_append(sb, "mut ");
             sb_append(sb, node->as.func_decl.name);
             if (node->as.func_decl.type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.func_decl.type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             sb_append(sb, "(");
             format_node_list_comma(sb, node->as.func_decl.params);
@@ -204,9 +193,9 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "struct ");
             sb_append(sb, node->as.struct_decl.name);
             if (node->as.struct_decl.type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.struct_decl.type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             if (node->as.struct_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
@@ -228,9 +217,9 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "trait ");
             sb_append(sb, node->as.trait_decl.name);
             if (node->as.trait_decl.type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.trait_decl.type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             if (node->as.trait_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
@@ -251,16 +240,16 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "apply ");
             sb_append(sb, node->as.apply_decl.trait_name);
             if (node->as.apply_decl.trait_type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.apply_decl.trait_type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             sb_append(sb, " to ");
             sb_append(sb, node->as.apply_decl.target_name);
             if (node->as.apply_decl.target_type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.apply_decl.target_type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             if (node->as.apply_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
@@ -282,9 +271,9 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "enum ");
             sb_append(sb, node->as.enum_decl.name);
             if (node->as.enum_decl.type_params.count > 0) {
-                sb_append(sb, "[");
+                sb_append(sb, "<");
                 format_node_list_comma(sb, node->as.enum_decl.type_params);
-                sb_append(sb, "]");
+                sb_append(sb, ">");
             }
             if (node->as.enum_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
@@ -295,8 +284,11 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             for (size_t i = 0; i < node->as.enum_decl.variants.count; i++) {
                 sb_indent(sb);
                 format_node(sb, node->as.enum_decl.variants.items[i]);
-                if (i < node->as.enum_decl.variants.count - 1) sb_append(sb, ",\n");
-                else sb_append(sb, "\n");
+                /* The parser does NOT consume commas between variants;
+                 * they are separated purely by newlines. Emitting a
+                 * trailing `,` here made `fmt(fmt(x))` fail to
+                 * re-parse. */
+                sb_append(sb, "\n");
             }
             sb->indent_level--;
             sb_indent(sb);
@@ -391,6 +383,15 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "dyn<");
             format_node(sb, node->as.type_dyn.inner_type);
             sb_append(sb, ">");
+            break;
+        case ZT_AST_TYPE_CALLABLE:
+            sb_append(sb, "func(");
+            format_node_list_comma(sb, node->as.type_callable.params);
+            sb_append(sb, ")");
+            if (node->as.type_callable.return_type) {
+                sb_append(sb, " -> ");
+                format_node(sb, node->as.type_callable.return_type);
+            }
             break;
         case ZT_AST_BLOCK:
             sb_append(sb, "\n");
@@ -506,13 +507,39 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             break;
         case ZT_AST_MATCH_CASE:
             if (node->as.match_case.is_default) {
-                sb_append(sb, "default -> ");
+                sb_append(sb, "default ->");
             } else {
                 sb_append(sb, "case ");
                 format_node_list_comma(sb, node->as.match_case.patterns);
-                sb_append(sb, " -> ");
+                sb_append(sb, " ->");
             }
-            format_node(sb, node->as.match_case.body);
+            /*
+             * A case body parsed as a block must NOT be emitted with
+             * its own `end` delimiter here — case boundaries inside a
+             * `match` are closed by the next `case`/`default`/`end` of
+             * the enclosing match. Emitting a block's `end` re-parses
+             * as `end of match`, which either truncates the match or
+             * breaks the parser on a subsequent pass.
+             *
+             * Each statement is preceded by a newline + indent so the
+             * enclosing `match` owns the trailing newline between
+             * cases without producing blank lines.
+             */
+            if (node->as.match_case.body != NULL &&
+                    node->as.match_case.body->kind == ZT_AST_BLOCK) {
+                const zt_ast_node *body = node->as.match_case.body;
+                size_t i;
+                sb->indent_level++;
+                for (i = 0; i < body->as.block.statements.count; i++) {
+                    sb_append(sb, "\n");
+                    sb_indent(sb);
+                    format_node(sb, body->as.block.statements.items[i]);
+                }
+                sb->indent_level--;
+            } else if (node->as.match_case.body != NULL) {
+                sb_append(sb, " ");
+                format_node(sb, node->as.match_case.body);
+            }
             break;
         case ZT_AST_BREAK_STMT:
             sb_append(sb, "break");
@@ -639,9 +666,12 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, ")");
             break;
         case ZT_AST_WHERE_CLAUSE:
+            /* The parser reads `where <expression>` and recovers
+             * `param_name` from the enclosing declaration (struct
+             * field name, function parameter name). Emitting
+             * `where NAME -> COND` produced output that the parser
+             * rejected on the second pass. */
             sb_append(sb, "where ");
-            sb_append(sb, node->as.where_clause.param_name);
-            sb_append(sb, " -> ");
             format_node(sb, node->as.where_clause.condition);
             break;
         case ZT_AST_MATCH_BINDING:

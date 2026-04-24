@@ -7,6 +7,7 @@
 typedef struct zt_scope_binding {
     char *name;
     zt_type *type;
+    int is_mutable;
 } zt_scope_binding;
 
 typedef struct zt_scope {
@@ -51,6 +52,7 @@ typedef struct zt_method_meta {
     char *method_name;
     char *lowered_name;
     char *trait_name;
+    int is_mutating;
 } zt_method_meta;
 
 typedef struct zt_const_meta {
@@ -174,7 +176,7 @@ static void zt_scope_dispose(zt_scope *scope) {
     memset(scope, 0, sizeof(*scope));
 }
 
-static void zt_scope_set(zt_scope *scope, const char *name, const zt_type *type) {
+static void zt_scope_set(zt_scope *scope, const char *name, const zt_type *type, int is_mutable) {
     size_t i;
     zt_scope_binding *grown;
     if (scope == NULL || name == NULL || type == NULL) return;
@@ -182,6 +184,7 @@ static void zt_scope_set(zt_scope *scope, const char *name, const zt_type *type)
         if (zt_text_eq(scope->items[i].name, name)) {
             zt_type_dispose(scope->items[i].type);
             scope->items[i].type = zt_type_clone(type);
+            scope->items[i].is_mutable = is_mutable;
             return;
         }
     }
@@ -192,6 +195,7 @@ static void zt_scope_set(zt_scope *scope, const char *name, const zt_type *type)
     }
     scope->items[scope->count].name = zt_lower_strdup(name);
     scope->items[scope->count].type = zt_type_clone(type);
+    scope->items[scope->count].is_mutable = is_mutable;
     scope->count += 1;
 }
 
@@ -308,6 +312,19 @@ static zt_type *zt_lower_type_from_ast(zt_lower_ctx *ctx, const zt_ast_node *nod
     }
     if (node->kind == ZT_AST_TYPE_GENERIC) {
         return zt_lower_type_from_generic(ctx, node->as.type_generic.name, &node->as.type_generic.type_args);
+    }
+    if (node->kind == ZT_AST_TYPE_CALLABLE) {
+        zt_type_list args = zt_type_list_make();
+        zt_type *return_type = zt_lower_type_from_ast(ctx, node->as.type_callable.return_type);
+        zt_type_list_push(&args, return_type != NULL ? return_type : zt_type_make(ZT_TYPE_VOID));
+        {
+            size_t i;
+            for (i = 0; i < node->as.type_callable.params.count; i++) {
+                zt_type *pt = zt_lower_type_from_ast(ctx, node->as.type_callable.params.items[i]);
+                zt_type_list_push(&args, pt != NULL ? pt : zt_type_make(ZT_TYPE_VOID));
+            }
+        }
+        return zt_type_make_with_args(ZT_TYPE_CALLABLE, "func", args);
     }
     return zt_unknown_type();
 }
@@ -489,6 +506,34 @@ static zt_const_meta *zt_find_const_meta(zt_lower_ctx *ctx, const char *name) {
     return NULL;
 }
 
+static const zt_scope_binding *zt_scope_find_binding(const zt_scope *scope, const char *name) {
+    const zt_scope *cursor = scope;
+    while (cursor != NULL) {
+        size_t i;
+        for (i = 0; i < cursor->count; i += 1) {
+            if (zt_text_eq(cursor->items[i].name, name)) return &cursor->items[i];
+        }
+        cursor = cursor->parent;
+    }
+    return NULL;
+}
+
+static int zt_scope_expr_is_mutable_target(const zt_scope *scope, const zt_ast_node *expr) {
+    const zt_scope_binding *binding;
+    if (expr == NULL) return 0;
+    switch (expr->kind) {
+        case ZT_AST_IDENT_EXPR:
+            binding = zt_scope_find_binding(scope, expr->as.ident_expr.name);
+            return binding != NULL && binding->is_mutable;
+        case ZT_AST_FIELD_EXPR:
+            return zt_scope_expr_is_mutable_target(scope, expr->as.field_expr.object);
+        case ZT_AST_INDEX_EXPR:
+            return zt_scope_expr_is_mutable_target(scope, expr->as.index_expr.object);
+        default:
+            return 0;
+    }
+}
+
 static zt_var_meta *zt_find_var_meta(zt_lower_ctx *ctx, const char *name) {
     size_t i;
     if (ctx == NULL || name == NULL) return NULL;
@@ -570,6 +615,7 @@ static void zt_collect_apply_symbols(zt_lower_ctx *ctx, const zt_ast_node *decl)
             m->method_name = zt_lower_strdup(method->as.func_decl.name);
             m->lowered_name = zt_lower_strdup(lowered_name);
             m->trait_name = zt_lower_strdup(decl->as.apply_decl.trait_name);
+            m->is_mutating = method->as.func_decl.is_mutating;
         }
         free(lowered_name);
     }
@@ -1367,17 +1413,60 @@ static zt_hir_expr *zt_lower_call_expr(
             return result;
         }
 
+        /* R3.M4: Detect dyn method calls BEFORE looking up method meta */
+        if (receiver_type != NULL && receiver_type->kind == ZT_TYPE_DYN &&
+            receiver_type->args.count > 0 && receiver_type->args.items[0] != NULL &&
+            callee->as.field_expr.field_name != NULL) {
+            zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, NULL);
+            zt_type *return_type = expected != NULL ? zt_type_clone(expected) : zt_type_make(ZT_TYPE_TEXT);
+
+            result = zt_make_expr(ZT_HIR_DYN_METHOD_CALL_EXPR, expr->span, return_type);
+            if (result == NULL) {
+                zt_hir_expr_dispose(receiver);
+                zt_hir_expr_list_dispose(&args);
+                return NULL;
+            }
+            result->as.dyn_method_call_expr.receiver = receiver;
+            result->as.dyn_method_call_expr.method_name = zt_lower_strdup(callee->as.field_expr.field_name);
+            result->as.dyn_method_call_expr.trait_name = zt_lower_strdup(receiver_type->args.items[0]->name);
+            result->as.dyn_method_call_expr.args = args;
+            return result;
+        }
+
         const zt_method_meta *method = zt_find_method_meta(
             ctx,
             receiver_type != NULL ? receiver_type->name : NULL,
             callee->as.field_expr.field_name);
         if (method != NULL) {
+            if (method->is_mutating &&
+                !zt_scope_expr_is_mutable_target(scope, callee->as.field_expr.object)) {
+                char diag[256];
+                snprintf(diag, sizeof(diag), "mutating method '%s' requires a mutable receiver", callee->as.field_expr.field_name);
+                zt_add_diag(ctx, expr->span, diag);
+            }
             zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, zt_find_func_meta(ctx, method->lowered_name));
             zt_type *return_type = expected != NULL
                 ? zt_type_clone(expected)
                 : (zt_find_func_meta(ctx, method->lowered_name) != NULL
                    ? zt_type_clone(zt_find_func_meta(ctx, method->lowered_name)->return_type)
                    : zt_unknown_type());
+
+            /* R3.M4: Detect dyn method calls */
+            if (receiver_type != NULL && receiver_type->kind == ZT_TYPE_DYN &&
+                receiver_type->args.count > 0 && receiver_type->args.items[0] != NULL) {
+                result = zt_make_expr(ZT_HIR_DYN_METHOD_CALL_EXPR, expr->span, return_type);
+                if (result == NULL) {
+                    zt_hir_expr_dispose(receiver);
+                    zt_hir_expr_list_dispose(&args);
+                    return NULL;
+                }
+                result->as.dyn_method_call_expr.receiver = receiver;
+                result->as.dyn_method_call_expr.method_name = zt_lower_strdup(method->lowered_name);
+                result->as.dyn_method_call_expr.trait_name = zt_lower_strdup(receiver_type->args.items[0]->name);
+                result->as.dyn_method_call_expr.args = args;
+                return result;
+            }
+
             result = zt_make_expr(ZT_HIR_METHOD_CALL_EXPR, expr->span, return_type);
             if (result == NULL) {
                 zt_hir_expr_dispose(receiver);
@@ -1403,6 +1492,28 @@ static zt_hir_expr *zt_lower_call_expr(
         struct_meta = zt_find_struct_meta(ctx, callee_path);
         if (struct_meta != NULL) {
             return zt_lower_struct_constructor(ctx, scope, expr, callee_path, struct_meta);
+        }
+
+        /* R3.M5 Phase 2b: Check if callee is a callable variable (indirect call) */
+        {
+            const zt_type *callee_type = zt_scope_get(scope, callee->as.ident_expr.name);
+            if (callee_type != NULL && callee_type->kind == ZT_TYPE_CALLABLE) {
+                zt_hir_expr *callable_expr = zt_lower_expr(ctx, scope, callee, NULL);
+                zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, NULL);
+                zt_type *return_type = expected != NULL
+                    ? zt_type_clone(expected)
+                    : (callee_type->args.count > 0 ? zt_type_clone(callee_type->args.items[0]) : zt_unknown_type());
+
+                result = zt_make_expr(ZT_HIR_CALL_INDIRECT_EXPR, expr->span, return_type);
+                if (result == NULL) {
+                    zt_hir_expr_dispose(callable_expr);
+                    zt_hir_expr_list_dispose(&args);
+                    return NULL;
+                }
+                result->as.call_indirect_expr.callable = callable_expr;
+                result->as.call_indirect_expr.args = args;
+                return result;
+            }
         }
     }
 
@@ -1473,6 +1584,24 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             {
                 zt_type *type = zt_type_clone(bound_type);
                 if (type == NULL) type = expected != NULL ? zt_type_clone(expected) : zt_unknown_type();
+
+                /* R3.M5 Phase 2b: When expected type is callable and ident resolves to a
+                 * top-level function, emit a func-ref expression instead of ident.
+                 * The checker has already validated that the func is suitable (non-generic,
+                 * non-mutating, no receiver). */
+                if (expected != NULL && expected->kind == ZT_TYPE_CALLABLE) {
+                    const zt_func_meta *fmeta = zt_find_func_meta(ctx, expr->as.ident_expr.name);
+                    if (fmeta != NULL) {
+                        zt_type *callable_type = zt_type_clone(expected);
+                        out = zt_make_expr(ZT_HIR_FUNC_REF_EXPR, expr->span, zt_type_clone(callable_type));
+                        if (out != NULL) {
+                            out->as.func_ref_expr.func_name = zt_lower_strdup(fmeta->name);
+                            out->as.func_ref_expr.callable_type = callable_type;
+                        }
+                        return out;
+                    }
+                }
+
                 out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, type);
                 if (out != NULL) out->as.ident_expr.name = zt_lower_strdup(resolved_name);
                 return out;
@@ -1885,9 +2014,9 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                 }
             }
 
-            zt_scope_set(&loop_scope, stmt->as.for_stmt.item_name, item_type);
+            zt_scope_set(&loop_scope, stmt->as.for_stmt.item_name, item_type, 1);
             if (stmt->as.for_stmt.index_name != NULL) {
-                zt_scope_set(&loop_scope, stmt->as.for_stmt.index_name, second_type);
+                zt_scope_set(&loop_scope, stmt->as.for_stmt.index_name, second_type, 1);
             }
 
             zt_type_dispose(item_type);
@@ -1923,7 +2052,7 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             out->as.const_stmt.name = zt_lower_strdup(stmt->as.const_decl.name);
             out->as.const_stmt.type = zt_type_clone(declared_type);
             out->as.const_stmt.init_value = zt_lower_expr(ctx, scope, stmt->as.const_decl.init_value, declared_type);
-            zt_scope_set(scope, stmt->as.const_decl.name, declared_type);
+            zt_scope_set(scope, stmt->as.const_decl.name, declared_type, 0);
             zt_type_dispose(declared_type);
             return out;
         }
@@ -1938,7 +2067,7 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             out->as.var_stmt.name = zt_lower_strdup(stmt->as.var_decl.name);
             out->as.var_stmt.type = zt_type_clone(declared_type);
             out->as.var_stmt.init_value = zt_lower_expr(ctx, scope, stmt->as.var_decl.init_value, declared_type);
-            zt_scope_set(scope, stmt->as.var_decl.name, declared_type);
+            zt_scope_set(scope, stmt->as.var_decl.name, declared_type, 1);
             zt_type_dispose(declared_type);
             return out;
         }
@@ -1952,7 +2081,7 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                 zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.assign_stmt.name);
                 if (var_meta != NULL && var_meta->type != NULL) {
                     target_name = var_meta->lowered_name != NULL ? var_meta->lowered_name : stmt->as.assign_stmt.name;
-                    zt_scope_set(scope, target_name, var_meta->type);
+                    zt_scope_set(scope, target_name, var_meta->type, 1);
                     assigned_type = zt_scope_get(scope, target_name);
                 }
             }
@@ -1971,7 +2100,7 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                 zt_scope_get(scope, stmt->as.index_assign_stmt.object->as.ident_expr.name) == NULL) {
                 zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.index_assign_stmt.object->as.ident_expr.name);
                 if (var_meta != NULL && var_meta->type != NULL) {
-                    zt_scope_set(scope, stmt->as.index_assign_stmt.object->as.ident_expr.name, var_meta->type);
+                    zt_scope_set(scope, stmt->as.index_assign_stmt.object->as.ident_expr.name, var_meta->type, 1);
                 }
             }
             out->as.index_assign_stmt.object = zt_lower_expr(ctx, scope, stmt->as.index_assign_stmt.object, NULL);
@@ -1997,7 +2126,7 @@ static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
                 zt_scope_get(scope, stmt->as.field_assign_stmt.object->as.ident_expr.name) == NULL) {
                 zt_var_meta *var_meta = zt_find_var_meta(ctx, stmt->as.field_assign_stmt.object->as.ident_expr.name);
                 if (var_meta != NULL && var_meta->type != NULL) {
-                    zt_scope_set(scope, stmt->as.field_assign_stmt.object->as.ident_expr.name, var_meta->type);
+                    zt_scope_set(scope, stmt->as.field_assign_stmt.object->as.ident_expr.name, var_meta->type, 1);
                 }
             }
             out->as.field_assign_stmt.object = zt_lower_expr(ctx, scope, stmt->as.field_assign_stmt.object, NULL);
@@ -2202,7 +2331,7 @@ static zt_hir_decl *zt_lower_function_decl_core(
     zt_scope_init(&fn_scope, NULL);
     if (receiver_type != NULL) {
         zt_type *self_type = zt_type_make_named(ZT_TYPE_USER, receiver_type);
-        zt_scope_set(&fn_scope, "self", self_type);
+        zt_scope_set(&fn_scope, "self", self_type, func->as.func_decl.is_mutating);
         zt_type_dispose(self_type);
     }
 
@@ -2217,7 +2346,7 @@ static zt_hir_decl *zt_lower_function_decl_core(
         hparam.name = zt_lower_strdup(param->as.param.name);
         hparam.type = zt_type_clone(pt);
         
-        zt_scope_set(&fn_scope, param->as.param.name, pt);
+        zt_scope_set(&fn_scope, param->as.param.name, pt, 0);
 
         bool_type = zt_type_make(ZT_TYPE_BOOL);
         if (param->as.param.where_clause != NULL) {

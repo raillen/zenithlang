@@ -1,0 +1,15 @@
+[project]
+name = "result_propagation_8"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.result_propagation"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

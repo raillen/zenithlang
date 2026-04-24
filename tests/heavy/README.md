@@ -1,61 +1,35 @@
-# Heavy Tests — Zenith Language
+# Heavy Tests
 
-Testes avançados para segurança, performance, stress e corretude da linguagem Zenith.
+Estado atual do bloco `tests/heavy`:
 
-## Estrutura
+- `fuzz/semantic/`: corpus pesado de fixtures e campanha fuzz reproducivel;
+- `run_heavy_tests.py`: runner alinhado ao repositorio atual;
+- `reports/`: saida JSON + resumo markdown do runner pesado.
 
-```
-tests/heavy/
-├── security/           # Security vulnerability tests
-│   ├── buffer_overflow/    # Buffer overflow exploits
-│   ├── command_injection/  # Command injection (RCE)
-│   ├── path_traversal/     # Directory traversal
-│   └── race_conditions/    # Thread safety / data races
-├── crash/              # Crash reproduction tests
-│   ├── utf8_invalid/       # Invalid UTF-8 sequences
-│   └── integer_overflow/   # Integer overflow UB
-├── fuzz/               # Fuzzing tests
-│   └── semantic/           # Semantic layer fuzzing
-├── stress/             # Stress tests
-│   ├── nesting/            # Deep nesting stress
-│   └── loc/                # Large file stress (100k+ LOC)
-├── correctness/        # Functional correctness
-│   └── generics/           # Generic constraint validation
-└── performance/        # Performance benchmarks
-    └── maps/               # Map O(n) performance
-```
+O que este bloco faz hoje:
 
-## Execução
+1. roda replay curado dos fixtures pesados mais estaveis;
+2. roda campanha semantica reproducivel com seed fixa;
+3. gera relatorios simples para acompanhamento.
+
+Suites disponiveis:
+
+- `all`
+- `curated`
+- `fuzz`
+
+Comandos:
 
 ```bash
-# Todos os heavy tests
 python tests/heavy/run_heavy_tests.py
-
-# Apenas security tests
-python tests/heavy/run_heavy_tests.py --suite security
-
-# Apenas crash tests
-python tests/heavy/run_heavy_tests.py --suite crash
-
-# Stress tests com timeout estendido
-python tests/heavy/run_heavy_tests.py --suite stress --timeout 300
-
-# Performance benchmarks
-python tests/heavy/run_heavy_tests.py --suite performance
+python tests/heavy/run_heavy_tests.py --suite curated
+python tests/heavy/run_heavy_tests.py --suite fuzz
 ```
 
-## Report
+Observacoes:
 
-Os resultados são gerados em `tests/heavy/reports/`:
-- `heavy-tests-YYYYMMDD-HHMMSS.json` — Resultados detalhados
-- `heavy-tests-summary.md` — Resumo executivo
+- os fixtures em `tests/heavy/fuzz/semantic/*` foram modernizados para o formato atual de projeto, com `zenith.ztproj` em formato INI e fonte em `src/<namespace>.zt`;
+- o replay curado oficial cobre tanto casos que devem passar quanto regressoes que agora devem falhar, como receiver `const` chamando metodo `mut`;
+- o gate oficial continua em `run_suite.py`;
+- `tests/heavy/run_heavy_tests.py` serve como runner local e relatorio concentrado para o bloco pesado.
 
-## Critérios de Falha
-
-| Categoria | Critério |
-|-----------|----------|
-| Security | Qualquer crash, RCE, ou leak é **FAIL** |
-| Crash | Crash não documentado é **FAIL** |
-| Stress | Timeout ou OOM é **FAIL** |
-| Performance | Degradação > 2x é **WARN** |
-| Correctness | Comportamento incorreto é **FAIL** |

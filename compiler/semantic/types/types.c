@@ -52,6 +52,7 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_BTREESET: return "btreeset";
         case ZT_TYPE_GRID3D: return "grid3d";
         case ZT_TYPE_DYN: return "dyn";
+        case ZT_TYPE_CALLABLE: return "func";
         default: return "unknown";
     }
 }
@@ -207,6 +208,19 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
             }
             zt_type_append(buffer, buffer_size, cursor, ">");
             break;
+        case ZT_TYPE_CALLABLE:
+            zt_type_append(buffer, buffer_size, cursor, "func(");
+            for (i = 1; i < type->args.count; i++) {
+                if (i != 1) zt_type_append(buffer, buffer_size, cursor, ", ");
+                zt_type_format_inner(type->args.items[i], buffer, buffer_size, cursor);
+            }
+            zt_type_append(buffer, buffer_size, cursor, ") -> ");
+            if (type->args.count >= 1 && type->args.items[0] != NULL) {
+                zt_type_format_inner(type->args.items[0], buffer, buffer_size, cursor);
+            } else {
+                zt_type_append(buffer, buffer_size, cursor, "void");
+            }
+            break;
         default:
             zt_type_append(buffer, buffer_size, cursor, zt_type_kind_name(type->kind));
             break;
@@ -275,6 +289,66 @@ int zt_type_is_float(const zt_type *type) {
 
 int zt_type_is_numeric(const zt_type *type) {
     return zt_type_is_integral(type) || zt_type_is_float(type);
+}
+
+zt_type *zt_type_make_callable(zt_type *return_type, zt_type_list params) {
+    zt_type *callable = zt_type_make(ZT_TYPE_CALLABLE);
+    size_t i;
+
+    if (callable == NULL) {
+        zt_type_dispose(return_type);
+        zt_type_list_dispose(&params);
+        return NULL;
+    }
+    /* args[0] = return type (default: void) */
+    if (return_type == NULL) {
+        return_type = zt_type_make(ZT_TYPE_VOID);
+    }
+    zt_type_list_push(&callable->args, return_type);
+    for (i = 0; i < params.count; i++) {
+        zt_type_list_push(&callable->args, params.items[i]);
+    }
+    /* ownership of param items has been transferred; free only the array */
+    free(params.items);
+    params.items = NULL;
+    params.count = 0;
+    params.capacity = 0;
+    return callable;
+}
+
+const zt_type *zt_type_callable_return(const zt_type *callable) {
+    if (callable == NULL || callable->kind != ZT_TYPE_CALLABLE) return NULL;
+    if (callable->args.count == 0) return NULL;
+    return callable->args.items[0];
+}
+
+size_t zt_type_callable_param_count(const zt_type *callable) {
+    if (callable == NULL || callable->kind != ZT_TYPE_CALLABLE) return 0;
+    if (callable->args.count == 0) return 0;
+    return callable->args.count - 1;
+}
+
+const zt_type *zt_type_callable_param(const zt_type *callable, size_t index) {
+    if (callable == NULL || callable->kind != ZT_TYPE_CALLABLE) return NULL;
+    if (index + 1 >= callable->args.count) return NULL;
+    return callable->args.items[index + 1];
+}
+
+int zt_type_callable_signatures_equal(const zt_type *left, const zt_type *right) {
+    size_t params_left;
+    size_t params_right;
+    size_t i;
+
+    if (left == NULL || right == NULL) return 0;
+    if (left->kind != ZT_TYPE_CALLABLE || right->kind != ZT_TYPE_CALLABLE) return 0;
+    params_left = zt_type_callable_param_count(left);
+    params_right = zt_type_callable_param_count(right);
+    if (params_left != params_right) return 0;
+    if (!zt_type_equals(zt_type_callable_return(left), zt_type_callable_return(right))) return 0;
+    for (i = 0; i < params_left; i++) {
+        if (!zt_type_equals(zt_type_callable_param(left, i), zt_type_callable_param(right, i))) return 0;
+    }
+    return 1;
 }
 
 

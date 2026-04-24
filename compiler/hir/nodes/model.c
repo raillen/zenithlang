@@ -53,6 +53,9 @@ const char *zt_hir_expr_kind_name(zt_hir_expr_kind kind) {
         case ZT_HIR_SLICE_EXPR: return "slice_expr";
         case ZT_HIR_CALL_EXPR: return "call_expr";
         case ZT_HIR_METHOD_CALL_EXPR: return "method_call_expr";
+        case ZT_HIR_DYN_METHOD_CALL_EXPR: return "dyn_method_call_expr";
+        case ZT_HIR_FUNC_REF_EXPR: return "func_ref_expr";
+        case ZT_HIR_CALL_INDIRECT_EXPR: return "call_indirect_expr";
         case ZT_HIR_CONSTRUCT_EXPR: return "construct_expr";
         case ZT_HIR_VALUE_BINDING_EXPR: return "value_binding_expr";
         default: return "unknown";
@@ -301,6 +304,20 @@ void zt_hir_expr_dispose(zt_hir_expr *expr) {
             zt_hir_expr_dispose(expr->as.method_call_expr.receiver);
             free(expr->as.method_call_expr.method_name);
             zt_hir_expr_list_dispose(&expr->as.method_call_expr.args);
+            break;
+        case ZT_HIR_DYN_METHOD_CALL_EXPR:
+            zt_hir_expr_dispose(expr->as.dyn_method_call_expr.receiver);
+            free(expr->as.dyn_method_call_expr.method_name);
+            free(expr->as.dyn_method_call_expr.trait_name);
+            zt_hir_expr_list_dispose(&expr->as.dyn_method_call_expr.args);
+            break;
+        case ZT_HIR_FUNC_REF_EXPR:
+            free(expr->as.func_ref_expr.func_name);
+            zt_type_dispose(expr->as.func_ref_expr.callable_type);
+            break;
+        case ZT_HIR_CALL_INDIRECT_EXPR:
+            zt_hir_expr_dispose(expr->as.call_indirect_expr.callable);
+            zt_hir_expr_list_dispose(&expr->as.call_indirect_expr.args);
             break;
         case ZT_HIR_CONSTRUCT_EXPR:
             free(expr->as.construct_expr.type_name);

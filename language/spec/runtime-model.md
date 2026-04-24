@@ -43,6 +43,15 @@ The MVP is solidified on **Automatic Reference Counting (ARC)** without a tracin
 
 To maintain latency predictability and C-level speed, the default runtime uses **Non-Atomic ARC**. Concurrency relies on **Isolates** (message-passing/deep copy between boundaries). Atomic RC is restricted to designated explicit wrappers (e.g. `Shared<T>`).
 
+This is a runtime contract, not a promise that the whole host process is single-threaded.
+
+Practical reading:
+
+- Zenith user code runs on a **single-isolate by default** path.
+- The host/engine may use threads internally.
+- Ordinary managed Zenith values are not shared across threads by default.
+- Future user-facing concurrency should arrive as **workers/jobs/channels**, not as implicit shared mutable state.
+
 This architecture creates a known limitation: RC cycles. 
 
 Rules:
@@ -53,6 +62,96 @@ Rules:
 - rich callbacks, UI graphs, game object graphs and stored reference-like APIs are not stable until a cycle policy exists
 - future cycle policy must choose an explicit mechanism such as `weak<T>`, handles/arenas, constrained ownership graphs or cycle collection
 - the runtime must document which APIs can create cycles before those APIs become official
+
+## Concurrency Direction
+
+Zenith does **not** frame this as "the language is single-thread only".
+
+The correct model is:
+
+- default runtime path: single-isolate
+- concurrency boundary: explicit isolate/worker/job boundary
+- default transfer mode: deep copy
+- future optimized transfer mode: move when exclusivity is provable
+- explicit shared state: narrow wrappers only
+
+This keeps ordinary code simple and predictable, while still leaving room for parallel hosts, game engines and worker-based APIs.
+
+## Transferable Values
+
+The long-term worker boundary should accept only transferable data.
+
+Baseline transferable shapes:
+
+- scalars (`int`, `float`, `bool`)
+- `text`
+- `bytes`
+- `optional<T>` when `T` is transferable
+- `result<T, E>` when both channels are transferable
+- `list<T>` when `T` is transferable
+- `map<K, V>` when `K` and `V` are transferable
+- structs and enums whose fields/payloads are all transferable
+
+Not transferable by default:
+
+- live platform handles
+- network connections
+- raw `extern`/FFI resources
+- engine scene objects with shared mutable identity
+- ordinary managed values that are merely "reachable", but not explicitly transferred
+
+## User-Facing API Direction
+
+The intended public surface is small and explicit.
+
+Current delivered alpha slice:
+
+- `std.concurrent.copy_int`
+- `std.concurrent.copy_bool`
+- `std.concurrent.copy_float`
+- `std.concurrent.copy_text`
+- `std.concurrent.copy_bytes`
+- `std.concurrent.copy_list_int`
+- `std.concurrent.copy_list_text`
+- `std.concurrent.copy_map_text_text`
+
+These helpers make the boundary explicit today.
+They are copy-based only.
+`jobs.spawn/join` and channels remain the next public phase, not the current one.
+
+Canonical direction:
+
+```zt
+const job = jobs.spawn(build_navmesh, snapshot)
+const mesh = jobs.join(job)?
+```
+
+Possible later direction:
+
+```zt
+const channel = channels.create<Chunk>()
+channels.send(channel, chunk)
+```
+
+Not part of the initial surface:
+
+- raw thread handles
+- mutex/condvar-first programming
+- implicit cross-thread sharing of ordinary `text`, `list`, `map` and structs
+
+## Implementation Phases
+
+1. Document the runtime contract and make boundary-copy helpers explicit.
+2. Teach the checker what "transferable" means.
+3. Expose `jobs.spawn/join` on top of copy-based transfer.
+4. Add move-based optimization where exclusivity is provable.
+5. Add narrow explicit shared wrappers only where they are truly needed.
+
+Current progress in the alpha tree:
+
+- Phase 1 delivered.
+- The first public boundary helpers are available in `std.concurrent`.
+- Transferability analysis exists in the checker as groundwork for the next worker-facing surface.
 
 ## Stack Vs Heap Representation
 

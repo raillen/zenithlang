@@ -124,80 +124,127 @@ int zt_load_since_filter(
 int zt_project_source_file_list_push(zt_project_source_file_list *list, const char *path) {
     zt_project_source_file *new_items;
     size_t new_capacity;
-    char normalized[512];
+    char *normalized;
+    size_t path_len;
     size_t i;
+    int ok = 0;
 
     if (list == NULL || path == NULL) return 0;
 
-    if (!zt_copy_text(normalized, sizeof(normalized), path)) return 0;
+    /* Allocate a scratch buffer exactly the size of the input path so
+     * very long paths (monorepos, Windows long-path mode) are not
+     * silently rejected by a fixed stack cap. */
+    path_len = strlen(path);
+    normalized = (char *)malloc(path_len + 1);
+    if (normalized == NULL) return 0;
+    memcpy(normalized, path, path_len + 1);
     zt_normalize_path_inplace(normalized);
-
-    /* printf("DEBUG: pushing source file: %s (original: %s)\n", normalized, path); */
 
     for (i = 0; i < list->count; i += 1) {
         if (strcmp(list->items[i].path, normalized) == 0) {
-            /* printf("DEBUG: skipped duplicate: %s\n", normalized); */
-            return 1; /* Already in list */
+            ok = 1; /* Already in list */
+            goto done;
         }
     }
 
     if (list->count >= list->capacity) {
         new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;
         new_items = (zt_project_source_file *)realloc(list->items, new_capacity * sizeof(zt_project_source_file));
-        if (new_items == NULL) return 0;
+        if (new_items == NULL) goto done;
         list->items = new_items;
         list->capacity = new_capacity;
     }
 
     memset(&list->items[list->count], 0, sizeof(list->items[list->count]));
     if (!zt_copy_text(list->items[list->count].path, sizeof(list->items[list->count].path), normalized)) {
-        return 0;
+        goto done;
     }
     list->count += 1;
-    return 1;
+    ok = 1;
+
+done:
+    free(normalized);
+    return ok;
+}
+
+/*
+ * Build a joined path from `directory` and `leaf` using a heap buffer
+ * sized exactly to fit the combined result. Returns a malloc'd string
+ * that the caller must free, or NULL on allocation failure.
+ */
+static char *zt_join_path_alloc(const char *directory, const char *leaf) {
+    size_t dir_len;
+    size_t leaf_len;
+    size_t needed;
+    char *buffer;
+
+    if (directory == NULL || leaf == NULL) return NULL;
+
+    dir_len = strlen(directory);
+    leaf_len = strlen(leaf);
+    /* worst case: directory + '/' + leaf + '\0' */
+    needed = dir_len + 1 + leaf_len + 1;
+
+    buffer = (char *)malloc(needed);
+    if (buffer == NULL) return NULL;
+
+    if (!zt_join_path(buffer, needed, directory, leaf)) {
+        free(buffer);
+        return NULL;
+    }
+    return buffer;
 }
 
 int zt_project_discover_zt_files(const char *directory, zt_project_source_file_list *files) {
 #ifdef _WIN32
-    char pattern[768];
+    char *pattern;
     intptr_t handle;
     struct _finddata_t data;
 
-    if (!zt_join_path(pattern, sizeof(pattern), directory, "*")) {
-        fprintf(stderr, "error: source directory path is too long\n");
+    pattern = zt_join_path_alloc(directory, "*");
+    if (pattern == NULL) {
+        fprintf(stderr, "error: cannot build scan pattern for '%s'\n", directory);
         return 0;
     }
 
     handle = _findfirst(pattern, &data);
+    free(pattern);
     if (handle == -1) {
         fprintf(stderr, "error: cannot scan source directory '%s'\n", directory);
         return 0;
     }
 
     do {
-        char child_path[768];
+        char *child_path;
+        int inner_ok;
 
         if (strcmp(data.name, ".") == 0 || strcmp(data.name, "..") == 0) {
             continue;
         }
 
-        if (!zt_join_path(child_path, sizeof(child_path), directory, data.name)) {
+        child_path = zt_join_path_alloc(directory, data.name);
+        if (child_path == NULL) {
             _findclose(handle);
-            fprintf(stderr, "error: source path is too long\n");
+            fprintf(stderr, "error: out of memory while scanning '%s'\n", directory);
             return 0;
         }
 
         if ((data.attrib & _A_SUBDIR) != 0) {
-            if (!zt_project_discover_zt_files(child_path, files)) {
-                _findclose(handle);
-                return 0;
-            }
+            inner_ok = zt_project_discover_zt_files(child_path, files);
         } else if (zt_path_has_extension(child_path, ".zt")) {
-            if (!zt_project_source_file_list_push(files, child_path)) {
-                _findclose(handle);
+            inner_ok = zt_project_source_file_list_push(files, child_path);
+            if (!inner_ok) {
                 fprintf(stderr, "error: out of memory while collecting source files\n");
-                return 0;
             }
+        } else {
+            inner_ok = 1;
+        }
+
+        free(child_path);
+
+        if (!inner_ok) {
+            _findclose(handle);
+            return 0;
         }
     } while (_findnext(handle, &data) == 0);
 
@@ -214,29 +261,36 @@ int zt_project_discover_zt_files(const char *directory, zt_project_source_file_l
     }
 
     while ((entry = readdir(dir)) != NULL) {
-        char child_path[768];
+        char *child_path;
+        int inner_ok;
 
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
-        if (!zt_join_path(child_path, sizeof(child_path), directory, entry->d_name)) {
+        child_path = zt_join_path_alloc(directory, entry->d_name);
+        if (child_path == NULL) {
             closedir(dir);
-            fprintf(stderr, "error: source path is too long\n");
+            fprintf(stderr, "error: out of memory while scanning '%s'\n", directory);
             return 0;
         }
 
         if (zt_path_is_dir(child_path)) {
-            if (!zt_project_discover_zt_files(child_path, files)) {
-                closedir(dir);
-                return 0;
-            }
+            inner_ok = zt_project_discover_zt_files(child_path, files);
         } else if (zt_path_has_extension(child_path, ".zt")) {
-            if (!zt_project_source_file_list_push(files, child_path)) {
-                closedir(dir);
+            inner_ok = zt_project_source_file_list_push(files, child_path);
+            if (!inner_ok) {
                 fprintf(stderr, "error: out of memory while collecting source files\n");
-                return 0;
             }
+        } else {
+            inner_ok = 1;
+        }
+
+        free(child_path);
+
+        if (!inner_ok) {
+            closedir(dir);
+            return 0;
         }
     }
 
@@ -570,8 +624,17 @@ int zt_parse_project_sources(zt_driver_context *ctx, zt_project_source_file_list
             return 0;
         }
 
-        free(files->items[i].source_text);
-        files->items[i].source_text = NULL;
+        /*
+         * Do NOT free `source_text` here. The parser/lexer store raw
+         * pointers into this buffer inside AST tokens (notably comment
+         * tokens consumed by the formatter). Freeing early causes
+         * use-after-free: `fmt` silently emitted garbage payloads
+         * (e.g. `-- c` becoming `solat`), which then refused to
+         * re-parse on the second pass and appeared as a truncated
+         * output file. The buffer is released by
+         * `zt_project_source_file_list_dispose` once the AST is no
+         * longer needed.
+         */
     }
 
     return 1;

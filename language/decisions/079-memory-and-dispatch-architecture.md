@@ -21,6 +21,8 @@ Cross-thread sharing of ordinary mutable references is not a default language pa
 
 Concurrency uses isolate/message-passing boundaries. When shared mutable cross-thread state is needed, it must use explicit shared wrappers with stronger synchronization guarantees.
 
+The user-facing concurrency follow-up is worker/job/channel oriented, not a raw shared-thread model for ordinary managed values.
+
 ### 2. Dual Dispatch Model
 
 Default generic execution uses monomorphization for zero-cost specialization.

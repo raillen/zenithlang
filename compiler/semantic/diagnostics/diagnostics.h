@@ -56,6 +56,7 @@ typedef enum zt_diag_code {
     ZT_DIAG_INTEGER_OVERFLOW,
     ZT_DIAG_NON_EXHAUSTIVE_MATCH,
     ZT_DIAG_TOKEN_TOO_LONG,
+    ZT_DIAG_LEXER_UNTERMINATED_STRING,
     ZT_DIAG_PARAM_ORDERING,
     ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL,
     ZT_DIAG_DOC_MALFORMED_BLOCK,
@@ -65,7 +66,20 @@ typedef enum zt_diag_code {
     ZT_DIAG_DOC_UNRESOLVED_LINK,
     ZT_DIAG_DOC_INVALID_GUIDE_TAG,
     ZT_DIAG_DOC_INVALID_PAIRED_TAG,
-    ZT_DIAG_DOC_MISSING_PUBLIC_DOC
+    ZT_DIAG_DOC_MISSING_PUBLIC_DOC,
+    ZT_DIAG_DYN_MUT_METHOD,
+    ZT_DIAG_DYN_GENERIC_TRAIT,
+    ZT_DIAG_DYN_TOO_MANY_METHODS,
+    ZT_DIAG_DYN_UNCOPYABLE,
+    ZT_DIAG_DYN_NO_APPLY,
+    ZT_DIAG_DYN_FFI_UNSAFE,
+    /* R3.M5 - Callable delegates v1 (Decision 089). */
+    ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH,
+    ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR,
+    ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD,
+    ZT_DIAG_CALLABLE_ESCAPE_CONTAINER,
+    ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE,
+    ZT_DIAG_CALLABLE_INVALID_FUNC_REF
 } zt_diag_code;
 
 typedef enum zt_diag_severity {
@@ -128,6 +142,7 @@ zt_cog_profile zt_cog_profile_from_text(const char *text);
 zt_diag_effort zt_diag_code_effort(zt_diag_code code);
 const char *zt_diag_effort_label(zt_diag_effort effort);
 const char *zt_diag_action_text(zt_diag_code code);
+const char *zt_diag_next_text(zt_diag_code code);
 size_t zt_cog_profile_error_limit(zt_cog_profile profile);
 
 void zt_diag_telemetry_log(

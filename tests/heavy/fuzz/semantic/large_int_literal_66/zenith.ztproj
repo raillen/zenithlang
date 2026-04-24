@@ -1,8 +1,15 @@
-{
-  "project": {
-    "name": "fuzz_test",
-    "version": "0.1.0",
-    "source": { "root": "src" },
-    "build": { "target": "native", "mode": "debug" }
-  }
-}
+[project]
+name = "large_int_literal_66"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.large_int"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

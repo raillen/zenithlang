@@ -42,6 +42,7 @@ typedef enum zt_type_kind {
     ZT_TYPE_BTREESET,
     ZT_TYPE_GRID3D,
     ZT_TYPE_DYN,
+    ZT_TYPE_CALLABLE,
 } zt_type_kind;
 
 typedef struct zt_type zt_type;
@@ -72,6 +73,19 @@ void zt_type_list_dispose(zt_type_list *list);
 
 int zt_type_equals(const zt_type *left, const zt_type *right);
 void zt_type_format(const zt_type *type, char *buffer, size_t buffer_size);
+
+/*
+ * Callable delegate helpers (Decision 089).
+ *
+ * Representation: a zt_type with kind=ZT_TYPE_CALLABLE uses args in the
+ * following layout: args[0] = return type (ZT_TYPE_VOID for no return),
+ * args[1..] = parameter types. name is always NULL.
+ */
+zt_type *zt_type_make_callable(zt_type *return_type, zt_type_list params);
+const zt_type *zt_type_callable_return(const zt_type *callable);
+size_t zt_type_callable_param_count(const zt_type *callable);
+const zt_type *zt_type_callable_param(const zt_type *callable, size_t index);
+int zt_type_callable_signatures_equal(const zt_type *left, const zt_type *right);
 
 int zt_type_is_integral(const zt_type *type);
 int zt_type_is_signed_integral(const zt_type *type);

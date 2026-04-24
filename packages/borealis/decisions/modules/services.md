@@ -1,36 +1,63 @@
 # Borealis Module Decision - Services
 
-- Status: proposed
-- Date: 2026-04-22
+- Status: accepted
+- Date: 2026-04-23
 - Type: module / network and remote services
 - Scope: `borealis.game.services`
 
 ## Summary
 
-Services covers network play, cloud save, API calls, matchmaking, and remote sessions.
+`borealis.game.services` e o modulo guarda-chuva para rede e recursos remotos.
 
-## Implementation
+Nesta fase ele ainda e um stub em memoria, mas ja organiza tres ideias importantes:
 
-- keep remote concerns separate from local save and storage;
-- keep the API simple for beginners;
-- allow future subareas without renaming the module.
+- requisicoes HTTP simples;
+- conexao de cloud save;
+- upload, download e remocao de dados remotos de forma previsivel.
 
-## Proposed API
+## Direcao de implementacao
 
-- `services_connect(config)`: opens a remote service connection.
-- `services_disconnect(handle)`: closes the connection.
-- `services_request(method, url, payload) -> Response`: performs an API request.
-- `services_send(handle, message)`: sends a message.
-- `services_receive(handle) -> Message`: receives a message.
-- `services_host(config) -> Session`: starts a hosted session.
-- `services_join(code) -> Session`: joins a session.
-- `services_leave(session)`: leaves a session.
-- `services_upload(name, data)`: uploads cloud data.
-- `services_download(name) -> Data`: downloads cloud data.
-- `services_matchmake(config) -> Match`: finds a match.
+- manter a API simples para iniciantes;
+- separar rede de `save` e `storage`;
+- permitir que o modulo cresca depois para APIs, multiplayer simples e cloud real;
+- garantir um comportamento util mesmo antes do backend remoto existir.
 
-## Notes
+## Estado atual da implementacao
 
-- this is the umbrella module for remote capabilities.
-- subareas can be grouped later without changing the main name.
-- services can build on stdlib networking and request helpers under the hood.
+Hoje o modulo funciona como stub deterministico:
+
+- `http_send` valida URL e devolve uma resposta previsivel;
+- cloud save usa armazenamento em memoria por `provider::name`;
+- o estado de cloud separado entre `valor` e `presenca` evita confundir `""` com item removido.
+
+## API atual
+
+- `http_send(request) -> result<HttpResponse, core.Error>`: envia uma requisicao HTTP stub.
+- `cloud_connect(provider) -> CloudState`: cria um estado conectado para um provider.
+- `cloud_disconnect(state) -> CloudState`: desconecta o estado atual.
+- `cloud_is_connected(state) -> bool`: informa se a conexao esta ativa.
+- `cloud_upload(state, name, data) -> result<void, core.Error>`: envia um item para o provider atual.
+- `cloud_download(state, name) -> result<optional<text>, core.Error>`: baixa um item. Retorna `none` se nao existir.
+- `cloud_remove(state, name) -> result<void, core.Error>`: remove um item remoto.
+- `cloud_exists(state, name) -> result<bool, core.Error>`: informa se o item remoto existe.
+- `cloud_entry_count(state) -> result<int, core.Error>`: informa quantos itens o provider atual tem no stub.
+- `request_count() -> int`: retorna quantas requisicoes HTTP stub foram feitas.
+- `last_url() -> text`: retorna a ultima URL usada em `http_send`.
+- `reset() -> void`: limpa todo o estado interno do modulo.
+
+## Regras de comportamento
+
+- URL vazia gera erro em `http_send`;
+- metodo vazio cai para `GET`;
+- provider vazio nao conecta;
+- operacoes de cloud em estado desconectado retornam erro;
+- item remoto removido volta `none`;
+- string vazia ainda e um valor remoto valido;
+- `reset()` existe para testes, exemplos e scaffolds.
+
+## Proximos passos desejados
+
+- separar subareas como `services.http`, `services.cloud` e `services.session`;
+- integrar com `std.net` e requests reais;
+- suportar sessoes remotas e multiplayer simples;
+- permitir cloud save compartilhado com `save` e `storage`.

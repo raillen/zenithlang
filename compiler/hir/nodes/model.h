@@ -57,6 +57,9 @@ typedef enum zt_hir_expr_kind {
     ZT_HIR_SLICE_EXPR,
     ZT_HIR_CALL_EXPR,
     ZT_HIR_METHOD_CALL_EXPR,
+    ZT_HIR_DYN_METHOD_CALL_EXPR,
+    ZT_HIR_FUNC_REF_EXPR,
+    ZT_HIR_CALL_INDIRECT_EXPR,
     ZT_HIR_CONSTRUCT_EXPR,
     ZT_HIR_VALUE_BINDING_EXPR
 } zt_hir_expr_kind;
@@ -304,6 +307,9 @@ struct zt_hir_expr {
         struct { zt_hir_expr *object; zt_hir_expr *start; zt_hir_expr *end; } slice_expr;
         struct { char *callee_name; zt_hir_expr_list args; } call_expr;
         struct { zt_hir_expr *receiver; char *method_name; zt_hir_expr_list args; } method_call_expr;
+        struct { zt_hir_expr *receiver; char *method_name; char *trait_name; zt_hir_expr_list args; } dyn_method_call_expr;
+        struct { char *func_name; zt_type *callable_type; } func_ref_expr;
+        struct { zt_hir_expr *callable; zt_hir_expr_list args; } call_indirect_expr;
         struct { char *type_name; zt_hir_field_init_list fields; } construct_expr;
         struct { char *name; } value_binding_expr;
     } as;

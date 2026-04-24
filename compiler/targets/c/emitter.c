@@ -16,10 +16,25 @@ typedef struct c_optional_spec c_optional_spec;
 static const zir_module *c_active_module_for_symbol_lookup = NULL;
 static const zir_module_var *c_find_module_var_decl(const zir_module *module_decl, const char *name);
 static int c_is_module_var_name(const zir_module *module_decl, const char *name);
+static void c_to_lower(char *out, size_t capacity, const char *in);
+static void c_extract_method_name(const char *func_name, char *out, size_t capacity);
+static int c_find_trait_method_index(const zir_module *module_decl, const char *trait_name, const char *method_name);
 
 /* Buffer allocation strategy: use heap for large buffers to prevent stack overflow */
 #define ZT_EMITTER_STACK_BUFFER_THRESHOLD 2048  /* 2KB threshold */
 #define ZT_EMITTER_SPILL_THRESHOLD_DEFAULT (256u * 1024u)
+
+/*
+ * Maximum length of a single source-name segment (namespace part,
+ * function/struct/enum name, variant or field name) when it is
+ * mangled into a C symbol.
+ *
+ * This used to be 64 bytes, which silently truncated namespaces and
+ * could make two distinct sources collide on the same C identifier.
+ * 256 bytes is large enough for every realistic Zenith namespace
+ * while keeping stack frames modest.
+ */
+#define C_EMIT_SYMBOL_PART_MAX ((size_t)256)
 
 static char *c_emitter_alloc_buffer(size_t size, char *stack_buf, size_t stack_size) {
     if (size <= stack_size && size <= ZT_EMITTER_STACK_BUFFER_THRESHOLD) {
@@ -347,8 +362,36 @@ const char *c_emitter_text(c_emitter *emitter) {
     return emitter->buffer.data != NULL ? emitter->buffer.data : "";
 }
 
+int c_emitter_write_stream(c_emitter *emitter, FILE *out) {
+    if (emitter == NULL || out == NULL) {
+        return 0;
+    }
+
+    if (emitter->buffer.spill_file != NULL) {
+        char chunk[4096];
+        size_t read_count;
+
+        if (fflush(emitter->buffer.spill_file) != 0 || fseek(emitter->buffer.spill_file, 0, SEEK_SET) != 0) {
+            return 0;
+        }
+
+        while ((read_count = fread(chunk, 1, sizeof(chunk), emitter->buffer.spill_file)) > 0) {
+            if (fwrite(chunk, 1, read_count, out) != read_count) {
+                return 0;
+            }
+        }
+    } else if (emitter->buffer.resident_length > 0) {
+        if (fwrite(emitter->buffer.data, 1, emitter->buffer.resident_length, out) != emitter->buffer.resident_length) {
+            return 0;
+        }
+    }
+
+    return ferror(out) == 0 ? 1 : 0;
+}
+
 int c_emitter_write_file(c_emitter *emitter, const char *path) {
     FILE *out;
+    int ok;
 
     if (path == NULL || path[0] == '\0') {
         return 0;
@@ -359,30 +402,10 @@ int c_emitter_write_file(c_emitter *emitter, const char *path) {
         return 0;
     }
 
-    if (emitter->buffer.spill_file != NULL) {
-        char chunk[4096];
-        size_t read_count;
-
-        if (fflush(emitter->buffer.spill_file) != 0 || fseek(emitter->buffer.spill_file, 0, SEEK_SET) != 0) {
-            fclose(out);
-            return 0;
-        }
-
-        while ((read_count = fread(chunk, 1, sizeof(chunk), emitter->buffer.spill_file)) > 0) {
-            if (fwrite(chunk, 1, read_count, out) != read_count) {
-                fclose(out);
-                return 0;
-            }
-        }
-    } else if (emitter->buffer.resident_length > 0) {
-        if (fwrite(emitter->buffer.data, 1, emitter->buffer.resident_length, out) != emitter->buffer.resident_length) {
-            fclose(out);
-            return 0;
-        }
-    }
+    ok = c_emitter_write_stream(emitter, out);
 
     fclose(out);
-    return 1;
+    return ok;
 }
 
 static int c_begin_line(c_emitter *emitter) {
@@ -525,8 +548,8 @@ static const zir_function *c_find_function_decl(const zir_module *module_decl, c
 }
 
 static void c_build_function_symbol(const zir_module *module_decl, const zir_function *function_decl, char *dest, size_t capacity) {
-    char module_name[64];
-    char function_name[64];
+    char module_name[C_EMIT_SYMBOL_PART_MAX];
+    char function_name[C_EMIT_SYMBOL_PART_MAX];
 
     c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
     c_copy_sanitized(function_name, sizeof(function_name), c_safe_text(function_decl->name));
@@ -534,16 +557,16 @@ static void c_build_function_symbol(const zir_module *module_decl, const zir_fun
 }
 
 static void c_build_struct_symbol(const zir_module *module_decl, const zir_struct_decl *struct_decl, char *dest, size_t capacity) {
-    char module_name[64];
-    char struct_name[64];
+    char module_name[C_EMIT_SYMBOL_PART_MAX];
+    char struct_name[C_EMIT_SYMBOL_PART_MAX];
 
     c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
     c_copy_sanitized(struct_name, sizeof(struct_name), c_safe_text(struct_decl != NULL ? struct_decl->name : NULL));
     snprintf(dest, capacity, "zt_%s__%s", module_name, struct_name);
 }
 static void c_build_enum_symbol(const zir_module *module_decl, const zir_enum_decl *enum_decl, char *dest, size_t capacity) {
-    char module_name[64];
-    char enum_name[64];
+    char module_name[C_EMIT_SYMBOL_PART_MAX];
+    char enum_name[C_EMIT_SYMBOL_PART_MAX];
 
     c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
     c_copy_sanitized(enum_name, sizeof(enum_name), c_safe_text(enum_decl != NULL ? enum_decl->name : NULL));
@@ -576,7 +599,7 @@ static const zir_enum_variant_field_decl *c_find_enum_variant_field(const zir_en
 }
 
 static void c_build_block_label(const char *label, char *dest, size_t capacity) {
-    char sanitized[64];
+    char sanitized[C_EMIT_SYMBOL_PART_MAX];
     c_copy_sanitized(sanitized, sizeof(sanitized), c_safe_text(label));
     snprintf(dest, capacity, "zt_block_%s", sanitized);
 }
@@ -881,6 +904,38 @@ static int c_parse_binary_type_name(
            c_copy_trimmed_segment(right_type_name, right_capacity, comma + 1, end);
 }
 
+static int c_format_binary_type_name(
+        char *dest,
+        size_t capacity,
+        const char *prefix,
+        const char *left_type_name,
+        const char *right_type_name) {
+    size_t prefix_len;
+    size_t left_len;
+    size_t right_len;
+    size_t required;
+
+    if (dest == NULL || capacity == 0 || prefix == NULL || left_type_name == NULL || right_type_name == NULL) {
+        return 0;
+    }
+
+    prefix_len = strlen(prefix);
+    left_len = strlen(left_type_name);
+    right_len = strlen(right_type_name);
+    required = prefix_len + left_len + 1 + right_len + 1;
+    if (required >= capacity) {
+        return 0;
+    }
+
+    memcpy(dest, prefix, prefix_len);
+    memcpy(dest + prefix_len, left_type_name, left_len);
+    dest[prefix_len + left_len] = ',';
+    memcpy(dest + prefix_len + left_len + 1, right_type_name, right_len);
+    dest[prefix_len + left_len + 1 + right_len] = '>';
+    dest[required] = '\0';
+    return 1;
+}
+
 static void c_build_generated_map_symbol(const char *canonical_name, char *dest, size_t capacity) {
     char sanitized[192];
 
@@ -952,6 +1007,55 @@ static int c_resolve_type_mapping(const char *type_name, c_resolved_type_mapping
         return 1;
     }
 
+    /* R3.M4: Support list<dyn<Trait>> for heterogeneous collections */
+    if (c_parse_unary_type_name(
+            type_name,
+            "list<dyn<",
+            canonical_name,
+            sizeof(canonical_name),
+            inner_type_name,
+            sizeof(inner_type_name))) {
+        snprintf(resolved->canonical_storage, sizeof(resolved->canonical_storage), "list<dyn<%.115s>>", inner_type_name);
+        resolved->c_name_storage[0] = '\0';
+        strcat(resolved->c_name_storage, "zt_list_dyn *");
+        resolved->canonical_name = resolved->canonical_storage;
+        resolved->c_name = resolved->c_name_storage;
+        resolved->category = C_TYPE_MANAGED;
+        resolved->is_managed = 1;
+        return 1;
+    }
+
+    if (c_parse_unary_type_name(
+            type_name,
+            "dyn<",
+            canonical_name,
+            sizeof(canonical_name),
+            inner_type_name,
+            sizeof(inner_type_name))) {
+        /* R3.M4: Support dyn<Trait> for user-defined traits with vtable-based dispatch.
+         * TextRepresentable uses legacy tagged union path; all others use zt_dyn_value. */
+        if (strcmp(inner_type_name, "TextRepresentable") == 0 ||
+            strcmp(inner_type_name, "textrepresentable") == 0) {
+            snprintf(resolved->canonical_storage, sizeof(resolved->canonical_storage), "dyn<textrepresentable>");
+            resolved->c_name_storage[0] = '\0';
+            strcat(resolved->c_name_storage, "zt_dyn_text_repr *");
+            resolved->canonical_name = resolved->canonical_storage;
+            resolved->c_name = resolved->c_name_storage;
+            resolved->category = C_TYPE_MANAGED;
+            resolved->is_managed = 1;
+            return 1;
+        }
+        /* R3.M4: Generic dyn<Trait> uses zt_dyn_value fat pointer */
+        snprintf(resolved->canonical_storage, sizeof(resolved->canonical_storage), "dyn<%.122s>", inner_type_name);
+        resolved->c_name_storage[0] = '\0';
+        strcat(resolved->c_name_storage, "zt_dyn_value *");
+        resolved->canonical_name = resolved->canonical_storage;
+        resolved->c_name = resolved->c_name_storage;
+        resolved->category = C_TYPE_MANAGED;
+        resolved->is_managed = 1;
+        return 1;
+    }
+
     return 0;
 }
 
@@ -1014,6 +1118,49 @@ static int c_type_is_managed(const char *type_name) {
 static inline int c_type_is(const char *type_name, const char *canonical_name) {
     c_resolved_type_mapping mapping;
     return c_resolve_type_mapping(type_name, &mapping) && strcmp(mapping.canonical_name, canonical_name) == 0;
+}
+
+static int c_type_names_equivalent(const char *left_type_name, const char *right_type_name) {
+    char left_canonical[128];
+    char right_canonical[128];
+    size_t left_length;
+    size_t right_length;
+
+    if (left_type_name == NULL || right_type_name == NULL) {
+        return 0;
+    }
+
+    c_canonicalize_type(left_canonical, sizeof(left_canonical), left_type_name);
+    c_canonicalize_type(right_canonical, sizeof(right_canonical), right_type_name);
+
+    if (left_canonical[0] == '\0' || right_canonical[0] == '\0') {
+        return 0;
+    }
+
+    if (strcmp(left_canonical, right_canonical) == 0) {
+        return 1;
+    }
+
+    if (c_type_is(left_type_name, right_canonical) || c_type_is(right_type_name, left_canonical)) {
+        return 1;
+    }
+
+    left_length = strlen(left_canonical);
+    right_length = strlen(right_canonical);
+
+    if (left_length > right_length &&
+            strcmp(left_canonical + (left_length - right_length), right_canonical) == 0 &&
+            left_canonical[left_length - right_length - 1] == '.') {
+        return 1;
+    }
+
+    if (right_length > left_length &&
+            strcmp(right_canonical + (right_length - left_length), left_canonical) == 0 &&
+            right_canonical[right_length - left_length - 1] == '.') {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int c_parse_outcome_type_name(
@@ -1096,6 +1243,7 @@ static int c_type_is_builtin_managed_value(const char *type_name) {
 }
 
 static int c_type_is_struct_with_managed_fields(const zir_module *module_decl, const char *type_name);
+static int c_optional_value_has_managed_state(const zir_module *module_decl, const char *type_name);
 
 static int c_struct_has_managed_fields(const zir_module *module_decl, const zir_struct_decl *struct_decl) {
     size_t field_index;
@@ -1106,6 +1254,7 @@ static int c_struct_has_managed_fields(const zir_module *module_decl, const zir_
         const char *field_type_name = struct_decl->fields[field_index].type_name;
         if (c_type_is_managed(field_type_name) ||
                 c_type_is_builtin_managed_value(field_type_name) ||
+                c_optional_value_has_managed_state(module_decl, field_type_name) ||
                 c_type_is_struct_with_managed_fields(module_decl, field_type_name)) {
             return 1;
         }
@@ -1185,6 +1334,90 @@ static int c_type_to_c(const zir_module *module_decl, const char *type_name, cha
             return 1;
         }
     }
+
+    /* R3.M5: Support callable types func(params) -> return as C function pointers */
+    if (strncmp(type_name, "func(", 5) == 0) {
+        const char *close_paren = strstr(type_name, ") -> ");
+        if (close_paren != NULL) {
+            char params_str[256];
+            char return_str[64];
+            size_t params_len = (size_t)(close_paren - (type_name + 5));
+            const char *return_start = close_paren + 5;
+            if (params_len < sizeof(params_str)) {
+                memcpy(params_str, type_name + 5, params_len);
+                params_str[params_len] = '\0';
+                snprintf(return_str, sizeof(return_str), "%s", return_start);
+                {
+                    char return_c[64];
+                    c_canonicalize_type(return_c, sizeof(return_c), return_str);
+                    if (strcmp(return_c, "void") == 0) {
+                        snprintf(dest, capacity, "void (*)()");
+                    } else {
+                        char ret_mapped[64];
+                        if (c_resolve_type_mapping(return_str, &mapping)) {
+                            snprintf(ret_mapped, sizeof(ret_mapped), "%s", mapping.c_name);
+                        } else {
+                            snprintf(ret_mapped, sizeof(ret_mapped), "%s", return_c);
+                        }
+                        if (params_len == 0) {
+                            snprintf(dest, capacity, "%s (*)()", ret_mapped);
+                        } else {
+                            /* Parse comma-separated params and map each type */
+                            char params_c[512];
+                            char *param_start = params_str;
+                            char *param_end;
+                            size_t params_c_len = 0;
+                            params_c[0] = '\0';
+                            while ((param_end = strchr(param_start, ',')) != NULL) {
+                                *param_end = '\0';
+                                /* Trim whitespace */
+                                while (*param_start == ' ') param_start++;
+                                {
+                                    char single_param_c[64];
+                                    char single_param_mapped[64];
+                                    c_canonicalize_type(single_param_c, sizeof(single_param_c), param_start);
+                                    if (c_resolve_type_mapping(param_start, &mapping)) {
+                                        snprintf(single_param_mapped, sizeof(single_param_mapped), "%s", mapping.c_name);
+                                    } else {
+                                        snprintf(single_param_mapped, sizeof(single_param_mapped), "%s", single_param_c);
+                                    }
+                                    if (params_c_len > 0) {
+                                        params_c_len += (size_t)snprintf(params_c + params_c_len, sizeof(params_c) - params_c_len, ", %s", single_param_mapped);
+                                    } else {
+                                        params_c_len += (size_t)snprintf(params_c + params_c_len, sizeof(params_c) - params_c_len, "%s", single_param_mapped);
+                                    }
+                                }
+                                param_start = param_end + 1;
+                            }
+                            /* Handle last param */
+                            while (*param_start == ' ') param_start++;
+                            if (*param_start != '\0') {
+                                char single_param_c[64];
+                                char single_param_mapped[64];
+                                c_canonicalize_type(single_param_c, sizeof(single_param_c), param_start);
+                                if (c_resolve_type_mapping(param_start, &mapping)) {
+                                    snprintf(single_param_mapped, sizeof(single_param_mapped), "%s", mapping.c_name);
+                                } else {
+                                    snprintf(single_param_mapped, sizeof(single_param_mapped), "%s", single_param_c);
+                                }
+                                if (params_c_len > 0) {
+                                    params_c_len += (size_t)snprintf(params_c + params_c_len, sizeof(params_c) - params_c_len, ", %s", single_param_mapped);
+                                } else {
+                                    params_c_len += (size_t)snprintf(params_c + params_c_len, sizeof(params_c) - params_c_len, "%s", single_param_mapped);
+                                }
+                            }
+                            snprintf(dest, capacity, "%s (*)(%s)", ret_mapped, params_c);
+                        }
+                    }
+                    return 1;
+                }
+            }
+        }
+    }
+
+    /* R3.M4: dyn dispatch minimum subset now supports user-defined traits.
+     * The old subset limit check has been removed; dyn<Trait> resolves to
+     * zt_dyn_value * for user traits and zt_dyn_text_repr * for TextRepresentable. */
 
     c_emit_set_result(
         result,
@@ -1291,6 +1524,13 @@ static int c_emit_hex_bytes_literal(c_emitter *emitter, const char *hex_text, c_
 static int c_emit_typed_name(c_string_buffer *buffer, const char *c_type, const char *name) {
     size_t type_len = strlen(c_type);
 
+    /* Function pointer types: "ret (*)(params)" -> "ret (*name)(params)" */
+    if (strstr(c_type, "(*)") != NULL) {
+        const char *star_paren = strstr(c_type, "(*)");
+        size_t prefix_len = (size_t)(star_paren - c_type);
+        return c_buffer_append_format(buffer, "%.*s(*%s)%s", (int)prefix_len, c_type, name, star_paren + 3);
+    }
+
     if (type_len > 0 && c_type[type_len - 1] == '*') {
         return c_buffer_append_format(buffer, "%s%s", c_type, name);
     }
@@ -1319,7 +1559,9 @@ static const char *c_find_symbol_type(const zir_function *function_decl, const c
                 if (instruction->kind == ZIR_INSTR_ASSIGN &&
                         instruction->dest_name != NULL &&
                         strcmp(instruction->dest_name, name) == 0) {
-                    return instruction->type_name;
+                    if (instruction->type_name != NULL && instruction->type_name[0] != '\0') {
+                        return instruction->type_name;
+                    }
                 }
             }
         }
@@ -1488,6 +1730,7 @@ struct c_optional_spec {
     char value_type_name[128];
     char c_type_name[128];
     char present_fn[160];
+    char take_fn[160];
     char empty_fn[160];
     char is_present_fn[160];
     char value_fn[160];
@@ -1531,6 +1774,7 @@ static int c_optional_spec_for_type(const char *type_name, c_optional_spec *spec
     }
 
     snprintf(spec->present_fn, sizeof(spec->present_fn), "%s_present", spec->c_type_name);
+    snprintf(spec->take_fn, sizeof(spec->take_fn), "%s_take", spec->c_type_name);
     snprintf(spec->empty_fn, sizeof(spec->empty_fn), "%s_empty", spec->c_type_name);
     snprintf(spec->is_present_fn, sizeof(spec->is_present_fn), "%s_is_present", spec->c_type_name);
     snprintf(spec->value_fn, sizeof(spec->value_fn), "%s_value", spec->c_type_name);
@@ -1898,62 +2142,13 @@ static int c_module_requires_template_header(const zir_module *module_decl) {
     return 0;
 }
 
-static int c_type_requires_generated_outcome_helper(const char *type_name) {
-    c_outcome_spec spec;
-    return c_outcome_spec_for_type(type_name, &spec) && spec.is_generated;
-}
-
 static int c_module_requires_string_header(const zir_module *module_decl) {
-    size_t struct_index;
-    size_t function_index;
-
-    if (module_decl == NULL) {
-        return 0;
-    }
-
-    for (struct_index = 0; struct_index < module_decl->struct_count; struct_index += 1) {
-        const zir_struct_decl *struct_decl = &module_decl->structs[struct_index];
-        size_t field_index;
-        for (field_index = 0; field_index < struct_decl->field_count; field_index += 1) {
-            if (c_type_requires_generated_optional_helper(struct_decl->fields[field_index].type_name) ||
-                    c_type_requires_generated_outcome_helper(struct_decl->fields[field_index].type_name)) {
-                return 1;
-            }
-        }
-    }
-
-    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
-        const zir_function *function_decl = &module_decl->functions[function_index];
-        size_t param_index;
-        size_t block_index;
-
-        if (c_type_requires_generated_optional_helper(function_decl->return_type) ||
-                c_type_requires_generated_outcome_helper(function_decl->return_type)) {
-            return 1;
-        }
-
-        for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
-            if (c_type_requires_generated_optional_helper(function_decl->params[param_index].type_name) ||
-                    c_type_requires_generated_outcome_helper(function_decl->params[param_index].type_name)) {
-                return 1;
-            }
-        }
-
-        for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
-            const zir_block *block = &function_decl->blocks[block_index];
-            size_t instruction_index;
-            for (instruction_index = 0; instruction_index < block->instruction_count; instruction_index += 1) {
-                const zir_instruction *instruction = &block->instructions[instruction_index];
-                if (instruction->type_name != NULL &&
-                        (c_type_requires_generated_optional_helper(instruction->type_name) ||
-                            c_type_requires_generated_outcome_helper(instruction->type_name))) {
-                    return 1;
-                }
-            }
-        }
-    }
-
-    return 0;
+    /*
+     * The C emitter now uses memset in multiple generic code paths (including
+     * managed assignment transfer). Keep <string.h> always available for valid
+     * modules to avoid heuristic misses when those paths are exercised.
+     */
+    return module_decl != NULL;
 }
 static int c_expression_is_copyable_managed_value_ref(const zir_function *function_decl, const char *expr_text) {
     char *trimmed;
@@ -2610,8 +2805,10 @@ static int c_emit_make_map_expr(
         c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid make_map expression '%s'", c_safe_text(expr_text));
         return 0;
     }
-
-    snprintf(map_type_name, sizeof(map_type_name), "map<%s,%s>", key_type_name, value_type_name);
+    if (!c_format_binary_type_name(map_type_name, sizeof(map_type_name), "map<", key_type_name, value_type_name)) {
+        c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "make_map<%s,%s> type name is too long", key_type_name, value_type_name);
+        return 0;
+    }
     if (!c_map_spec_for_type(module_decl, map_type_name, &spec) ||
             !c_type_to_c(module_decl, key_type_name, key_c_type, sizeof(key_c_type), result) ||
             !c_type_to_c(module_decl, value_type_name, value_c_type, sizeof(value_c_type), result)) {
@@ -2858,8 +3055,9 @@ static int c_emit_make_struct_expr(
     if (enum_decl != NULL) {
         char tag_value[64];
         char enum_symbol[128];
-        char variant_member[64];
-        char variant_tag[192];
+        char variant_member[C_EMIT_SYMBOL_PART_MAX];
+        /* enum_symbol (<=128) + "__" + variant_member (<=255) + NUL */
+        char variant_tag[C_EMIT_SYMBOL_PART_MAX + 128 + 4];
         const zir_enum_variant_decl *variant = NULL;
         char *endptr = NULL;
         long tag_index_long;
@@ -3222,8 +3420,10 @@ static int c_emit_expr(
             c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid make_map expression '%s'", c_safe_text(trimmed));
             return 0;
         }
-
-        snprintf(declared_map_type, sizeof(declared_map_type), "map<%s,%s>", key_type_name, value_type_name);
+        if (!c_format_binary_type_name(declared_map_type, sizeof(declared_map_type), "map<", key_type_name, value_type_name)) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "%s type name is too long", c_safe_text(trimmed));
+            return 0;
+        }
         if (!c_is_blank(expected_type_name) && !c_type_is(expected_type_name, declared_map_type)) {
             c_emit_set_result(
                 result,
@@ -3719,6 +3919,67 @@ static int c_emit_expr(
         return c_emit_legalized_seq_expr(emitter, module_decl, function_decl, &legalized, result);
     }
 
+    if (strncmp(trimmed, "func_ref ", 9) == 0) {
+        const char *colon = strchr(trimmed + 9, ':');
+        char func_name[256];
+        if (colon == NULL || (size_t)(colon - (trimmed + 9)) >= sizeof(func_name)) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid func_ref expression '%s'", trimmed);
+            return 0;
+        }
+        size_t name_len = (size_t)(colon - (trimmed + 9));
+        memcpy(func_name, trimmed + 9, name_len);
+        func_name[name_len] = '\0';
+        /* Trim trailing whitespace */
+        while (name_len > 0 && (func_name[name_len - 1] == ' ' || func_name[name_len - 1] == '\t')) {
+            func_name[--name_len] = '\0';
+        }
+        {
+            const zir_function *fn = c_find_function_decl(module_decl, func_name);
+            if (fn != NULL) {
+                char symbol[256];
+                c_build_function_symbol(module_decl, fn, symbol, sizeof(symbol));
+                c_buffer_append(&emitter->buffer, "&");
+                c_emit_value(emitter, symbol);
+            } else {
+                char sanitized[256];
+                c_copy_sanitized(sanitized, sizeof(sanitized), func_name);
+                c_buffer_append(&emitter->buffer, "&");
+                c_emit_value(emitter, sanitized);
+            }
+        }
+        return 1;
+    }
+
+    if (strncmp(trimmed, "call_indirect ", 14) == 0) {
+        const char *body = trimmed + 14;
+        const char *open = strchr(body, '(');
+        const char *close = strrchr(body, ')');
+        char callable[256];
+        char args[512];
+        if (open == NULL || close == NULL || close < open) {
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "invalid call_indirect expression '%s'", trimmed);
+            return 0;
+        }
+        {
+            size_t callable_len = (size_t)(open - body);
+            size_t args_len = (size_t)(close - (open + 1));
+            if (callable_len >= sizeof(callable) || args_len >= sizeof(args)) {
+                c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "call_indirect expression '%s' is too large", trimmed);
+                return 0;
+            }
+            memcpy(callable, body, callable_len);
+            callable[callable_len] = '\0';
+            memcpy(args, open + 1, args_len);
+            args[args_len] = '\0';
+        }
+        if (!c_emit_expr(emitter, module_decl, function_decl, callable, NULL, result)) {
+            return 0;
+        }
+        return c_buffer_append(&emitter->buffer, "(") &&
+               c_buffer_append(&emitter->buffer, args) &&
+               c_buffer_append(&emitter->buffer, ")");
+    }
+
     if (strncmp(trimmed, "call_extern ", 12) == 0 || strncmp(trimmed, "call_direct ", 12) == 0) {
         const int direct_call = trimmed[5] == 'd';
         const char *call_body = trimmed + 12;
@@ -4117,6 +4378,19 @@ static int c_zir_expr_is_copyable_managed_value_ref(const zir_function *function
     return 0;
 }
 
+static int c_zir_expr_is_borrowed_managed_value_ref(const zir_function *function_decl, const zir_expr *expr) {
+    char name[128];
+
+    if (c_zir_expr_name_text(expr, name, sizeof(name))) {
+        return 1;
+    }
+
+    return expr != NULL &&
+           expr->kind == ZIR_EXPR_GET_FIELD &&
+           (c_is_mutating_self_expr(function_decl, expr->as.field.object) ||
+               c_zir_expr_name_text(expr->as.field.object, name, sizeof(name)));
+}
+
 static int c_zir_optional_value_is_supported(
         const zir_module *module_decl,
         const zir_function *function_decl,
@@ -4149,6 +4423,113 @@ static int c_zir_optional_spec_for_expr(
     }
 
     return c_optional_spec_for_type(type_name, spec);
+}
+
+static int c_zir_expr_needs_expected_optional_wrap(
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const zir_expr *expr,
+        const char *expected_type_name,
+        c_optional_spec *spec) {
+    char actual_type_name[128];
+
+    if (expr == NULL || c_is_blank(expected_type_name) || spec == NULL) {
+        return 0;
+    }
+
+    if (!c_optional_spec_for_type(expected_type_name, spec)) {
+        return 0;
+    }
+
+    if (c_type_is_managed(spec->value_type_name) ||
+            c_type_is_builtin_managed_value(spec->value_type_name)) {
+        return 0;
+    }
+
+    if (!c_zir_expr_resolve_type(module_decl, function_decl, expr, actual_type_name, sizeof(actual_type_name))) {
+        return 0;
+    }
+
+    if (c_type_names_equivalent(actual_type_name, expected_type_name)) {
+        return 0;
+    }
+
+    return c_type_names_equivalent(actual_type_name, spec->value_type_name);
+}
+
+static int c_emit_expected_optional_wrapped_zir_expr(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const zir_expr *expr,
+        const char *expected_type_name,
+        c_emit_result *result) {
+    c_optional_spec spec;
+    const char *wrap_fn = NULL;
+
+    if (!c_zir_expr_needs_expected_optional_wrap(
+            module_decl,
+            function_decl,
+            expr,
+            expected_type_name,
+            &spec)) {
+        return 0;
+    }
+
+    wrap_fn = spec.present_fn;
+    if (spec.is_generated &&
+            c_type_needs_managed_cleanup(module_decl, spec.value_type_name) &&
+            !c_zir_expr_is_borrowed_managed_value_ref(function_decl, expr)) {
+        wrap_fn = spec.take_fn;
+    }
+
+    if (!(c_buffer_append_format(&emitter->buffer, "%s(", wrap_fn) &&
+            c_emit_zir_expr(emitter, module_decl, function_decl, expr, spec.value_type_name, result) &&
+            c_buffer_append(&emitter->buffer, ")"))) {
+        return -1;
+    }
+
+    return 1;
+}
+
+static const char *c_zir_set_field_expected_type(
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const zir_expr *object_expr,
+        const char *field_name) {
+    static char resolved_type[128];
+    char object_type[128];
+    const zir_struct_decl *struct_decl;
+    const zir_field_decl *field_decl;
+
+    if (module_decl == NULL || function_decl == NULL || object_expr == NULL || c_is_blank(field_name)) {
+        return NULL;
+    }
+
+    if (!c_zir_expr_resolve_type(module_decl, function_decl, object_expr, object_type, sizeof(object_type))) {
+        return NULL;
+    }
+
+    if (c_type_is(object_type, "core.Error")) {
+        if (strcmp(field_name, "code") == 0 || strcmp(field_name, "message") == 0) {
+            snprintf(resolved_type, sizeof(resolved_type), "text");
+            return resolved_type;
+        }
+        if (strcmp(field_name, "context") == 0) {
+            snprintf(resolved_type, sizeof(resolved_type), "optional<text>");
+            return resolved_type;
+        }
+        return NULL;
+    }
+
+    struct_decl = c_find_user_struct(module_decl, object_type);
+    field_decl = c_find_struct_field(struct_decl, field_name);
+    if (field_decl == NULL) {
+        return NULL;
+    }
+
+    snprintf(resolved_type, sizeof(resolved_type), "%s", c_safe_text(field_decl->type_name));
+    return resolved_type;
 }
 
 static const char *c_extern_call_expected_arg_type(const char *callee, size_t index);
@@ -5021,8 +5402,9 @@ static int c_emit_zir_make_struct_expr(
         const zir_named_expr *tag_init = c_find_make_struct_field_init(expr, "__zt_enum_tag");
         const zir_enum_variant_decl *variant = NULL;
         char enum_symbol[128];
-        char variant_member[64];
-        char variant_tag[192];
+        char variant_member[C_EMIT_SYMBOL_PART_MAX];
+        /* enum_symbol (<=128) + "__" + variant_member (<=255) + NUL */
+        char variant_tag[C_EMIT_SYMBOL_PART_MAX + 128 + 4];
         char *endptr = NULL;
         long tag_index_long;
         size_t tag_index;
@@ -5076,14 +5458,26 @@ static int c_emit_zir_make_struct_expr(
                 }
                 if (!(c_buffer_append(&emitter->buffer, ".") &&
                         c_buffer_append(&emitter->buffer, c_safe_text(field_decl->name)) &&
-                        c_buffer_append(&emitter->buffer, " = ") &&
-                        c_emit_zir_expr(
+                        c_buffer_append(&emitter->buffer, " = "))) {
+                    return 0;
+                }
+                if (c_type_is_managed(field_decl->type_name)) {
+                    if (!c_emit_owned_managed_zir_expr(
                             emitter,
                             module_decl,
                             function_decl,
                             field_init->value,
                             field_decl->type_name,
-                            result))) {
+                            result)) {
+                        return 0;
+                    }
+                } else if (!c_emit_zir_expr(
+                        emitter,
+                        module_decl,
+                        function_decl,
+                        field_init->value,
+                        field_decl->type_name,
+                        result)) {
                     return 0;
                 }
             }
@@ -5114,14 +5508,26 @@ static int c_emit_zir_make_struct_expr(
         }
         if (!(c_buffer_append(&emitter->buffer, ".") &&
                 c_buffer_append(&emitter->buffer, c_safe_text(field_init->name)) &&
-                c_buffer_append(&emitter->buffer, " = ") &&
-                c_emit_zir_expr(
+                c_buffer_append(&emitter->buffer, " = "))) {
+            return 0;
+        }
+        if (c_type_is_managed(field_decl->type_name)) {
+            if (!c_emit_owned_managed_zir_expr(
                     emitter,
                     module_decl,
                     function_decl,
                     field_init->value,
                     field_decl->type_name,
-                    result))) {
+                    result)) {
+                return 0;
+            }
+        } else if (!c_emit_zir_expr(
+                emitter,
+                module_decl,
+                function_decl,
+                field_init->value,
+                field_decl->type_name,
+                result)) {
             return 0;
         }
     }
@@ -5188,6 +5594,22 @@ static int c_emit_zir_make_list_expr(
         }
 
         return c_buffer_append_format(&emitter->buffer, "}), %zu)", expr->as.make_list.items.count);
+    }
+
+    /* R3.M4: Support list<dyn<Trait>> for user-defined traits */
+    {
+        char inner_trait[128];
+        if (c_parse_unary_type_name(expr->as.make_list.item_type_name, "dyn<", inner_trait, sizeof(inner_trait), inner_trait, sizeof(inner_trait))) {
+            /* list<dyn<Trait>> uses zt_list_dyn */
+            if (expr->as.make_list.items.count == 0) {
+                return c_buffer_append(&emitter->buffer, "zt_list_dyn_create()");
+            }
+
+            /* Non-empty list: create and append items */
+            /* For now, emit a placeholder - full implementation requires boxing */
+            c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "non-empty list<dyn<Trait>> requires boxing support (R3.M4 Phase 2)");
+            return 0;
+        }
     }
 
     c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "make_list<%s> is not supported by the current C emitter subset", c_safe_text(expr->as.make_list.item_type_name));
@@ -5388,13 +5810,28 @@ static int c_emit_zir_expr(
         const char *expected_type_name,
         c_emit_result *result) {
     const char *op;
+    int expected_optional_wrap;
 
     if (expr == NULL) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "structured ZIR expression cannot be null");
         return 0;
     }
 
-    if (!c_is_blank(expected_type_name) && c_type_is(expected_type_name, "dyn<textrepresentable>")) {
+    expected_optional_wrap = c_emit_expected_optional_wrapped_zir_expr(
+        emitter,
+        module_decl,
+        function_decl,
+        expr,
+        expected_type_name,
+        result);
+    if (expected_optional_wrap < 0) {
+        return 0;
+    }
+    if (expected_optional_wrap > 0) {
+        return 1;
+    }
+
+    if (!c_is_blank(expected_type_name) && (c_type_is(expected_type_name, "dyn<textrepresentable>") || strcmp(expected_type_name, "dyn<TextRepresentable>") == 0)) {
         char actual_type_name[96];
         int actual_known = c_zir_expr_resolve_type(module_decl, function_decl, expr, actual_type_name, sizeof(actual_type_name));
         int is_integral = 0;
@@ -5486,6 +5923,14 @@ static int c_emit_zir_expr(
                 return c_buffer_append(&emitter->buffer, "zt_text_from_utf8_literal(") &&
                        c_emit_c_string_literal(emitter, expr->as.text.text) &&
                        c_buffer_append(&emitter->buffer, ")");
+            }
+            /* R3.M4: String literal assigned to dyn<TextRepresentable> */
+            if (expected_type_name != NULL &&
+                (strstr(expected_type_name, "dyn<TextRepresentable>") != NULL ||
+                 strstr(expected_type_name, "dyn<textrepresentable>") != NULL)) {
+                return c_buffer_append(&emitter->buffer, "zt_dyn_text_repr_from_text_owned(zt_text_from_utf8_literal(") &&
+                       c_emit_c_string_literal(emitter, expr->as.text.text) &&
+                       c_buffer_append(&emitter->buffer, "))");
             }
             return c_emit_c_string_literal(emitter, expr->as.text.text);
 
@@ -5598,6 +6043,55 @@ static int c_emit_zir_expr(
         case ZIR_EXPR_CALL_EXTERN:
             return c_emit_zir_call_expr(emitter, module_decl, function_decl, expr, result);
 
+        case ZIR_EXPR_CALL_DYN: {
+            /* R3.M4: Emit dyn method dispatch via vtable methods[] array */
+            size_t arg_index;
+            int method_idx = c_find_trait_method_index(module_decl, expr->as.dyn_call.trait_name, expr->as.dyn_call.method_name);
+            const char *return_type = "void *";  /* default fallback */
+
+            /* Find actual return type from trait method */
+            {
+                size_t f;
+                for (f = 0; f < module_decl->function_count; f++) {
+                    const zir_function *func = &module_decl->functions[f];
+                    if (func->implemented_trait_name != NULL &&
+                        strcmp(func->implemented_trait_name, expr->as.dyn_call.trait_name) == 0 &&
+                        func->name != NULL && func->return_type != NULL) {
+                        char mname[64];
+                        c_extract_method_name(func->name, mname, sizeof(mname));
+                        if (strcmp(mname, expr->as.dyn_call.method_name) == 0) {
+                            c_resolved_type_mapping mapping;
+                            if (c_resolve_type_mapping(func->return_type, &mapping)) {
+                                return_type = mapping.c_name;
+                            } else {
+                                char canonical[128];
+                                c_canonicalize_type(canonical, sizeof(canonical), func->return_type);
+                                if (strcmp(canonical, "text") == 0) return_type = "zt_text *";
+                                else if (strcmp(canonical, "int") == 0) return_type = "zt_int";
+                                else if (strcmp(canonical, "float") == 0) return_type = "zt_float";
+                                else if (strcmp(canonical, "bool") == 0) return_type = "zt_bool";
+                                else if (strcmp(canonical, "void") == 0) return_type = "void";
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (method_idx < 0) method_idx = 0;  /* fallback */
+
+            c_buffer_append_format(&emitter->buffer, "((%s (*)(void *))", return_type);
+            if (!c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.dyn_call.receiver, NULL, result)) return 0;
+            c_buffer_append_format(&emitter->buffer, "->vtable->methods[%d])(", method_idx);
+            if (!c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.dyn_call.receiver, NULL, result)) return 0;
+            c_buffer_append(&emitter->buffer, "->data");
+            for (arg_index = 0; arg_index < expr->as.dyn_call.args.count; arg_index += 1) {
+                c_buffer_append(&emitter->buffer, ", ");
+                if (!c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.dyn_call.args.items[arg_index], NULL, result)) return 0;
+            }
+            return c_buffer_append(&emitter->buffer, ")");
+        }
+
         case ZIR_EXPR_MAKE_STRUCT:
             return c_emit_zir_make_struct_expr(emitter, module_decl, function_decl, expr, result);
 
@@ -5624,7 +6118,7 @@ static int c_emit_zir_expr(
                     {
                         const zir_enum_variant_decl *resolved_variant = NULL;
                         size_t variant_index;
-                        char variant_member[64];
+                        char variant_member[C_EMIT_SYMBOL_PART_MAX];
 
                         for (variant_index = 0; variant_index < enum_decl->variant_count; variant_index += 1) {
                             const zir_enum_variant_decl *variant = &enum_decl->variants[variant_index];
@@ -5729,6 +6223,7 @@ static int c_emit_zir_expr(
             c_optional_spec spec;
             char fallback_value_type_name[128];
             const char *fallback_value_type = NULL;
+            const char *wrap_fn = NULL;
 
             if (c_is_blank(expected_type_name) &&
                     c_zir_expr_resolve_type(module_decl, function_decl, expr->as.single.value, fallback_value_type_name, sizeof(fallback_value_type_name))) {
@@ -5739,11 +6234,16 @@ static int c_emit_zir_expr(
                 c_emit_set_result(result, C_EMIT_UNSUPPORTED_TYPE, "optional_present requires Optional<T>, but the expected type is '%s'", c_safe_text(expected_type_name));
                 return 0;
             }
-            if (!c_zir_optional_value_is_supported(module_decl, function_decl, &spec, expr->as.single.value)) {
+            wrap_fn = spec.present_fn;
+            if (spec.is_generated &&
+                    c_type_needs_managed_cleanup(module_decl, spec.value_type_name) &&
+                    !c_zir_expr_is_borrowed_managed_value_ref(function_decl, expr->as.single.value)) {
+                wrap_fn = spec.take_fn;
+            } else if (!c_zir_optional_value_is_supported(module_decl, function_decl, &spec, expr->as.single.value)) {
                 c_emit_set_result(result, C_EMIT_UNSUPPORTED_EXPR, "optional_present for %s requires a materialized %s value", spec.display_name, spec.value_type_name);
                 return 0;
             }
-            return c_buffer_append_format(&emitter->buffer, "%s(", spec.present_fn) &&
+            return c_buffer_append_format(&emitter->buffer, "%s(", wrap_fn) &&
                    c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.single.value, spec.value_type_name, result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
@@ -5773,6 +6273,8 @@ static int c_emit_zir_expr(
         case ZIR_EXPR_LIST_PUSH:
         case ZIR_EXPR_LIST_SET:
         case ZIR_EXPR_MAP_SET:
+        case ZIR_EXPR_FUNC_REF:
+        case ZIR_EXPR_CALL_INDIRECT:
             return c_emit_zir_expr_as_legacy(emitter, module_decl, function_decl, expr, expected_type_name, result);
 
         default:
@@ -5817,7 +6319,7 @@ static int c_emit_owned_managed_zir_expr(
     }
 
     if (c_type_is(expected_type_name, "dyn<textrepresentable>")) {
-        return c_emit_zir_expr(emitter, module_decl, function_decl, expr, NULL, result);
+        return c_emit_zir_expr(emitter, module_decl, function_decl, expr, expected_type_name, result);
     }
 
     return c_emit_zir_expr(emitter, module_decl, function_decl, expr, expected_type_name, result);
@@ -5829,6 +6331,8 @@ static int c_emit_effect_zir_expr(
         const zir_function *function_decl,
         const zir_expr *expr,
         c_emit_result *result) {
+    const char *field_expected_type = NULL;
+
     if (expr == NULL) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "effect expression cannot be null");
         return 0;
@@ -5846,15 +6350,20 @@ static int c_emit_effect_zir_expr(
     }
 
     if (expr->kind == ZIR_EXPR_SET_FIELD) {
+        field_expected_type = c_zir_set_field_expected_type(
+            module_decl,
+            function_decl,
+            expr->as.field.object,
+            expr->as.field.field_name);
         if (c_is_mutating_self_expr(function_decl, expr->as.field.object)) {
             return c_buffer_append_format(&emitter->buffer, "    self->%s = ", c_safe_text(expr->as.field.field_name)) &&
-                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.value, NULL, result) &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.value, field_expected_type, result) &&
                    c_buffer_append(&emitter->buffer, ";");
         }
         return c_buffer_append(&emitter->buffer, "    ") &&
                c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.object, NULL, result) &&
                c_buffer_append_format(&emitter->buffer, ".%s = ", c_safe_text(expr->as.field.field_name)) &&
-               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.value, NULL, result) &&
+               c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.field.value, field_expected_type, result) &&
                c_buffer_append(&emitter->buffer, ";");
     }
 
@@ -6150,6 +6659,54 @@ static int c_has_managed_locals(const zir_module *module_decl, const c_local_dec
     return 0;
 }
 
+static int c_function_needs_cleanup(
+        const zir_module *module_decl,
+        const zir_function *function_decl,
+        const c_local_decl *locals,
+        size_t local_count) {
+    if (c_has_managed_locals(module_decl, locals, local_count)) {
+        return 1;
+    }
+
+    if (function_decl == NULL || strcmp(c_safe_text(function_decl->return_type), "void") == 0) {
+        return 0;
+    }
+
+    return c_type_needs_managed_cleanup(module_decl, function_decl->return_type);
+}
+
+static int c_return_expr_is_borrowed_cleanup_ref(
+        const zir_function *function_decl,
+        const zir_expr *value_expr,
+        const char *value_text) {
+    char trimmed[256];
+    char target[128];
+    char field[128];
+
+    if (value_expr != NULL) {
+        return c_zir_expr_is_borrowed_managed_value_ref(function_decl, value_expr);
+    }
+
+    if (!c_copy_trimmed(trimmed, sizeof(trimmed), value_text)) {
+        return 0;
+    }
+
+    if (c_is_identifier_only(trimmed)) {
+        return 1;
+    }
+
+    if (strncmp(trimmed, "get_field ", 10) != 0) {
+        return 0;
+    }
+
+    if (!c_split_two_operands(trimmed + 10, target, sizeof(target), field, sizeof(field))) {
+        return 0;
+    }
+
+    (void)field;
+    return c_is_identifier_only(target) || strcmp(target, "self") == 0;
+}
+
 static int c_is_managed_local_name(
         const zir_module *module_decl,
         const c_local_decl *locals,
@@ -6175,7 +6732,7 @@ static int c_emit_locals(
         size_t local_count,
         c_emit_result *result) {
     size_t index;
-    int has_cleanup = c_has_managed_locals(module_decl, locals, local_count);
+    int has_cleanup = c_function_needs_cleanup(module_decl, function_decl, locals, local_count);
 
     for (index = 0; index < local_count; index += 1) {
         char c_type[64];
@@ -6774,6 +7331,7 @@ static int c_emit_instruction(
         const zir_instruction *instruction,
         c_emit_result *result) {
     char instruction_c_type[64];
+    const char *target_type_name;
     int needs_managed_cleanup;
     int is_managed_pointer;
 
@@ -6787,31 +7345,24 @@ static int c_emit_instruction(
                c_emit_effect_instruction(emitter, module_decl, function_decl, instruction, result);
     }
 
-    needs_managed_cleanup = c_type_needs_managed_cleanup(module_decl, instruction->type_name);
-    is_managed_pointer = c_type_is_managed(instruction->type_name);
-    if (!is_managed_pointer &&
-            c_type_to_c(module_decl, instruction->type_name, instruction_c_type, sizeof(instruction_c_type), result)) {
-        size_t c_type_length = strlen(instruction_c_type);
-        is_managed_pointer = c_type_length > 0 && instruction_c_type[c_type_length - 1] == '*';
+    target_type_name = c_find_symbol_type(function_decl, c_safe_text(instruction->dest_name));
+    if (target_type_name == NULL) {
+        target_type_name = instruction->type_name;
     }
 
-    if (needs_managed_cleanup &&
-            !is_managed_pointer &&
-            !c_emit_value_dispose_in_place(
-                emitter,
-                module_decl,
-                instruction->type_name,
-                c_safe_text(instruction->dest_name),
-                "    ",
-                result)) {
-        return 0;
+    needs_managed_cleanup = c_type_needs_managed_cleanup(module_decl, target_type_name);
+    is_managed_pointer = c_type_is_managed(target_type_name);
+    if (!is_managed_pointer &&
+            c_type_to_c(module_decl, target_type_name, instruction_c_type, sizeof(instruction_c_type), result)) {
+        size_t c_type_length = strlen(instruction_c_type);
+        is_managed_pointer = c_type_length > 0 && instruction_c_type[c_type_length - 1] == '*';
     }
 
     if (is_managed_pointer) {
         char c_type[64];
         char trimmed[256];
 
-        if (!c_type_to_c(module_decl, instruction->type_name, c_type, sizeof(c_type), result)) {
+        if (!c_type_to_c(module_decl, target_type_name, c_type, sizeof(c_type), result)) {
             return 0;
         }
 
@@ -6851,27 +7402,165 @@ static int c_emit_instruction(
                 return 0;
             }
         } else {
+            /* R3.M4: Boxing for dyn<Trait> assignments */
+            char inner_trait[128];
+            int is_dyn_assignment = target_type_name != NULL &&
+                c_parse_unary_type_name(target_type_name, "dyn<", inner_trait, sizeof(inner_trait), inner_trait, sizeof(inner_trait));
+
+            if (is_dyn_assignment && instruction->expr != NULL && instruction->expr->kind == ZIR_EXPR_MAKE_STRUCT) {
+                /* Generate boxing code: __zt_assign_tmp = zt_dyn_box(malloc(sizeof(Struct)), &zt_vtable_Struct__Trait); */
+                char struct_c_type[64];
+                char vtable_instance_name[256];
+                char trait_lower[64];
+                c_type_to_c(module_decl, instruction->expr->as.make_struct.type_name, struct_c_type, sizeof(struct_c_type), result);
+                c_to_lower(trait_lower, sizeof(trait_lower), inner_trait);
+                snprintf(vtable_instance_name, sizeof(vtable_instance_name), "zt_vtable_%s__%s", instruction->expr->as.make_struct.type_name, trait_lower);
+
+                if (!(c_begin_line(emitter) &&
+                        c_buffer_append(&emitter->buffer, "        {") &&
+                        c_begin_line(emitter) &&
+                        c_buffer_append_format(&emitter->buffer, "            %s *__zt_box_data = (%s *)malloc(sizeof(%s));", struct_c_type, struct_c_type, struct_c_type) &&
+                        c_begin_line(emitter) &&
+                        c_buffer_append(&emitter->buffer, "            if (__zt_box_data == NULL) { zt_runtime_error(ZT_ERR_MEMORY, \"dyn box allocation failed\"); }"))) {
+                    return 0;
+                }
+
+                /* Copy struct fields */
+                {
+                    size_t field_index;
+                    for (field_index = 0; field_index < instruction->expr->as.make_struct.fields.count; field_index += 1) {
+                        const zir_named_expr *field = &instruction->expr->as.make_struct.fields.items[field_index];
+                        if (!(c_begin_line(emitter) &&
+                                c_buffer_append_format(&emitter->buffer, "            __zt_box_data->%s = ", field->name))) {
+                            return 0;
+                        }
+                        if (!c_emit_zir_expr(emitter, module_decl, function_decl, field->value, NULL, result)) return 0;
+                        if (!c_buffer_append(&emitter->buffer, ";")) return 0;
+                    }
+                }
+
+                if (!(c_begin_line(emitter) &&
+                        c_buffer_append(&emitter->buffer, "            __zt_assign_tmp = zt_dyn_box(__zt_box_data, (zt_vtable *)&" ) &&
+                        c_buffer_append(&emitter->buffer, vtable_instance_name) &&
+                        c_buffer_append(&emitter->buffer, ");") &&
+                        c_begin_line(emitter) &&
+                        c_buffer_append(&emitter->buffer, "        }"))) {
+                    return 0;
+                }
+            } else {
+                if (!(c_begin_line(emitter) &&
+                        c_buffer_append(&emitter->buffer, "        __zt_assign_tmp = "))) {
+                    return 0;
+                }
+
+                if (instruction->expr != NULL) {
+                    if (!c_emit_owned_managed_zir_expr(
+                            emitter,
+                            module_decl,
+                            function_decl,
+                            instruction->expr,
+                            target_type_name,
+                            result)) {
+                        return 0;
+                    }
+                } else if (!c_emit_owned_managed_expr(
+                        emitter,
+                        module_decl,
+                        function_decl,
+                        instruction->expr_text,
+                        target_type_name,
+                        result)) {
+                    return 0;
+                }
+
+                if (!c_buffer_append(&emitter->buffer, ";")) {
+                    return 0;
+                }
+            }
+        }
+
+        if (needs_managed_cleanup &&
+                !c_emit_value_dispose_in_place(
+                    emitter,
+                    module_decl,
+                    target_type_name,
+                    c_safe_text(instruction->dest_name),
+                    "        ",
+                    result)) {
+            return 0;
+        }
+
+        return c_begin_line(emitter) &&
+               c_buffer_append_format(&emitter->buffer, "        %s = __zt_assign_tmp;", c_safe_text(instruction->dest_name)) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "    }");
+    }
+
+    if (needs_managed_cleanup && !is_managed_pointer) {
+        char c_type[64];
+        char trimmed[256];
+
+        if (!c_type_to_c(module_decl, target_type_name, c_type, sizeof(c_type), result)) {
+            return 0;
+        }
+
+        if (!(c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    {") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "        ") &&
+                c_emit_typed_name(&emitter->buffer, c_type, "__zt_assign_tmp") &&
+                c_buffer_append(&emitter->buffer, " = {0};"))) {
+            return 0;
+        }
+
+        if (instruction->expr != NULL &&
+                instruction->expr->kind == ZIR_EXPR_CALL_EXTERN &&
+                c_zir_call_extern_needs_ffi_shield(module_decl, function_decl, instruction->expr)) {
+            if (!(c_begin_line(emitter) &&
+                    c_emit_ffi_shielded_zir_call_statement(
+                        emitter,
+                        module_decl,
+                        function_decl,
+                        instruction->expr,
+                        "__zt_assign_tmp",
+                        result))) {
+                return 0;
+            }
+        } else if (instruction->expr == NULL &&
+                c_copy_trimmed(trimmed, sizeof(trimmed), instruction->expr_text) &&
+                c_legacy_call_extern_needs_ffi_shield(function_decl, trimmed)) {
+            if (!(c_begin_line(emitter) &&
+                    c_emit_ffi_shielded_legacy_call_statement(
+                        emitter,
+                        module_decl,
+                        function_decl,
+                        trimmed,
+                        "__zt_assign_tmp",
+                        result))) {
+                return 0;
+            }
+        } else {
             if (!(c_begin_line(emitter) &&
                     c_buffer_append(&emitter->buffer, "        __zt_assign_tmp = "))) {
                 return 0;
             }
 
             if (instruction->expr != NULL) {
-                if (!c_emit_owned_managed_zir_expr(
+                if (!c_emit_zir_expr(
                         emitter,
                         module_decl,
                         function_decl,
                         instruction->expr,
-                        instruction->type_name,
+                        target_type_name,
                         result)) {
                     return 0;
                 }
-            } else if (!c_emit_owned_managed_expr(
+            } else if (!c_emit_expr(
                     emitter,
                     module_decl,
                     function_decl,
                     instruction->expr_text,
-                    instruction->type_name,
+                    target_type_name,
                     result)) {
                 return 0;
             }
@@ -6881,19 +7570,31 @@ static int c_emit_instruction(
             }
         }
 
-        if (needs_managed_cleanup &&
-                !c_emit_value_dispose_in_place(
+        if (c_return_expr_is_borrowed_cleanup_ref(function_decl, instruction->expr, instruction->expr_text) &&
+                !c_emit_value_clone_in_place(
                     emitter,
                     module_decl,
-                    instruction->type_name,
-                    c_safe_text(instruction->dest_name),
+                    target_type_name,
+                    "__zt_assign_tmp",
                     "        ",
                     result)) {
             return 0;
         }
 
+        if (!c_emit_value_dispose_in_place(
+                emitter,
+                module_decl,
+                target_type_name,
+                c_safe_text(instruction->dest_name),
+                "        ",
+                result)) {
+            return 0;
+        }
+
         return c_begin_line(emitter) &&
                c_buffer_append_format(&emitter->buffer, "        %s = __zt_assign_tmp;", c_safe_text(instruction->dest_name)) &&
+               c_begin_line(emitter) &&
+               c_buffer_append(&emitter->buffer, "        memset(&__zt_assign_tmp, 0, sizeof(__zt_assign_tmp));") &&
                c_begin_line(emitter) &&
                c_buffer_append(&emitter->buffer, "    }");
     }
@@ -6915,11 +7616,10 @@ static int c_emit_instruction(
         char trimmed[256];
 
         if (!c_copy_trimmed(trimmed, sizeof(trimmed), instruction->expr_text)) {
-            c_emit_set_result(result, C_EMIT_INVALID_INPUT, "expression is too large");
-            return 0;
+            trimmed[0] = '\0';
         }
 
-        if (c_legacy_call_extern_needs_ffi_shield(function_decl, trimmed)) {
+        if (trimmed[0] != '\0' && c_legacy_call_extern_needs_ffi_shield(function_decl, trimmed)) {
             return c_begin_line(emitter) &&
                    c_emit_ffi_shielded_legacy_call_statement(
                        emitter,
@@ -6943,11 +7643,11 @@ static int c_emit_instruction(
                     module_decl,
                     function_decl,
                     instruction->expr,
-                    instruction->type_name,
+                    target_type_name,
                     result)) {
                 return 0;
             }
-        } else if (!c_emit_zir_expr(emitter, module_decl, function_decl, instruction->expr, instruction->type_name, result)) {
+        } else if (!c_emit_zir_expr(emitter, module_decl, function_decl, instruction->expr, target_type_name, result)) {
             return 0;
         }
     } else {
@@ -6957,11 +7657,11 @@ static int c_emit_instruction(
                     module_decl,
                     function_decl,
                     instruction->expr_text,
-                    instruction->type_name,
+                    target_type_name,
                     result)) {
                 return 0;
             }
-        } else if (!c_emit_expr(emitter, module_decl, function_decl, instruction->expr_text, instruction->type_name, result)) {
+        } else if (!c_emit_expr(emitter, module_decl, function_decl, instruction->expr_text, target_type_name, result)) {
             return 0;
         }
     }
@@ -6972,10 +7672,20 @@ static int c_emit_instruction(
 
     if (needs_managed_cleanup && !is_managed_pointer) {
         int rhs_needs_retain = 0;
+        c_optional_spec optional_wrap_spec;
 
         if (instruction->expr != NULL) {
             rhs_needs_retain = instruction->expr->kind == ZIR_EXPR_NAME ||
                                instruction->expr->kind == ZIR_EXPR_GET_FIELD;
+            if (rhs_needs_retain &&
+                    c_zir_expr_needs_expected_optional_wrap(
+                        module_decl,
+                        function_decl,
+                        instruction->expr,
+                        target_type_name,
+                        &optional_wrap_spec)) {
+                rhs_needs_retain = 0;
+            }
         } else {
             char trimmed[256];
             if (c_copy_trimmed(trimmed, sizeof(trimmed), instruction->expr_text)) {
@@ -6988,12 +7698,12 @@ static int c_emit_instruction(
                 !c_emit_value_clone_in_place(
                     emitter,
                     module_decl,
-                    instruction->type_name,
+                    target_type_name,
                     c_safe_text(instruction->dest_name),
                     "    ",
                     result)) {
-            return 0;
-        }
+                return 0;
+            }
     }
 
     return 1;
@@ -7043,11 +7753,11 @@ static int c_return_expr_needs_optional_wrap(
         resolved_type_name = c_find_symbol_type(function_decl, trimmed);
     }
 
-    if (resolved_type_name == NULL || c_type_is(resolved_type_name, function_decl->return_type)) {
+    if (resolved_type_name == NULL || c_type_names_equivalent(resolved_type_name, function_decl->return_type)) {
         return 0;
     }
 
-    if (c_type_is(resolved_type_name, inner_type_name)) {
+    if (c_type_names_equivalent(resolved_type_name, inner_type_name)) {
         return 1;
     }
 
@@ -7068,6 +7778,8 @@ static int c_emit_optional_wrapped_return_value(
         c_emit_result *result) {
     c_optional_spec spec;
     char inner_type_name[128];
+    const char *wrap_fn = NULL;
+    char trimmed[256];
 
     if (!c_return_expr_needs_optional_wrap(
             module_decl,
@@ -7088,7 +7800,19 @@ static int c_emit_optional_wrapped_return_value(
         return -1;
     }
 
-    if (!(c_buffer_append_format(&emitter->buffer, "%s(", spec.present_fn))) {
+    wrap_fn = spec.present_fn;
+    if (spec.is_generated && c_type_needs_managed_cleanup(module_decl, spec.value_type_name)) {
+        int is_borrowed_ref =
+            (value_expr != NULL && c_zir_expr_is_borrowed_managed_value_ref(function_decl, value_expr)) ||
+            (value_expr == NULL &&
+                c_copy_trimmed(trimmed, sizeof(trimmed), value_text) &&
+                c_is_identifier_only(trimmed));
+        if (!is_borrowed_ref) {
+            wrap_fn = spec.take_fn;
+        }
+    }
+
+    if (!(c_buffer_append_format(&emitter->buffer, "%s(", wrap_fn))) {
         return -1;
     }
 
@@ -7121,8 +7845,7 @@ static int c_emit_return_cleanup_transfer(
     if (value_expr != NULL && value_expr->kind == ZIR_EXPR_NAME) {
         snprintf(trimmed, sizeof(trimmed), "%s", c_safe_text(value_expr->as.text.text));
     } else if (!c_copy_trimmed(trimmed, sizeof(trimmed), value_text)) {
-        c_emit_set_result(result, C_EMIT_INVALID_INPUT, "return expression is too large");
-        return 0;
+        trimmed[0] = '\0';
     }
 
     if (c_type_is_managed(function_decl->return_type) &&
@@ -7197,23 +7920,39 @@ static int c_emit_return_cleanup_transfer(
                    c_begin_line(emitter) &&
                    c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
         }
+        if (!(c_emit_zir_expr(emitter, module_decl, function_decl, value_expr, function_decl->return_type, result) &&
+                c_buffer_append(&emitter->buffer, ";"))) {
+            return 0;
+        }
+    } else {
+        if (c_type_is_managed(function_decl->return_type)) {
+            return c_emit_owned_managed_expr(emitter, module_decl, function_decl, value_text, function_decl->return_type, result) &&
+                   c_buffer_append(&emitter->buffer, ";") &&
+                   c_begin_line(emitter) &&
+                   c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
+        }
 
-        return c_emit_zir_expr(emitter, module_decl, function_decl, value_expr, function_decl->return_type, result) &&
-               c_buffer_append(&emitter->buffer, ";") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
+        if (!(c_emit_expr(emitter, module_decl, function_decl, value_text, function_decl->return_type, result) &&
+                c_buffer_append(&emitter->buffer, ";"))) {
+            return 0;
+        }
     }
 
-    if (c_type_is_managed(function_decl->return_type)) {
-        return c_emit_owned_managed_expr(emitter, module_decl, function_decl, value_text, function_decl->return_type, result) &&
-               c_buffer_append(&emitter->buffer, ";") &&
-               c_begin_line(emitter) &&
-               c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
+    if (c_type_needs_managed_cleanup(module_decl, function_decl->return_type) &&
+            !c_type_is_managed(function_decl->return_type) &&
+            c_return_expr_is_borrowed_cleanup_ref(function_decl, value_expr, value_text)) {
+        if (!c_emit_value_clone_in_place(
+                emitter,
+                module_decl,
+                function_decl->return_type,
+                "zt_return_value",
+                "    ",
+                result)) {
+            return 0;
+        }
     }
 
-    return c_emit_expr(emitter, module_decl, function_decl, value_text, function_decl->return_type, result) &&
-           c_buffer_append(&emitter->buffer, ";") &&
-           c_begin_line(emitter) &&
+    return c_begin_line(emitter) &&
            c_buffer_append(&emitter->buffer, "    goto zt_cleanup;");
 }
 
@@ -7226,7 +7965,7 @@ static int c_emit_terminator(
     const zir_block *block,
     c_emit_result *result) {
     char label_name[96];
-    const int has_cleanup = c_has_managed_locals(module_decl, locals, local_count);
+    const int has_cleanup = c_function_needs_cleanup(module_decl, function_decl, locals, local_count);
 
     switch (block->terminator.kind) {
         case ZIR_TERM_RETURN:
@@ -7377,7 +8116,7 @@ static int c_emit_cleanup(
         size_t local_count,
         c_emit_result *result) {
     size_t index;
-    int has_cleanup = c_has_managed_locals(module_decl, locals, local_count);
+    int has_cleanup = c_function_needs_cleanup(module_decl, function_decl, locals, local_count);
 
     (void)result;
 
@@ -7467,7 +8206,7 @@ static int c_emit_single_enum_definition(
 
     for (variant_index = 0; variant_index < enum_decl->variant_count; variant_index += 1) {
         const zir_enum_variant_decl *variant = &enum_decl->variants[variant_index];
-        char variant_tag[192];
+        char variant_tag[256];
         char variant_name[64];
         c_copy_sanitized(variant_name, sizeof(variant_name), c_safe_text(variant->name));
         snprintf(variant_tag, sizeof(variant_tag), "%s__%s", symbol, variant_name);
@@ -7497,7 +8236,7 @@ static int c_emit_single_enum_definition(
 
         for (variant_index = 0; variant_index < enum_decl->variant_count; variant_index += 1) {
             const zir_enum_variant_decl *variant = &enum_decl->variants[variant_index];
-            char variant_member[64];
+            char variant_member[C_EMIT_SYMBOL_PART_MAX];
             size_t field_index;
 
             c_copy_sanitized(variant_member, sizeof(variant_member), c_safe_text(variant->name));
@@ -7514,7 +8253,7 @@ static int c_emit_single_enum_definition(
             for (field_index = 0; field_index < variant->field_count; field_index += 1) {
                 const zir_enum_variant_field_decl *field = &variant->fields[field_index];
                 char c_type[64];
-                char field_name[64];
+                char field_name[C_EMIT_SYMBOL_PART_MAX];
                 if (!c_type_to_c(module_decl, field->type_name, c_type, sizeof(c_type), result)) {
                     return 0;
                 }
@@ -7548,6 +8287,9 @@ static int c_emit_enum_definition_recursive(
         size_t enum_index,
         c_type_emit_state *struct_states,
         c_type_emit_state *enum_states,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result);
 
 static int c_emit_struct_definition_recursive(
@@ -7556,6 +8298,18 @@ static int c_emit_struct_definition_recursive(
         size_t struct_index,
         c_type_emit_state *struct_states,
         c_type_emit_state *enum_states,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
+        c_emit_result *result);
+
+static int c_emit_generated_optional_helpers_for_type(
+        c_emitter *emitter,
+        const zir_module *module_decl,
+        const char *type_name,
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
         c_emit_result *result);
 
 static int c_emit_type_dependencies_for_name(
@@ -7564,9 +8318,13 @@ static int c_emit_type_dependencies_for_name(
         const char *type_name,
         c_type_emit_state *struct_states,
         c_type_emit_state *enum_states,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     const zir_struct_decl *struct_decl = c_find_user_struct(module_decl, type_name);
     const zir_enum_decl *enum_decl = c_find_user_enum(module_decl, type_name);
+    c_optional_spec optional_spec;
 
     if (struct_decl != NULL) {
         return c_emit_struct_definition_recursive(
@@ -7575,6 +8333,9 @@ static int c_emit_type_dependencies_for_name(
             (size_t)(struct_decl - module_decl->structs),
             struct_states,
             enum_states,
+            optional_emitted,
+            optional_emitted_capacity,
+            optional_emitted_count,
             result);
     }
 
@@ -7585,6 +8346,33 @@ static int c_emit_type_dependencies_for_name(
             (size_t)(enum_decl - module_decl->enums),
             struct_states,
             enum_states,
+            optional_emitted,
+            optional_emitted_capacity,
+            optional_emitted_count,
+            result);
+    }
+
+    if (c_optional_spec_for_type(type_name, &optional_spec) && optional_spec.is_generated) {
+        if (!c_emit_type_dependencies_for_name(
+                emitter,
+                module_decl,
+                optional_spec.value_type_name,
+                struct_states,
+                enum_states,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
+                result)) {
+            return 0;
+        }
+
+        return c_emit_generated_optional_helpers_for_type(
+            emitter,
+            module_decl,
+            type_name,
+            optional_emitted,
+            optional_emitted_capacity,
+            optional_emitted_count,
             result);
     }
 
@@ -7597,6 +8385,9 @@ static int c_emit_struct_definition_recursive(
         size_t struct_index,
         c_type_emit_state *struct_states,
         c_type_emit_state *enum_states,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     const zir_struct_decl *struct_decl;
     size_t field_index;
@@ -7625,6 +8416,9 @@ static int c_emit_struct_definition_recursive(
                 field->type_name,
                 struct_states,
                 enum_states,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
                 result)) {
             return 0;
         }
@@ -7644,6 +8438,9 @@ static int c_emit_enum_definition_recursive(
         size_t enum_index,
         c_type_emit_state *struct_states,
         c_type_emit_state *enum_states,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     const zir_enum_decl *enum_decl;
     size_t variant_index;
@@ -7675,6 +8472,9 @@ static int c_emit_enum_definition_recursive(
                     field->type_name,
                     struct_states,
                     enum_states,
+                    optional_emitted,
+                    optional_emitted_capacity,
+                    optional_emitted_count,
                     result)) {
                 return 0;
             }
@@ -7692,6 +8492,9 @@ static int c_emit_enum_definition_recursive(
 static int c_emit_type_definitions(
         c_emitter *emitter,
         const zir_module *module_decl,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     c_type_emit_state *struct_states = NULL;
     c_type_emit_state *enum_states = NULL;
@@ -7712,6 +8515,9 @@ static int c_emit_type_definitions(
                 index,
                 struct_states,
                 enum_states,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
                 result)) {
             goto cleanup;
         }
@@ -7724,6 +8530,9 @@ static int c_emit_type_definitions(
                 index,
                 struct_states,
                 enum_states,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
                 result)) {
             goto cleanup;
         }
@@ -7834,6 +8643,24 @@ static int c_emit_generated_optional_helpers_for_type(
         return 0;
     }
     if (!(c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    return result;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "}"))) {
+        return 0;
+    }
+
+    if (!(c_begin_line(emitter) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "static %s %s(%s value) {", spec.c_type_name, spec.take_fn, value_c_type) &&
+            c_begin_line(emitter) &&
+            c_buffer_append_format(&emitter->buffer, "    %s result;", spec.c_type_name) &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    memset(&result, 0, sizeof(result));") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    result.is_present = true;") &&
+            c_begin_line(emitter) &&
+            c_buffer_append(&emitter->buffer, "    result.value = value;") &&
+            c_begin_line(emitter) &&
             c_buffer_append(&emitter->buffer, "    return result;") &&
             c_begin_line(emitter) &&
             c_buffer_append(&emitter->buffer, "}"))) {
@@ -7956,9 +8783,10 @@ static int c_emit_generated_optional_helpers_for_type(
 static int c_emit_generated_optional_helpers(
         c_emitter *emitter,
         const zir_module *module_decl,
+        char emitted[][128],
+        size_t emitted_capacity,
+        size_t *emitted_count,
         c_emit_result *result) {
-    char emitted[128][128];
-    size_t emitted_count = 0;
     size_t struct_index;
     size_t function_index;
 
@@ -7971,8 +8799,8 @@ static int c_emit_generated_optional_helpers(
                     module_decl,
                     struct_decl->fields[field_index].type_name,
                     emitted,
-                    sizeof(emitted) / sizeof(emitted[0]),
-                    &emitted_count,
+                    emitted_capacity,
+                    emitted_count,
                     result)) {
                 return 0;
             }
@@ -7989,8 +8817,8 @@ static int c_emit_generated_optional_helpers(
                 module_decl,
                 function_decl->return_type,
                 emitted,
-                sizeof(emitted) / sizeof(emitted[0]),
-                &emitted_count,
+                emitted_capacity,
+                emitted_count,
                 result)) {
             return 0;
         }
@@ -8001,8 +8829,8 @@ static int c_emit_generated_optional_helpers(
                     module_decl,
                     function_decl->params[param_index].type_name,
                     emitted,
-                    sizeof(emitted) / sizeof(emitted[0]),
-                    &emitted_count,
+                    emitted_capacity,
+                    emitted_count,
                     result)) {
                 return 0;
             }
@@ -8019,8 +8847,8 @@ static int c_emit_generated_optional_helpers(
                             module_decl,
                             instruction->type_name,
                             emitted,
-                            sizeof(emitted) / sizeof(emitted[0]),
-                            &emitted_count,
+                            emitted_capacity,
+                            emitted_count,
                             result)) {
                     return 0;
                 }
@@ -8069,8 +8897,12 @@ static int c_emit_generated_map_helpers_for_type(
         char emitted[][128],
         size_t emitted_capacity,
         size_t *emitted_count,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     c_map_spec spec;
+    c_optional_spec optional_spec;
     char key_c_type[128];
     char value_c_type[128];
     char base_type_name[128];
@@ -8095,6 +8927,9 @@ static int c_emit_generated_map_helpers_for_type(
             emitted,
             emitted_capacity,
             emitted_count,
+            optional_emitted,
+            optional_emitted_capacity,
+            optional_emitted_count,
             result)) {
         return 0;
     }
@@ -8106,7 +8941,23 @@ static int c_emit_generated_map_helpers_for_type(
             emitted,
             emitted_capacity,
             emitted_count,
+            optional_emitted,
+            optional_emitted_capacity,
+            optional_emitted_count,
             result)) {
+        return 0;
+    }
+
+    if (c_optional_spec_for_value_type(spec.value_type_name, &optional_spec) &&
+            optional_spec.is_generated &&
+            !c_emit_generated_optional_helpers_for_type(
+                emitter,
+                module_decl,
+                optional_spec.canonical_name,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
+                result)) {
         return 0;
     }
 
@@ -8180,6 +9031,9 @@ static int c_emit_generated_map_helpers_for_type(
 static int c_emit_generated_map_helpers(
         c_emitter *emitter,
         const zir_module *module_decl,
+        char optional_emitted[][128],
+        size_t optional_emitted_capacity,
+        size_t *optional_emitted_count,
         c_emit_result *result) {
     char emitted[128][128];
     size_t emitted_count = 0;
@@ -8197,6 +9051,9 @@ static int c_emit_generated_map_helpers(
                     emitted,
                     sizeof(emitted) / sizeof(emitted[0]),
                     &emitted_count,
+                    optional_emitted,
+                    optional_emitted_capacity,
+                    optional_emitted_count,
                     result)) {
                 return 0;
             }
@@ -8215,6 +9072,9 @@ static int c_emit_generated_map_helpers(
                 emitted,
                 sizeof(emitted) / sizeof(emitted[0]),
                 &emitted_count,
+                optional_emitted,
+                optional_emitted_capacity,
+                optional_emitted_count,
                 result)) {
             return 0;
         }
@@ -8227,6 +9087,9 @@ static int c_emit_generated_map_helpers(
                     emitted,
                     sizeof(emitted) / sizeof(emitted[0]),
                     &emitted_count,
+                    optional_emitted,
+                    optional_emitted_capacity,
+                    optional_emitted_count,
                     result)) {
                 return 0;
             }
@@ -8245,6 +9108,9 @@ static int c_emit_generated_map_helpers(
                             emitted,
                             sizeof(emitted) / sizeof(emitted[0]),
                             &emitted_count,
+                            optional_emitted,
+                            optional_emitted_capacity,
+                            optional_emitted_count,
                             result)) {
                     return 0;
                 }
@@ -8651,13 +9517,13 @@ static int c_emit_generated_outcome_helpers(
 }
 
 static void c_build_module_var_init_symbol(const zir_module *module_decl, char *dest, size_t capacity) {
-    char module_name[64];
+    char module_name[C_EMIT_SYMBOL_PART_MAX];
     c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
     snprintf(dest, capacity, "zt_%s__init_module_vars", module_name);
 }
 
 static void c_build_module_var_init_guard_symbol(const zir_module *module_decl, char *dest, size_t capacity) {
-    char module_name[64];
+    char module_name[C_EMIT_SYMBOL_PART_MAX];
     c_copy_sanitized(module_name, sizeof(module_name), c_safe_text(module_decl->name));
     snprintf(dest, capacity, "zt_%s__module_vars_initialized", module_name);
 }
@@ -8912,7 +9778,13 @@ static int c_emit_function_definition(
         }
 
         c_build_block_label(block->label, label_name, sizeof(label_name));
-        if (!c_buffer_append_format(&emitter->buffer, "%s:", label_name)) {
+        if (!(c_buffer_append_format(&emitter->buffer, "%s:", label_name) &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "#if defined(__GNUC__) || defined(__clang__)") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "    __attribute__((unused));") &&
+                c_begin_line(emitter) &&
+                c_buffer_append(&emitter->buffer, "#endif"))) {
             return 0;
         }
 
@@ -9029,9 +9901,410 @@ static int c_emit_main_wrapper(c_emitter *emitter, const zir_module *module_decl
            c_buffer_append(&emitter->buffer, "}");
 }
 
+/*
+ * Symbol-collision guard.
+ *
+ * The emitter maps each public Zenith declaration to a mangled C symbol
+ * using `c_copy_sanitized`, which flattens every character outside
+ * `[A-Za-z0-9_]` to `_`. As a result, two distinct source names can in
+ * principle mangle to the same C identifier (e.g. `app.main` and
+ * `app_main` both become `app_main`, then `zt_app_main__*`).
+ *
+ * Before we emit anything, walk the module's public declarations and
+ * fail fast with an explicit diagnostic if any two distinct source
+ * names collapse to the same C symbol. This turns a silent C
+ * redefinition into a readable backend error tied to the original
+ * Zenith source names.
+ */
+typedef struct c_emit_symbol_entry {
+    char mangled[512];
+    char source[512];
+    const char *kind;
+} c_emit_symbol_entry;
+
+static int c_check_symbol_collisions(
+        const zir_module *module_decl,
+        c_emit_result *result) {
+    size_t total_decls;
+    c_emit_symbol_entry *entries;
+    size_t entry_count = 0;
+    size_t index;
+    int ok = 1;
+
+    if (module_decl == NULL) return 1;
+
+    total_decls = module_decl->function_count
+                  + module_decl->struct_count
+                  + module_decl->enum_count;
+    if (total_decls == 0) return 1;
+
+    entries = (c_emit_symbol_entry *)calloc(total_decls, sizeof(*entries));
+    if (entries == NULL) {
+        c_emit_set_result(
+            result,
+            C_EMIT_INVALID_INPUT,
+            "out of memory while checking C symbol collisions");
+        return 0;
+    }
+
+    for (index = 0; index < module_decl->function_count; index += 1) {
+        const zir_function *fn = &module_decl->functions[index];
+        c_build_function_symbol(
+            module_decl, fn,
+            entries[entry_count].mangled,
+            sizeof(entries[entry_count].mangled));
+        snprintf(
+            entries[entry_count].source,
+            sizeof(entries[entry_count].source),
+            "%s.%s",
+            c_safe_text(module_decl->name),
+            c_safe_text(fn->name));
+        entries[entry_count].kind = "function";
+        entry_count += 1;
+    }
+
+    for (index = 0; index < module_decl->struct_count; index += 1) {
+        const zir_struct_decl *st = &module_decl->structs[index];
+        c_build_struct_symbol(
+            module_decl, st,
+            entries[entry_count].mangled,
+            sizeof(entries[entry_count].mangled));
+        snprintf(
+            entries[entry_count].source,
+            sizeof(entries[entry_count].source),
+            "%s.%s",
+            c_safe_text(module_decl->name),
+            c_safe_text(st->name));
+        entries[entry_count].kind = "struct";
+        entry_count += 1;
+    }
+
+    for (index = 0; index < module_decl->enum_count; index += 1) {
+        const zir_enum_decl *en = &module_decl->enums[index];
+        c_build_enum_symbol(
+            module_decl, en,
+            entries[entry_count].mangled,
+            sizeof(entries[entry_count].mangled));
+        snprintf(
+            entries[entry_count].source,
+            sizeof(entries[entry_count].source),
+            "%s.%s",
+            c_safe_text(module_decl->name),
+            c_safe_text(en->name));
+        entries[entry_count].kind = "enum";
+        entry_count += 1;
+    }
+
+    for (index = 0; index < entry_count && ok; index += 1) {
+        size_t j;
+        for (j = index + 1; j < entry_count; j += 1) {
+            if (strcmp(entries[index].mangled, entries[j].mangled) != 0) continue;
+            /* A collision is any two distinct (kind, source) pairs that
+             * mangle to the same C symbol. Same-kind same-source is not
+             * possible here (the loop compares distinct entries), but
+             * two kinds sharing a source name (e.g. function `foo` and
+             * struct `foo`) counts as a collision because they end up
+             * at the same global C identifier. */
+            c_emit_set_result(
+                result,
+                C_EMIT_INVALID_INPUT,
+                "C symbol collision: %s '%s' and %s '%s' both mangle to '%s'. "
+                "Rename one declaration to avoid generating invalid C.",
+                entries[index].kind, entries[index].source,
+                entries[j].kind, entries[j].source,
+                entries[index].mangled);
+            ok = 0;
+            break;
+        }
+    }
+
+    free(entries);
+    return ok;
+}
+
+/* R3.M4: Vtable generation for dyn<Trait> dispatch.
+ * Each (concrete_type, trait) pair gets its own vtable instance. */
+
+typedef struct c_vtable_entry {
+    const char *receiver_type;
+    const char *trait_name;
+    const zir_function **methods;
+    size_t method_count;
+    size_t method_capacity;
+} c_vtable_entry;
+
+typedef struct c_vtable_registry {
+    c_vtable_entry *entries;
+    size_t entry_count;
+    size_t entry_capacity;
+} c_vtable_registry;
+
+static void c_vtable_registry_init(c_vtable_registry *reg) {
+    reg->entries = NULL;
+    reg->entry_count = 0;
+    reg->entry_capacity = 0;
+}
+
+static c_vtable_entry *c_vtable_registry_find(c_vtable_registry *reg, const char *receiver_type, const char *trait_name) {
+    size_t i;
+    for (i = 0; i < reg->entry_count; i++) {
+        if (strcmp(reg->entries[i].receiver_type, receiver_type) == 0 &&
+            strcmp(reg->entries[i].trait_name, trait_name) == 0) {
+            return &reg->entries[i];
+        }
+    }
+    return NULL;
+}
+
+static c_vtable_entry *c_vtable_registry_add(c_vtable_registry *reg, const char *receiver_type, const char *trait_name) {
+    c_vtable_entry *entry;
+    if (reg->entry_count >= reg->entry_capacity) {
+        size_t new_cap = reg->entry_capacity == 0 ? 4 : reg->entry_capacity * 2;
+        c_vtable_entry *new_entries = (c_vtable_entry *)realloc(reg->entries, new_cap * sizeof(c_vtable_entry));
+        if (new_entries == NULL) return NULL;
+        reg->entries = new_entries;
+        reg->entry_capacity = new_cap;
+    }
+    entry = &reg->entries[reg->entry_count++];
+    entry->receiver_type = receiver_type;
+    entry->trait_name = trait_name;
+    entry->methods = NULL;
+    entry->method_count = 0;
+    entry->method_capacity = 0;
+    return entry;
+}
+
+static void c_vtable_registry_add_method(c_vtable_entry *entry, const zir_function *func) {
+    const zir_function **new_methods;
+    if (entry->method_count >= entry->method_capacity) {
+        size_t new_cap = entry->method_capacity == 0 ? 4 : entry->method_capacity * 2;
+        new_methods = (const zir_function **)realloc((void *)entry->methods, new_cap * sizeof(const zir_function *));
+        if (new_methods == NULL) return;
+        entry->methods = new_methods;
+        entry->method_capacity = new_cap;
+    }
+    entry->methods[entry->method_count++] = func;
+}
+
+static void c_vtable_registry_dispose(c_vtable_registry *reg) {
+    size_t i;
+    if (reg == NULL) return;
+    for (i = 0; i < reg->entry_count; i++) {
+        free((void *)reg->entries[i].methods);
+    }
+    free(reg->entries);
+    reg->entries = NULL;
+    reg->entry_count = 0;
+    reg->entry_capacity = 0;
+}
+
+static int c_collect_vtables(const zir_module *module_decl, c_vtable_registry *reg) {
+    size_t i;
+    c_vtable_registry_init(reg);
+
+    for (i = 0; i < module_decl->function_count; i++) {
+        const zir_function *func = &module_decl->functions[i];
+        if (func->implemented_trait_name != NULL && func->receiver_type_name != NULL) {
+            c_vtable_entry *entry = c_vtable_registry_find(reg, func->receiver_type_name, func->implemented_trait_name);
+            if (entry == NULL) {
+                entry = c_vtable_registry_add(reg, func->receiver_type_name, func->implemented_trait_name);
+                if (entry == NULL) return 0;
+            }
+            c_vtable_registry_add_method(entry, func);
+        }
+    }
+    return 1;
+}
+
+/* R3.M4: Extract method name from function name (last part after final '__') */
+static void c_extract_method_name(const char *func_name, char *out, size_t capacity) {
+    const char *cursor = func_name;
+    const char *last_sep = NULL;
+    while ((cursor = strstr(cursor, "__")) != NULL) {
+        last_sep = cursor;
+        cursor += 2;
+    }
+    if (last_sep != NULL) {
+        snprintf(out, capacity, "%s", last_sep + 2);
+    } else {
+        snprintf(out, capacity, "%s", func_name);
+    }
+}
+
+/* R3.M4: Convert string to lowercase */
+static void c_to_lower(char *out, size_t capacity, const char *in) {
+    size_t i;
+    for (i = 0; in[i] != '\0' && i + 1 < capacity; i++) {
+        char c = in[i];
+        out[i] = (c >= 'A' && c <= 'Z') ? (c + 32) : c;
+    }
+    out[i] = '\0';
+}
+
+/* Find method index in trait by name. Returns -1 if not found. */
+static int c_find_trait_method_index(const zir_module *module_decl, const char *trait_name, const char *method_name) {
+    size_t f;
+    for (f = 0; f < module_decl->function_count; f++) {
+        const zir_function *func = &module_decl->functions[f];
+        if (func->implemented_trait_name != NULL &&
+            strcmp(func->implemented_trait_name, trait_name) == 0 &&
+            func->name != NULL) {
+            char mname[64];
+            c_extract_method_name(func->name, mname, sizeof(mname));
+            if (strcmp(mname, method_name) == 0) {
+                /* Find first occurrence (methods are in declaration order) */
+                int idx = 0;
+                size_t g;
+                for (g = 0; g < f; g++) {
+                    const zir_function *other = &module_decl->functions[g];
+                    if (other->implemented_trait_name != NULL &&
+                        strcmp(other->implemented_trait_name, trait_name) == 0 &&
+                        other->name != NULL) {
+                        char other_mname[64];
+                        c_extract_method_name(other->name, other_mname, sizeof(other_mname));
+                        if (strcmp(other_mname, method_name) == 0) {
+                            /* Same method appeared earlier, keep looking */
+                        } else {
+                            idx++;
+                        }
+                    }
+                }
+                return idx;
+            }
+        }
+    }
+    return -1;
+}
+
+/* Emit vtable type definitions (one per unique trait) - uses zt_vtable directly */
+static int c_emit_vtable_type_definitions(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result) {
+    c_vtable_registry reg;
+    size_t i;
+    char **emitted_traits = NULL;
+    size_t emitted_count = 0;
+
+    (void)emitter;
+    (void)result;
+
+    if (!c_collect_vtables(module_decl, &reg)) {
+        return 0;
+    }
+
+    for (i = 0; i < reg.entry_count; i++) {
+        c_vtable_entry *entry = &reg.entries[i];
+        size_t t;
+        int already_emitted = 0;
+
+        /* Check if we already emitted this trait type */
+        for (t = 0; t < emitted_count; t++) {
+            if (strcmp(emitted_traits[t], entry->trait_name) == 0) {
+                already_emitted = 1;
+                break;
+            }
+        }
+        if (already_emitted) continue;
+
+        /* Track emitted trait */
+        {
+            char **new_traits = (char **)realloc(emitted_traits, (emitted_count + 1) * sizeof(char *));
+            if (new_traits) {
+                emitted_traits = new_traits;
+                emitted_traits[emitted_count++] = (char *)entry->trait_name;
+            }
+        }
+
+        /* No custom type needed - we use zt_vtable directly */
+    }
+
+    free(emitted_traits);
+    c_vtable_registry_dispose(&reg);
+    return 1;
+}
+
+/* Emit vtable wrapper functions and instances (one per concrete type implementing a trait) */
+static int c_emit_vtable_instances(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result) {
+    c_vtable_registry reg;
+    size_t i;
+
+    if (!c_collect_vtables(module_decl, &reg)) {
+        return 0;
+    }
+
+    for (i = 0; i < reg.entry_count; i++) {
+        c_vtable_entry *entry = &reg.entries[i];
+        char vtable_instance_name[128];
+        char receiver_c_type[64];
+        size_t m;
+
+        c_type_to_c(module_decl, entry->receiver_type, receiver_c_type, sizeof(receiver_c_type), result);
+        {
+            char trait_lower[64];
+            c_to_lower(trait_lower, sizeof(trait_lower), entry->trait_name);
+            snprintf(vtable_instance_name, sizeof(vtable_instance_name), "zt_vtable_%s__%s", entry->receiver_type, trait_lower);
+        }
+
+        /* R3.M4: Generate wrapper functions for each method to bridge void* -> concrete type */
+        for (m = 0; m < entry->method_count; m++) {
+            const zir_function *func = entry->methods[m];
+            char wrapper_name[256];
+            char func_symbol[128];
+            char return_type[64];
+
+            c_build_function_symbol(module_decl, func, func_symbol, sizeof(func_symbol));
+            c_type_to_c(module_decl, func->return_type, return_type, sizeof(return_type), result);
+            snprintf(wrapper_name, sizeof(wrapper_name), "zt_vtable_wrapper__%s", func_symbol);
+
+            /* Emit wrapper function: static return_type wrapper(void *self) { return original(*(concrete *)self); } */
+            c_begin_line(emitter);
+            c_buffer_append_format(&emitter->buffer, "static %s %s(void *self) {", return_type, wrapper_name);
+            c_begin_line(emitter);
+            c_buffer_append_format(&emitter->buffer, "    return %s(*(%s *)self);", func_symbol, receiver_c_type);
+            c_begin_line(emitter);
+            c_buffer_append(&emitter->buffer, "}");
+            c_emit_line(emitter, "");
+        }
+
+        /* Emit vtable instance using zt_vtable with methods[] array */
+        c_begin_line(emitter);
+        c_buffer_append_format(&emitter->buffer, "static const zt_vtable %s = {", vtable_instance_name);
+        c_begin_line(emitter);
+        c_buffer_append(&emitter->buffer, "    .header = {.rc = 1, .kind = ZT_HEAP_VTABLE},");
+        c_begin_line(emitter);
+        c_buffer_append_format(&emitter->buffer, "    .drop = (void (*)(void *))zt_release,");
+        c_begin_line(emitter);
+        c_buffer_append(&emitter->buffer, "    .clone_out = NULL,");
+        c_begin_line(emitter);
+        c_buffer_append_format(&emitter->buffer, "    .trait_name = \"%s\",", entry->trait_name);
+        c_begin_line(emitter);
+        c_buffer_append_format(&emitter->buffer, "    .concrete_type_name = \"%s\",", entry->receiver_type);
+        c_begin_line(emitter);
+        c_buffer_append_format(&emitter->buffer, "    .method_count = %zu,", entry->method_count);
+
+        for (m = 0; m < entry->method_count; m++) {
+            const zir_function *func = entry->methods[m];
+            char wrapper_name[256];
+            char func_symbol[128];
+            c_build_function_symbol(module_decl, func, func_symbol, sizeof(func_symbol));
+            snprintf(wrapper_name, sizeof(wrapper_name), "zt_vtable_wrapper__%s", func_symbol);
+
+            c_begin_line(emitter);
+            c_buffer_append_format(&emitter->buffer, "    .methods[%zu] = (void (*)(void))%s,", m, wrapper_name);
+        }
+
+        c_begin_line(emitter);
+        c_buffer_append(&emitter->buffer, "};");
+        c_emit_line(emitter, "");
+    }
+
+    c_vtable_registry_dispose(&reg);
+    return 1;
+}
+
 int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result) {
     size_t function_index;
     const zir_function *main_function = NULL;
+    char optional_emitted[128][128];
+    size_t optional_emitted_count = 0;
 
     c_emitter_reset(emitter);
     c_emit_result_init(result);
@@ -9041,12 +10314,17 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         return 0;
     }
 
+    if (!c_check_symbol_collisions(module_decl, result)) {
+        return 0;
+    }
+
     c_active_module_for_symbol_lookup = module_decl;
 
         if (!(c_emit_line(emitter, "#include \"runtime/c/zenith_rt.h\"") &&
             (!c_module_requires_template_header(module_decl) ||
                 c_emit_line(emitter, "#include \"runtime/c/zenith_rt_templates.h\"")) &&
             c_emit_line(emitter, "#include <stdio.h>") &&
+            c_emit_line(emitter, "#include <stdlib.h>") &&
             (!c_module_requires_string_header(module_decl) ||
                 c_emit_line(emitter, "#include <string.h>")))) {
         c_emit_set_result(result, C_EMIT_INVALID_INPUT, "unable to write emitter prologue");
@@ -9059,17 +10337,41 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         return 0;
     }
 
-    if (!c_emit_type_definitions(emitter, module_decl, result)) {
+    if (!c_emit_type_definitions(
+            emitter,
+            module_decl,
+            optional_emitted,
+            sizeof(optional_emitted) / sizeof(optional_emitted[0]),
+            &optional_emitted_count,
+            result)) {
         c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
-    if (!c_emit_generated_optional_helpers(emitter, module_decl, result)) {
+    /* R3.M4: Emit vtable type definitions for dyn<Trait> dispatch */
+    if (!c_emit_vtable_type_definitions(emitter, module_decl, result)) {
         c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
 
-    if (!c_emit_generated_map_helpers(emitter, module_decl, result)) {
+    if (!c_emit_generated_optional_helpers(
+            emitter,
+            module_decl,
+            optional_emitted,
+            sizeof(optional_emitted) / sizeof(optional_emitted[0]),
+            &optional_emitted_count,
+            result)) {
+        c_active_module_for_symbol_lookup = NULL;
+        return 0;
+    }
+
+    if (!c_emit_generated_map_helpers(
+            emitter,
+            module_decl,
+            optional_emitted,
+            sizeof(optional_emitted) / sizeof(optional_emitted[0]),
+            &optional_emitted_count,
+            result)) {
         c_active_module_for_symbol_lookup = NULL;
         return 0;
     }
@@ -9096,6 +10398,12 @@ int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_e
         if (strcmp(function_decl->name, "main") == 0) {
             main_function = function_decl;
         }
+    }
+
+    /* R3.M4: Emit vtable instances for dyn<Trait> dispatch (after forward decls) */
+    if (!c_emit_vtable_instances(emitter, module_decl, result)) {
+        c_active_module_for_symbol_lookup = NULL;
+        return 0;
     }
 
     if (!c_emit_module_var_section(emitter, module_decl, result)) {

@@ -1,0 +1,2 @@
+error[mutability.invalid_update]
+mutable receiver

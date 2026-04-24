@@ -46,6 +46,7 @@ void c_emitter_init(c_emitter *emitter);
 void c_emitter_reset(c_emitter *emitter);
 void c_emitter_dispose(c_emitter *emitter);
 const char *c_emitter_text(c_emitter *emitter);
+int c_emitter_write_stream(c_emitter *emitter, FILE *out);
 int c_emitter_write_file(c_emitter *emitter, const char *path);
 int c_emitter_emit_module(c_emitter *emitter, const zir_module *module_decl, c_emit_result *result);
 

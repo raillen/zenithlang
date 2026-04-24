@@ -1,8 +1,15 @@
-{
-  "project": {
-    "name": "fuzz_test",
-    "version": "0.1.0",
-    "source": { "root": "src" },
-    "build": { "target": "native", "mode": "debug" }
-  }
-}
+[project]
+name = "method_receiver_8"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.method_receiver"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

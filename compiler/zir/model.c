@@ -148,6 +148,7 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_CALL_DIRECT: return "call_direct";
         case ZIR_EXPR_CALL_EXTERN: return "call_extern";
         case ZIR_EXPR_CALL_RUNTIME_INTRINSIC: return "call_runtime_intrinsic";
+        case ZIR_EXPR_CALL_DYN: return "call_dyn";
         case ZIR_EXPR_MAKE_STRUCT: return "make_struct";
         case ZIR_EXPR_MAKE_LIST: return "make_list";
         case ZIR_EXPR_MAKE_MAP: return "make_map";
@@ -170,6 +171,8 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_OUTCOME_VALUE: return "outcome_value";
         case ZIR_EXPR_TRY_PROPAGATE: return "try_propagate";
         case ZIR_EXPR_OPTIONAL_VALUE: return "optional_value";
+        case ZIR_EXPR_FUNC_REF: return "func_ref";
+        case ZIR_EXPR_CALL_INDIRECT: return "call_indirect";
         default: return "unknown";
     }
 }
@@ -330,6 +333,16 @@ static zir_expr *zir_expr_make_call_like(zir_expr_kind kind, const char *callee_
 zir_expr *zir_expr_make_call_direct(const char *callee_name) { return zir_expr_make_call_like(ZIR_EXPR_CALL_DIRECT, callee_name); }
 zir_expr *zir_expr_make_call_extern(const char *callee_name) { return zir_expr_make_call_like(ZIR_EXPR_CALL_EXTERN, callee_name); }
 zir_expr *zir_expr_make_call_runtime_intrinsic(const char *callee_name) { return zir_expr_make_call_like(ZIR_EXPR_CALL_RUNTIME_INTRINSIC, callee_name); }
+
+zir_expr *zir_expr_make_call_dyn(zir_expr *receiver, const char *method_name, const char *trait_name) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_CALL_DYN);
+    if (expr == NULL) return NULL;
+    expr->as.dyn_call.receiver = receiver;
+    expr->as.dyn_call.method_name = zir_strdup_owned(method_name);
+    expr->as.dyn_call.trait_name = zir_strdup_owned(trait_name);
+    expr->as.dyn_call.args = zir_expr_list_make();
+    return expr;
+}
 
 zir_expr *zir_expr_make_make_struct(const char *type_name) {
     zir_expr *expr = zir_expr_make(ZIR_EXPR_MAKE_STRUCT);
@@ -501,10 +514,32 @@ zir_expr *zir_expr_make_optional_value(zir_expr *value) {
     return expr;
 }
 
+zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_type_name) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_FUNC_REF);
+    if (expr == NULL) return NULL;
+    expr->as.func_ref.func_name = zir_strdup_owned(func_name);
+    expr->as.func_ref.callable_type_name = zir_strdup_owned(callable_type_name);
+    return expr;
+}
+
+zir_expr *zir_expr_make_call_indirect(zir_expr *callable) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_CALL_INDIRECT);
+    if (expr == NULL) return NULL;
+    expr->as.call_indirect.callable = callable;
+    expr->as.call_indirect.args = zir_expr_list_make();
+    return expr;
+}
+
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg) {
     if (expr == NULL) return;
-    if (expr->kind != ZIR_EXPR_CALL_DIRECT && expr->kind != ZIR_EXPR_CALL_EXTERN && expr->kind != ZIR_EXPR_CALL_RUNTIME_INTRINSIC) return;
-    zir_expr_list_push(&expr->as.call.args, arg);
+    if (expr->kind != ZIR_EXPR_CALL_DIRECT && expr->kind != ZIR_EXPR_CALL_EXTERN && expr->kind != ZIR_EXPR_CALL_RUNTIME_INTRINSIC && expr->kind != ZIR_EXPR_CALL_DYN && expr->kind != ZIR_EXPR_CALL_INDIRECT) return;
+    if (expr->kind == ZIR_EXPR_CALL_DYN) {
+        zir_expr_list_push(&expr->as.dyn_call.args, arg);
+    } else if (expr->kind == ZIR_EXPR_CALL_INDIRECT) {
+        zir_expr_list_push(&expr->as.call_indirect.args, arg);
+    } else {
+        zir_expr_list_push(&expr->as.call.args, arg);
+    }
 }
 
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value) {
@@ -582,6 +617,12 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
                    zir_string_buffer_append(buffer, expr->as.call.callee_name != NULL ? expr->as.call.callee_name : "") &&
                    zir_string_buffer_append_char(buffer, '(') &&
                    zir_render_expr_list(buffer, &expr->as.call.args) &&
+                   zir_string_buffer_append_char(buffer, ')');
+        case ZIR_EXPR_CALL_DYN:
+            return zir_string_buffer_append(buffer, "call_dyn ") &&
+                   zir_render_expr(buffer, expr->as.dyn_call.receiver) &&
+                   zir_string_buffer_append_format(buffer, ".%s(", expr->as.dyn_call.method_name != NULL ? expr->as.dyn_call.method_name : "") &&
+                   zir_render_expr_list(buffer, &expr->as.dyn_call.args) &&
                    zir_string_buffer_append_char(buffer, ')');
         case ZIR_EXPR_MAKE_STRUCT:
             if (!zir_string_buffer_append_format(buffer, "make_struct %s { ", expr->as.make_struct.type_name != NULL ? expr->as.make_struct.type_name : "")) return 0;
@@ -672,6 +713,17 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
             return zir_string_buffer_append(buffer, "try_propagate ") && zir_render_expr(buffer, expr->as.single.value);
         case ZIR_EXPR_OPTIONAL_VALUE:
             return zir_string_buffer_append(buffer, "optional_value ") && zir_render_expr(buffer, expr->as.single.value);
+        case ZIR_EXPR_FUNC_REF:
+            return zir_string_buffer_append(buffer, "func_ref ") &&
+                   zir_string_buffer_append(buffer, expr->as.func_ref.func_name) &&
+                   zir_string_buffer_append(buffer, " : ") &&
+                   zir_string_buffer_append(buffer, expr->as.func_ref.callable_type_name);
+        case ZIR_EXPR_CALL_INDIRECT:
+            return zir_string_buffer_append(buffer, "call_indirect ") &&
+                   zir_render_expr(buffer, expr->as.call_indirect.callable) &&
+                   zir_string_buffer_append(buffer, "(") &&
+                   zir_render_expr_list(buffer, &expr->as.call_indirect.args) &&
+                   zir_string_buffer_append(buffer, ")");
         default:
             return zir_string_buffer_append(buffer, "<unsupported>");
     }
@@ -725,6 +777,12 @@ void zir_expr_dispose(zir_expr *expr) {
             free((void *)expr->as.call.callee_name);
             zir_expr_list_dispose(&expr->as.call.args);
             break;
+        case ZIR_EXPR_CALL_DYN:
+            zir_expr_dispose(expr->as.dyn_call.receiver);
+            free((void *)expr->as.dyn_call.method_name);
+            free((void *)expr->as.dyn_call.trait_name);
+            zir_expr_list_dispose(&expr->as.dyn_call.args);
+            break;
         case ZIR_EXPR_MAKE_STRUCT:
             free((void *)expr->as.make_struct.type_name);
             zir_named_expr_list_dispose(&expr->as.make_struct.fields);
@@ -762,6 +820,14 @@ void zir_expr_dispose(zir_expr *expr) {
             break;
         case ZIR_EXPR_OPTIONAL_EMPTY:
             free((void *)expr->as.type_only.type_name);
+            break;
+        case ZIR_EXPR_FUNC_REF:
+            free((void *)expr->as.func_ref.func_name);
+            free((void *)expr->as.func_ref.callable_type_name);
+            break;
+        case ZIR_EXPR_CALL_INDIRECT:
+            zir_expr_dispose(expr->as.call_indirect.callable);
+            zir_expr_list_dispose(&expr->as.call_indirect.args);
             break;
         default:
             break;

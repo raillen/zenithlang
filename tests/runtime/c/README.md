@@ -13,6 +13,8 @@ Suite atual:
 - `tests/runtime/c/test_text_utf8_slice.c`
 - `tests/runtime/c/test_text_utf8_guardrails.c`
 - `tests/runtime/c/test_map_hash_table.c`
+- `tests/runtime/c/test_thread_boundary_copy.c`
+- `tests/runtime/c/test_runtime_error_tls.c`
 - `tests/runtime/c/test_shared_text.c`
 
 Comandos uteis de compilacao do runtime test:
@@ -26,4 +28,6 @@ Comandos uteis de compilacao do runtime test:
 - `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_text_utf8_slice.c -o .ztc-tmp/tests/runtime/c/test_text_utf8_slice.exe -lws2_32`
 - `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_text_utf8_guardrails.c -o .ztc-tmp/tests/runtime/c/test_text_utf8_guardrails.exe -lws2_32`
 - `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_map_hash_table.c -o .ztc-tmp/tests/runtime/c/test_map_hash_table.exe -lws2_32`
+- `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_thread_boundary_copy.c -o .ztc-tmp/tests/runtime/c/test_thread_boundary_copy.exe -lws2_32`
+- `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_runtime_error_tls.c -o .ztc-tmp/tests/runtime/c/test_runtime_error_tls.exe -lws2_32`
 - `gcc -std=c11 -Wall -Wextra -pedantic -I. runtime/c/zenith_rt.c tests/runtime/c/test_shared_text.c -lws2_32 -o .ztc-tmp/tests/runtime/c/test_shared_text.exe`

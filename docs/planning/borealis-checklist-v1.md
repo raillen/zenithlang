@@ -32,7 +32,7 @@ Executar e validar as entregas do roadmap Borealis 1.0 com evidencias objetivas.
 
 Checklist operacional derivado de `docs/planning/borealis-roadmap-v1.md`.
 
-Status inicial: em andamento (R3.B0 ate R3.B6 concluidos; R3.B7 parcial; R3.B8 concluido; R3.B9 parcial)
+Status inicial: em andamento (R3.B0 ate R3.B7 concluidos; R3.B8 concluido; R3.B9 parcial)
 Data de criacao: 2026-04-22
 
 ## Gates obrigatorios por milestone
@@ -122,7 +122,7 @@ Evidencia R3.B2-R3.B4:
 - [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
 - [x] `./zt.exe run tests/behavior/borealis_input_transitions_stub`
 - [x] `./zt.exe run tests/behavior/borealis_render2d_stub`
-- [ ] `./zt.exe run tests/behavior/borealis_scene_entities_stub` (bloqueado por limite atual do backend C com `optional<entities.Entity>` e structs tipadas de modulo)
+- [x] `./zt.exe run tests/behavior/borealis_scene_entities_stub`
 - [x] `python build.py`
 
 ## R3.B5 - ECS hibrido (interno)
@@ -157,6 +157,7 @@ Criterio de aceite:
 Evidencia R3.B6 parcial:
 
 - [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
+- [x] `./zt.exe run tests/behavior/borealis_foundations_stub/zenith.ztproj`
 - [x] `packages/borealis/examples/modular_scaffolds_v1.zt`
 - [x] `packages/borealis/src/borealis/game/contracts.zt`
 - [x] `packages/borealis/src/borealis/game/editor.zt`
@@ -171,15 +172,21 @@ Evidencia R3.B6 parcial:
 
 Criterio de aceite:
 
-- [ ] Backend real validado sem quebrar caminho de onboarding
+- [x] Backend real validado sem quebrar caminho de onboarding
 
 Evidencia R3.B7 parcial:
 
 - [x] `packages/borealis/backend-desktop-linker-profile-v1.md`
 - [x] `runtime/c/zenith_rt.h` (contrato `zt_borealis_desktop_api`)
 - [x] `runtime/c/zenith_rt.c` (adapter Raylib inicial por carga dinamica + fallback `backend_id=1 -> stub`)
+- [x] `packages/borealis/src/borealis/raylib.zt` (binding Zenith inicial para Raylib)
+- [x] `packages/borealis/native/raylib/README.md` (layout vendorizado para DLL/so/dylib por plataforma)
+- [x] `borealis.raylib_available()` e `borealis.raylib_loaded_path()` (diagnostico do binding Raylib)
 - [x] `./zt.exe run tests/behavior/borealis_backend_fallback_stub/zenith.ztproj`
+- [x] `./zt.exe run tests/behavior/borealis_raylib_binding_stub/zenith.ztproj`
+- [x] `./zt.exe run tests/behavior/borealis_raylib_assets_real/zenith.ztproj`
 - [x] `./zt.exe run packages/borealis/examples/raylib_desktop_app/zenith.ztproj`
+- [x] layout oficial `packages/borealis/native/raylib/windows-x64/lib/raylib.dll` carregado com sucesso no workspace local
 - [x] `compiler/driver/pipeline.c` (compilador local agora prioriza runtime/stdlib do workspace antes de `ZENITH_HOME`)
 
 ## R3.B8 - Pronto para ZPM
@@ -230,42 +237,62 @@ Regras deste bloco:
 
 ## Runtime e jogabilidade
 
-- [ ] `contracts`: contratos comuns para frame/input/body entre modulos.
-- [ ] `entities`: create/destroy, tags, hierarquia, snapshot e inspect.
-- [ ] `movement`: `move`, `push`, `teleport` e helpers basicos.
-- [ ] `controllers`: controladores prontos e ponte opcional com sprite.
-- [ ] `vehicles`: familia de veiculos com foco inicial em carro.
-- [ ] `animation`: frames, estados visuais, flip e sincronizacao.
-- [ ] `audio`: som, musica, volume e grupos.
-- [ ] `ai`: `seek`, `evade`, `move_randomly`, patrulha, sensores e FSM/BT.
-- [ ] `camera`: follow, bounds, shake, deadzone e framing.
-- [ ] `input`: teclado, mouse, gamepad, acoes, contextos e `mouse_hover`.
-- [ ] `world`: tiles, tileset, colisao, pathing, `set_solid` e `set_walkable`.
-- [ ] `procedural`: seed, noise, pipelines e geracao generica escalavel.
+- [x] `contracts`: contratos comuns para frame/input/body entre modulos.
+- [x] `entities`: create/destroy, tags, hierarquia, snapshot e inspect.
+- [x] `movement`: `move`, `push`, `teleport` e helpers basicos.
+- [x] `controllers`: controladores prontos e ponte opcional com sprite.
+- [x] `vehicles`: familia de veiculos com foco inicial em carro.
+- [x] `animation`: frames, estados visuais, flip e sincronizacao.
+- [x] `audio`: som, musica, volume e grupos.
+- [x] `ai`: `seek`, `evade`, `move_randomly`, patrulha, sensores e FSM/BT.
+- [x] `camera`: follow, bounds, shake, deadzone e framing.
+- [x] `input`: teclado, mouse, gamepad, acoes, contextos e `mouse_hover`.
+- [x] `world`: tiles, tileset, colisao, pathing, `set_solid` e `set_walkable`.
+- [x] `procedural`: seed, noise, pipelines e geracao generica escalavel.
+
+Evidencia runtime/jogabilidade:
+
+- [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
+- [x] `./zt.exe run tests/behavior/borealis_runtime_gameplay_stub/zenith.ztproj`
+- [x] `tests/behavior/borealis_runtime_gameplay_stub/zenith.ztproj`
+- [x] `packages/borealis/examples/runtime_gameplay_v1.zt`
+- [x] Risco residual: o emitter C ainda limita `list<struct>`, `map<text, struct>` e alguns loops `float`; o teste executavel cobre o caminho estavel e `zt check --all` cobre a API expandida.
 
 ## Interface e experiencia
 
-- [ ] `ui`: widgets, layout, foco, hover, click e fluxo de interface.
-- [ ] `ui.hud`: namespace de HUD dentro de `ui`.
-- [ ] `scene`: telas, fases, transicoes, pilha e fluxo do jogo.
-- [ ] `events`: emit/on/off/queue e mensageria desacoplada.
-- [ ] `debug`: grid, hitboxes, watches, FPS e overlays.
+- [x] `ui`: widgets, layout, foco, hover, click e fluxo de interface.
+- [x] `ui.hud`: namespace de HUD dentro de `ui`.
+- [x] `scene`: telas, fases, transicoes, pilha e fluxo do jogo.
+- [x] `events`: emit/on/off/queue e mensageria desacoplada.
+- [x] `debug`: grid, hitboxes, watches, FPS e overlays.
 
 ## Dados, persistencia e remoto
 
-- [ ] `assets`: load/get/unload/cache de recursos.
-- [ ] `save`: slots, autosave, snapshots e restauracao.
-- [ ] `storage`: persistencia generica local para texto, JSON e binario.
-- [ ] `database`: reservar contrato futuro para SQLite-like backend.
-- [ ] `services`: rede, cloud save, APIs, sessoes remotas e multiplayer simples.
-- [ ] `settings`: audio, video, idioma, acessibilidade e preferencias.
+- [x] `assets`: load/get/unload/cache de recursos, loaders tipados, metadata leve e ids estaveis.
+- [x] `save`: slots, autosave, snapshots e restauracao.
+- [x] `storage`: persistencia generica local para texto, JSON e binario.
+- [x] `database`: reservar contrato futuro para SQLite-like backend.
+- [x] `services`: rede, cloud save, APIs, sessoes remotas e multiplayer simples.
+- [x] `settings`: audio, video, idioma, acessibilidade, preferencias e perfis persistidos.
 
 ## Editor futuro
 
-- [ ] `editor-ready`: IDs estaveis, scenes como documento e metadata separada.
-- [ ] `editor`: metadata tool-facing (label/note/group/lock/hidden) por stable id.
-- [ ] `Borealis Flow`: registrar camada low-code em cima dos modulos existentes.
-- [ ] `runtime shared model`: editor futuro deve consumir o mesmo modelo de `entities`, `scene`, `assets`, `components` e snapshots.
+- [x] `editor-ready`: IDs estaveis, scenes como documento e metadata separada.
+- [x] `editor`: metadata tool-facing (label/note/group/lock/hidden) por stable id.
+- [x] `Borealis Flow`: registrar camada low-code em cima dos modulos existentes.
+- [x] `runtime shared model`: editor futuro deve consumir o mesmo modelo de `entities`, `scene`, `assets`, `components` e snapshots.
+
+Evidencia interface/editor:
+
+- [x] `packages/borealis/src/borealis/game/ui.zt`
+- [x] `packages/borealis/src/borealis/game/ui/hud.zt`
+- [x] `packages/borealis/src/borealis/game/scene.zt`
+- [x] `packages/borealis/src/borealis/game/editor.zt`
+- [x] `tests/behavior/borealis_foundations_stub/zenith.ztproj`
+- [x] `tests/behavior/borealis_scene_entities_stub/zenith.ztproj`
+- [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
+- [x] `./zt.exe run tests/behavior/borealis_foundations_stub/zenith.ztproj`
+- [x] `./zt.exe run tests/behavior/borealis_scene_entities_stub/zenith.ztproj`
 
 ## Trilha 3D (documental nesta fase, com scaffolds experimentais)
 

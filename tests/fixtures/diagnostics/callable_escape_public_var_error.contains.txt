@@ -1,0 +1,2 @@
+[callable.escape_public_var]
+public var 'OP' cannot hold a callable value in v1

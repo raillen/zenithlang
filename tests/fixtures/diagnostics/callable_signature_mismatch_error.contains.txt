@@ -1,0 +1,2 @@
+[callable.signature_mismatch]
+callable 'op' expects 2 argument(s) but got 1

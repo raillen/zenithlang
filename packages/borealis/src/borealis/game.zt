@@ -75,6 +75,8 @@ extern c
     func zt_borealis_is_key_down(window_id: int, input_code: int) -> bool
     func zt_borealis_is_key_pressed(window_id: int, input_code: int) -> bool
     func zt_borealis_is_key_released(window_id: int, input_code: int) -> bool
+    func zt_borealis_raylib_available() -> bool
+    func zt_borealis_raylib_loaded_path() -> text
 end
 
 public enum Backend
@@ -328,6 +330,14 @@ end
 
 public func key_released(ctx: game.GameContext, key: game.Key) -> bool
     return game.zt_borealis_is_key_released(ctx.window_id, game.key_code(key))
+end
+
+public func raylib_available() -> bool
+    return game.zt_borealis_raylib_available()
+end
+
+public func raylib_loaded_path() -> text
+    return game.zt_borealis_raylib_loaded_path()
 end
 
 public func backend_code(value: game.Backend) -> int

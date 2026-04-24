@@ -39,14 +39,14 @@ Progresso atual:
 - R3.B1 concluido.
 - R3.B2 concluido.
 - R3.B3 concluido.
-- R3.B4 concluido (API/scaffold); fixture `run-pass` de scene tipada ainda bloqueada no backend C por `optional<entities.Entity>` e structs tipadas de modulo.
+- R3.B4 concluido (API/scaffold + fixture `run-pass` validada).
 - R3.B5 concluido (subset ECS interno + facade inicial de componentes).
 - R3.B6 concluido (scaffolds + contratos + extensao editor + mapa de dependencias).
 - R3.B7 em andamento (adapter Raylib inicial + fallback + E2E fallback).
 - R3.B8 concluido no escopo de package prep/documentacao.
 - R3.B9 parcial no escopo de docs, limites e relatorios.
 - toolchain local alinhado: `./zt.exe` agora prioriza runtime/stdlib do workspace antes de `ZENITH_HOME`, evitando misturar instalacao global com codigo em edicao.
-- Proxima etapa ativa: backend C (fechar compatibilidade para os cenarios Borealis ainda bloqueados).
+- Proxima etapa ativa: aprofundar os modulos Borealis alem do scaffold, agora sem o bloqueio estrutural de `optional<Struct>` no backend C.
 
 ## Diretrizes do ciclo Borealis
 
@@ -129,7 +129,7 @@ Entregas:
 - helpers de cor/area consistentes;
 - exemplos com HUD e movimento basico.
 
-Status da fase: concluida.
+Status da fase: concluida, com fixture `run-pass` validada apos o hardening do backend C para `optional<Struct>` e tipos qualificados.
 
 ## R3.B4 - Scene e Entities v1
 
@@ -161,7 +161,7 @@ Entregas:
 Status parcial da execucao:
 
 - fixture `tests/behavior/borealis_ecs_hybrid_stub` validado em `run-pass` (subset de componentes);
-- validacao `run-pass` do caminho de sistemas tipados com `struct` permanece no backlog do backend C.
+- backend C atual ja cobre os cenarios que bloqueavam `optional<Struct>` e tipos qualificados no Borealis; a ampliacao de coverage do ECS tipado deixa de ser bloqueio estrutural e passa a ser backlog normal de fixture.
 
 ## R3.B6 - Subsistemas modulares (scaffold)
 
@@ -181,6 +181,7 @@ Status parcial da execucao:
 
 - scaffolds base criados para `movement`, `controllers`, `vehicles`, `animation`, `audio`, `ai`, `camera`, `input`;
 - scaffolds base criados para `world`, `procedural`, `ui`, `ui.hud`, `assets`, `save`, `storage`, `database`, `services`, `settings`, `events`, `debug`;
+- fixture `borealis_foundations_stub` validando assets, events tipados, save, storage, services, database e settings persistente;
 - exemplo de integracao inicial publicado em `packages/borealis/examples/modular_scaffolds_v1.zt`.
 
 Status da fase: concluida.
@@ -233,7 +234,7 @@ Entregas:
 - relatorio final de qualidade/compatibilidade;
 - limites conhecidos e risco residual publicados.
 
-Status da fase: parcial. A parte documental de release foi fechada, mas a validacao final continua dependente dos bloqueios ainda abertos no backend C.
+Status da fase: parcial. A parte documental de release foi fechada; a validacao final agora depende mais de ampliar coverage dos modulos e validar o backend Raylib real com a biblioteca nativa presente no ambiente.
 
 ## Catalogo funcional por modulos (alinhado com as decisions)
 
@@ -296,12 +297,12 @@ Fonte canonica:
 
 ### Dados, persistencia e remoto
 
-- `assets`: load/get/unload/cache de texturas, fontes, som, atlas e sprite sheets.
+- `assets`: load/get/unload/cache de texturas, fontes, som, atlas e sprite sheets, com ids estaveis e metadata leve para tooling.
 - `save`: progresso, slots, autosave, snapshots e restauracao de estado.
 - `storage`: persistencia generica local para texto, JSON e binario.
 - `database`: reservado para backend futuro estilo SQLite.
 - `services`: modulo guarda-chuva para rede, cloud save, APIs, sessoes remotas e multiplayer simples.
-- `settings`: configuracoes de usuario, acessibilidade, audio, video e idioma.
+- `settings`: configuracoes de usuario, acessibilidade, audio, video, idioma e perfis persistidos.
 
 ### Editor futuro
 

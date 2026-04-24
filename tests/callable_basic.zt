@@ -1,0 +1,12 @@
+-- R3.M5 Phase 5b: Basic callable delegate test
+-- Tests func_ref and indirect call through a local variable
+
+func double(x: int) -> int
+    return (x * 2)
+end
+
+func apply(f: func(int) -> int, value: int) -> int
+    return f(value)
+end
+
+var result = apply(double, 21)

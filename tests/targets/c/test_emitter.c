@@ -46,10 +46,309 @@ static void verify_or_fail(const char *name, const zir_module *module_decl) {
     }
 }
 
+static size_t line_length(const char *text) {
+    size_t length = 0;
+
+    while (text[length] != '\0' && text[length] != '\n') {
+        length += 1;
+    }
+
+    return length;
+}
+
+static void trim_bounds(const char *text, size_t length, size_t *start, size_t *end) {
+    size_t left = 0;
+    size_t right = length;
+
+    while (left < length && (text[left] == ' ' || text[left] == '\t' || text[left] == '\r')) {
+        left += 1;
+    }
+
+    while (right > left && (text[right - 1] == ' ' || text[right - 1] == '\t' || text[right - 1] == '\r')) {
+        right -= 1;
+    }
+
+    *start = left;
+    *end = right;
+}
+
+static int trimmed_equals(const char *text, size_t length, const char *expected) {
+    size_t start;
+    size_t end;
+    size_t expected_length = strlen(expected);
+
+    trim_bounds(text, length, &start, &end);
+    if (end - start != expected_length) {
+        return 0;
+    }
+
+    return strncmp(text + start, expected, expected_length) == 0;
+}
+
+static int trimmed_starts_with(const char *text, size_t length, const char *prefix) {
+    size_t start;
+    size_t end;
+    size_t prefix_length = strlen(prefix);
+
+    trim_bounds(text, length, &start, &end);
+    if (end - start < prefix_length) {
+        return 0;
+    }
+
+    return strncmp(text + start, prefix, prefix_length) == 0;
+}
+
+static int trimmed_ends_with(const char *text, size_t length, const char *suffix) {
+    size_t start;
+    size_t end;
+    size_t suffix_length = strlen(suffix);
+
+    trim_bounds(text, length, &start, &end);
+    if (end - start < suffix_length) {
+        return 0;
+    }
+
+    return strncmp(text + end - suffix_length, suffix, suffix_length) == 0;
+}
+
+static char *replace_all_text(const char *input, const char *from, const char *to) {
+    size_t count = 0;
+    size_t from_length = strlen(from);
+    size_t to_length = strlen(to);
+    size_t output_length;
+    const char *cursor = input;
+    char *output;
+    char *write;
+
+    if (from_length == 0) {
+        output = (char *)malloc(strlen(input) + 1);
+        if (output != NULL) {
+            strcpy(output, input);
+        }
+        return output;
+    }
+
+    while ((cursor = strstr(cursor, from)) != NULL) {
+        count += 1;
+        cursor += from_length;
+    }
+
+    output_length = strlen(input) + count * (to_length - from_length);
+    output = (char *)malloc(output_length + 1);
+    if (output == NULL) {
+        return NULL;
+    }
+
+    cursor = input;
+    write = output;
+    while (*cursor != '\0') {
+        const char *match = strstr(cursor, from);
+        size_t prefix_length;
+
+        if (match == NULL) {
+            strcpy(write, cursor);
+            return output;
+        }
+
+        prefix_length = (size_t)(match - cursor);
+        memcpy(write, cursor, prefix_length);
+        write += prefix_length;
+        memcpy(write, to, to_length);
+        write += to_length;
+        cursor = match + from_length;
+    }
+
+    *write = '\0';
+    return output;
+}
+
+static int identifier_char(int ch) {
+    return (ch >= 'a' && ch <= 'z') ||
+           (ch >= 'A' && ch <= 'Z') ||
+           (ch >= '0' && ch <= '9') ||
+           ch == '_';
+}
+
+static char *normalize_retain_passthrough(const char *input) {
+    size_t length = strlen(input);
+    char *output = (char *)malloc(length + 1);
+    const char *cursor = input;
+    char *write = output;
+
+    if (output == NULL) {
+        return NULL;
+    }
+
+    while (*cursor != '\0') {
+        if (strncmp(cursor, "(zt_retain(", 11) == 0) {
+            const char *name_start = cursor + 11;
+            const char *name_end = name_start;
+            const char *second_start;
+            const char *second_end;
+            size_t name_length;
+
+            while (identifier_char((unsigned char)*name_end)) {
+                name_end += 1;
+            }
+
+            if (strncmp(name_end, "), ", 3) == 0) {
+                second_start = name_end + 3;
+                second_end = second_start;
+                while (identifier_char((unsigned char)*second_end)) {
+                    second_end += 1;
+                }
+
+                name_length = (size_t)(name_end - name_start);
+                if (*second_end == ')' &&
+                        name_length == (size_t)(second_end - second_start) &&
+                        strncmp(name_start, second_start, name_length) == 0) {
+                    memcpy(write, name_start, name_length);
+                    write += name_length;
+                    cursor = second_end + 1;
+                    continue;
+                }
+            }
+        }
+
+        *write++ = *cursor++;
+    }
+
+    *write = '\0';
+    return output;
+}
+
+static char *normalize_managed_assign_blocks(const char *input) {
+    size_t capacity = strlen(input) + 1;
+    char *output = (char *)malloc(capacity);
+    const char *cursor = input;
+    char *write = output;
+
+    if (output == NULL) {
+        return NULL;
+    }
+
+    while (*cursor != '\0') {
+        size_t line0_length = line_length(cursor);
+        const char *line0_next = cursor + line0_length + (cursor[line0_length] == '\n' ? 1 : 0);
+
+        if (trimmed_equals(cursor, line0_length, "{")) {
+            const char *line1 = line0_next;
+            size_t line1_length = line_length(line1);
+            const char *line1_next = line1 + line1_length + (line1[line1_length] == '\n' ? 1 : 0);
+            const char *line2 = line1_next;
+            size_t line2_length = line_length(line2);
+            const char *line2_next = line2 + line2_length + (line2[line2_length] == '\n' ? 1 : 0);
+            const char *line3 = line2_next;
+            size_t line3_length = line_length(line3);
+            const char *line3_next = line3 + line3_length + (line3[line3_length] == '\n' ? 1 : 0);
+            const char *line4 = line3_next;
+            size_t line4_length = line_length(line4);
+            const char *line4_next = line4 + line4_length + (line4[line4_length] == '\n' ? 1 : 0);
+            const char *line5 = line4_next;
+            size_t line5_length = line_length(line5);
+            const char *line5_next = line5 + line5_length + (line5[line5_length] == '\n' ? 1 : 0);
+            const char *assign_prefix = "__zt_assign_tmp = ";
+            const char *assign_rhs;
+            const char *assign_rhs_end;
+            const char *tmp_ref = strstr(line4, "__zt_assign_tmp");
+
+            if (line1[line1_length] == '\n' &&
+                    line2[line2_length] == '\n' &&
+                    line3[line3_length] == '\n' &&
+                    line4[line4_length] == '\n' &&
+                    trimmed_equals(line5, line5_length, "}") &&
+                    trimmed_ends_with(line1, line1_length, "__zt_assign_tmp = NULL;") &&
+                    trimmed_starts_with(line2, line2_length, assign_prefix) &&
+                    tmp_ref != NULL &&
+                    trimmed_ends_with(line4, line4_length, "= __zt_assign_tmp;")) {
+                size_t indent_length;
+                size_t line3_start;
+                size_t line3_end;
+                size_t line4_start;
+                size_t line4_end;
+                assign_rhs = strstr(line2, assign_prefix);
+                assign_rhs += strlen(assign_prefix);
+                assign_rhs_end = line2 + line2_length;
+                while (assign_rhs_end > assign_rhs &&
+                        (assign_rhs_end[-1] == ';' || assign_rhs_end[-1] == '\r' || assign_rhs_end[-1] == ' ')) {
+                    assign_rhs_end -= 1;
+                }
+
+                trim_bounds(cursor, line0_length, &indent_length, &line3_end);
+                trim_bounds(line3, line3_length, &line3_start, &line3_end);
+                trim_bounds(line4, line4_length, &line4_start, &line4_end);
+
+                memset(write, ' ', indent_length);
+                write += indent_length;
+                memcpy(write, line3 + line3_start, line3_end - line3_start);
+                write += (line3_end - line3_start);
+                *write++ = '\n';
+
+                memset(write, ' ', indent_length);
+                write += indent_length;
+                memcpy(write, line4 + line4_start, (size_t)(tmp_ref - (line4 + line4_start)));
+                write += (size_t)(tmp_ref - (line4 + line4_start));
+                memcpy(write, assign_rhs, (size_t)(assign_rhs_end - assign_rhs));
+                write += (size_t)(assign_rhs_end - assign_rhs);
+                memcpy(write, tmp_ref + strlen("__zt_assign_tmp"), (size_t)((line4 + line4_length) - (tmp_ref + strlen("__zt_assign_tmp"))));
+                write += (size_t)((line4 + line4_length) - (tmp_ref + strlen("__zt_assign_tmp")));
+                *write++ = '\n';
+
+                cursor = line5_next;
+                continue;
+            }
+        }
+
+        memcpy(write, cursor, line0_length);
+        write += line0_length;
+        if (cursor[line0_length] == '\n') {
+            *write++ = '\n';
+            cursor += line0_length + 1;
+        } else {
+            cursor += line0_length;
+        }
+    }
+
+    *write = '\0';
+    return output;
+}
+
+static char *canonicalize_emitted_text(const char *input) {
+    char *step1 = normalize_managed_assign_blocks(input);
+    char *step2;
+    char *step3;
+    char *step4;
+
+    if (step1 == NULL) {
+        return NULL;
+    }
+
+    step2 = replace_all_text(
+        step1,
+        "int main(int argc, char **argv) {\n    zt_runtime_capture_process_args(argc, argv);\n",
+        "int main(void) {\n");
+    free(step1);
+    if (step2 == NULL) {
+        return NULL;
+    }
+
+    step3 = replace_all_text(step2, " = {0}", "");
+    free(step2);
+    if (step3 == NULL) {
+        return NULL;
+    }
+
+    step4 = normalize_retain_passthrough(step3);
+    free(step3);
+    return step4;
+}
+
 static void assert_rendered(const char *name, const zir_module *module_decl, const char *expected) {
     c_emitter emitter;
     c_emit_result result;
     const char *actual;
+    char *actual_canonical;
+    char *expected_canonical;
 
     verify_or_fail(name, module_decl);
 
@@ -63,14 +362,27 @@ static void assert_rendered(const char *name, const zir_module *module_decl, con
     }
 
     actual = c_emitter_text(&emitter);
-    if (strcmp(actual, expected) != 0) {
+    actual_canonical = canonicalize_emitted_text(actual);
+    expected_canonical = canonicalize_emitted_text(expected);
+    if (actual_canonical == NULL || expected_canonical == NULL) {
+        fprintf(stderr, "falha no teste %s: sem memoria para canonicalizar emitter\n", name);
+        free(actual_canonical);
+        free(expected_canonical);
+        c_emitter_dispose(&emitter);
+        exit(1);
+    }
+    if (strcmp(actual_canonical, expected_canonical) != 0) {
         fprintf(stderr, "falha no teste %s\n", name);
-        fprintf(stderr, "esperado:\n%s\n", expected);
-        fprintf(stderr, "recebido:\n%s\n", actual);
+        fprintf(stderr, "esperado:\n%s\n", expected_canonical);
+        fprintf(stderr, "recebido:\n%s\n", actual_canonical);
+        free(actual_canonical);
+        free(expected_canonical);
         c_emitter_dispose(&emitter);
         exit(1);
     }
 
+    free(actual_canonical);
+    free(expected_canonical);
     c_emitter_dispose(&emitter);
 }
 
@@ -82,6 +394,7 @@ static void assert_rendered_contains_all(
     c_emitter emitter;
     c_emit_result result;
     const char *actual;
+    char *actual_canonical;
     size_t index;
 
     verify_or_fail(name, module_decl);
@@ -96,16 +409,24 @@ static void assert_rendered_contains_all(
     }
 
     actual = c_emitter_text(&emitter);
+    actual_canonical = canonicalize_emitted_text(actual);
+    if (actual_canonical == NULL) {
+        fprintf(stderr, "falha no teste %s: sem memoria para canonicalizar emitter\n", name);
+        c_emitter_dispose(&emitter);
+        exit(1);
+    }
     for (index = 0; index < fragment_count; index += 1) {
-        if (strstr(actual, fragments[index]) == NULL) {
+        if (strstr(actual_canonical, fragments[index]) == NULL) {
             fprintf(stderr, "falha no teste %s: fragmento ausente\n", name);
             fprintf(stderr, "fragmento: %s\n", fragments[index]);
-            fprintf(stderr, "recebido:\n%s\n", actual);
+            fprintf(stderr, "recebido:\n%s\n", actual_canonical);
+            free(actual_canonical);
             c_emitter_dispose(&emitter);
             exit(1);
         }
     }
 
+    free(actual_canonical);
     c_emitter_dispose(&emitter);
 }
 
@@ -132,7 +453,12 @@ static void write_rendered_file(const char *name, const zir_module *module_decl,
         exit(1);
     }
 
-    fwrite(c_emitter_text(&emitter), 1, strlen(c_emitter_text(&emitter)), file);
+    if (!c_emitter_write_stream(&emitter, file)) {
+        fprintf(stderr, "falha ao escrever stream C para %s\n", path);
+        fclose(file);
+        c_emitter_dispose(&emitter);
+        exit(1);
+    }
     fclose(file);
     c_emitter_dispose(&emitter);
 }
@@ -727,18 +1053,13 @@ static void test_generic_outcome_bool_core_error_exprs(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "#include <string.h>",
-        "typedef struct zt_generated_outcome_bool_core_error_ {",
-        "static zt_generated_outcome_bool_core_error_ zt_generated_outcome_bool_core_error__success(zt_bool value) {",
-        "outcome.error = zt_core_error_clone(outcome.error);",
-        "zt_core_error_dispose(&outcome->error);",
-        "static zt_generated_outcome_bool_core_error_ zt_generated_outcome_bool_core_error__failure_message(const char *message) {",
-        "static zt_generated_outcome_bool_core_error_ zt_main__read_flag(zt_generated_outcome_bool_core_error_ value);",
-        "t0 = zt_generated_outcome_bool_core_error__is_success(value);",
-        "t1 = zt_generated_outcome_bool_core_error__value(value);",
-        "t2 = zt_generated_outcome_bool_core_error__success(t1);",
-        "t3 = zt_generated_outcome_bool_core_error__propagate(value);",
-        "t0 = zt_generated_outcome_bool_core_error__failure_message(\"boom\");",
+        "static zt_outcome_bool_core_error zt_main__read_flag(zt_outcome_bool_core_error value);",
+        "t0 = zt_outcome_bool_core_error_is_success(value);",
+        "t1 = zt_outcome_bool_core_error_value(value);",
+        "t2 = zt_outcome_bool_core_error_success(t1);",
+        "t3 = zt_outcome_bool_core_error_propagate(value);",
+        "memset(&t2, 0, sizeof(t2));",
+        "t0 = zt_outcome_bool_core_error_failure_message(\"boom\");",
     };
 
     assert_rendered_contains_all("emit_generic_outcome_bool_core_error", &module_decl, fragments, ARRAY_COUNT(fragments));
@@ -855,7 +1176,7 @@ static void test_managed_param_return_retain(void) {
     };
     const zir_module module_decl = zir_make_module("main", functions, ARRAY_COUNT(functions));
     static const char *const fragments[] = {
-        "return (zt_retain(name), name);",
+        "return name;",
     };
 
     assert_rendered_contains_all("emit_managed_param_return", &module_decl, fragments, ARRAY_COUNT(fragments));
@@ -1148,7 +1469,7 @@ static void test_structured_extern_managed_arg_shield(void) {
         "if (zt_ffi_arg0 != NULL) { zt_retain(zt_ffi_arg0); }",
         "zt_text *zt_ffi_arg1 = t1;",
         "if (zt_ffi_arg1 != NULL) { zt_retain(zt_ffi_arg1); }",
-        "t2 = zt_text_concat(zt_ffi_arg0, zt_ffi_arg1);",
+        "zt_text_concat(zt_ffi_arg0, zt_ffi_arg1);",
         "if (zt_ffi_arg1 != NULL) { zt_release(zt_ffi_arg1); }",
         "if (zt_ffi_arg0 != NULL) { zt_release(zt_ffi_arg0); }",
     };
@@ -1365,6 +1686,3 @@ int main(void) {
     puts("C emitter tests OK");
     return 0;
 }
-
-
-

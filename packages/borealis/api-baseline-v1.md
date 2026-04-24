@@ -58,7 +58,9 @@ Scene e Entities v1 (submodulos):
 - `borealis.game.scene`
   - `scene_create`, `scene_destroy`, `scene_exists`
   - `scene_set_name`, `scene_get_name`, `scene_find`, `scene_count`, `scene_at`
+  - `scene_set_phase`, `scene_get_phase`, `scene_set_document_id`, `scene_get_document_id`
   - `scene_enter`, `scene_exit`, `scene_transition`, `scene_active`
+  - `scene_push`, `scene_pop`, `scene_stack_count`, `scene_stack_at`, `scene_stack_top`
   - `scene_add_entity`, `scene_remove_entity`, `scene_entity_count`, `scene_entity_at`
   - `scene_update`, `scene_draw`, `scene_update_ticks`, `scene_draw_ticks`, `scene_last_delta`
 
@@ -143,26 +145,105 @@ B6 scaffolds modulares (inicial):
 - `borealis.game.input`: `key_state`, `mouse_hover`
 - `borealis.game.world`: `set_solid`, `is_solid`, `set_walkable`, `is_walkable`
 - `borealis.game.procedural`: `set_seed`, `get_seed`, `next_i32`, `range_int`
-- `borealis.game.ui`: `point_in_rect`, `button`, `label`
-- `borealis.game.ui.hud`: `defaults`, `set_health`, `add_score`
-- `borealis.game.assets`: `asset_load_image`, `asset_load_text`, `asset_load_binary`, `asset_unload`, `asset_is_loaded`
-- `borealis.game.save`: `slot_write`, `slot_read`, `slot_delete`, `autosave_write`, `autosave_read`
-- `borealis.game.storage`: `write`, `read`, `remove`, `exists`
-- `borealis.game.database`: `open`, `close`, `query`
-- `borealis.game.services`: `http_send`, `cloud_connect`, `cloud_is_connected`
-- `borealis.game.settings`: `defaults`, `set_language`, `set_master_volume`, `set_dyslexia_font`
-- `borealis.game.events`: `emit`, `last_name`, `last_payload`, `count`
-- `borealis.game.debug`: `set_enabled`, `is_enabled`, `watch_text`, `hitbox_text`
-- `borealis.game.editor`: `set/get label`, `set/get note`, `set/get group`, `set/is locked`, `set/is hidden`, `inspect`
+- `borealis.game.ui`: `widget`, `panel`, `label_widget`, `checkbox`, `slider`, `text_input`, `image`, `container`, `point_in_rect`, `hover`, `click`, `button`, `state`, `focus`, `show`, `hide`, `set_visible`, `set_value`, `set_checked`, `set_text`, `layout_vertical`, `layout_row`, `label`
+- `borealis.game.ui.hud`: `defaults`, `set_health`, `add_score`, `add_widget`, `remove_widget`, `has_widget`, `widget_count`, `show`, `hide`, `set_visible`, `is_visible`, `set_position`, `position`, `set_value`, `get_value`, `set_text`, `get_text`, `inspect`, `reset`
+- `borealis.game.assets`: `asset_load`, `asset_load_from`, `asset_load_image`, `asset_load_texture`, `asset_load_text`, `asset_load_binary`, `asset_load_font`, `asset_load_sound`, `asset_load_music`, `asset_load_shader`, `asset_load_atlas`, `asset_load_spritesheet`, `asset_get`, `asset_get_kind`, `asset_find`, `asset_find_kind`, `asset_find_id`, `asset_exists_kind`, `asset_info`, `asset_info_key`, `asset_info_id`, `asset_unload`, `asset_unload_key`, `asset_unload_id`, `asset_reload`, `asset_reload_key`, `asset_reload_id`, `asset_cache_clear`, `asset_count`, `asset_total_count`, `asset_count_kind`, `asset_total_count_kind`, `asset_count_source`, `asset_total_count_source`, `asset_exists`, `asset_is_loaded`, `asset_is_loaded_key`
+- `borealis.game.save`: `slot_write`, `slot_read`, `slot_delete`, `slot_exists`, `autosave_write`, `autosave_read`, `autosave_delete`, `snapshot_write`, `snapshot_read`, `snapshot_restore`, `snapshot_delete`, `slot_field_write`, `slot_field_read`, `slot_field_delete`, `slot_field_exists`, `slot_field_count`, `slot_field_clear`, `autosave_field_write`, `autosave_field_read`, `autosave_field_delete`, `autosave_field_exists`, `autosave_field_count`, `autosave_field_clear`, `reset`
+- `borealis.game.storage`: `write`, `read`, `remove`, `exists`, `copy`, `move`, `clear`
+- `borealis.game.database`: `open`, `close`, `is_open`, `exec`, `query`, `last_sql`, `reset`
+- `borealis.game.services`: `http_send`, `cloud_connect`, `cloud_disconnect`, `cloud_is_connected`, `cloud_upload`, `cloud_download`, `cloud_remove`, `cloud_exists`, `cloud_entry_count`, `request_count`, `last_url`, `reset`
+- `borealis.game.settings`: `defaults`, `current_state`, `apply_defaults`, `apply_state`, `set_language`, `set_master_volume`, `set_music_volume`, `set_sfx_volume`, `set_dyslexia_font`, `set_high_contrast`, `set_reduce_motion`, `set_fullscreen`, `set_vsync`, `set_render_scale`, `set_ui_scale`, `save_profile`, `load_profile` (`optional`), `apply_profile` (`optional`), `delete_profile`, `profile_exists`, `reset`, `reset_all`, `list_names`, `get_text`, `get_number`, `get_flag`
+- `borealis.game.events`: `emit`, `queue`, `dispatch`, `on`, `once`, `off`, `clear`, `is_registered`, `listener_count`, `peek`, `poll`, `dispatch_next`, `listener_peek`, `listener_poll`, `clear_pending`, `clear_listener`, `has_pending`, `pending_count`, `listener_has_pending`, `listener_pending_count`, `count_named`, `reset`, `last_name`, `last_payload`, `count`, `event_message`, `event_name`, `event_payload`
+- `borealis.game.debug`: `set_enabled`, `is_enabled`, `log`, `log_count`, `last_log`, `set_flag`, `toggle`, `flag_enabled`, `flag_count`, `watch`, `unwatch`, `watch_count`, `watch_value`, `watch_text`, `watch_entry`, `grid_text`, `bounds_text`, `hitbox_text`, `fps_text`, `overlay_summary`, `clear`
+- `borealis.game.editor`: `set/get label`, `set/get note`, `set/get group`, `set/is locked`, `set/is hidden`, `inspect`, `has_meta`, `clear`, `reset`
 
 Observacao de comportamento:
 
 - `save.slot_read(...)` retorna `none` quando o slot foi apagado
+- `save.slot_read(...)` preserva `""` como valor valido quando o slot existe
+- `save.slot_field_read(...)` retorna `none` quando o campo foi apagado e preserva `""` como valor valido
 - `storage.read(...)` retorna `none` quando a chave foi removida
+- `storage.read(...)` preserva `""` como valor valido quando a chave existe
+- `assets` agora diferencia asset registrado de asset carregado, preserva `id` estavel em `asset_reload(...)`, expoe metadata leve com origem e stamp logico, oferece loaders especificos para os tipos 2D mais comuns e rejeita chave simples ambigua com `kind` diferente
+- `services.http_send(...)` devolve resposta stub previsivel e rastreia a ultima URL usada
+- `services.cloud_*` usa estado em memoria por provider e preserva `""` como valor remoto valido
+- `database.query(...)` devolve payload stub previsivel e `database.last_sql(...)` rastreia o ultimo SQL da conexao
+- `settings` agora cobre audio, idioma, acessibilidade, fullscreen, `vsync`, `render_scale`, `ui_scale` e perfis persistidos em `storage`
+- `events` agora combina fila global com listeners nomeados, `once`, rotas desacopladas e introspeccao por listener
+- `debug` agora cobre logs, flags, watches e overlays textuais para grid, bounds, hitbox e FPS
+- `ui` agora cobre widgets simples, foco, hover/click, visibilidade e layout linear
+- `ui.hud` agora cobre widgets de HUD com texto, valor, posicao e visibilidade
+- `scene` agora cobre fase, document id e pilha simples de fluxo
+- `editor` agora cobre limpeza/reset de metadata por stable id
 
 ## borealis (compat raiz)
 
 Mantido para compatibilidade no ciclo atual, com janela/frame/draw/input e primitives de desenho base.
+
+## borealis.raylib (binding direto inicial)
+
+Tipos:
+
+- `raylib.Window`
+- `raylib.Color`
+- `raylib.Rect`
+- `raylib.Vector2`
+- `raylib.Texture`
+- `raylib.Sound`
+
+Disponibilidade e diagnostico:
+
+- `raylib.available()`
+- `raylib.loaded_path()`
+- `raylib.require_available()`
+
+Janela/frame:
+
+- `raylib.open_window(...)`
+- `raylib.open_window_required(...)`
+- `raylib.close_window(window)`
+- `raylib.window_should_close(window)`
+- `raylib.begin_drawing(window, clear)`
+- `raylib.end_drawing(window)`
+
+Shapes e texto:
+
+- `raylib.draw_rectangle(window, area, color)`
+- `raylib.draw_rectangle_lines(window, area, color, thickness)`
+- `raylib.draw_line(window, start, finish, color)`
+- `raylib.draw_triangle(window, p1, p2, p3, color)`
+- `raylib.draw_circle(window, center, radius, color)`
+- `raylib.draw_circle_lines(window, center, radius, color, thickness)`
+- `raylib.draw_ellipse(window, center, radius_h, radius_v, color)`
+- `raylib.draw_text(window, value, x, y, size, color)`
+- `raylib.measure_text(value, font_size)`
+
+Textura e audio:
+
+- `raylib.load_texture(path)` com erro claro para caminho vazio
+- `raylib.unload_texture(texture)`
+- `raylib.draw_texture(window, texture, position, tint)`
+- `raylib.draw_texture_ex(window, texture, position, rotation, scale_amount, tint)`
+- `raylib.init_audio_device()`
+- `raylib.close_audio_device()`
+- `raylib.audio_device_ready()`
+- `raylib.set_master_volume(volume)`
+- `raylib.load_sound(path)` com erro claro para caminho vazio
+- `raylib.unload_sound(sound)`
+- `raylib.play_sound(sound)`
+- `raylib.stop_sound(sound)`
+- `raylib.set_sound_volume(sound, volume)`
+
+Input, cor e math:
+
+- `raylib.is_key_down(window, key)`
+- `raylib.is_key_pressed(window, key)`
+- `raylib.is_key_released(window, key)`
+- `raylib.rgb(...)`, `raylib.rgba(...)`, `raylib.white()`, `raylib.black()`, `raylib.red()`, `raylib.green()`, `raylib.blue()`, `raylib.yellow()`
+- `raylib.rect(...)`, `raylib.vec2(...)`
+- `raylib.key_left()`, `raylib.key_right()`, `raylib.key_up()`, `raylib.key_down()`, `raylib.key_space()`, `raylib.key_escape()`
+- `raylib.vector_length(...)`, `raylib.vector_distance(...)`, `raylib.lerp(...)`
+- `raylib.ease_linear(...)`, `raylib.ease_sine_in/out/in_out(...)`, `raylib.ease_quad_in/out/in_out(...)`
 
 ## Runtime C (hook desktop B7)
 

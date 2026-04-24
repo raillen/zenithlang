@@ -162,6 +162,14 @@ public func key_released(window: Window, key: Key) -> bool
     return backend.key_released(window.id, key_code(key))
 end
 
+public func raylib_available() -> bool
+    return backend.raylib_available()
+end
+
+public func raylib_loaded_path() -> text
+    return backend.raylib_loaded_path()
+end
+
 public func backend_code(value: Backend) -> int
     match value
         case Backend.Stub ->

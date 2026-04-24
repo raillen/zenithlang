@@ -1,5 +1,7 @@
 #include "runtime/c/zenith_rt.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static zt_int zt_app_main__main(void);
 
@@ -9,6 +11,9 @@ static zt_int zt_app_main__main(void) {
     goto zt_block_entry;
 
 zt_block_entry:
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((unused));
+#endif
     a = 40;
     b = 2;
     return zt_add_i64(a, b);

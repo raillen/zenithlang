@@ -47,6 +47,21 @@ Sinalizacao de entrega:
 - stdlib piloto implementado em `std.random` com estado observavel e testes dedicados;
 - docs normativas atualizadas em `language/spec/*` e `language/decisions/086-*`.
 
+## Atualizacao de status (2026-04-23)
+
+`R3.P1.A`, `R3.M0`, `R3.M1`, `R3.M2` e `R3.M3` foram fechadas. `R3.M4` em execucao com **Phase 1 completa** (spec + decision + runtime + checker + emitter type resolution).
+
+Sinalizacao de entrega:
+
+- analise futura de estado compartilhado de namespace publicada em `docs/reports/R3.P1.A-namespace-shared-state-analysis.md` (proposta base + sincronizacao futura + guideline + criterios de promocao);
+- kickoff do ciclo R3 publicado em `docs/reports/release/R3.M0-kickoff-report.md` (baselines de qualidade/performance congeladas referenciadas em `docs/governance/baselines/`);
+- matriz de riscos R3 publicada em `docs/reports/R3-risk-matrix.md` (zero `P0` sem owner/prazo);
+- checkpoint inicial da trilha Borealis publicado em `docs/reports/R3.M0-borealis-alignment-checkpoint.md`;
+- hardening final de diagnosticos M34 publicado em `docs/reports/release/R3.M1-diagnostics-hardening-report.md` (bloco `NEXT` no renderer action-first, campos `effort=`/`action=`/`next=` no CI renderer, suite dedicada `tests/driver/test_diagnostics_rendering.c` com 41/41 pass);
+- concorrencia base Phase 1 publicada em `docs/reports/release/R3.M2-concurrency-base-report.md` (boundary contract via `std.concurrent.copy_*`, spec authoritative em `language/spec/concurrency.md`, integracao R3.P1.A em Decision 087, determinismo coberto por `tests/behavior/std_concurrent_boundary_copy_determinism`); `task`/`channel`/`Shared<T>` deferidos para Phases 3-5 e rastreados na matriz de riscos;
+- FFI 1.0 Phase 1 publicada em `docs/reports/release/R3.M3-ffi-1.0-report.md` (spec authoritative em `language/spec/ffi.md` com ABI contract + matriz de tipos permitidos/bloqueados + regras de ownership; shielding empiricamente verificada em `tests/behavior/extern_c_text_len_e2e`; negativa struct-as-arg em `tests/behavior/extern_c_struct_arg_error` com diagnostic pinada); arity/return negatives, callbacks e ABI annotations deferidos e rastreados na matriz de riscos;
+- dyn dispatch Phase 1 publicada: spec em `language/spec/dyn-dispatch.md`, decision em `language/decisions/088-dyn-dispatch-minimum-subset.md`, runtime structures (`zt_vtable`, `zt_dyn_value`, `zt_list_dyn`) em `runtime/c/zenith_rt.h/.c`, validação de subset no checker (`zt_checker_validate_dyn_trait`), type resolution para `dyn<Trait>` e `list<dyn<Trait>>` no emitter; vtable generation, boxing e dynamic dispatch em progresso.
+
 ## Diretrizes de linguagem do ciclo
 
 1. `trait` continua como contrato oficial.

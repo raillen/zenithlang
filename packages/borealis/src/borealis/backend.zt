@@ -80,6 +80,8 @@ extern c
     func zt_borealis_is_key_released(window_id: int, input_code: int) -> bool
     func zt_borealis_stub_set_key_down(window_id: int, input_code: int, is_down: bool) -> result<void, core.Error>
     func zt_borealis_stub_reset_input(window_id: int) -> result<void, core.Error>
+    func zt_borealis_raylib_available() -> bool
+    func zt_borealis_raylib_loaded_path() -> text
 end
 
 public func open_window(
@@ -216,4 +218,12 @@ end
 
 public func stub_reset_input(window_id: int) -> result<void, core.Error>
     return backend.zt_borealis_stub_reset_input(window_id)
+end
+
+public func raylib_available() -> bool
+    return backend.zt_borealis_raylib_available()
+end
+
+public func raylib_loaded_path() -> text
+    return backend.zt_borealis_raylib_loaded_path()
 end

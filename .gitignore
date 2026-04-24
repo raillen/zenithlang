@@ -13,6 +13,8 @@ bin/
 .vscode/
 __pycache__/
 *.pyc
+.venv/
+.rag/
 
 .ztc-tmp/
 .selfhost-artifacts/
@@ -62,3 +64,4 @@ zenith-website/
 # Keep tracked project scripts
 !tools/triage_cycle.py
 !tools/build_linux_packages.py
+!tools/rag/*.py

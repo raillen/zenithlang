@@ -1,0 +1,13 @@
+{
+  "suite": "curated",
+  "generated_at_utc": "20260423T152052Z",
+  "results": [
+    {
+      "task_id": "heavy/semantic_curated",
+      "passed": false,
+      "duration_ms": 467.0143127441406,
+      "note": "Replay curado sobre fixtures pesados modernizados.",
+      "output": "heavy curated replay missing fragment for duplicate_symbol_17: error[name.duplicate]\nerror[project.invalid_assignment] C:\\Users\\raillen.DESKTOP-99RJ5M6\\Documents\\Projetos\\zenith-lang-v2\\tests\\heavy\\fuzz\\semantic\\duplicate_symbol_17/zenith.ztproj:1:1 stage=project expected key = value\n\n"
+    }
+  ]
+}

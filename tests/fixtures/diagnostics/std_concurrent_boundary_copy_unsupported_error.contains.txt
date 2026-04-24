@@ -1,0 +1,3 @@
+tests/behavior/std_concurrent_boundary_copy_unsupported_error/src/app/main.zt
+copy_text
+type mismatch

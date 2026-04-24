@@ -306,6 +306,7 @@ int main(void) {
         { "tests/behavior/text_slice_len", "tests\\behavior\\text_slice_len\\build\\text-slice-len.exe", "text_slice_len", 8 },
         { "tests/behavior/text_utf8_index_slice", "tests\\behavior\\text_utf8_index_slice\\build\\text-utf8-index-slice.exe", "text_utf8_index_slice", 21 },
         { "tests/behavior/std_text_basic", "tests\\behavior\\std_text_basic\\build\\std_text_basic.exe", "std_text_basic", 0 },
+        { "tests/behavior/std_concurrent_boundary_copy_basic", "tests\\behavior\\std_concurrent_boundary_copy_basic\\build\\std_concurrent_boundary_copy_basic.exe", "std_concurrent_boundary_copy_basic", 0 },
         { "tests/behavior/map_len_basic", "tests\\behavior\\map_len_basic\\build\\map-len-basic.exe", "map_len_basic", 2 },
         { "tests/behavior/result_question_basic", "tests\\behavior\\result_question_basic\\build\\result-question-basic.exe", "result_question_basic", 0 },
         { "tests/behavior/bytes_hex_literal", "tests\\behavior\\bytes_hex_literal\\build\\bytes-hex-literal.exe", "bytes_hex_literal", 9 },
@@ -327,6 +328,7 @@ int main(void) {
         { "tests/behavior/multifile_import_cycle", "multifile_import_cycle", "build", "tests/fixtures/diagnostics/multifile_import_cycle.contains.txt" },
         { "tests/behavior/multifile_private_access", "multifile_private_access", "build", "tests/fixtures/diagnostics/multifile_private_access.contains.txt" },
         { "tests/behavior/project_unknown_key_manifest", "project_unknown_key_manifest", "verify", "tests/fixtures/diagnostics/project_unknown_key_manifest.contains.txt" },
+        { "tests/behavior/std_concurrent_boundary_copy_unsupported_error", "std_concurrent_boundary_copy_unsupported_error", "verify", "tests/fixtures/diagnostics/std_concurrent_boundary_copy_unsupported_error.contains.txt" },
         { "tests/behavior/monomorphization_limit_error", "monomorphization_limit_error", "verify", "tests/fixtures/diagnostics/monomorphization_limit_error.contains.txt" },
         { "tests/behavior/mutability_const_reassign_error", "mutability_const_reassign_error", "verify", "tests/fixtures/diagnostics/mutability_const_reassign.contains.txt" },
         { "tests/behavior/result_optional_propagation_error", "result_optional_propagation_error", "verify", "tests/fixtures/diagnostics/result_optional_propagation.contains.txt" },
@@ -358,4 +360,3 @@ int main(void) {
     printf("M16 conformance tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;
 }
-

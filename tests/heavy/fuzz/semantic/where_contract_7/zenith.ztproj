@@ -1,0 +1,15 @@
+[project]
+name = "where_contract_7"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.where_contract"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

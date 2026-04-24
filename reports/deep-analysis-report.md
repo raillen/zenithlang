@@ -5,6 +5,9 @@
 **Escopo:** compilador, runtime C, stdlib, tooling, specs e testes  
 **Objetivo deste documento:** manter somente pendências reais ou de alta confiança, com plano de implementação, roadmap de bugfix e checklist executável.
 
+> Atualização de coerência: este documento registra o fechamento do ciclo corretivo principal do alpha.  
+> A revalidação dos relatórios legados de 2026-04-22 abriu um relatório complementar, agora normativo para pendências residuais ainda abertas: `reports/pending-language-issues-current.md`.
+
 ---
 
 ## 1. Critério deste relatório
@@ -33,18 +36,22 @@ Itens refutados e portanto removidos da versão operacional:
 
 ## 2. Resumo executivo
 
+> Nota: os contadores abaixo valem para o backlog corretivo principal acompanhado neste documento.  
+> As pendências residuais reabertas pela auditoria dos relatórios legados estão consolidadas separadamente em `reports/pending-language-issues-current.md`.
+
 | Prioridade | Quantidade | Blocos principais |
 |---|---:|---|
 | P0 | 0 | sem bloqueios P0 restantes neste recorte |
-| P1 | 1 | fronteira residual de thread-safety/ARC |
-| P2 | 2 | emitter streaming e alinhamento documental residual |
-| P3 | 1 | hardening sistemático de testes |
+| P1 | 0 | sem pendências P1 restantes neste recorte |
+| P2 | 0 | sem pendências P2 restantes neste recorte |
+| P3 | 0 | sem pendências operacionais restantes neste recorte |
 
 ### Ordem recomendada
 
-1. Consolidar a política residual de `single-isolate`/ARC antes de qualquer passo concreto em paralelismo.
-2. Tratar emitter streaming como trilha de escalabilidade, não como bugfix imediato.
-3. Fortalecer a esteira de testes agora que os guardas de profundidade, UTF-8 interno e `queue/stack` públicos já estão fechados neste recorte.
+1. Tratar este backlog corretivo como fechado para o recorte alpha atual.
+2. Manter `nightly/stress`, coverage snapshot, replay pesado e perfil de memória do emitter como monitoramento contínuo.
+3. Abrir novas entradas aqui apenas para regressões revalidadas; `workers/jobs/transfer` segue como roadmap de feature.
+4. A primeira entrega pública dessa trilha já existe como `std.concurrent.copy_*`; `jobs/workers/channels` continuam como próxima fase, não como promessa já entregue.
 
 ---
 
@@ -98,26 +105,36 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-03 — Fronteira de thread-safety indefinida no runtime e em globals do driver
 - Prioridade: `P1`
-- Estado: `Parcialmente corrigido no working tree (2026-04-22)`
+- Estado: `Corrigido no working tree (2026-04-23)`
 - Área: `Runtime / Driver / Arquitetura`
 - Evidência: `zt_retain` e `zt_release` não são atômicos; `zt_last_error` e globals do driver não têm isolamento por contexto.
 - Risco: se a base evoluir para paralelismo real, surgem double-free, UAF, vazamento de estado e resultados não determinísticos.
-- Situação atual já documentada: o caminho padrão do runtime é `single-isolate` com ARC não atômico; fronteiras de concorrência usam `isolate/message-passing`; a referência canônica é `language/spec/runtime-model.md`.
-- Avanço no working tree: o estado mutável de invocação do driver foi movido para `zt_driver_context`, incluindo `ci`, perfil, filtros, manifesto ativo, root do projeto e telemetry; o driver recompila com esse fluxo.
-- Implementação:
-1. Tomar uma decisão explícita: `single-thread only` no MVP ou runtime thread-safe mínimo.
-2. Se a decisão for manter single-thread only, documentar isso em spec, README e comentários de API, e bloquear chamadas paralelas no roadmap oficial.
-3. Se a decisão for suportar threads, introduzir atomics em RC, revisar `zt_last_error` para contexto por thread e remover globals de driver em favor de contexto explícito.
-4. Passar `manifest`, `ci_mode`, `show_all_errors` e flags afins por estruturas de contexto.
-5. Isolar futuras features de build paralelo atrás desse mesmo contexto.
-- Testes necessários:
-1. Stress test multi-thread de retain/release.
-2. Execuções concorrentes do compilador com projetos diferentes.
-3. Testes de isolamento de erro e flags entre compilações consecutivas.
+- Situação canônica agora aceita: o runtime alpha é `single-isolate by default`, não uma promessa de "processo inteiro single-thread"; o host/engine pode usar threads, mas valores gerenciados ordinários não cruzam essas fronteiras por compartilhamento implícito. A superfície futura de concorrência será `workers/jobs/channels` com transferência explícita por `copy`, depois `move`, e wrappers compartilhados estreitos apenas onde fizer sentido.
+- Referências canônicas:
+1. `language/spec/runtime-model.md`
+2. `language/decisions/079-memory-and-dispatch-architecture.md`
+3. `language/decisions/087-concurrency-workers-and-transfer-boundaries.md`
+- Avanço no working tree:
+1. o estado mutável do driver foi movido para `zt_driver_context`;
+2. `README.md`, spec e header do runtime agora deixam a fronteira de concorrência explícita;
+3. `zt_runtime_last_error()` passou a usar slot por thread, reduzindo vazamento de diagnóstico entre hosts paralelos;
+4. os helpers `zt_thread_boundary_copy_*` passam a ser a primeira base concreta do modelo de transferência entre isolates.
+- Próxima fase:
+1. introduzir no checker a noção de payload `transferable`;
+2. subir uma API inicial de `jobs.spawn/join`;
+3. manter `Shared*` como exceção explícita, não como regra geral.
+- Primeira entrega pública já presente no tree:
+1. `std.concurrent.copy_int`
+2. `std.concurrent.copy_bool`
+3. `std.concurrent.copy_float`
+4. `std.concurrent.copy_text`
+5. `std.concurrent.copy_bytes`
+6. `std.concurrent.copy_list_int`
+7. `std.concurrent.copy_list_text`
+8. `std.concurrent.copy_map_text_text`
 - Critério de conclusão:
-1. A política de thread-safety fica explícita no produto.
-2. O código segue a política escolhida sem ambiguidades.
-3. Não restam globals mutáveis relevantes sem dono/contexto definido.
+1. a política de thread-safety deixa de ser bug aberto e vira contrato arquitetural explícito;
+2. o roadmap de concorrência passa a ser acompanhado como feature, não como ambiguidade do runtime atual.
 
 ### BF-04 — Scaffolding de ciclo RC perigoso e morto
 - Prioridade: `P1`
@@ -241,12 +258,13 @@ Itens refutados e portanto removidos da versão operacional:
 
 ### BF-10 — `c_string_buffer` cresce sem streaming ou flush
 - Prioridade: `P2`
-- Estado: `Parcialmente corrigido no working tree (2026-04-23)`
+- Estado: `Corrigido no working tree (2026-04-23)`
 - Área: `Backend C / Performance`
 - Evidência: o emitter acumula tudo em memória antes de persistir resultado.
 - Risco: pico de memória cresce com tamanho do módulo e limita projetos maiores.
-- Avanço no working tree: o emitter agora pode fazer spill para `tmpfile()` acima de um limiar configurável (`ZT_EMITTER_SPILL_THRESHOLD_BYTES`) e o caminho de `build/run` passou a persistir via `c_emitter_write_file(...)` sem materializar o C inteiro em RAM; `hardening/concurrent_compilation` força o spill com limite baixo e segue verde em `nightly`.
-- Residual aberto: `emit-c` para stdout e os testes que chamam `c_emitter_text(...)` ainda materializam tudo em memória no fim; ainda não existe relatório objetivo de pico de memória antes/depois.
+- Avanço no working tree: o emitter agora pode fazer spill para `tmpfile()` acima de um limiar configurável (`ZT_EMITTER_SPILL_THRESHOLD_BYTES`); os caminhos de `build/run` e `emit-c` passaram a persistir/escrever via stream (`c_emitter_write_file(...)` / `c_emitter_write_stream(...)`) sem materializar o C inteiro em RAM; existe teste focado validando equivalência byte a byte entre o modo spill+stream e o modo materializado.
+- Residual reclassificado: métricas objetivas de pico de memória e stress prolongado deixam de ser bloqueio de implementação e passam a compor `TEST-01` como hardening contínuo.
+- Hardening adicional já entregue: `tests/hardening/test_emitter_memory_profile.py` mede pico de working set de `emit-c` em modo buffered vs streamed/spill, valida a equivalência por `sha256` e arquiva snapshot em `reports/hardening/emitter-memory-profile.{md,json}`.
 - Implementação:
 1. Introduzir writer abstrato com suporte a buffer em memória e stream para arquivo.
 2. Manter modo atual para testes pequenos e modo streaming para `emit-c/build`.
@@ -448,33 +466,39 @@ Itens refutados e portanto removidos da versão operacional:
 1. As duas funções passam a existir no runtime com comportamento documentado.
 2. `std.os` e `std.os.process` fecham a superfície declarada do corte atual.
 
-### TEST-01 — backlog focal de hardening ainda aberto
+### TEST-01 — trilha de hardening estabilizada neste recorte
 - Prioridade: `P3`
-- Estado: `Parcialmente corrigido no working tree (2026-04-23)`
+- Estado: `Corrigido no working tree (2026-04-23)`
 - Área: `Qualidade / Testes`
-- Lacunas a fechar:
-1. integrar mais subconjuntos estáveis de `tests/heavy` ao gate oficial além da fuzz semântica já promovida;
-2. publicar alvo de coverage com relatório simples por arquivo ou por módulo;
-3. decidir se vale promover o harness concorrente também para `pr_gate` ou mantê-lo em `nightly/stress`;
-4. continuar ampliando a matriz do formatter quando novas superfícies entrarem no alpha.
+- Fechamento neste recorte:
+1. o hardening corretivo que ainda estava aberto foi absorvido pela esteira oficial e deixou de ser backlog de bugfix;
+2. o que sobra nesta área passa a ser manutenção contínua e expansão de cobertura, não correção obrigatória para o alpha atual.
 - Situação atual já presente no repositório:
 1. hardening gates já rodam em `pr_gate`/`nightly`/`stress` via `tests/hardening/*.py`;
 2. existe fuzzing leve em `tests/fuzz/` para lexer/parser;
-3. `tests/heavy/fuzz/semantic/fuzz_semantic.py` agora roda em `nightly/stress` como `stress/fuzz_semantic`, com seed fixa e iterações curtas/longas por suite;
-4. `tests/hardening/test_concurrent_compilation.py` agora valida builds nativos paralelos em cache frio/quente dentro de `nightly/stress`;
-5. `tests/formatter/run_formatter_golden.py` saiu de `case_all` isolado para 9 casos cobrindo imports, structs, match, generics, comments, triple-quoted text, trailing comma em lista e manifesto.
-- Implementação:
-1. Promover mais subconjuntos estáveis de `tests/heavy` ao runner oficial (`nightly` ou `stress`), começando por segurança e stress reprodutíveis.
-2. Publicar alvo de coverage com relatório simples por arquivo ou por módulo.
-3. Revisar periodicamente se `hardening/concurrent_compilation` deve subir para `pr_gate`.
-4. Manter a matriz do formatter alinhada às superfícies novas da linguagem e do manifesto.
+3. `tests/heavy/fuzz/semantic/fuzz_semantic.py` agora roda em `nightly/stress` como `stress/fuzz_semantic`, com seed fixa, iterações curtas/longas por suite e geração direta do layout atual de projeto (`zenith.ztproj` válido + `src/<namespace>.zt`);
+4. os fixtures de `tests/heavy/fuzz/semantic/*` foram modernizados para o layout atual de projeto, com manifest `.ztproj` válido e arquivo fonte alinhado ao namespace;
+5. `tests/hardening/test_heavy_semantic_curated.py` promove um replay curado desses fixtures para `nightly/stress`, cobrindo hoje duplicação de símbolos, mismatch de `result`, chave inválida de `map`, sintaxe quebrada preservada por fuzz, casos pesados que continuam passando (`deep_if`, `generic_overflow`) e um caso real que agora precisa falhar (`method_receiver`);
+6. `tests/hardening/test_concurrent_compilation.py` agora valida builds nativos paralelos em cache frio/quente já no `pr_gate`, além de `nightly/stress`;
+7. `tests/heavy/run_heavy_tests.py` foi realinhado ao repositório atual e hoje expõe apenas suites honestas (`curated`, `fuzz`, `all`), com relatório simples em `tests/heavy/reports/`;
+8. `tests/formatter/run_formatter_golden.py` saiu de `case_all` isolado para 9 casos cobrindo imports, structs, match, generics, comments, triple-quoted text, trailing comma em lista e manifesto;
+9. `tests/targets/c/test_emitter_stream.c` cobre especificamente o caminho `spill + stream`, sem depender da suíte maior de goldens legados do emitter;
+10. `tests/targets/c/test_emitter.c` foi desfragilizado por canonicalização dos wrappers gerenciados e voltou a passar com o emitter atual;
+11. `tests/hardening/test_coverage_snapshot.py` publica snapshot de coverage focado por cenário em `reports/coverage/coverage-snapshot.md`, cobrindo parser, checker, lowering, emitter e runtime;
+12. `tests/hardening/test_emitter_memory_profile.py` publica snapshot de memória do `emit-c` em `reports/hardening/emitter-memory-profile.md`, comparando buffered vs streamed/spill sem usar threshold arbitrário;
+13. a própria campanha de hardening encontrou e fechou um bug real de linguagem: métodos `mut` estavam sendo aceitos sobre receivers `const`; esse caso agora tem behavior dedicado (`methods_mutating_const_receiver_error`) e replay curado negativo (`method_receiver_18`).
+- Acompanhamento contínuo:
+1. continuar ampliando a matriz do formatter quando novas superfícies entrarem no alpha;
+2. revisar periodicamente se o replay curado de `tests/heavy` precisa crescer ou ser trocado;
+3. usar coverage snapshot e perfil de memória do emitter como termômetro de tendência, não como gate artificial por threshold fixo.
 - Testes necessários:
 1. Execução contínua no runner oficial.
 2. Gate de regressão específico para segurança/stress.
-3. Relatório de coverage arquivado por release/nightly.
+3. Snapshots arquivados por `nightly`/release para coverage e memória.
 - Critério de conclusão:
-1. Segurança pesada, fuzz semântico e formatter deixam de depender de cobertura ocasional.
-2. Existe visibilidade objetiva do que ainda não está coberto.
+1. O backlog corretivo descrito neste item fica fechado neste recorte.
+2. Segurança pesada, fuzz semântico, replay curado, coverage e perfil de memória deixam de depender de execução ocasional.
+3. O próximo trabalho nesta área é manutenção contínua, não bugfix pendente.
 
 ---
 
@@ -578,7 +602,7 @@ Entregáveis:
 
 Janela sugerida:
 
-- 2 a 3 semanas.
+- concluida neste recorte; segue em manutenção contínua.
 
 ---
 
@@ -592,7 +616,7 @@ Janela sugerida:
 - [x] criar helpers de overflow de tamanho
 - [x] aplicar guards em `zt_text_concat`
 - [x] aplicar guards em `zt_bytes_join`
-- [ ] revisar concatenações derivadas de path/buffer temporário
+- [x] revisar concatenações derivadas de path/buffer temporário relevantes ao recorte atual
 - [x] remover `zt_detect_cycles`
 - [x] remover `zt_runtime_check_for_cycles`
 - [x] eliminar leak em `zt_net_error_kind_index`
@@ -633,31 +657,33 @@ Janela sugerida:
 - [x] escolher documento canônico para status do corte atual
 - [x] atualizar `MVP_OUT_OF_SCOPE.md`
 - [x] atualizar `surface-implementation-status.md`
-- [ ] revisar decisões históricas ainda não alinhadas fora deste bloco
+- [x] revisar decisões históricas ainda não alinhadas fora deste bloco
 
 ### Fase R5
 
-- [ ] introduzir writer/stream no emitter C
-- [ ] medir pico de memória antes e depois do emitter streaming
+- [x] introduzir writer/stream no emitter C
+- [x] medir pico de memória antes e depois do emitter streaming
 - [x] decidir contrato real de performance para `map<text,text>` no alpha
 - [x] implementar índice/hash real no runtime atual de `map<text,text>`
 - [x] integrar subconjunto estável de `tests/heavy` ao gate oficial
 - [x] criar harness de compilação concorrente
-- [ ] publicar alvo de coverage
+- [x] publicar alvo de coverage
 - [x] adicionar pelo menos 8 novos casos golden de formatter
 
 ### Relatórios Externos (22-04-2026)
 
-Após cruzar `22-04-2026-gemma4-31b-implementation-report.md`, `22-04-2026-qwen3.5-plus-implementation-report.md` e `22-04-2026-qwen3.6-plus-implementation-report.md` com o código atual, os pontos que ainda se sustentam são:
+Após cruzar `22-04-2026-gemma4-31b-implementation-report.md`, `22-04-2026-qwen3.5-plus-implementation-report.md` e `22-04-2026-qwen3.6-plus-implementation-report.md` com o código atual e revalidar os pontos ainda suspeitos em 2026-04-23, não resta backlog corretivo aberto neste recorte.
 
-1. ARC segue não atômico fora do contrato documentado de `single-isolate`.
-2. parte do bloco `tests/heavy` ainda não é gate principal de hardening, embora a fuzz semântica e o harness concorrente já tenham sido promovidos para o runner oficial.
+O que sobra desses relatórios foi reclassificado em dois grupos:
+
+1. decisões arquiteturais aceitas para o alpha atual, como o runtime `single-isolate by default`;
+2. manutenção contínua de hardening, agora coberta pelo runner oficial (`coverage`, `heavy curated`, `fuzz semantic`, `concurrent compilation`, `emitter memory profile`).
 
 ---
 
 ## 6. Fechamento
 
-Este documento deve ser tratado como base operacional de correção.
+Este documento deve ser tratado como base operacional de correção para este recorte.
 
 Ele não tenta recontar toda a história do projeto.
 Ele não reabre itens já refutados.
@@ -667,4 +693,5 @@ A regra daqui para frente deve ser simples:
 
 - só entra neste backlog o que ainda precisa ser corrigido, decidido, implementado ou coberto por teste;
 - cada item precisa ter dono, teste e critério de saída;
-- cada release deve fechar ou reclassificar explicitamente os itens impactados.
+- cada release deve fechar ou reclassificar explicitamente os itens impactados;
+- quando o backlog corretivo estiver zerado, novos itens só entram com regressão revalidada ou mudança real de escopo.

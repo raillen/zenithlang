@@ -13,13 +13,7 @@ Ciclo: Borealis 1.0
 
 ## P1
 
-1. Compatibilidade parcial do backend C com tipos Borealis mais ricos
-- Impacto: parte da API Borealis fecha em `check`, mas nao fecha em `run-pass`.
-- Owner: Borealis Backend.
-- Prazo: proxima volta tecnica apos o fechamento documental de B8/B9.
-- Mitigacao: fechar suporte do emitter C para tipos qualificados e cenarios hoje bloqueados.
-
-2. Duplicacao de tipos entre camadas `game` e `engine`
+1. Duplicacao de tipos entre camadas `game` e `engine`
 - Impacto: custo de manutencao maior e risco de drift.
 - Owner: Borealis Architecture.
 - Prazo: acompanhamento continuo apos `R3.B5`.
@@ -44,3 +38,9 @@ Ciclo: Borealis 1.0
 - Owner: Compiler Runtime.
 - Prazo: hardening tecnico apos fechamento dos bloqueios P1 do backend C.
 - Mitigacao: manter validacoes Borealis em sequencia ate haver isolamento/lock do cache.
+
+4. Hardening continuo do emitter C para generics ricos fora da coverage atual
+- Impacto: o caminho que bloqueava `optional<Struct>` do Borealis foi fechado, mas combinacoes mais profundas de `map/optional/outcome` ainda merecem cobertura adicional.
+- Owner: Compiler Backend.
+- Prazo: acompanhamento continuo enquanto a API do Borealis aprofundar modulos alem do scaffold.
+- Mitigacao: toda nova combinacao real descoberta no Borealis deve virar fixture de regressao.

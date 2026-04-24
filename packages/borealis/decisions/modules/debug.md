@@ -1,30 +1,35 @@
 # Borealis Module Decision - Debug
 
-- Status: proposed
-- Date: 2026-04-22
+- Status: accepted
+- Date: 2026-04-23
 - Type: module / diagnostics
 - Scope: `borealis.game.debug`
 
 ## Summary
 
-Debug contains optional overlays, visual helpers, and diagnostics.
+Debug contains optional text-first overlays, watches, flags and diagnostics for Borealis scaffolds.
 
 ## Implementation
 
 - keep it easy to disable in release builds;
-- keep the helpers readable;
+- keep the helpers readable and deterministic;
+- prefer text-first helpers in v1 so the module works in stub mode;
 - avoid mixing debug visuals into production gameplay modules.
 
-## Proposed API
+## Accepted API
 
-- `debug_draw_grid()`: draws a grid overlay.
-- `debug_draw_bounds(entity)`: draws entity bounds.
-- `debug_draw_hitbox(entity)`: draws hitboxes.
-- `debug_draw_fps()`: draws FPS.
-- `debug_log(message)`: prints a debug message.
-- `debug_watch(name, value)`: tracks a value.
-- `debug_toggle(name)`: toggles a debug flag.
+- `set_enabled(value)`, `is_enabled()`, `clear()`: lifecycle basico do modulo.
+- `log(message)`, `log_count()`, `last_log()`: log simples e contadores.
+- `set_flag(name, value)`, `toggle(name)`, `flag_enabled(name)`, `flag_count()`: flags nomeadas para overlays/debug views.
+- `watch(name, value)`, `unwatch(name)`, `watch_count()`, `watch_value(name)`: watches textuais.
+- `watch_text(label, value)`, `watch_entry(name)`: renderizacao textual de watches.
+- `grid_text(cell_size, offset_x = 0, offset_y = 0)`: resumo textual de grid.
+- `bounds_text(x, y, width, height)`: resumo textual de bounds.
+- `hitbox_text(x, y, width, height)`: resumo textual de hitbox.
+- `fps_text(fps)`: resumo textual de FPS.
+- `overlay_summary()`: resumo agregado do estado debug atual.
 
 ## Notes
 
-- debug should stay optional and cheap to remove.
+- debug continua opcional e barato de desligar.
+- os helpers atuais sao suficientes para fixtures, scaffolds e futuras overlays do editor.

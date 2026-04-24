@@ -703,6 +703,22 @@ int zt_project_parse_text(const char *text, size_t length, zt_project_parse_resu
     int line_number = 0;
     zt_project_section section = ZT_PROJECT_SECTION_NONE;
 
+    /*
+     * Track scalar (section, key) pairs already assigned so that a duplicate
+     * key on a subsequent line is rejected instead of silently overwriting
+     * the earlier value. Dependency-like sections manage their own tables and
+     * are skipped here so their duplicate semantics stay localized.
+     *
+     * The hard cap of 128 entries is well above the realistic number of
+     * scalar keys across all manifest sections.
+     */
+    typedef struct zt_project_seen_key {
+        zt_project_section section;
+        char key[128];
+    } zt_project_seen_key;
+    zt_project_seen_key seen_keys[128];
+    size_t seen_count = 0;
+
     zt_project_parse_result_init(result);
 
     if (text == NULL) {
@@ -761,6 +777,31 @@ int zt_project_parse_text(const char *text, size_t length, zt_project_parse_resu
             if (key[0] == '\0') {
                 zt_project_set_error(result, ZT_PROJECT_INVALID_ASSIGNMENT, line_number, "manifest key cannot be empty");
                 return 0;
+            }
+
+            /* Duplicate-key guard for scalar sections. Dependency sections
+             * manage their own deduplication and are deliberately skipped. */
+            if (section != ZT_PROJECT_SECTION_DEPENDENCIES &&
+                    section != ZT_PROJECT_SECTION_DEV_DEPENDENCIES) {
+                size_t i;
+                for (i = 0; i < seen_count; i += 1) {
+                    if (seen_keys[i].section == section && strcmp(seen_keys[i].key, key) == 0) {
+                        char message[192];
+                        snprintf(
+                            message,
+                            sizeof(message),
+                            "duplicate key '%s.%s' in manifest",
+                            zt_project_section_name(section),
+                            key);
+                        zt_project_set_error(result, ZT_PROJECT_INVALID_ASSIGNMENT, line_number, message);
+                        return 0;
+                    }
+                }
+                if (seen_count < sizeof(seen_keys) / sizeof(seen_keys[0])) {
+                    seen_keys[seen_count].section = section;
+                    snprintf(seen_keys[seen_count].key, sizeof(seen_keys[seen_count].key), "%s", key);
+                    seen_count += 1;
+                }
             }
 
             value = line + equals_pos + 1;

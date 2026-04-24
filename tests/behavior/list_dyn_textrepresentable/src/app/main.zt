@@ -1,0 +1,22 @@
+namespace app.main
+
+import std.io as io
+
+-- E2E for R3.M4 dyn dispatch minimum subset: heterogeneous collection.
+-- The official subset is dyn<TextRepresentable> only; this test verifies:
+--   - dispatch via to_text() on dyn<TextRepresentable> values;
+--   - runtime helper: zt_dyn_text_repr_to_text.
+
+func main() -> int
+    -- Create a dyn<TextRepresentable> from text (supported boxing)
+    const d: dyn<TextRepresentable> = "hello"
+    
+    -- Test dispatch: dyn<TextRepresentable> must expose to_text()
+    const txt: text = d.to_text()
+    
+    if txt != "hello"
+        return 1
+    end
+    
+    return 0
+end

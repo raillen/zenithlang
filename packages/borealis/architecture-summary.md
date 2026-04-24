@@ -22,15 +22,15 @@ One compact reference for the Borealis runtime, module boundaries, and editor-re
 | `input` | Raw input and actions | keys, mouse, gamepad, contexts, hover | not gameplay behavior |
 | `world` | Tile/world structure | tiles, collision data, pathing, tilesets | generation stays in `procedural` |
 | `procedural` | Generic generation | noise, seeds, pipelines, map/content generation | not runtime storage |
-| `ui` | General interface widgets | buttons, panels, inputs, layout | `hud` stays as namespace here |
-| `hud` | In-game overlay namespace | health, ammo, score, timers | lives inside `ui` |
-| `assets` | Resource access | load/get/unload/cache, textures, fonts, sounds | not render or gameplay behavior |
+| `ui` | General interface widgets | buttons, panels, inputs, focus, hover/click, layout | `hud` stays as namespace here |
+| `hud` | In-game overlay namespace | health, ammo, score, text/value widgets, position, visibility | lives inside `ui` |
+| `assets` | Resource access | load/get/unload/cache, typed loaders, stable ids, source metadata | not render or gameplay behavior |
 | `save` | Game progress snapshots | slots, autosave, snapshots, restore | can use `storage` under the hood |
 | `storage` | Generic persistence | text/json/binary IO, copy/move/list | base for `save` and cache-like flows |
 | `database` | Future DB backend | SQLite-style open/query/transaction | future-facing, not blocking |
 | `services` | Remote capabilities | network, cloud save, APIs, matchmaking | umbrella for remote features |
 | `settings` | User configuration | resolution, audio, language, accessibility | can persist via `save` or `storage` |
-| `scene` | Flow and screen organization | enter/exit/update/draw/transitions | does not replace gameplay model |
+| `scene` | Flow and screen organization | enter/exit/update/draw/transitions, phase, document id, stack | does not replace gameplay model |
 | `events` | Decoupled messaging | emit/on/off/queue/dispatch | lightweight, not a huge bus |
 | `debug` | Diagnostics and overlays | bounds, hitboxes, FPS, watches | optional and easy to strip |
 | `editor` | Editor metadata bridge | labels, notes, grouping, lock/hidden flags by stable id | tool-facing metadata only |

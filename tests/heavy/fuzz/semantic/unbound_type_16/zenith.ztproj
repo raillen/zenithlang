@@ -1,0 +1,15 @@
+[project]
+name = "unbound_type_16"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.unbound_type"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

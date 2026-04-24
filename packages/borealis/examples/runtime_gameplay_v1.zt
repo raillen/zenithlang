@@ -1,0 +1,54 @@
+namespace app.main
+
+import borealis.game as game
+import borealis.game.ai as ai
+import borealis.game.animation as animation
+import borealis.game.camera as camera
+import borealis.game.controllers as controllers
+import borealis.game.contracts as contracts
+import borealis.game.entities as entities
+import borealis.game.input as input
+import borealis.game.procedural as procedural
+import borealis.game.vehicles as vehicles
+import borealis.game.world as world
+
+func main() -> result<void, core.Error>
+    const dungeon: world.TileMap = procedural.map_generate_room(12, 8)?
+    const spawn: game.Vector2 = world.map_get_spawn_point(dungeon)
+
+    const player: entities.Entity = entities.entity_create("player")?
+    entities.entity_set_position(player, spawn)?
+
+    const frame: input.InputFrame = input.input_frame(
+        down: contracts.ActionInput(right: true),
+        mouse: contracts.mouse_state(position: game.vec2(180.0, 96.0))
+    )
+
+    var controller: controllers.Controller = controllers.topdown_create(
+        contracts.body2d(position: entities.entity_get_position(player))
+    )
+    controller = controllers.controller_update(controller, frame.down, dt: 1.0 / 60.0)
+    entities.entity_set_position(player, controller.body.position)?
+
+    var rig: camera.CameraRig = camera.camera_rig_create()
+    rig = camera.camera_set_deadzone(rig, camera.camera_deadzone(32.0, 18.0))
+    rig = camera.camera_follow_rig(rig, controller.body.position)
+
+    var clips: animation.AnimationMap = animation.animation_map_create()
+    clips = animation.animation_map_set(clips, "idle", animation.animation_create("hero_idle", frame_total: 4))
+    clips = animation.animation_map_set(clips, "move", animation.animation_create("hero_run", frame_total: 6))
+
+    var sprite: animation.AnimationState = animation.animation_create("hero_idle", fps: 12.0, frame_total: 4)
+    sprite = animation.animation_sync(sprite, clips, controllers.controller_visual_state(controller))
+    sprite = animation.animation_play(sprite)
+    sprite = animation.animation_update(sprite, dt: 1.0 / 12.0)
+
+    const facing_angle: float = ai.face_target(controller.body.position, contracts.mouse_position(frame.mouse))
+    var car: vehicles.CarState = vehicles.car_update(vehicles.car_create(), 1.0, 0.0, 0.1, dt: 1.0 / 30.0)
+
+    if facing_angle == 0.0 and car.speed < 0.0 and rig.state.zoom < 0.0
+        return error("runtime gameplay example should stay in a valid state")
+    end
+
+    return success()
+end

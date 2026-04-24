@@ -1,0 +1,15 @@
+[project]
+name = "fmt_interpolation_5"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.fmt_interp"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

@@ -232,10 +232,38 @@ static void c_legalize_copy_sanitized(char *dest, size_t capacity, const char *s
     dest[out_index] = '\0';
 }
 
+static void c_legalize_canonicalize_type(char *dest, size_t capacity, const char *type_name) {
+    size_t i = 0;
+    size_t j = 0;
+
+    if (dest == NULL || capacity == 0) {
+        return;
+    }
+
+    if (type_name == NULL) {
+        dest[0] = '\0';
+        return;
+    }
+
+    while (type_name[i] != '\0' && j + 1 < capacity) {
+        char ch = type_name[i];
+        if (ch >= 'A' && ch <= 'Z') {
+            dest[j++] = ch + 32;
+        } else if (ch != ' ') {
+            dest[j++] = ch;
+        }
+        i += 1;
+    }
+
+    dest[j] = '\0';
+}
+
 static void c_legalize_build_generated_map_symbol(const char *canonical_name, char *dest, size_t capacity) {
+    char normalized[192];
     char sanitized[192];
 
-    c_legalize_copy_sanitized(sanitized, sizeof(sanitized), canonical_name);
+    c_legalize_canonicalize_type(normalized, sizeof(normalized), canonical_name);
+    c_legalize_copy_sanitized(sanitized, sizeof(sanitized), normalized);
     snprintf(dest, capacity, "zt_map_generated_%s", sanitized);
 }
 
@@ -244,18 +272,21 @@ static int c_legalize_build_map_runtime_name(
         const char *suffix,
         char *dest,
         size_t capacity) {
+    char canonical_map_type[192];
     char symbol_name[192];
 
     if (dest == NULL || capacity == 0 || c_legalize_is_blank(map_type_name) || c_legalize_is_blank(suffix)) {
         return 0;
     }
 
-    if (strcmp(map_type_name, "map<text,text>") == 0) {
+    c_legalize_canonicalize_type(canonical_map_type, sizeof(canonical_map_type), map_type_name);
+
+    if (strcmp(canonical_map_type, "map<text,text>") == 0) {
         snprintf(dest, capacity, "zt_map_text_text_%s", suffix);
         return 1;
     }
 
-    c_legalize_build_generated_map_symbol(map_type_name, symbol_name, sizeof(symbol_name));
+    c_legalize_build_generated_map_symbol(canonical_map_type, symbol_name, sizeof(symbol_name));
     snprintf(dest, capacity, "%s_%s", symbol_name, suffix);
     return 1;
 }

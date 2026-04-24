@@ -1,22 +1,19 @@
 namespace app.main
 
 enum Shape
-    Circle(radius: int),
-    Rectangle(width: int, height: int),
+    Circle(radius: int)
+    Rectangle(width: int, height: int)
     Point
 end
 
 func area(shape: Shape) -> int 
     match shape
-        case Shape.Circle(r) -> 
+        case Shape.Circle(r) ->
             return r * r
-        end
-        case Shape.Rectangle(w, h) -> 
+        case Shape.Rectangle(w, h) ->
             return w * h
-        end
-        case Shape.Point -> 
+        case Shape.Point ->
             return 0
-        end
     end
 end
 

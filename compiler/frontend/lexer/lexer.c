@@ -2,8 +2,28 @@
 #include "compiler/semantic/diagnostics/diagnostics.h"
 
 #include <ctype.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/*
+ * Structural lexer limits.
+ *
+ * These guards turn malicious or corrupted input into a predictable
+ * diagnostic instead of silent buffer growth or truncation.
+ *
+ * `ZT_LEX_MAX_TOKEN_LEN` applies to identifiers, numeric literals and
+ * individual tokenization steps; the value matches the "1024 character"
+ * contract advertised by `ZT_DIAG_TOKEN_TOO_LONG` in older help text.
+ *
+ * `ZT_LEX_MAX_STRING_LEN` is the byte budget for a single string or
+ * triple-quoted literal. One megabyte is well above any realistic
+ * interpolated or embedded-text usage while still stopping DoS-style
+ * unbounded reads.
+ */
+#define ZT_LEX_MAX_TOKEN_LEN   ((size_t)1024)
+#define ZT_LEX_MAX_STRING_LEN  ((size_t)1048576)
 
 typedef struct zt_keyword_entry {
     const char *text;
@@ -131,6 +151,28 @@ static char zt_lexer_advance(zt_lexer *lexer) {
     return ch;
 }
 
+static void zt_lexer_emit_diag(
+        zt_lexer *lexer,
+        zt_diag_code code,
+        size_t start_line,
+        size_t start_column,
+        const char *format,
+        ...) {
+    zt_source_span span;
+    va_list args;
+    char message[256];
+
+    if (lexer == NULL || lexer->diagnostics == NULL) return;
+
+    span = zt_source_span_make(lexer->source_name, start_line, start_column, lexer->column);
+
+    va_start(args, format);
+    vsnprintf(message, sizeof(message), format, args);
+    va_end(args);
+
+    zt_diag_list_add(lexer->diagnostics, code, span, "%s", message);
+}
+
 static void zt_lexer_skip_trivia(zt_lexer *lexer) {
     while (lexer->position < lexer->source_length) {
         char ch = zt_lexer_peek(lexer);
@@ -167,6 +209,7 @@ static zt_token zt_lexer_make_token(zt_lexer *lexer, zt_token_kind kind, size_t 
 
 static zt_token zt_lexer_read_string(zt_lexer *lexer, size_t start_line, size_t start_column) {
     size_t start_pos = lexer->position;
+    int too_long_reported = 0;
     zt_lexer_advance(lexer);
 
     while (lexer->position < lexer->source_length) {
@@ -174,11 +217,31 @@ static zt_token zt_lexer_read_string(zt_lexer *lexer, size_t start_line, size_t 
 
         if (ch == '"') {
             zt_lexer_advance(lexer);
+            if (too_long_reported) {
+                return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+            }
             return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_LITERAL, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
         }
 
         if (ch == '\0' || ch == '\n') {
-            break;
+            zt_lexer_emit_diag(
+                lexer,
+                ZT_DIAG_LEXER_UNTERMINATED_STRING,
+                start_line,
+                start_column,
+                "string literal is not terminated before end of line");
+            return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+        }
+
+        if (!too_long_reported && (lexer->position - start_pos) >= ZT_LEX_MAX_STRING_LEN) {
+            zt_lexer_emit_diag(
+                lexer,
+                ZT_DIAG_TOKEN_TOO_LONG,
+                start_line,
+                start_column,
+                "string literal exceeds the %zu byte lexer limit",
+                (size_t)ZT_LEX_MAX_STRING_LEN);
+            too_long_reported = 1;
         }
 
         if (ch == '\\' && lexer->position + 1 < lexer->source_length) {
@@ -187,25 +250,52 @@ static zt_token zt_lexer_read_string(zt_lexer *lexer, size_t start_line, size_t 
 
         zt_lexer_advance(lexer);
     }
-    
-    return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_LITERAL, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+
+    zt_lexer_emit_diag(
+        lexer,
+        ZT_DIAG_LEXER_UNTERMINATED_STRING,
+        start_line,
+        start_column,
+        "string literal is not terminated before end of file");
+    return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
 }
 
 zt_token zt_lexer_resume_string(zt_lexer *lexer) {
     size_t start_line = lexer->line;
     size_t start_column = lexer->column;
     size_t start_pos = lexer->position;
+    int too_long_reported = 0;
 
     while (lexer->position < lexer->source_length) {
         char ch = zt_lexer_peek(lexer);
 
         if (ch == '"') {
             zt_lexer_advance(lexer);
+            if (too_long_reported) {
+                return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+            }
             return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_END, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
         }
 
         if (ch == '\0' || ch == '\n') {
-            break;
+            zt_lexer_emit_diag(
+                lexer,
+                ZT_DIAG_LEXER_UNTERMINATED_STRING,
+                start_line,
+                start_column,
+                "interpolated string tail is not terminated before end of line");
+            return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+        }
+
+        if (!too_long_reported && (lexer->position - start_pos) >= ZT_LEX_MAX_STRING_LEN) {
+            zt_lexer_emit_diag(
+                lexer,
+                ZT_DIAG_TOKEN_TOO_LONG,
+                start_line,
+                start_column,
+                "interpolated string tail exceeds the %zu byte lexer limit",
+                (size_t)ZT_LEX_MAX_STRING_LEN);
+            too_long_reported = 1;
         }
 
         if (ch == '\\' && lexer->position + 1 < lexer->source_length) {
@@ -214,12 +304,20 @@ zt_token zt_lexer_resume_string(zt_lexer *lexer) {
 
         zt_lexer_advance(lexer);
     }
-    
-    return zt_lexer_make_token(lexer, ZT_TOKEN_STRING_END, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+
+    zt_lexer_emit_diag(
+        lexer,
+        ZT_DIAG_LEXER_UNTERMINATED_STRING,
+        start_line,
+        start_column,
+        "interpolated string tail is not terminated before end of file");
+    return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
 }
 
 static zt_token zt_lexer_read_triple_quoted(zt_lexer *lexer, size_t start_line, size_t start_column) {
     size_t start_pos = lexer->position;
+    int too_long_reported = 0;
+    int closed = 0;
 
     zt_lexer_advance(lexer);
     zt_lexer_advance(lexer);
@@ -234,10 +332,36 @@ static zt_token zt_lexer_read_triple_quoted(zt_lexer *lexer, size_t start_line, 
             zt_lexer_advance(lexer);
             zt_lexer_advance(lexer);
             zt_lexer_advance(lexer);
+            closed = 1;
             break;
         }
 
+        if (!too_long_reported && (lexer->position - start_pos) >= ZT_LEX_MAX_STRING_LEN) {
+            zt_lexer_emit_diag(
+                lexer,
+                ZT_DIAG_TOKEN_TOO_LONG,
+                start_line,
+                start_column,
+                "triple-quoted text exceeds the %zu byte lexer limit",
+                (size_t)ZT_LEX_MAX_STRING_LEN);
+            too_long_reported = 1;
+        }
+
         zt_lexer_advance(lexer);
+    }
+
+    if (!closed) {
+        zt_lexer_emit_diag(
+            lexer,
+            ZT_DIAG_LEXER_UNTERMINATED_STRING,
+            start_line,
+            start_column,
+            "triple-quoted text is not terminated before end of file");
+        return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+    }
+
+    if (too_long_reported) {
+        return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
     }
 
     return zt_lexer_make_token(lexer, ZT_TOKEN_TRIPLE_QUOTED_TEXT, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
@@ -318,6 +442,17 @@ static zt_token zt_lexer_read_number(zt_lexer *lexer, size_t start_line, size_t 
         }
     }
 
+    if ((lexer->position - start_pos) > ZT_LEX_MAX_TOKEN_LEN) {
+        zt_lexer_emit_diag(
+            lexer,
+            ZT_DIAG_TOKEN_TOO_LONG,
+            start_line,
+            start_column,
+            "numeric literal is too long (max %zu characters)",
+            (size_t)ZT_LEX_MAX_TOKEN_LEN);
+        return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
+    }
+
     return zt_lexer_make_token(lexer, is_float ? ZT_TOKEN_FLOAT_LITERAL : ZT_TOKEN_INT_LITERAL, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
 }
 
@@ -331,6 +466,17 @@ static zt_token zt_lexer_read_identifier(zt_lexer *lexer, size_t start_line, siz
         } else {
             break;
         }
+    }
+
+    if ((lexer->position - start_pos) > ZT_LEX_MAX_TOKEN_LEN) {
+        zt_lexer_emit_diag(
+            lexer,
+            ZT_DIAG_TOKEN_TOO_LONG,
+            start_line,
+            start_column,
+            "identifier is too long (max %zu characters)",
+            (size_t)ZT_LEX_MAX_TOKEN_LEN);
+        return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, start_pos, start_line, start_column, lexer->source_text + start_pos, lexer->position - start_pos);
     }
 
     zt_token_kind kind = zt_lexer_lookup_keyword(lexer->source_text + start_pos, lexer->position - start_pos);

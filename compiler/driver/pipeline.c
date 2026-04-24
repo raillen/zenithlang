@@ -971,7 +971,9 @@ int zt_native_make_temp_path(
                extension != NULL ? extension : "") < (int)capacity;
 }
 
+#ifndef _WIN32
 static int zt_native_decode_status(int status);
+#endif
 
 static char *zt_native_dup_prefixed_arg(const char *prefix, const char *value) {
     size_t prefix_len;
@@ -1409,6 +1411,7 @@ static void zt_native_capture_first(char *dest, size_t capacity, const char *lin
     snprintf(dest, capacity, "%s", line);
 }
 
+#ifndef _WIN32
 static int zt_native_decode_status(int status) {
 #ifdef _WIN32
     return status;
@@ -1418,6 +1421,7 @@ static int zt_native_decode_status(int status) {
     return status;
 #endif
 }
+#endif
 
 static int zt_run_native_compile_command(zt_driver_context *ctx, const char *const *argv) {
     char capture_path[512];

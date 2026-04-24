@@ -1,0 +1,7 @@
+namespace fuzz.fmt_interp
+
+public func main() -> int
+    -- Chaves desbalanceadas
+    const x: text = fmt "Hello {name"
+    return 0
+end

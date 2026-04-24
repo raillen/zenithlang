@@ -1561,7 +1561,14 @@ static int zt_handle_project_command(
     }
 
     if (strcmp(command, "emit-c") == 0) {
-        printf("%s\n", c_emitter_text(&emitter));
+        if (!c_emitter_write_stream(&emitter, stdout) ||
+                fputc('\n', stdout) == EOF ||
+                fflush(stdout) != 0) {
+            fprintf(stderr, "project error: failed to write generated C to stdout\n");
+            c_emitter_dispose(&emitter);
+            zt_project_compile_result_dispose(&compiled);
+            return 1;
+        }
         c_emitter_dispose(&emitter);
         zt_project_compile_result_dispose(&compiled);
         return 0;
@@ -1944,7 +1951,15 @@ static int zt_handle_zir_command(
     }
 
     if (strcmp(command, "emit-c") == 0) {
-        printf("%s\n", c_emitter_text(&emitter));
+        if (!c_emitter_write_stream(&emitter, stdout) ||
+                fputc('\n', stdout) == EOF ||
+                fflush(stdout) != 0) {
+            fprintf(stderr, "project error: failed to write generated C to stdout\n");
+            c_emitter_dispose(&emitter);
+            zir_parse_result_dispose(&parse_result);
+            free(input_text);
+            return 1;
+        }
         c_emitter_dispose(&emitter);
         zir_parse_result_dispose(&parse_result);
         free(input_text);
@@ -2038,8 +2053,9 @@ static int zt_find_most_recent_file(const char *dir, const char *ext, char *out,
                 if (zt_find_most_recent_file(child_path, ext, child_best, sizeof(child_best))) {
                     struct stat child_st;
                     if (stat(child_best, &child_st) == 0 && child_st.st_mtime > best_time) {
-                        best_time = child_st.st_mtime;
-                        snprintf(best_path, sizeof(best_path), "%s", child_best);
+                        if (zt_copy_text(best_path, sizeof(best_path), child_best)) {
+                            best_time = child_st.st_mtime;
+                        }
                     }
                 }
             } else {
@@ -2048,8 +2064,9 @@ static int zt_find_most_recent_file(const char *dir, const char *ext, char *out,
                 if (name_len >= ext_len && strcmp(find_data.cFileName + name_len - ext_len, ext) == 0) {
                     struct stat st;
                     if (stat(child_path, &st) == 0 && st.st_mtime > best_time) {
-                        best_time = st.st_mtime;
-                        snprintf(best_path, sizeof(best_path), "%s", child_path);
+                        if (zt_copy_text(best_path, sizeof(best_path), child_path)) {
+                            best_time = st.st_mtime;
+                        }
                     }
                 }
             }
@@ -2074,16 +2091,18 @@ static int zt_find_most_recent_file(const char *dir, const char *ext, char *out,
                         if (zt_find_most_recent_file(child_path, ext, child_best, sizeof(child_best))) {
                             struct stat child_st;
                             if (stat(child_best, &child_st) == 0 && child_st.st_mtime > best_time) {
-                                best_time = child_st.st_mtime;
-                                snprintf(best_path, sizeof(best_path), "%s", child_best);
+                                if (zt_copy_text(best_path, sizeof(best_path), child_best)) {
+                                    best_time = child_st.st_mtime;
+                                }
                             }
                         }
                     } else if (st.st_mtime > best_time) {
                         size_t name_len = strlen(entry->d_name);
                         size_t ext_len = strlen(ext);
                         if (name_len >= ext_len && strcmp(entry->d_name + name_len - ext_len, ext) == 0) {
-                            best_time = st.st_mtime;
-                            snprintf(best_path, sizeof(best_path), "%s", child_path);
+                            if (zt_copy_text(best_path, sizeof(best_path), child_path)) {
+                                best_time = st.st_mtime;
+                            }
                         }
                     }
                 }
@@ -2094,8 +2113,7 @@ static int zt_find_most_recent_file(const char *dir, const char *ext, char *out,
 #endif
 
     if (best_path[0] != '\0') {
-        snprintf(out, capacity, "%s", best_path);
-        return 1;
+        return zt_copy_text(out, capacity, best_path);
     }
     return 0;
 }
@@ -2271,9 +2289,15 @@ static int zt_handle_summary(zt_driver_context *ctx, const char *input) {
     }
 
     if (has_manifest && zt_project_load_file(manifest_path, &project)) {
-        snprintf(source_root, sizeof(source_root), "%s/%s", project_root, project.manifest.source_root);
+        if (!zt_join_path(source_root, sizeof(source_root), project_root, project.manifest.source_root)) {
+            fprintf(stderr, "error: source root path is too long\n");
+            return 1;
+        }
     } else {
-        snprintf(source_root, sizeof(source_root), "%s", "src");
+        if (!zt_copy_text(source_root, sizeof(source_root), "src")) {
+            fprintf(stderr, "error: unable to prepare source root\n");
+            return 1;
+        }
     }
 
     printf("\n");
@@ -2319,7 +2343,10 @@ static int zt_handle_resume(zt_driver_context *ctx, const char *input) {
 
     zt_apply_manifest_lang(&project.manifest);
 
-    snprintf(source_root, sizeof(source_root), "%s/%s", project_root, project.manifest.source_root);
+    if (!zt_join_path(source_root, sizeof(source_root), project_root, project.manifest.source_root)) {
+        fprintf(stderr, "error: source root path is too long\n");
+        return 1;
+    }
 
     printf("\n");
     printf("\xe2\x9e\xa1\xef\xb8\x8f Resume Context\n");

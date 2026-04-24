@@ -1,0 +1,110 @@
+{
+  "generated_at_utc": "2026-04-23T16:07:29.140532+00:00",
+  "kind": "focused-coverage-snapshot",
+  "note": "Scenario coverage only; this is not whole-project union coverage.",
+  "skipped_reason": null,
+  "results": [
+    {
+      "case_id": "frontend/parser_depth",
+      "source": "compiler/frontend/parser/parser.c",
+      "note": "Guarda de profundidade do parser.",
+      "lines": {
+        "percent": 22.93,
+        "count": 1378
+      },
+      "branches": {
+        "percent": 31.47,
+        "count": 804
+      },
+      "calls": {
+        "percent": 18.74,
+        "count": 619
+      }
+    },
+    {
+      "case_id": "semantic/numeric_guardrails",
+      "source": "compiler/semantic/types/checker.c",
+      "note": "Overflow inteiro e faixa de float no checker.",
+      "lines": {
+        "percent": 13.52,
+        "count": 2256
+      },
+      "branches": {
+        "percent": 15.16,
+        "count": 2295
+      },
+      "calls": {
+        "percent": 6.96,
+        "count": 963
+      }
+    },
+    {
+      "case_id": "zir/lowering_depth",
+      "source": "compiler/zir/lowering/from_hir.c",
+      "note": "Guarda estrutural do lowering HIR -> ZIR.",
+      "lines": {
+        "percent": 4.21,
+        "count": 1926
+      },
+      "branches": {
+        "percent": 5.97,
+        "count": 1408
+      },
+      "calls": {
+        "percent": 1.36,
+        "count": 1322
+      }
+    },
+    {
+      "case_id": "backend/emitter_stream",
+      "source": "compiler/targets/c/emitter.c",
+      "note": "Caminho spill + stream do emitter C.",
+      "lines": {
+        "percent": 13.91,
+        "count": 4643
+      },
+      "branches": {
+        "percent": 14.04,
+        "count": 5299
+      },
+      "calls": {
+        "percent": 7.87,
+        "count": 2275
+      }
+    },
+    {
+      "case_id": "runtime/process_run",
+      "source": "runtime/c/zenith_rt.c",
+      "note": "Execucao de processo segura, cwd e overflows fatais.",
+      "lines": {
+        "percent": 12.28,
+        "count": 4838
+      },
+      "branches": {
+        "percent": 12.67,
+        "count": 3472
+      },
+      "calls": {
+        "percent": 8.14,
+        "count": 2323
+      }
+    },
+    {
+      "case_id": "runtime/text_utf8_guardrails",
+      "source": "runtime/c/zenith_rt.c",
+      "note": "Construtor UTF-8 validado e falha em entrada invalida.",
+      "lines": {
+        "percent": 7.94,
+        "count": 4838
+      },
+      "branches": {
+        "percent": 9.16,
+        "count": 3472
+      },
+      "calls": {
+        "percent": 3.31,
+        "count": 2323
+      }
+    }
+  ]
+}

@@ -9,9 +9,11 @@ Zenith is a reading-first language with explicit semantics and a native compilat
 ## Current state
 
 - Status: alpha published (v2 compiler track)
-- Current version: `0.3.0-alpha.1` (2026-04-21)
+- Current source version: `0.3.0-alpha.2` (2026-04-23)
+- Published Windows artifact: `0.3.0-alpha.1` (2026-04-21); `0.3.0-alpha.2` is a source/docs-only patch cut — see `docs/reports/release/0.3.0-alpha.2-release-report.md`
 - Alpha gate milestone: `R2.M12` closed
 - Language update (2026-04-22): `public var` at namespace scope is now implemented with controlled mutation (read public, write only in owner namespace; no `global` syntax)
+- Correctness update (2026-04-23): 10 residual pendings (`PLI-01..PLI-10`) closed; formatter idempotence gate and emitter symbol-collision guard now mandatory in `pr_gate`
 
 ## Project origin (AI-assisted)
 
@@ -32,6 +34,9 @@ What is intentionally deferred to the next cycle:
 - Ordinary managed values use non-atomic ARC.
 - Cross-thread sharing of ordinary managed values is not a supported default path.
 - Crossing a boundary should use isolate/message-passing transfer or deep-copy semantics.
+- The first delivered public slice is `std.concurrent`, with explicit typed copy helpers such as `copy_text`, `copy_bytes`, `copy_list_int`, `copy_list_text` and `copy_map_text_text`.
+- Planned user-facing concurrency follows workers/jobs/channels, not raw shared mutable `list/map/text`.
+- The host or engine may use threads internally; the restriction applies to ordinary managed Zenith values, not to the whole process.
 - RC cycle collection is not present in the alpha runtime. Cycles are a known leak risk, not undefined behavior.
 - APIs that naturally create long-lived reference graphs remain deferred or unstable until a dedicated cycle policy exists.
 - Canonical reference: `language/spec/runtime-model.md`
@@ -268,3 +273,8 @@ Notes:
 
 - https://github.com/raillen/zenithlang/wiki
 - Source pages: `docs/wiki/`
+
+## Local AI helper
+
+- Local RAG starter: `tools/rag/`
+- Guide: `tools/rag/README.md`

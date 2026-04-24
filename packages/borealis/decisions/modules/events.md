@@ -1,29 +1,40 @@
 # Borealis Module Decision - Events
 
-- Status: proposed
-- Date: 2026-04-22
+- Status: accepted
+- Date: 2026-04-23
 - Type: module / messaging
 - Scope: `borealis.game.events`
 
 ## Summary
 
-Events handle simple event dispatch and gameplay notifications.
+Events handle a simple event queue plus named listener deliveries for gameplay, UI and scaffold communication.
 
 ## Implementation
 
-- keep it lightweight;
-- keep dispatch easy to understand;
-- do not turn it into a complex enterprise event bus.
+- keep one simple global queue for emitted events;
+- support named listeners with `on`, `off` e `once`;
+- route listener deliveries into deterministic per-listener queues;
+- keep payloads as `text` in v1;
+- avoid turning the module into a complex event bus.
 
-## Proposed API
+## Accepted API
 
-- `event_emit(name, payload)`: emits an event.
-- `event_on(name, handler)`: registers a handler.
-- `event_off(name, handler)`: removes a handler.
-- `event_once(name, handler)`: registers a one-time handler.
-- `event_clear(name)`: clears handlers for a name.
-- `event_dispatch(name, payload)`: dispatches an event.
+- `emit(name, payload = "")`: enfileira um evento.
+- `queue(name, payload = "")`: alias explicito para fila.
+- `dispatch(name, payload = "")`: emite e roteia o evento para listeners registrados.
+- `on(name, listener)`: registra um listener persistente.
+- `once(name, listener)`: registra um listener de uso unico.
+- `off(name, listener)`: desativa um listener.
+- `clear(name = "")`: limpa listeners de um nome especifico ou todos.
+- `peek()`, `poll()`, `dispatch_next()`: introspeccao/drain da fila global.
+- `listener_peek(listener)`, `listener_poll(listener)`, `clear_listener(listener)`: introspeccao/drain por listener.
+- `is_registered(name, listener)`, `listener_count(name = "")`: estado dos listeners.
+- `clear_pending(name = "")`, `has_pending()`, `pending_count()`: estado da fila global.
+- `listener_has_pending(listener)`, `listener_pending_count(listener)`: estado da fila por listener.
+- `count_named(name)`, `count()`, `last_name()`, `last_payload()`, `reset()`: helpers de telemetria e reset.
 
 ## Notes
 
-- events should help decouple gameplay and UI.
+- `dispatch(...)` retorna quantas entregas foram roteadas para listeners.
+- `once(...)` remove o listener depois da primeira entrega.
+- o foco do modulo continua sendo desacoplamento simples entre gameplay, UI e scaffolds.

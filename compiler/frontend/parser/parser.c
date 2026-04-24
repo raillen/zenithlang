@@ -227,13 +227,6 @@ static zt_ast_node *zt_parser_make_string_expr_from_token(zt_parser *p, zt_token
     return node;
 }
 
-static char *zt_parser_strdup(const char *s) {
-    size_t len = strlen(s);
-    char *dup = (char *)malloc(len + 1);
-    if (dup) memcpy(dup, s, len + 1);
-    return dup;
-}
-
 #define ZT_PARSER_MAX_NAME_PATH_LEN 1024
 
 static void zt_parser_note_name_path_too_long(zt_parser *p, zt_source_span span, const char *label) {
@@ -332,13 +325,63 @@ static char *zt_parser_normalize_hex_bytes(zt_parser *p, const char *text, size_
     return (char *)zt_string_pool_intern(p->pool, normalized);
 }
 
+/*
+ * Returns non-zero when `kind` is allowed to absorb the parser's
+ * pending leading comments.
+ *
+ * Only declarations, statements and a few structural nodes
+ * (struct fields, enum variants, trait methods, match cases) accept
+ * leading comments. Expression, type and helper nodes DO NOT —
+ * without this filter, a comment sitting above `func foo(value: int)`
+ * is stolen by the first internal AST node the parser builds (the
+ * `TYPE_SIMPLE("int")` of the first parameter), which then formats
+ * into garbage like `value: -- comment\nint`.
+ *
+ * Leaving internal nodes out of this whitelist keeps the pending
+ * comments in the parser state until a declaration/statement-level
+ * node is created, where they belong.
+ */
+static int zt_ast_kind_accepts_leading_comments(zt_ast_kind kind) {
+    switch (kind) {
+        case ZT_AST_NAMESPACE_DECL:
+        case ZT_AST_IMPORT_DECL:
+        case ZT_AST_FUNC_DECL:
+        case ZT_AST_STRUCT_DECL:
+        case ZT_AST_TRAIT_DECL:
+        case ZT_AST_APPLY_DECL:
+        case ZT_AST_ENUM_DECL:
+        case ZT_AST_EXTERN_DECL:
+        case ZT_AST_STRUCT_FIELD:
+        case ZT_AST_ENUM_VARIANT:
+        case ZT_AST_TRAIT_METHOD:
+        case ZT_AST_MATCH_CASE:
+        case ZT_AST_VAR_DECL:
+        case ZT_AST_CONST_DECL:
+        case ZT_AST_ASSIGN_STMT:
+        case ZT_AST_INDEX_ASSIGN_STMT:
+        case ZT_AST_FIELD_ASSIGN_STMT:
+        case ZT_AST_IF_STMT:
+        case ZT_AST_WHILE_STMT:
+        case ZT_AST_FOR_STMT:
+        case ZT_AST_REPEAT_STMT:
+        case ZT_AST_RETURN_STMT:
+        case ZT_AST_MATCH_STMT:
+        case ZT_AST_BREAK_STMT:
+        case ZT_AST_CONTINUE_STMT:
+        case ZT_AST_EXPR_STMT:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 static zt_ast_node *zt_parser_ast_make(zt_parser *p, zt_ast_kind kind, zt_source_span span) {
     zt_ast_node *node = (zt_ast_node *)zt_arena_alloc(p->arena, sizeof(zt_ast_node));
     if (node != NULL) {
         memset(node, 0, sizeof(zt_ast_node));
         node->kind = kind;
         node->span = span;
-        if (p->pending_comment_count > 0) {
+        if (p->pending_comment_count > 0 && zt_ast_kind_accepts_leading_comments(kind)) {
             node->comments = p->pending_comments;
             node->comment_count = p->pending_comment_count;
             p->pending_comments = NULL;
@@ -347,6 +390,125 @@ static zt_ast_node *zt_parser_ast_make(zt_parser *p, zt_ast_kind kind, zt_source
         }
     }
     return node;
+}
+
+/*
+ * Scoped leading-comment tracking.
+ *
+ * The parser populates `pending_comments` eagerly as `advance()`
+ * consumes tokens, and `ast_make` greedily attaches ALL pending
+ * comments to the newly created node. This creates two related
+ * problems for the formatter:
+ *
+ *   1. A comment sitting BEFORE a declaration gets stolen by the
+ *      first WHITELISTED inner AST node (e.g. a `RETURN_STMT` inside
+ *      a function body absorbs the `-- doc` that belonged on the
+ *      enclosing `FUNC_DECL`).
+ *
+ *   2. A comment appearing AFTER a node (between this node's last
+ *      token and the first token of the next sibling) gets absorbed
+ *      by the current node's closing `ast_make`, because `advance()`
+ *      already gathered it into pending before the node was created.
+ *
+ * Both issues cause `fmt(fmt(x)) != fmt(x)`: each pass shifts the
+ * comment onto a different node.
+ *
+ * The helpers below implement a simple scoped pattern used at each
+ * loop that creates sibling declarations or statements:
+ *
+ *   `zt_parser_stash_leading(p)`    snapshots the comments that were
+ *                                    pending BEFORE this scope and
+ *                                    clears `pending`, so inner
+ *                                    parse_X work starts with an
+ *                                    empty pending list and cannot
+ *                                    steal the outer-leading comments.
+ *
+ *   `zt_parser_reclaim_node_trailing(p, node)`   after the inner
+ *                                    parse returns, moves every
+ *                                    comment attached to `node`
+ *                                    back onto `pending`. These were
+ *                                    accumulated DURING the inner
+ *                                    parse and therefore belong to
+ *                                    the NEXT sibling.
+ *
+ *   `zt_parser_apply_stash_to_node(p, node, stash)`  finally attaches
+ *                                    the previously snapshotted
+ *                                    outer-leading comments to
+ *                                    `node` as its real leading.
+ *
+ * Applying these at `zt_parse`'s declarations/imports loops and at
+ * `parse_block_ex`'s statements loop restores a predictable
+ * "comments stay attached to the node they lead" invariant, which
+ * is what the idempotence property requires.
+ */
+
+typedef struct zt_leading_stash {
+    zt_token *comments;
+    size_t count;
+    size_t capacity;
+} zt_leading_stash;
+
+static zt_leading_stash zt_parser_stash_leading(zt_parser *p) {
+    zt_leading_stash s;
+    s.comments = p->pending_comments;
+    s.count = p->pending_comment_count;
+    s.capacity = p->pending_comment_capacity;
+    p->pending_comments = NULL;
+    p->pending_comment_count = 0;
+    p->pending_comment_capacity = 0;
+    return s;
+}
+
+static void zt_parser_reclaim_node_trailing(zt_parser *p, zt_ast_node *node) {
+    size_t trailing;
+    zt_token *new_pending;
+
+    if (node == NULL || node->comment_count == 0) return;
+
+    trailing = node->comment_count;
+    new_pending = (zt_token *)zt_arena_alloc(p->arena, trailing * sizeof(zt_token));
+    if (new_pending == NULL) {
+        /* Out of memory: keep the comments on the node rather than
+         * silently drop them. The formatter may emit them in the
+         * wrong place but no information is lost. */
+        return;
+    }
+    memcpy(new_pending, node->comments, trailing * sizeof(zt_token));
+    p->pending_comments = new_pending;
+    p->pending_comment_count = trailing;
+    p->pending_comment_capacity = trailing;
+
+    node->comments = NULL;
+    node->comment_count = 0;
+}
+
+static void zt_parser_apply_stash_to_node(
+        zt_parser *p,
+        zt_ast_node *node,
+        zt_leading_stash stash) {
+    size_t total;
+    zt_token *merged;
+
+    if (stash.count == 0) return;
+
+    if (node == NULL) {
+        /* We have no node to attach to; restore the stash as pending
+         * so the next sibling can adopt it. */
+        p->pending_comments = stash.comments;
+        p->pending_comment_count = stash.count;
+        p->pending_comment_capacity = stash.capacity;
+        return;
+    }
+
+    total = stash.count + node->comment_count;
+    merged = (zt_token *)zt_arena_alloc(p->arena, total * sizeof(zt_token));
+    if (merged == NULL) return;
+    memcpy(merged, stash.comments, stash.count * sizeof(zt_token));
+    if (node->comment_count > 0) {
+        memcpy(&merged[stash.count], node->comments, node->comment_count * sizeof(zt_token));
+    }
+    node->comments = merged;
+    node->comment_count = total;
 }
 
 static zt_ast_node *zt_parser_parse_type(zt_parser *p);
@@ -661,6 +823,31 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
         zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_DYN, type_span);
         if (node != NULL) {
             node->as.type_dyn.inner_type = inner;
+        }
+        result = node;
+        zt_parser_pop_nesting(p);
+        return result;
+    }
+
+    /* Callable type: `func(T1, T2) -> R` (Decision 089). */
+    if (zt_parser_match(p, ZT_TOKEN_FUNC)) {
+        zt_ast_node_list params = zt_ast_node_list_make();
+        zt_ast_node *return_type = NULL;
+        zt_parser_expect(p, ZT_TOKEN_LPAREN);
+        if (!zt_parser_check(p, ZT_TOKEN_RPAREN)) {
+            zt_ast_node_list_push(p->arena, &params, zt_parser_parse_type(p));
+            while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
+                zt_ast_node_list_push(p->arena, &params, zt_parser_parse_type(p));
+            }
+        }
+        zt_parser_expect(p, ZT_TOKEN_RPAREN);
+        if (zt_parser_match(p, ZT_TOKEN_ARROW)) {
+            return_type = zt_parser_parse_type(p);
+        }
+        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_CALLABLE, type_span);
+        if (node != NULL) {
+            node->as.type_callable.params = params;
+            node->as.type_callable.return_type = return_type;
         }
         result = node;
         zt_parser_pop_nesting(p);
@@ -1185,7 +1372,10 @@ static zt_ast_node *zt_parser_parse_block_ex(zt_parser *p, int stop_at_case) {
            !(stop_at_case && zt_parser_check(p, ZT_TOKEN_CASE)) &&
            !(stop_at_case && zt_parser_check(p, ZT_TOKEN_DEFAULT)) &&
            !zt_parser_check(p, ZT_TOKEN_EOF)) {
+        zt_leading_stash stash = zt_parser_stash_leading(p);
         zt_ast_node *stmt = zt_parser_parse_statement(p);
+        zt_parser_reclaim_node_trailing(p, stmt);
+        zt_parser_apply_stash_to_node(p, stmt, stash);
         if (stmt != NULL) {
             zt_ast_node_list_push(p->arena, &stmts, stmt);
         }
@@ -2006,6 +2196,8 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
     zt_lexer *lexer = zt_lexer_make(source_name, source_text, source_length);
     if (lexer == NULL) return result;
 
+    zt_lexer_set_diagnostics(lexer, &result.diagnostics);
+
     zt_parser parser;
     parser.lexer = lexer;
     memset(&parser.peek, 0, sizeof(parser.peek));
@@ -2046,7 +2238,11 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
     }
 
     while (zt_parser_check(&parser, ZT_TOKEN_IMPORT)) {
-        zt_ast_node_list_push(parser.arena, &imports, zt_parser_parse_import(&parser));
+        zt_leading_stash stash = zt_parser_stash_leading(&parser);
+        zt_ast_node *import = zt_parser_parse_import(&parser);
+        zt_parser_reclaim_node_trailing(&parser, import);
+        zt_parser_apply_stash_to_node(&parser, import, stash);
+        zt_ast_node_list_push(parser.arena, &imports, import);
     }
 
     while (!zt_parser_check(&parser, ZT_TOKEN_EOF)) {
@@ -2061,7 +2257,10 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
             zt_parser_check(&parser, ZT_TOKEN_EXTERN) ||
             zt_parser_check(&parser, ZT_TOKEN_CONST) ||
             zt_parser_check(&parser, ZT_TOKEN_VAR)) {
+            zt_leading_stash stash = zt_parser_stash_leading(&parser);
             zt_ast_node *decl = zt_parser_parse_declaration(&parser);
+            zt_parser_reclaim_node_trailing(&parser, decl);
+            zt_parser_apply_stash_to_node(&parser, decl, stash);
             if (decl != NULL) {
                 zt_ast_node_list_push(parser.arena, &declarations, decl);
             }

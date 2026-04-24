@@ -1,0 +1,8 @@
+namespace app.main
+
+func main() -> int
+    var values: list<text> = []
+    values[0] = "a"
+    values[1] = "b"
+    return len(values)
+end

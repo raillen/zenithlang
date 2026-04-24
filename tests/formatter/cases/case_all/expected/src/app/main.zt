@@ -1,28 +1,26 @@
 namespace app.main
 
 import std.validate as validate
--- formatter golden input
 import std.io as io
 
+-- formatter golden input
 struct User
-    name: text where name -> validate.not_empty(it)
-    age: int where age -> it >= 0
+    name: text where validate.not_empty(it)
+    age: int where it >= 0
 end
 
 enum Result
-    Ok,
+    Ok
     Err(message: text)
 end
 
-func calc(value: int where value -> value > 0, label: text) -> int 
+func calc(value: int where value > 0, label: text) -> int 
     const r: Result = Result.Ok
     match r
-        case Result.Ok -> 
+        case Result.Ok ->
             return pick(1, bonus: 2, extra: 3)
-        end
-        case Result.Err(message) -> 
+        case Result.Err(message) ->
             return 0
-        end
     end
 end
 
@@ -31,9 +29,9 @@ func pick(base: int, bonus: int, extra: int) -> int
 end
 
 func main() -> int 
-    const u: User = User(name: Ana, age: 20)
+    const u: User = User(name: "Ana", age: 20)
     if calc(1, label: u.name) > 0 
-        io.write(ok)
+        io.write("ok")
         io.write("\n")
         return 0
     end

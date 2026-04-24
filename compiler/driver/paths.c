@@ -206,27 +206,65 @@ int zt_get_current_dir(char *dest, size_t capacity) {
     return 1;
 }
 
+/*
+ * Upper bound on how many parent-directory steps the manifest search
+ * will climb before giving up. Picked deliberately high so that any
+ * realistic monorepo layout finishes well below the cap, but finite so
+ * a filesystem loop or pathological symlink cannot spin forever.
+ */
+#define ZT_PATH_MAX_ANCESTOR_STEPS ((size_t)512)
+
+/*
+ * Minimum starting capacity for path scratch buffers. We size them to
+ * at least the caller's `capacity` and at least this floor so common
+ * manifest paths fit without reallocation. `zt_find_project_root_from_cwd`
+ * grows dynamically as the search walks up the tree.
+ */
+#define ZT_PATH_SCRATCH_FLOOR ((size_t)1024)
+
 int zt_find_project_root_from_cwd(char *project_root, size_t capacity) {
-    char current[512];
-    char parent[512];
-    char manifest_path[768];
+    char *current = NULL;
+    char *parent = NULL;
+    char *manifest_path = NULL;
+    size_t buffer_capacity;
     size_t guard;
+    int result = 0;
+    static const char manifest_name[] = "zenith.ztproj";
 
     if (project_root == NULL || capacity == 0) return 0;
-    if (!zt_get_current_dir(current, sizeof(current))) return 0;
 
-    for (guard = 0; guard < 256; guard += 1) {
-        if (zt_join_path(manifest_path, sizeof(manifest_path), current, "zenith.ztproj") &&
+    buffer_capacity = capacity > ZT_PATH_SCRATCH_FLOOR ? capacity : ZT_PATH_SCRATCH_FLOOR;
+
+    current = (char *)malloc(buffer_capacity);
+    parent = (char *)malloc(buffer_capacity);
+    if (current == NULL || parent == NULL) goto cleanup;
+
+    if (!zt_get_current_dir(current, buffer_capacity)) goto cleanup;
+
+    for (guard = 0; guard < ZT_PATH_MAX_ANCESTOR_STEPS; guard += 1) {
+        size_t current_len = strlen(current);
+        size_t needed = current_len + 1 + sizeof(manifest_name);
+
+        if (manifest_path != NULL) free(manifest_path);
+        manifest_path = (char *)malloc(needed);
+        if (manifest_path == NULL) goto cleanup;
+
+        if (zt_join_path(manifest_path, needed, current, manifest_name) &&
                 zt_path_is_file(manifest_path)) {
-            return zt_copy_text(project_root, capacity, current);
+            result = zt_copy_text(project_root, capacity, current);
+            goto cleanup;
         }
 
-        if (!zt_dirname(parent, sizeof(parent), current)) return 0;
+        if (!zt_dirname(parent, buffer_capacity, current)) goto cleanup;
         if (strcmp(parent, current) == 0) break;
-        if (!zt_copy_text(current, sizeof(current), parent)) return 0;
+        if (!zt_copy_text(current, buffer_capacity, parent)) goto cleanup;
     }
 
-    return 0;
+cleanup:
+    free(manifest_path);
+    free(parent);
+    free(current);
+    return result;
 }
 
 int zt_replace_extension(char *dest, size_t capacity, const char *path, const char *extension) {
@@ -334,14 +372,19 @@ int zt_git_ref_is_safe(const char *ref) {
 /* ── Directory creation ──────────────────────────────────────────── */
 
 int zt_make_dirs(const char *path) {
-    char buffer[1024];
+    char *buffer;
     size_t i;
     size_t length;
+    int ok = 1;
 
     if (path == NULL || path[0] == '\0') return 0;
 
     length = strlen(path);
-    if (length + 1 > sizeof(buffer)) return 0;
+
+    /* Allocate exactly the size needed so arbitrarily deep or long
+     * destination paths work without a hidden truncation cap. */
+    buffer = (char *)malloc(length + 1);
+    if (buffer == NULL) return 0;
 
     memcpy(buffer, path, length + 1);
     zt_normalize_path_separators(buffer);
@@ -350,17 +393,24 @@ int zt_make_dirs(const char *path) {
         if (buffer[i] == '/') {
             buffer[i] = '\0';
             if (!zt_path_is_dir(buffer)) {
-                if (ZT_MKDIR(buffer) != 0 && errno != EEXIST) return 0;
+                if (ZT_MKDIR(buffer) != 0 && errno != EEXIST) {
+                    ok = 0;
+                    goto done;
+                }
             }
             buffer[i] = '/';
         }
     }
 
     if (!zt_path_is_dir(buffer)) {
-        if (ZT_MKDIR(buffer) != 0 && errno != EEXIST) return 0;
+        if (ZT_MKDIR(buffer) != 0 && errno != EEXIST) {
+            ok = 0;
+        }
     }
 
-    return 1;
+done:
+    free(buffer);
+    return ok;
 }
 
 /* ── Path filter list ────────────────────────────────────────────── */

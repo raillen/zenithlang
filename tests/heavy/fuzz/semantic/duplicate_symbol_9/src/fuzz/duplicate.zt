@@ -1,0 +1,13 @@
+namespace fuzz.duplicate
+
+func plugh_baar() -> int
+    return 1
+end
+
+func plugh_baar(x: int) -> int  -- Duplicate
+    return x
+end
+
+public func main() -> int
+    return plugh_baar()
+end

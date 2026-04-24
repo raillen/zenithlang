@@ -1,33 +1,61 @@
 # Borealis Module Decision - Database
 
-- Status: proposed
-- Date: 2026-04-22
+- Status: accepted
+- Date: 2026-04-23
 - Type: module / database backend
 - Scope: `borealis.game.database`
 
 ## Summary
 
-Database is reserved for actual database backends such as SQLite in the future.
+`borealis.game.database` continua sendo um modulo futuro para bancos reais, como SQLite.
 
-## Implementation
+Mesmo assim, nesta fase ele ja ganhou um stub em memoria mais util para:
 
-- keep this module separate from save and storage;
-- use it only when query/update semantics matter;
-- start with a small API and a clear backend boundary.
+- exemplos;
+- testes;
+- prototipos de fluxo com conexao, execucao e consulta.
 
-## Proposed API
+## Direcao de implementacao
 
-- `db_open(config) -> Database`: opens a database.
-- `db_close(db)`: closes a database.
-- `db_exec(db, sql)`: executes SQL without returning rows.
-- `db_query(db, sql) -> Rows`: executes SQL and returns rows.
-- `db_prepare(db, sql) -> Statement`: prepares a statement.
-- `db_bind(statement, values)`: binds values to a statement.
-- `db_step(statement) -> bool`: advances a statement cursor.
-- `db_transaction(db, fn)`: runs a transaction block.
+- manter `database` separado de `save` e `storage`;
+- tratar banco como camada de query/update, nao como armazenamento generico;
+- comecar pequeno, mas com contrato claro;
+- preparar o caminho para um backend nativo depois.
 
-## Notes
+## Estado atual da implementacao
 
-- SQLite is the most likely first backend.
-- this module is future-facing and should not block save/storage.
-- the implementation will likely sit on top of FFI or a native backend layer.
+Hoje o modulo trabalha com conexoes stub identificadas por `id`.
+
+Ele ja oferece:
+
+- abertura e fechamento de conexao;
+- checagem de conexao aberta;
+- `exec` com retorno simples de linhas afetadas no stub;
+- `query` com resposta deterministica para testes;
+- rastreamento do ultimo SQL por conexao.
+
+## API atual
+
+- `open(config) -> result<DatabaseConnection, core.Error>`: abre uma conexao stub.
+- `close(connection) -> DatabaseConnection`: fecha a conexao.
+- `is_open(connection) -> bool`: informa se a conexao ainda esta aberta.
+- `exec(connection, sql) -> result<int, core.Error>`: executa SQL sem retorno de linhas.
+- `query(connection, sql) -> result<text, core.Error>`: executa consulta stub e devolve texto previsivel.
+- `last_sql(connection) -> optional<text>`: retorna o ultimo SQL executado na conexao.
+- `reset() -> void`: limpa o estado interno do modulo.
+
+## Regras de comportamento
+
+- `driver` vazio gera erro em `open`;
+- `sql` vazio gera erro em `exec` e `query`;
+- conexao fechada gera erro em `exec` e `query`;
+- `query` monta uma resposta previsivel com `driver`, `path` e `sql`;
+- `last_sql(...)` retorna `none` quando a conexao ainda nao executou nada;
+- `reset()` existe para testes, exemplos e scaffolds.
+
+## Proximos passos desejados
+
+- `exec` e `query` com backend SQLite real;
+- resultados estruturados em linhas/colunas;
+- statements preparados e bind de parametros;
+- transacoes e helpers de migracao.

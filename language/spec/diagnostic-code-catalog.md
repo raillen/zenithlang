@@ -39,6 +39,13 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_UNEXPECTED_TOKEN` | `syntax.unexpected_token` | Check separators, delimiters, and ordering |
 | `ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED` | `compiler.limit_exceeded` | Split deeply nested constructs into smaller parts |
 
+## Lexer Codes
+
+| Internal enum | Stable code | Default help focus |
+| --- | --- | --- |
+| `ZT_DIAG_TOKEN_TOO_LONG` | `lexer.token_too_long` | Reduce the token length to fit within the lexer limit |
+| `ZT_DIAG_LEXER_UNTERMINATED_STRING` | `lexer.unterminated_string` | Close the string literal with a matching delimiter |
+
 ## Semantic/Binder/Type Codes
 
 | Internal enum | Stable code | Default help focus |

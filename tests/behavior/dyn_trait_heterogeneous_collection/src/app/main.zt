@@ -1,0 +1,40 @@
+namespace app.main
+
+trait Drawable
+    func describe() -> text
+end
+
+struct Circle
+    radius: int
+end
+
+apply Drawable to Circle
+    func describe() -> text
+        return "circle"
+    end
+end
+
+struct Rectangle
+    width: int
+    height: int
+end
+
+apply Drawable to Rectangle
+    func describe() -> text
+        return "rectangle"
+    end
+end
+
+func describe_shape(d: dyn Drawable) -> text
+    return d.describe()
+end
+
+func main() -> int
+    const c: dyn Drawable = Circle(radius: 10)
+    const r: dyn Drawable = Rectangle(width: 5, height: 3)
+
+    describe_shape(c)
+    describe_shape(r)
+
+    return 0
+end

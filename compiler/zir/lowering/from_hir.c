@@ -1040,6 +1040,31 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "concurrent", "zt_thread_boundary_copy_text")) {
+        call = zir_expr_make_call_extern("c.zt_thread_boundary_copy_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "concurrent", "zt_thread_boundary_copy_bytes")) {
+        call = zir_expr_make_call_extern("c.zt_thread_boundary_copy_bytes");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "concurrent", "zt_thread_boundary_copy_list_i64")) {
+        call = zir_expr_make_call_extern("c.zt_thread_boundary_copy_list_i64");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "concurrent", "zt_thread_boundary_copy_list_text")) {
+        call = zir_expr_make_call_extern("c.zt_thread_boundary_copy_list_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "concurrent", "zt_thread_boundary_copy_map_text_text")) {
+        call = zir_expr_make_call_extern("c.zt_thread_boundary_copy_map_text_text");
+        zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "io", "zt_host_write_stdout")) {
         call = zir_expr_make_call_extern("c.zt_host_write_stdout");
         zir_call_add_lowered_args(call, module_decl, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -1704,6 +1729,30 @@ static zir_expr *zir_lower_hir_expr(
             return call;
         }
 
+        case ZT_HIR_DYN_METHOD_CALL_EXPR: {
+            zir_expr *receiver = zir_lower_hir_expr(
+                module_decl,
+                expr->as.dyn_method_call_expr.receiver,
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to);
+            zir_expr *call = zir_expr_make_call_dyn(
+                receiver,
+                expr->as.dyn_method_call_expr.method_name,
+                expr->as.dyn_method_call_expr.trait_name);
+            for (i = 0; i < expr->as.dyn_method_call_expr.args.count; i += 1) {
+                zir_expr_call_add_arg(
+                    call,
+                    zir_lower_hir_expr(
+                        module_decl,
+                        expr->as.dyn_method_call_expr.args.items[i],
+                        replace_ident_from,
+                        replace_ident_to,
+                        replace_it_to));
+            }
+            return call;
+        }
+
         case ZT_HIR_CONSTRUCT_EXPR: {
             out = zir_expr_make_make_struct(expr->as.construct_expr.type_name);
             for (i = 0; i < expr->as.construct_expr.fields.count; i += 1) {
@@ -1719,6 +1768,37 @@ static zir_expr *zir_lower_hir_expr(
                         replace_it_to));
             }
             return out;
+        }
+
+        case ZT_HIR_FUNC_REF_EXPR: {
+            char type_buffer[256];
+            const char *type_name = "func() -> void";
+            if (expr->as.func_ref_expr.callable_type != NULL) {
+                zt_type_format(expr->as.func_ref_expr.callable_type, type_buffer, sizeof(type_buffer));
+                type_name = type_buffer;
+            }
+            return zir_expr_make_func_ref(expr->as.func_ref_expr.func_name, type_name);
+        }
+
+        case ZT_HIR_CALL_INDIRECT_EXPR: {
+            zir_expr *callable_expr = zir_lower_hir_expr(
+                module_decl,
+                expr->as.call_indirect_expr.callable,
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to);
+            zir_expr *call = zir_expr_make_call_indirect(callable_expr);
+            for (i = 0; i < expr->as.call_indirect_expr.args.count; i += 1) {
+                zir_expr_call_add_arg(
+                    call,
+                    zir_lower_hir_expr(
+                        module_decl,
+                        expr->as.call_indirect_expr.args.items[i],
+                        replace_ident_from,
+                        replace_ident_to,
+                        replace_it_to));
+            }
+            return call;
         }
 
         case ZT_HIR_VALUE_BINDING_EXPR:

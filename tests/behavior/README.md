@@ -51,7 +51,9 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 - `list_text_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<text>`.
 - `list_dyn_trait_basic/`: projeto valido. Exercita `list<dyn<TextRepresentable>>` heterogenea com iteracao e `item.to_text()`.
 - `map_basic/`: projeto valido. Exercita literal, indexacao por chave e atualizacao de `map<text,text>`.
+- `map_empty_expected_type/`: projeto valido. Exercita mapa vazio `{}` com tipo esperado `map<int,bool>` em atribuicao e chamada de funcao, cobrindo o caminho `make_map<...>` do emitter C.
 - `map_int_text_basic/`: projeto valido. Exercita literal, indexacao por chave `int`, `map_len` e atualizacao de `map<int,text>`.
+- `map_struct_expected_type/`: projeto valido. Exercita mapa vazio `{}` com tipo esperado `map<int,Flag>` e garante emissao do `optional<Flag>` auxiliar exigido pelo helper gerado de `map`.
 - `optional_result_basic/`: projeto valido. Exercita 
 one`, `success` e `error`.
 
@@ -59,14 +61,18 @@ one`, `success` e `error`.
 - `public_const_module/`: projeto valido. Exercita `public const` em nivel de modulo com import alias (`mod.CONST`).
 - `public_var_module/`: projeto valido. Exercita leitura de `public var` em nivel de modulo via import alias (`mod.VAR`).
 - `public_var_module_state/`: projeto valido. Exercita persistencia de estado de `public var` entre funcoes do modulo.
-- `optional_struct_qualified_managed/`: projeto valido. Exercita `optional<mod.Struct>` com retorno direto de `struct`, nome qualificado entre modulos e isolamento de campo gerenciado (`list<text>`) dentro do payload.
+- `optional_struct_qualified_managed/`: projeto valido. Exercita `optional<mod.Struct>` com nome qualificado entre modulos, retorno direto de `struct`, atribuicao/call-site com wrap implicito, campo opcional dentro de outra `struct` e isolamento de `list<text>` no payload.
 - `public_var_cross_namespace_write_error/`: projeto invalido. Garante que `public var` nao pode ser mutado fora do namespace de origem.
 - `std_random_basic/`: projeto valido. Exercita `std.random` baseline (`seed`, `next`, `between`) e valida o estado publico (`seeded`, `last_seed`, `draw_count`).
 - `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
 - `std_random_between_branches/`: projeto valido. Exercita ramos de `std.random.between` (`min == max` e `max < min`) sem consumo indevido de draw.
 - `std_random_cross_namespace_write_error/`: projeto invalido. Garante que `std.random.draw_count` nao pode ser mutado fora do namespace `std.random`.
 - `borealis_backend_fallback_stub/`: projeto valido em `run-pass`. Solicita backend desktop (`backend_id=1`) e valida fallback seguro para stub (janela + draw + leitura de input) quando adapter nao esta disponivel no ambiente.
+- `borealis_raylib_binding_stub/`: projeto valido em `run-pass`. Exercita o modulo `borealis.raylib` no caminho real do compilador, cobrindo shapes, texto, input, `measure_text`, helpers de `raymath`/`reasings`, `require_available()`, validacao clara para caminho vazio de textura/som e comportamento stub-safe para draw de textura sem DLL nativa.
+- `borealis_raylib_assets_real/`: projeto valido em `run-pass`. Quando Raylib nativa estiver disponivel, carrega uma textura `.png` e um som `.wav` reais, valida dimensoes/handle, exercita draw de textura, inicializacao de audio e `load_sound/play/stop/unload` ponta a ponta. Quando a DLL nao estiver presente, o probe fecha com sucesso sem forcar ambiente.
+- `borealis_foundations_stub/`: projeto valido em `run-pass`. Exercita assets, events tipados, save, storage, services, database, UI/HUD, editor metadata e settings persistente, incluindo loaders tipados de assets, metadata logica, ids estaveis, conflito claro de `kind` por chave, perfis de settings em `storage`, widgets de interface e persistencia de string vazia sem confundir com item removido.
 - `borealis_ecs_hybrid_stub/`: projeto valido em `run-pass`. Exercita o subset inicial de componentes do ECS (`borealis.engine.ecs`) com stub autocontido para runtime atual.
+- `borealis_runtime_gameplay_stub/`: projeto valido em `run-pass`. Exercita os modulos de runtime/jogabilidade do Borealis (`contracts`, `entities`, `movement`, `controllers`, `vehicles`, `animation`, `audio`, `ai`, `camera`, `input`, `world` e `procedural`) em um fluxo integrado.
 - `multifile_missing_import/`: projeto invalido. Deve falhar quando um import nao existe em `source.root`.
 - `multifile_namespace_mismatch/`: projeto invalido. Deve falhar quando 
 amespace` nao corresponde ao caminho do arquivo.

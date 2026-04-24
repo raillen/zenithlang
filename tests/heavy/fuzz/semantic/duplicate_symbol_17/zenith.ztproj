@@ -1,8 +1,15 @@
-{
-  "project": {
-    "name": "fuzz_test",
-    "version": "0.1.0",
-    "source": { "root": "src" },
-    "build": { "target": "native", "mode": "debug" }
-  }
-}
+[project]
+name = "duplicate_symbol_17"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.duplicate"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

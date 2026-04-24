@@ -2,6 +2,53 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [0.3.0-alpha.2] - 2026-04-23
+
+Ciclo de fechamento das 10 pendências corretivas residuais (`PLI-01` a `PLI-10`) documentadas em `reports/pending-language-issues-current.md`. Build verde (`python build.py`), `smoke` verde (`10/10`), `pr_gate` backend `6/6` e `pr_gate` tooling `4/4` (golden + idempotence).
+
+Notas e evidências:
+
+- `docs/reports/release/0.3.0-alpha.2-notes.md`
+- `docs/reports/release/0.3.0-alpha.2-release-report.md`
+- `docs/reports/compatibility/0.3.0-alpha.2-compatibility.md`
+
+### Adicionado
+
+- **gate de idempotência do formatter** (`PLI-04`):
+  - `tests/formatter/run_formatter_idempotence.py` verifica `fmt(fmt(x)) == fmt(x)` em todos os casos canônicos (`tests/formatter/cases/`).
+  - integrado ao `run_suite.py` dentro de `pr_gate` (tooling).
+  - divisão original `IDEMPOTENT` vs `XFAIL` foi eliminada: todos os 9 casos convergem após as correções.
+- **detecção de colisão de símbolos no emitter C** (`PLI-02`, `PLI-09`):
+  - guarda explícita em `compiler/targets/c/emitter.c` que aborta com diagnóstico quando dois símbolos distintos de Zenith geram o mesmo nome mangled em C.
+  - novo teste unitário `tests/targets/c/test_emitter_symbol_collision.c` cobrindo: função vs. struct homônimos, colisão dot-vs-underscore e baseline sem colisão. Descoberto automaticamente pelo runner.
+- **limite estrutural no lexer** (`PLI-01`, `PLI-08`):
+  - `ZT_LEX_MAX_STRING_LEN = 1 MiB` em `compiler/frontend/lexer/lexer.c`.
+  - `zt_lexer_read_string`, `zt_lexer_resume_string` e `zt_lexer_read_triple_quoted` emitem `lexer.token_too_long`/`lexer.unterminated_string` via `zt_lexer_emit_diag`.
+
+### Corrigido
+
+- **`PLI-10` — formatter não-idempotente em 6 sub-casos distintos**:
+  - string literal perdia aspas: formatter agora sempre emite aspas ao serializar `ZT_AST_STR`.
+  - parâmetros de tipo eram emitidos como `[T]`: trocado para `<T>` conforme parser e `surface-syntax.md`.
+  - `match`/`case` ganhava `end` espúrio após cada corpo de case: corpo de case agora não fecha prematuramente.
+  - enums emitiam vírgula entre variantes, quebrando parse pós-fmt: vírgula removida (uma variante por linha).
+  - cláusula `where` emitia `where <expr> end` em vez de apenas a expressão: alinhado ao parser.
+  - roubo de comentários por nodes AST adjacentes causava oscilação `fmt^n`: parser passa a usar padrão stash/reclaim/apply escopado (`compiler/frontend/parser/parser.c`), whitelist de nodes que aceitam leading comment e restauração de trailing comments nos loops de imports/declarações/bloco.
+- **`PLI-02` / `PLI-09` — buffers truncados no emitter**:
+  - buffers internos de partes de símbolo mangled ampliados de `64` para `256` bytes (`C_EMIT_SYMBOL_PART_MAX`), evitando truncamento silencioso com paths de namespace profundos.
+- **`PLI-07` — use-after-free no driver**:
+  - removido o `free(source_text)` prematuro em `compiler/driver/project.c`; o release passa pelo dispose da lista de fontes, mantendo ponteiros de comment tokens válidos durante `fmt --check` e emissões subsequentes.
+- **`PLI-03`, `PLI-05`, `PLI-06`**: resolvidos em lote (detalhes em `reports/pending-language-issues-current.md`).
+
+### Qualidade e Validação
+
+- `python build.py` verde.
+- `python run_suite.py smoke` -> `10/10`.
+- `python run_suite.py pr_gate` backend -> `6/6` (inclui `test_emitter_symbol_collision`).
+- `python run_suite.py pr_gate` tooling -> `4/4` (formatter golden + formatter idempotence).
+- todas as fixtures em `tests/formatter/cases/*/expected/` foram promovidas à saída canônica pós-correções.
+- relatório de pendências atualizado: 0 pendências `P0`/`P1`/`P2`/`P3` abertas, 10 corrigidas.
+
 ## [0.3.0-alpha.1] - 2026-04-21
 
 ### Added

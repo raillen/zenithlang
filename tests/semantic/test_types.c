@@ -360,7 +360,7 @@ static void test_for_and_match_type_checking(void) {
         "namespace app\n"
         "func demo(value: int) -> int\n"
         "    match value\n"
-        "        case \"x\"\n"
+        "        case \"x\" ->\n"
         "            return 1\n"
         "    end\n"
         "    return 0\n"
@@ -494,11 +494,11 @@ static void test_enum_constructor_and_match_binding_ok(void) {
         "end\n"
         "func area(shape: Shape) -> int\n"
         "    match shape\n"
-        "        case Shape.Circle(r)\n"
+        "        case Shape.Circle(r) ->\n"
         "            return r * r\n"
-        "        case Shape.Rectangle(w, h)\n"
+        "        case Shape.Rectangle(w, h) ->\n"
         "            return w * h\n"
-        "        case Shape.Point\n"
+        "        case Shape.Point ->\n"
         "            return 0\n"
         "    end\n"
         "end\n"
@@ -528,9 +528,9 @@ static void test_enum_match_duplicate_default_rejected(void) {
         "end\n"
         "func demo(status: Status) -> int\n"
         "    match status\n"
-        "        case default\n"
+        "        case default ->\n"
         "            return 1\n"
-        "        case default\n"
+        "        case default ->\n"
         "            return 2\n"
         "    end\n"
         "end";
@@ -557,9 +557,9 @@ static void test_enum_match_default_must_be_last_rejected(void) {
         "end\n"
         "func demo(status: Status) -> int\n"
         "    match status\n"
-        "        case default\n"
+        "        case default ->\n"
         "            return 1\n"
-        "        case Status.Ok\n"
+        "        case Status.Ok ->\n"
         "            return 2\n"
         "    end\n"
         "end";
@@ -586,7 +586,7 @@ static void test_enum_match_non_exhaustive_rejected(void) {
         "end\n"
         "func demo(status: Status) -> int\n"
         "    match status\n"
-        "        case Status.Ok\n"
+        "        case Status.Ok ->\n"
         "            return 1\n"
         "    end\n"
         "end";
@@ -624,6 +624,183 @@ static void test_core_error_canonical_ok(void) {
     zt_check_result_dispose(&checked);
     zt_parser_result_dispose(&parsed);
 }
+
+static void test_transferable_builtin_shapes(void) {
+    zt_type *int_type = zt_type_make(ZT_TYPE_INT);
+    zt_type *text_type = zt_type_make(ZT_TYPE_TEXT);
+    zt_type *bytes_type = zt_type_make(ZT_TYPE_BYTES);
+    zt_type *core_error_type = zt_type_make(ZT_TYPE_CORE_ERROR);
+    zt_type *dyn_text_type;
+    zt_type *list_text_type;
+    zt_type *optional_list_text_type;
+    zt_type *result_int_error_type;
+    zt_type_list args = zt_type_list_make();
+    zt_type_list nested_args = zt_type_list_make();
+
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, int_type), 1, "transferable int");
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, text_type), 1, "transferable text");
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, bytes_type), 1, "transferable bytes");
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, core_error_type), 1, "transferable core_error");
+
+    zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+    list_text_type = zt_type_make_with_args(ZT_TYPE_LIST, NULL, args);
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, list_text_type), 1, "transferable list_text");
+
+    zt_type_list_push(&nested_args, zt_type_clone(list_text_type));
+    optional_list_text_type = zt_type_make_with_args(ZT_TYPE_OPTIONAL, NULL, nested_args);
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, optional_list_text_type), 1, "transferable optional_list_text");
+
+    args = zt_type_list_make();
+    zt_type_list_push(&args, zt_type_make(ZT_TYPE_INT));
+    zt_type_list_push(&args, zt_type_make(ZT_TYPE_CORE_ERROR));
+    result_int_error_type = zt_type_make_with_args(ZT_TYPE_RESULT, NULL, args);
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, result_int_error_type), 1, "transferable result_int_core_error");
+
+    args = zt_type_list_make();
+    zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+    dyn_text_type = zt_type_make_with_args(ZT_TYPE_DYN, NULL, args);
+    ASSERT_EQ(zt_checker_type_is_transferable(NULL, dyn_text_type), 0, "dyn_text_not_transferable");
+
+    zt_type_dispose(int_type);
+    zt_type_dispose(text_type);
+    zt_type_dispose(bytes_type);
+    zt_type_dispose(core_error_type);
+    zt_type_dispose(list_text_type);
+    zt_type_dispose(optional_list_text_type);
+    zt_type_dispose(result_int_error_type);
+    zt_type_dispose(dyn_text_type);
+}
+
+static void test_transferable_user_types(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_parser_result parsed;
+    zt_check_result checked;
+    zt_type *snapshot_type = zt_type_make_named(ZT_TYPE_USER, "Snapshot");
+    zt_type *node_type = zt_type_make_named(ZT_TYPE_USER, "Node");
+    zt_type *message_type = zt_type_make_named(ZT_TYPE_USER, "Message");
+    zt_type *packet_type = zt_type_make_named(ZT_TYPE_USER, "Packet");
+    zt_type *dynamic_holder_type = zt_type_make_named(ZT_TYPE_USER, "DynamicHolder");
+    zt_type *job_payload_type = zt_type_make_named(ZT_TYPE_USER, "JobPayload");
+    zt_type *dynamic_box_type = zt_type_make_named(ZT_TYPE_USER, "DynamicBox");
+    const char *src =
+        "namespace app\n"
+        "struct Snapshot\n"
+        "    title: text\n"
+        "    items: list<int>\n"
+        "end\n"
+        "struct Node\n"
+        "    name: text\n"
+        "    next: optional<Node>\n"
+        "end\n"
+        "enum Message\n"
+        "    Ready(snapshot: Snapshot)\n"
+        "    Failed(err: core.Error)\n"
+        "end\n"
+        "struct Box<T>\n"
+        "    value: T\n"
+        "end\n"
+        "struct Packet\n"
+        "    payload: Box<text>\n"
+        "end\n"
+        "struct DynamicHolder\n"
+        "    value: dyn<text>\n"
+        "end\n"
+        "enum JobPayload\n"
+        "    Snapshot(snapshot: Snapshot)\n"
+        "    Dynamic(value: dyn<text>)\n"
+        "end\n"
+        "struct DynamicBox\n"
+        "    payload: Box<dyn<text>>\n"
+        "end\n";
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "transferable_user_types parse");
+    checked = zt_check_file(parsed.root);
+    ASSERT_NO_TYPE_ERRORS(checked, "transferable_user_types type");
+
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, snapshot_type), 1, "transferable Snapshot");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, node_type), 1, "transferable recursive Node");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, message_type), 1, "transferable Message");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, packet_type), 1, "transferable Packet");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, dynamic_holder_type), 0, "DynamicHolder_not_transferable");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, job_payload_type), 0, "JobPayload_not_transferable");
+    ASSERT_EQ(zt_checker_type_is_transferable(parsed.root, dynamic_box_type), 0, "DynamicBox_not_transferable");
+
+    zt_type_dispose(snapshot_type);
+    zt_type_dispose(node_type);
+    zt_type_dispose(message_type);
+    zt_type_dispose(packet_type);
+    zt_type_dispose(dynamic_holder_type);
+    zt_type_dispose(job_payload_type);
+    zt_type_dispose(dynamic_box_type);
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_boundary_copy_alpha_subset_ok(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    const char *src =
+        "namespace app\n"
+        "import std.concurrent as concurrent\n"
+        "func demo() -> int\n"
+        "    const score: int = concurrent.copy_int(7)\n"
+        "    const label: text = concurrent.copy_text(\"ready\")\n"
+        "    const raw: bytes = concurrent.copy_bytes(hex bytes \"41 42\")\n"
+        "    const ids: list<int> = concurrent.copy_list_int([1, 2, 3])\n"
+        "    const names: list<text> = concurrent.copy_list_text([\"ada\", \"bob\"])\n"
+        "    const tags: map<text,text> = concurrent.copy_map_text_text({\"role\": \"engine\"})\n"
+        "    if label == \"ready\" and len(raw) == 2 and len(ids) == 3 and len(names) == 2 and len(tags) == 1\n"
+        "        return score\n"
+        "    end\n"
+        "    return 0\n"
+        "end";
+    zt_parser_result parsed;
+    zt_check_result checked;
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "boundary_copy_alpha_subset parse");
+    checked = zt_check_file(parsed.root);
+    ASSERT_NO_TYPE_ERRORS(checked, "boundary_copy_alpha_subset type");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_boundary_copy_rejects_unsupported_transferable_shape(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    const char *src =
+        "namespace app\n"
+        "import std.concurrent as concurrent\n"
+        "struct Snapshot\n"
+        "    title: text\n"
+        "end\n"
+        "func demo() -> Snapshot\n"
+        "    const value: Snapshot = Snapshot(title: \"alpha\")\n"
+        "    return concurrent.copy_text(value)\n"
+        "end";
+    zt_parser_result parsed;
+    zt_check_result checked;
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "boundary_copy_unsupported parse");
+    checked = zt_check_file(parsed.root);
+    ASSERT_EQ((int)checked.diagnostics.count, 1, "boundary_copy_unsupported diag count");
+    ASSERT_EQ((int)checked.diagnostics.items[0].code, ZT_DIAG_INVALID_CALL, "boundary_copy_unsupported diag code");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
 int main(void) {
     test_const_reassignment_rejected();
     test_optional_none_return_ok();
@@ -647,6 +824,10 @@ int main(void) {
     test_enum_match_duplicate_default_rejected();
     test_enum_match_default_must_be_last_rejected();
     test_enum_match_non_exhaustive_rejected();
+    test_transferable_builtin_shapes();
+    test_transferable_user_types();
+    test_boundary_copy_alpha_subset_ok();
+    test_boundary_copy_rejects_unsupported_transferable_shape();
 
     printf("Type tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

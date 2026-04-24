@@ -1,0 +1,2 @@
+[callable.invalid_func_ref]
+generic function 'identity' cannot be used as a callable value

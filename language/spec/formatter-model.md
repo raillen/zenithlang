@@ -105,18 +105,20 @@ Long or payload enums use block form.
 
 ## Match
 
-`case` aligns with `match`.
+Each `case` is indented one level under its `match` header. `end` closes the outer `match` and aligns with the `match` keyword.
 
 Canonical:
 
 ```zt
 match result
-case success(value):
-    return value
-case error(message):
-    return 0
+    case success(value) ->
+        return value
+    case error(message) ->
+        return 0
 end
 ```
+
+Case body uses `->` (not `:`) and is indented under its `case`. Arms do not emit their own `end`; only the outer `match` closes with `end`.
 
 ## Attributes
 
@@ -141,3 +143,13 @@ Formatter is complete only when:
 - golden tests cover namespace/imports, where, named args, structs, enums, match, attrs and comments
 - parser can consume formatter output without semantic change
 - conformance can require formatted canonical examples
+
+## Idempotence Gate
+
+Idempotence is enforced by an automated gate, not only by review:
+
+- runner: `tests/formatter/run_formatter_idempotence.py`
+- property: `fmt(fmt(x)) == fmt(x)` for every case under `tests/formatter/cases/`
+- integrated into `run_suite.py` as part of the `pr_gate` tooling suite
+- failure mode: non-zero exit with a unified diff of `fmt^1` vs `fmt^2`
+- status (2026-04-23): all 9 canonical cases converge; no `XFAIL` bucket remains

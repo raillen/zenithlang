@@ -69,6 +69,7 @@ Still deferred:
 
 - Cycle collection in RC
 - Thread-safe reference counting
+- User-facing `workers/jobs/channels` concurrency surface
 - Custom allocator hooks
 - Separate compilation units in the C runtime
 - `map` specializations beyond `map<text,text>`

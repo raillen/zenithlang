@@ -1,12 +1,12 @@
 namespace app.main
 
--- keep validation explicit
 import std.text as text
+-- keep validation explicit
 import std.validate as validate
 import std.io as io
 
 func main() -> int 
-    const raw: text =   hi  
+    const raw: text = "  hi  "
     const cleaned: text = text.trim(raw)
     if validate.not_empty(cleaned) 
         io.write(cleaned)

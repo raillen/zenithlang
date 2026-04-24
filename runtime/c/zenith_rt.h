@@ -9,6 +9,14 @@
 extern "C" {
 #endif
 
+#if defined(_MSC_VER)
+#define ZT_NORETURN __declspec(noreturn)
+#elif defined(__GNUC__) || defined(__clang__)
+#define ZT_NORETURN __attribute__((noreturn))
+#else
+#define ZT_NORETURN
+#endif
+
 #define ZT_RUNTIME_ABI_VERSION_MAJOR 0
 #define ZT_RUNTIME_ABI_VERSION_MINOR 4
 #define ZT_EXIT_CODE_RUNTIME_ERROR 1
@@ -50,6 +58,9 @@ typedef enum zt_heap_kind {
     ZT_HEAP_DYN_TEXT_REPR = 27,
     ZT_HEAP_LIST_DYN_TEXT_REPR = 28,
     ZT_HEAP_LIST_F64 = 29,
+    ZT_HEAP_DYN_VALUE = 30,
+    ZT_HEAP_VTABLE = 31,
+    ZT_HEAP_LIST_DYN = 32,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -99,6 +110,53 @@ typedef struct zt_list_dyn_text_repr {
     size_t capacity;
     zt_dyn_text_repr **data;
 } zt_list_dyn_text_repr;
+
+/* R3.M4: Generic dyn dispatch vtable and fat pointer infrastructure.
+ * Each dyn<Trait> value is a fat pointer: (data pointer + vtable pointer).
+ * The vtable contains function pointers for drop, clone, and each trait method. */
+
+#define ZT_VTABLE_MAX_METHODS 8
+
+typedef struct zt_vtable {
+    zt_header header;
+    void (*drop)(void *data);
+    void (*clone_out)(void *dest, const void *src);
+    const char *trait_name;
+    const char *concrete_type_name;
+    uint32_t method_count;
+    void (*methods[ZT_VTABLE_MAX_METHODS])(void);
+} zt_vtable;
+
+typedef struct zt_dyn_value {
+    zt_header header;
+    void *data;
+    zt_vtable *vtable;
+} zt_dyn_value;
+
+/* Generic dyn list for heterogeneous collections */
+typedef struct zt_list_dyn {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_dyn_value **data;
+} zt_list_dyn;
+
+/* Runtime helper functions for dyn dispatch */
+zt_dyn_value *zt_dyn_box(void *data, zt_vtable *vtable);
+void *zt_dyn_unbox(const zt_dyn_value *dyn);
+zt_vtable *zt_dyn_get_vtable(const zt_dyn_value *dyn);
+void zt_dyn_drop(zt_dyn_value *dyn);
+zt_dyn_value *zt_dyn_clone(const zt_dyn_value *dyn);
+
+/* Generic dyn list helpers */
+zt_list_dyn *zt_list_dyn_create(void);
+void zt_list_dyn_append(zt_list_dyn *list, zt_dyn_value *value);
+zt_dyn_value *zt_list_dyn_get(const zt_list_dyn *list, zt_int index);
+void zt_list_dyn_free(zt_list_dyn *list);
+
+/* Helper to call a dyn method by index (0-based, after drop/clone) */
+#define ZT_DYN_CALL(dyn, method_index, return_type, ...) \
+    ((return_type (*)(void *, __VA_ARGS__))((dyn)->vtable->methods[method_index]))((dyn)->data, __VA_ARGS__)
 
 typedef struct zt_net_connection zt_net_connection;
 typedef struct zt_shared_text zt_shared_text;
@@ -421,6 +479,11 @@ typedef enum zt_error_kind {
     ZT_ERR_TEST_SKIPPED
 } zt_error_kind;
 
+/* Compatibility aliases for newer runtime sections that still use the older
+ * symbolic names introduced during dyn/list work. */
+#define ZT_ERR_MEMORY ZT_ERR_PLATFORM
+#define ZT_ERR_BOUNDS ZT_ERR_INDEX
+
 typedef struct zt_runtime_span {
     const char *source_name;
     zt_int line;
@@ -439,15 +502,29 @@ const char *zt_error_kind_name(zt_error_kind kind);
 zt_runtime_span zt_runtime_span_unknown(void);
 zt_runtime_span zt_runtime_make_span(const char *source_name, zt_int line, zt_int column);
 zt_bool zt_runtime_span_is_known(zt_runtime_span span);
+/* Per-thread diagnostic slot for the current runtime thread/isolate path. */
 const zt_runtime_error_info *zt_runtime_last_error(void);
 void zt_runtime_clear_error(void);
 void zt_runtime_report_error(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span);
 
+/*
+ * Alpha concurrency contract:
+ * - ordinary managed values live on a single isolate/heap domain at a time;
+ * - zt_retain/zt_release are not a cross-thread synchronization API;
+ * - crossing a thread/isolate boundary must use explicit transfer by deep copy
+ *   or a dedicated shared wrapper.
+ */
 void zt_retain(void *ref);
 void zt_release(void *ref);
 void *zt_deep_copy(void *ref);
 uint32_t zt_register_dynamic_heap_kind(zt_heap_free_fn free_fn, zt_heap_clone_fn clone_fn);
 
+/*
+ * Shared wrappers are the narrow exception to the default single-isolate path.
+ * Use them only when the host/runtime intentionally needs cross-thread sharing
+ * for text/bytes snapshots. Ordinary zt_text/zt_bytes/list/map values remain
+ * non-thread-safe by default.
+ */
 zt_shared_text *zt_shared_text_new(zt_text *value);
 zt_shared_text *zt_shared_text_retain(zt_shared_text *shared);
 void zt_shared_text_release(zt_shared_text *shared);
@@ -462,15 +539,15 @@ const zt_bytes *zt_shared_bytes_borrow(const zt_shared_bytes *shared);
 zt_bytes *zt_shared_bytes_snapshot(const zt_shared_bytes *shared);
 uint32_t zt_shared_bytes_ref_count(const zt_shared_bytes *shared);
 
-void zt_runtime_error(zt_error_kind kind, const char *message);
-void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span);
-void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span);
+ZT_NORETURN void zt_runtime_error(zt_error_kind kind, const char *message);
+ZT_NORETURN void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span);
+ZT_NORETURN void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span);
 void zt_assert(zt_bool condition, const char *message);
 void zt_check(zt_bool condition, const char *message);
-void zt_panic(const char *message);
-void zt_test_fail(zt_text *message);
-void zt_test_skip(zt_text *reason);
-void zt_contract_failed(const char *message, zt_runtime_span span);
+ZT_NORETURN void zt_panic(const char *message);
+ZT_NORETURN void zt_test_fail(zt_text *message);
+ZT_NORETURN void zt_test_skip(zt_text *reason);
+ZT_NORETURN void zt_contract_failed(const char *message, zt_runtime_span span);
 void zt_contract_failed_i64(const char *message, zt_int value, zt_runtime_span span);
 void zt_contract_failed_float(const char *message, zt_float value, zt_runtime_span span);
 void zt_contract_failed_bool(const char *message, zt_bool value, zt_runtime_span span);
@@ -549,9 +626,16 @@ zt_dyn_text_repr *zt_list_dyn_text_repr_get(const zt_list_dyn_text_repr *list, z
 zt_int zt_list_dyn_text_repr_len(const zt_list_dyn_text_repr *list);
 zt_list_dyn_text_repr *zt_list_dyn_text_repr_deep_copy(const zt_list_dyn_text_repr *list);
 
+/*
+ * Boundary-copy helpers implement the current copy-based isolate transfer
+ * model. Each function returns a fresh owned value (rc=1) for the destination
+ * isolate/thread boundary.
+ */
 zt_text *zt_thread_boundary_copy_text(const zt_text *value);
 zt_bytes *zt_thread_boundary_copy_bytes(const zt_bytes *value);
+zt_list_i64 *zt_thread_boundary_copy_list_i64(const zt_list_i64 *list);
 zt_list_text *zt_thread_boundary_copy_list_text(const zt_list_text *list);
+zt_map_text_text *zt_thread_boundary_copy_map_text_text(const zt_map_text_text *map);
 zt_dyn_text_repr *zt_thread_boundary_copy_dyn_text_repr(const zt_dyn_text_repr *value);
 zt_list_dyn_text_repr *zt_thread_boundary_copy_list_dyn_text_repr(const zt_list_dyn_text_repr *list);
 
@@ -1073,6 +1157,74 @@ zt_bool zt_borealis_is_key_pressed(zt_int window_id, zt_int input_code);
 zt_bool zt_borealis_is_key_released(zt_int window_id, zt_int input_code);
 zt_outcome_void_core_error zt_borealis_stub_set_key_down(zt_int window_id, zt_int input_code, zt_bool is_down);
 zt_outcome_void_core_error zt_borealis_stub_reset_input(zt_int window_id);
+zt_bool zt_borealis_raylib_available(void);
+zt_text *zt_borealis_raylib_loaded_path(void);
+zt_outcome_void_core_error zt_borealis_raylib_draw_triangle(
+    zt_int window_id,
+    zt_float x1,
+    zt_float y1,
+    zt_float x2,
+    zt_float y2,
+    zt_float x3,
+    zt_float y3,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_outcome_void_core_error zt_borealis_raylib_draw_ellipse(
+    zt_int window_id,
+    zt_float x,
+    zt_float y,
+    zt_float radius_h,
+    zt_float radius_v,
+    zt_int color_r,
+    zt_int color_g,
+    zt_int color_b,
+    zt_int color_a);
+zt_int zt_borealis_raylib_measure_text(const zt_text *value, zt_int font_size);
+zt_outcome_i64_core_error zt_borealis_raylib_load_texture(const zt_text *path);
+zt_outcome_void_core_error zt_borealis_raylib_unload_texture(zt_int texture_handle);
+zt_int zt_borealis_raylib_texture_width(zt_int texture_handle);
+zt_int zt_borealis_raylib_texture_height(zt_int texture_handle);
+zt_outcome_void_core_error zt_borealis_raylib_draw_texture(
+    zt_int window_id,
+    zt_int texture_handle,
+    zt_float x,
+    zt_float y,
+    zt_int tint_r,
+    zt_int tint_g,
+    zt_int tint_b,
+    zt_int tint_a);
+zt_outcome_void_core_error zt_borealis_raylib_draw_texture_ex(
+    zt_int window_id,
+    zt_int texture_handle,
+    zt_float x,
+    zt_float y,
+    zt_float rotation,
+    zt_float scale,
+    zt_int tint_r,
+    zt_int tint_g,
+    zt_int tint_b,
+    zt_int tint_a);
+zt_outcome_void_core_error zt_borealis_raylib_init_audio_device(void);
+zt_outcome_void_core_error zt_borealis_raylib_close_audio_device(void);
+zt_bool zt_borealis_raylib_is_audio_device_ready(void);
+zt_outcome_void_core_error zt_borealis_raylib_set_master_volume(zt_float volume);
+zt_outcome_i64_core_error zt_borealis_raylib_load_sound(const zt_text *path);
+zt_outcome_void_core_error zt_borealis_raylib_unload_sound(zt_int sound_handle);
+zt_outcome_void_core_error zt_borealis_raylib_play_sound(zt_int sound_handle);
+zt_outcome_void_core_error zt_borealis_raylib_stop_sound(zt_int sound_handle);
+zt_outcome_void_core_error zt_borealis_raylib_set_sound_volume(zt_int sound_handle, zt_float volume);
+zt_float zt_borealis_raylib_vector2_length(zt_float x, zt_float y);
+zt_float zt_borealis_raylib_vector2_distance(zt_float ax, zt_float ay, zt_float bx, zt_float by);
+zt_float zt_borealis_raylib_lerp(zt_float start, zt_float finish, zt_float amount);
+zt_float zt_borealis_raylib_ease_linear(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_sine_in(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_sine_out(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_sine_in_out(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_quad_in(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_quad_out(zt_float t, zt_float b, zt_float c, zt_float d);
+zt_float zt_borealis_raylib_ease_quad_in_out(zt_float t, zt_float b, zt_float c, zt_float d);
 
 typedef struct zt_borealis_desktop_api {
     zt_outcome_i64_core_error (*open_window)(const zt_text *title, zt_int width, zt_int height, zt_int target_fps, zt_int backend_id);

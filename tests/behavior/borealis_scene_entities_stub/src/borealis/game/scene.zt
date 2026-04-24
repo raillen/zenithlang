@@ -14,6 +14,10 @@ public var scene_draw_count: map<int, int> = {}
 public var scene_last_dt: map<int, float> = {}
 public var scene_current_id: int = 0
 public var scene_entity_owner: map<int, int> = {}
+public var scene_phase: map<int, text> = {}
+public var scene_document_id: map<int, text> = {}
+public var scene_stack: map<int, int> = {}
+public var scene_stack_depth: int = 0
 
 public func scene_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const value: optional<bool> = values.get(id)
@@ -97,6 +101,8 @@ public func scene_create(name: text) -> result<scene.Scene, core.Error>
     scene_update_count = scene.scene_int_set(scene_update_count, new_id, 0)
     scene_draw_count = scene.scene_int_set(scene_draw_count, new_id, 0)
     scene_last_dt = scene.scene_float_set(scene_last_dt, new_id, 0.0)
+    scene_phase = scene.scene_text_set(scene_phase, new_id, "ready")
+    scene_document_id = scene.scene_text_set(scene_document_id, new_id, name)
 
     return success(scene.Scene(id: new_id))
 end
@@ -122,6 +128,29 @@ end
 
 public func scene_get_name(target: scene.Scene) -> text
     return scene.scene_text_or(scene_name, target.id, "")
+end
+
+public func scene_set_phase(target: scene.Scene, phase: text) -> result<void, core.Error>
+    scene.scene_require_exists(target)?
+    scene_phase = scene.scene_text_set(scene_phase, target.id, phase)
+    return success()
+end
+
+public func scene_get_phase(target: scene.Scene) -> text
+    return scene.scene_text_or(scene_phase, target.id, "")
+end
+
+public func scene_set_document_id(target: scene.Scene, document_id: text) -> result<void, core.Error>
+    scene.scene_require_exists(target)?
+    if document_id == ""
+        return error("scene: document id cannot be empty")
+    end
+    scene_document_id = scene.scene_text_set(scene_document_id, target.id, document_id)
+    return success()
+end
+
+public func scene_get_document_id(target: scene.Scene) -> text
+    return scene.scene_text_or(scene_document_id, target.id, "")
 end
 
 public func scene_count() -> int
@@ -188,6 +217,57 @@ public func scene_transition(from_scene: scene.Scene, to_scene: scene.Scene) -> 
     scene.scene_exit(from_scene)?
     scene.scene_enter(to_scene)?
     return success()
+end
+
+public func scene_push(target: scene.Scene) -> result<void, core.Error>
+    scene.scene_require_exists(target)?
+    scene_stack = scene.scene_int_set(scene_stack, scene_stack_depth, target.id)
+    scene_stack_depth = scene_stack_depth + 1
+    scene.scene_enter(target)?
+    return success()
+end
+
+public func scene_pop() -> result<void, core.Error>
+    if scene_stack_depth <= 0
+        return error("scene: stack is empty")
+    end
+
+    scene_stack_depth = scene_stack_depth - 1
+    scene_stack = scene.scene_int_set(scene_stack, scene_stack_depth, 0)
+
+    if scene_stack_depth <= 0
+        scene_current_id = 0
+        return success()
+    end
+
+    scene_current_id = scene.scene_int_or(scene_stack, scene_stack_depth - 1, 0)
+    return success()
+end
+
+public func scene_stack_count() -> int
+    return scene_stack_depth
+end
+
+public func scene_stack_at(index: int) -> optional<scene.Scene>
+    if index < 0
+        return none
+    end
+    if index >= scene_stack_depth
+        return none
+    end
+
+    const scene_id: int = scene.scene_int_or(scene_stack, index, 0)
+    if scene_id <= 0
+        return none
+    end
+    return scene.Scene(id: scene_id)
+end
+
+public func scene_stack_top() -> optional<scene.Scene>
+    if scene_stack_depth <= 0
+        return none
+    end
+    return scene.scene_stack_at(scene_stack_depth - 1)
 end
 
 public func scene_active() -> optional<scene.Scene>

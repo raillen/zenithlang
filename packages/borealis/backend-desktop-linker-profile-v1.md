@@ -12,6 +12,24 @@ Definir um profile simples para ligar um backend desktop (Raylib/OpenGL) sem que
 
 Isso garante que o projeto continua rodando mesmo sem o backend real linkado.
 
+## Layout nativo do modulo
+
+Raylib deve ficar fora de `src/`, em uma pasta nativa do modulo:
+
+```text
+packages/borealis/native/raylib/<plataforma>/
+```
+
+Exemplos:
+
+- Windows x64: `packages/borealis/native/raylib/windows-x64/raylib.dll`
+- Windows x64 (layout oficial do release): `packages/borealis/native/raylib/windows-x64/lib/raylib.dll`
+- Linux x64: `packages/borealis/native/raylib/linux-x64/libraylib.so`
+- macOS arm64: `packages/borealis/native/raylib/macos-arm64/libraylib.dylib`
+
+O runtime tambem aceita `BOREALIS_RAYLIB_PATH` ou `ZENITH_RAYLIB_PATH` quando
+o binario estiver fora do modulo.
+
 ## Hook de linker (contrato C)
 
 Contrato novo no runtime C (`runtime/c/zenith_rt.h`):
@@ -85,6 +103,12 @@ Observacao: os flags exatos dependem da instalacao do Raylib no ambiente.
 
 - Hook de adapter desktop: pronto.
 - Adapter Raylib inicial (janela/input/draw): pronto via carregamento dinamico.
+- Modulo `borealis.raylib` com binding Zenith inicial: pronto.
+- Busca vendorizada em `packages/borealis/native/raylib`: pronta.
+- API de diagnostico `raylib_available`/`raylib_loaded_path`: pronta.
 - Fallback seguro para stub: pronto.
 - Teste E2E no caminho desktop->fallback: pronto.
+- Smoke test do binding `borealis.raylib` (shapes/text/input + textura/som em caminho stub-safe): pronto.
+- Probe de assets reais (`.png` + `.wav`) com Raylib nativa: pronto no workspace local.
+- Layout vendorizado oficial `windows-x64/lib/raylib.dll`: validado no workspace local.
 - Validacao com Raylib real depende do ambiente ter a biblioteca instalada.

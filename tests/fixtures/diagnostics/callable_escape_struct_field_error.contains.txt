@@ -1,0 +1,2 @@
+[callable.escape_struct_field]
+field 'op' cannot hold a callable value in v1

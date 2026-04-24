@@ -72,6 +72,7 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_CALL_DIRECT,
     ZIR_EXPR_CALL_EXTERN,
     ZIR_EXPR_CALL_RUNTIME_INTRINSIC,
+    ZIR_EXPR_CALL_DYN,
     ZIR_EXPR_MAKE_STRUCT,
     ZIR_EXPR_MAKE_LIST,
     ZIR_EXPR_MAKE_MAP,
@@ -93,7 +94,9 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_OUTCOME_IS_SUCCESS,
     ZIR_EXPR_OUTCOME_VALUE,
     ZIR_EXPR_TRY_PROPAGATE,
-    ZIR_EXPR_OPTIONAL_VALUE
+    ZIR_EXPR_OPTIONAL_VALUE,
+    ZIR_EXPR_FUNC_REF,
+    ZIR_EXPR_CALL_INDIRECT
 } zir_expr_kind;
 
 struct zir_expr {
@@ -123,6 +126,12 @@ struct zir_expr {
             zir_expr_list args;
         } call;
         struct {
+            zir_expr *receiver;
+            const char *method_name;
+            const char *trait_name;
+            zir_expr_list args;
+        } dyn_call;
+        struct {
             const char *type_name;
             zir_named_expr_list fields;
         } make_struct;
@@ -148,6 +157,14 @@ struct zir_expr {
         struct {
             const char *type_name;
         } type_only;
+        struct {
+            const char *func_name;
+            const char *callable_type_name;
+        } func_ref;
+        struct {
+            zir_expr *callable;
+            zir_expr_list args;
+        } call_indirect;
     } as;
 };
 
@@ -285,6 +302,7 @@ zir_expr *zir_expr_make_unary(const char *op_name, zir_expr *operand);
 zir_expr *zir_expr_make_binary(const char *op_name, zir_expr *left, zir_expr *right);
 zir_expr *zir_expr_make_call_direct(const char *callee_name);
 zir_expr *zir_expr_make_call_extern(const char *callee_name);
+zir_expr *zir_expr_make_call_dyn(zir_expr *receiver, const char *method_name, const char *trait_name);
 zir_expr *zir_expr_make_call_runtime_intrinsic(const char *callee_name);
 zir_expr *zir_expr_make_make_struct(const char *type_name);
 zir_expr *zir_expr_make_make_list(const char *item_type_name);
@@ -308,6 +326,8 @@ zir_expr *zir_expr_make_outcome_is_success(zir_expr *value);
 zir_expr *zir_expr_make_outcome_value(zir_expr *value);
 zir_expr *zir_expr_make_try_propagate(zir_expr *value);
 zir_expr *zir_expr_make_optional_value(zir_expr *value);
+zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_type_name);
+zir_expr *zir_expr_make_call_indirect(zir_expr *callable);
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg);
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value);
 void zir_expr_make_list_add_item(zir_expr *expr, zir_expr *item);

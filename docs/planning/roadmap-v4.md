@@ -164,6 +164,7 @@ Entregas:
 - extensao publicada no Marketplace;
 - templates de projeto;
 - snippets basicos;
+- modo rapido de arquivo unico no CLI (`zt check/run arquivo.zt`) para onboarding e exemplos curtos, mantendo `zenith.ztproj` como fluxo canonico de projeto;
 - guia de onboarding de 15 minutos.
 
 ## R4.M6 - Produto 2: Zenith CI Gate

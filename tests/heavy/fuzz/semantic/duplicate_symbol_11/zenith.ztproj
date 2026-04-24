@@ -1,0 +1,15 @@
+[project]
+name = "duplicate_symbol_11"
+kind = "app"
+version = "0.1.0"
+
+[source]
+root = "src"
+
+[app]
+entry = "fuzz.duplicate"
+
+[build]
+target = "native"
+output = "build"
+profile = "debug"

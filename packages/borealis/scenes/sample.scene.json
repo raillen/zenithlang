@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "name": "sample",
+  "document_id": "scene:sample",
+  "entities": [
+    {
+      "stable_id": "player",
+      "name": "Player",
+      "layer": "actors",
+      "tags": ["player", "controllable"],
+      "transform": {
+        "x": 120,
+        "y": 96,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1
+      },
+      "components": [
+        {
+          "kind": "sprite",
+          "asset": "assets/player.png"
+        },
+        {
+          "kind": "controller",
+          "profile": "platformer"
+        }
+      ]
+    },
+    {
+      "stable_id": "enemy-01",
+      "name": "Enemy 01",
+      "layer": "actors",
+      "parent": "player",
+      "tags": ["enemy"],
+      "transform": {
+        "x": 220,
+        "y": 96,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1
+      },
+      "components": [
+        {
+          "kind": "ai",
+          "profile": "patrol"
+        }
+      ]
+    },
+    {
+      "stable_id": "camera-main",
+      "name": "Main Camera",
+      "layer": "world",
+      "tags": ["camera"],
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1
+      },
+      "components": [
+        {
+          "kind": "camera2d",
+          "zoom": 1
+        }
+      ]
+    }
+  ]
+}

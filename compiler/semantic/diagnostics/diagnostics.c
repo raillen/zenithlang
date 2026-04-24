@@ -161,6 +161,7 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_INVALID_CONVERSION: return "invalid_conversion";
         case ZT_DIAG_INTEGER_OVERFLOW: return "integer_overflow";
         case ZT_DIAG_TOKEN_TOO_LONG: return "token_too_long";
+        case ZT_DIAG_LEXER_UNTERMINATED_STRING: return "lexer_unterminated_string";
         case ZT_DIAG_PARAM_ORDERING: return "param_ordering";
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL: return "named_arg_after_positional";
         case ZT_DIAG_DOC_MALFORMED_BLOCK: return "doc_malformed_block";
@@ -171,6 +172,18 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_DOC_INVALID_GUIDE_TAG: return "doc_invalid_guide_tag";
         case ZT_DIAG_DOC_INVALID_PAIRED_TAG: return "doc_invalid_paired_tag";
         case ZT_DIAG_DOC_MISSING_PUBLIC_DOC: return "doc_missing_public_doc";
+        case ZT_DIAG_DYN_MUT_METHOD: return "dyn.mut_method";
+        case ZT_DIAG_DYN_GENERIC_TRAIT: return "dyn.generic_trait";
+        case ZT_DIAG_DYN_TOO_MANY_METHODS: return "dyn.too_many_methods";
+        case ZT_DIAG_DYN_UNCOPYABLE: return "dyn.uncopyable";
+        case ZT_DIAG_DYN_NO_APPLY: return "dyn.no_apply";
+        case ZT_DIAG_DYN_FFI_UNSAFE: return "dyn.ffi_unsafe";
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH: return "callable.signature_mismatch";
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR: return "callable.escape_public_var";
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "callable.escape_struct_field";
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "callable.escape_container";
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "callable.extern_c_signature";
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
         default: return "unknown";
     }
 }
@@ -222,6 +235,7 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_INTEGER_OVERFLOW: return "type.integer_overflow";
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "control_flow.non_exhaustive_match";
         case ZT_DIAG_TOKEN_TOO_LONG: return "lexer.token_too_long";
+        case ZT_DIAG_LEXER_UNTERMINATED_STRING: return "lexer.unterminated_string";
         case ZT_DIAG_PARAM_ORDERING: return "semantic.param_ordering";
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL: return "semantic.named_arg_after_positional";
         case ZT_DIAG_DOC_MALFORMED_BLOCK: return "doc.malformed_block";
@@ -232,6 +246,18 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_DOC_INVALID_GUIDE_TAG: return "doc.invalid_guide_tag";
         case ZT_DIAG_DOC_INVALID_PAIRED_TAG: return "doc.invalid_paired_tag";
         case ZT_DIAG_DOC_MISSING_PUBLIC_DOC: return "doc.missing_public_doc";
+        case ZT_DIAG_DYN_MUT_METHOD: return "dyn.mut_method";
+        case ZT_DIAG_DYN_GENERIC_TRAIT: return "dyn.generic_trait";
+        case ZT_DIAG_DYN_TOO_MANY_METHODS: return "dyn.too_many_methods";
+        case ZT_DIAG_DYN_UNCOPYABLE: return "dyn.uncopyable";
+        case ZT_DIAG_DYN_NO_APPLY: return "dyn.no_apply";
+        case ZT_DIAG_DYN_FFI_UNSAFE: return "dyn.ffi_unsafe";
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH: return "callable.signature_mismatch";
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR: return "callable.escape_public_var";
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "callable.escape_struct_field";
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "callable.escape_container";
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "callable.extern_c_signature";
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
         default: return "internal.unknown";
     }
 }
@@ -285,7 +311,8 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_INVALID_CONVERSION: return "Use a supported explicit conversion for this source type.";
         case ZT_DIAG_INTEGER_OVERFLOW: return "Use a wider numeric type or reduce the arithmetic range.";
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH: return "Add missing cases or a default -> case to cover all variants.";
-        case ZT_DIAG_TOKEN_TOO_LONG: return "Reduce the token length to fit within the 1024 character limit.";
+        case ZT_DIAG_TOKEN_TOO_LONG: return "Reduce the token length to fit within the lexer limit.";
+        case ZT_DIAG_LEXER_UNTERMINATED_STRING: return "Close the string literal with a matching delimiter.";
         case ZT_DIAG_PARAM_ORDERING: return "Required parameters must come before parameters with default values.";
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL: return "After a named argument appears, all remaining arguments must be named.";
         case ZT_DIAG_DOC_MALFORMED_BLOCK: return "Wrap text in --- blocks and close each block.";
@@ -296,6 +323,18 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_DOC_INVALID_GUIDE_TAG: return "Guide docs accept @page and do not accept @target.";
         case ZT_DIAG_DOC_INVALID_PAIRED_TAG: return "Paired API docs accept @target and do not accept @page.";
         case ZT_DIAG_DOC_MISSING_PUBLIC_DOC: return "Add a paired ZDoc block for this public symbol.";
+        case ZT_DIAG_DYN_MUT_METHOD: return "Remove mut func from the trait or do not use it with dyn.";
+        case ZT_DIAG_DYN_GENERIC_TRAIT: return "Use a concrete trait instantiation instead of dyn with generic traits.";
+        case ZT_DIAG_DYN_TOO_MANY_METHODS: return "Reduce the number of trait methods or split into smaller traits.";
+        case ZT_DIAG_DYN_UNCOPYABLE: return "Use copyable parameter and return types for dyn trait methods.";
+        case ZT_DIAG_DYN_NO_APPLY: return "Implement the trait for this type using apply Trait to Type.";
+        case ZT_DIAG_DYN_FFI_UNSAFE: return "dyn types cannot be used in extern c signatures.";
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH: return "Callable values are only compatible when parameter count, parameter types, and return type match exactly.";
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR: return "A callable cannot be stored in a public namespace variable in v1; only local bindings and parameters are allowed.";
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "A callable cannot be stored as a struct field in v1; closures with captures are deferred to R3.M6.";
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "Callables cannot appear inside list, map, optional, or result element types in v1.";
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "Only primitive, text, and bytes shapes are allowed in callables that cross the extern c boundary.";
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "Only a non-generic top-level named function can be used as a callable value in v1.";
         default: return NULL;
     }
 }
@@ -478,6 +517,7 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
         case ZT_DIAG_PARAM_ORDERING:
         case ZT_DIAG_NAMED_ARG_AFTER_POSITIONAL:
         case ZT_DIAG_TOKEN_TOO_LONG:
+        case ZT_DIAG_LEXER_UNTERMINATED_STRING:
             return ZT_DIAG_EFFORT_QUICK_FIX;
 
         case ZT_DIAG_TYPE_MISMATCH:
@@ -497,6 +537,18 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
         case ZT_DIAG_DOC_UNRESOLVED_TARGET:
         case ZT_DIAG_DOC_UNRESOLVED_LINK:
         case ZT_DIAG_DOC_MISSING_PUBLIC_DOC:
+        case ZT_DIAG_DYN_MUT_METHOD:
+        case ZT_DIAG_DYN_GENERIC_TRAIT:
+        case ZT_DIAG_DYN_TOO_MANY_METHODS:
+        case ZT_DIAG_DYN_UNCOPYABLE:
+        case ZT_DIAG_DYN_NO_APPLY:
+        case ZT_DIAG_DYN_FFI_UNSAFE:
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH:
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR:
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD:
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER:
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE:
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF:
             return ZT_DIAG_EFFORT_MODERATE;
 
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH:
@@ -546,7 +598,100 @@ const char *zt_diag_action_text(zt_diag_code code) {
         case ZT_DIAG_INVALID_RETURN: return "Ensure all code paths return the correct type.";
         case ZT_DIAG_PROJECT_IMPORT_CYCLE: return "Refactor imports to break the cycle.";
         case ZT_DIAG_PROJECT_MISSING_ENTRY: return "Point app.entry to a valid namespace.";
+        case ZT_DIAG_DYN_MUT_METHOD: return "Remove mut from the trait method or use monomorphized generics.";
+        case ZT_DIAG_DYN_GENERIC_TRAIT: return "Instantiate the trait with concrete type arguments instead of using dyn.";
+        case ZT_DIAG_DYN_TOO_MANY_METHODS: return "Split the trait into smaller traits with fewer methods.";
+        case ZT_DIAG_DYN_UNCOPYABLE: return "Change the method signature to use copyable types.";
+        case ZT_DIAG_DYN_NO_APPLY: return "Add an apply Trait to Type block for this type.";
+        case ZT_DIAG_DYN_FFI_UNSAFE: return "Use a concrete type instead of dyn in extern c signatures.";
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH: return "Match the callable signature exactly (same param count, same types, same return type).";
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR: return "Keep the callable in a local binding or pass it as a function parameter.";
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "Store plain data in the struct and pass the callable through a function parameter instead.";
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "Pass callables individually as function arguments rather than collecting them in a container.";
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "Use only int, float, bool, text, or bytes in callables that are passed to extern c.";
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "Reference a non-generic, non-method top-level function by its plain name.";
         default: return NULL;
+    }
+}
+
+const char *zt_diag_next_text(zt_diag_code code) {
+    switch (code) {
+        case ZT_DIAG_UNRESOLVED_NAME:
+            return "Re-run `zt check` after adding the declaration or the correct `import`.";
+        case ZT_DIAG_CONFUSING_NAME:
+            return "Re-run `zt check` after renaming the identifier.";
+        case ZT_DIAG_SYNTAX_ERROR:
+            return "Re-run `zt check` after fixing the syntax.";
+        case ZT_DIAG_UNEXPECTED_TOKEN:
+            return "Re-run `zt check` after adjusting the offending token.";
+        case ZT_DIAG_STRUCTURE_LIMIT_EXCEEDED:
+            return "Re-run `zt check` after splitting the construct.";
+        case ZT_DIAG_TYPE_MISMATCH:
+            return "Re-run `zt check` to confirm the types align on both sides.";
+        case ZT_DIAG_CONST_REASSIGNMENT:
+            return "Re-run `zt check` after switching `const` to `var` (or removing the reassignment).";
+        case ZT_DIAG_PARAM_ORDERING:
+            return "Re-run `zt check` after reordering parameters or adding default values.";
+        case ZT_DIAG_NON_EXHAUSTIVE_MATCH:
+            return "Re-run `zt check` after adding the missing cases or a `default` branch.";
+        case ZT_DIAG_DUPLICATE_NAME:
+            return "Re-run `zt check` after renaming one of the duplicate declarations.";
+        case ZT_DIAG_SHADOWING:
+            return "Re-run `zt check` after choosing a non-shadowing name.";
+        case ZT_DIAG_INVALID_CALL:
+            return "Re-run `zt check` after fixing the callee or argument list.";
+        case ZT_DIAG_INVALID_ARGUMENT:
+            return "Re-run `zt check` after fixing argument names, order, or types.";
+        case ZT_DIAG_INVALID_OPERATOR:
+            return "Re-run `zt check` after aligning operand types.";
+        case ZT_DIAG_INVALID_ASSIGNMENT:
+            return "Re-run `zt check` after making the target mutable and type-compatible.";
+        case ZT_DIAG_INVALID_MUTATION:
+            return "Re-run `zt check` after marking the receiver or binding mutable.";
+        case ZT_DIAG_INVALID_CONDITION_TYPE:
+            return "Re-run `zt check` after converting the condition to a `bool` expression.";
+        case ZT_DIAG_INVALID_RETURN:
+            return "Re-run `zt check` after aligning return values with the declared return type.";
+        case ZT_DIAG_PROJECT_IMPORT_CYCLE:
+            return "Re-run `zt check` after breaking the cycle between the namespaces.";
+        case ZT_DIAG_PROJECT_MISSING_ENTRY:
+            return "Re-run `zt check` after setting `app.entry` to a valid namespace inside `source.root`.";
+        case ZT_DIAG_PROJECT_UNRESOLVED_IMPORT:
+            return "Re-run `zt check` after adding the missing namespace under `source.root`.";
+        case ZT_DIAG_PROJECT_INVALID_NAMESPACE:
+            return "Re-run `zt check` after renaming the file/folder to match the declared namespace.";
+        case ZT_DIAG_PROJECT_MONOMORPHIZATION_LIMIT_EXCEEDED:
+            return "Re-run `zt check` after reducing generic instances or raising `build.monomorphization_limit`.";
+        case ZT_DIAG_DOC_UNRESOLVED_TARGET:
+            return "Re-run `zt doc check` after pointing the doc target to an existing symbol.";
+        case ZT_DIAG_DOC_UNRESOLVED_LINK:
+            return "Re-run `zt doc check` after fixing the link target name.";
+        case ZT_DIAG_DOC_MISSING_PUBLIC_DOC:
+            return "Re-run `zt doc check` after adding the paired ZDoc block.";
+        case ZT_DIAG_DYN_MUT_METHOD:
+            return "Re-run `zt check` after removing mut or switching to monomorphized generics.";
+        case ZT_DIAG_DYN_GENERIC_TRAIT:
+            return "Re-run `zt check` after using concrete type arguments instead of dyn.";
+        case ZT_DIAG_DYN_TOO_MANY_METHODS:
+            return "Re-run `zt check` after splitting the trait into smaller traits.";
+        case ZT_DIAG_DYN_UNCOPYABLE:
+            return "Re-run `zt check` after changing method signatures to use copyable types.";
+        case ZT_DIAG_DYN_NO_APPLY:
+            return "Re-run `zt check` after adding an apply Trait to Type block.";
+        case ZT_DIAG_DYN_FFI_UNSAFE:
+            return "Re-run `zt check` after using a concrete type in the extern c signature.";
+        case ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH:
+            return "Re-run `zt check` after aligning the callable signature.";
+        case ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR:
+        case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD:
+        case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER:
+            return "Re-run `zt check` after moving the callable to an allowed position.";
+        case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE:
+            return "Re-run `zt check` after narrowing the callable to boundary-safe shapes.";
+        case ZT_DIAG_CALLABLE_INVALID_FUNC_REF:
+            return "Re-run `zt check` after referencing a non-generic top-level function.";
+        default:
+            return NULL;
     }
 }
 
@@ -664,6 +809,7 @@ void zt_diag_render_detailed_list(FILE *stream, const char *stage, const zt_diag
 
 void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag *diag) {
     const char *action;
+    const char *next_step;
     const char *effort_label;
     char source_line[1024];
     int use_color = 1;
@@ -671,6 +817,7 @@ void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag 
     if (stream == NULL || diag == NULL) return;
 
     action = zt_diag_action_text(diag->code);
+    next_step = zt_diag_next_text(diag->code);
     effort_label = zt_diag_effort_label(diag->effort);
 
     fprintf(stream, "\n");
@@ -688,6 +835,12 @@ void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag 
     if (diag->suggestion[0] != '\0') {
         if (use_color) fprintf(stream, "\xf0\x9f\x92\xa1 ");
         if (use_color) fprintf(stream, ANSI_CYAN "SUGGESTION:" ANSI_RESET " Did you mean `%s`?\n", diag->suggestion);
+    }
+
+    if (next_step != NULL && next_step[0] != '\0') {
+        if (use_color) fprintf(stream, "\xe2\x9e\xa1\xef\xb8\x8f ");
+        if (use_color) fprintf(stream, ANSI_CYAN "NEXT:" ANSI_RESET " %s\n", next_step);
+        else fprintf(stream, "NEXT: %s\n", next_step);
     }
 
     if (use_color) fprintf(stream, "\xe2\x9a\xa0\xef\xb8\x8f ");
@@ -757,6 +910,9 @@ void zt_diag_render_action_first_list(FILE *stream, const char *stage, const zt_
 }
 
 void zt_diag_render_ci(FILE *stream, const char *stage, const zt_diag *diag) {
+    const char *action;
+    const char *next_step;
+
     if (stream == NULL || diag == NULL) return;
 
     fprintf(stream, "%s[%s] ", zt_diag_severity_name(diag->severity), zt_diag_code_stable(diag->code));
@@ -764,7 +920,24 @@ void zt_diag_render_ci(FILE *stream, const char *stage, const zt_diag *diag) {
     if (stage != NULL && stage[0] != '\0') {
         fprintf(stream, " stage=%s", stage);
     }
-    fprintf(stream, " %s\n", diag->message);
+    fprintf(stream, " effort=%s", zt_diag_effort_label(diag->effort));
+    fprintf(stream, " %s", diag->message);
+
+    action = zt_diag_action_text(diag->code);
+    if (action != NULL && action[0] != '\0') {
+        fprintf(stream, " action=\"%s\"", action);
+    }
+
+    if (diag->suggestion[0] != '\0') {
+        fprintf(stream, " suggestion=\"%s\"", diag->suggestion);
+    }
+
+    next_step = zt_diag_next_text(diag->code);
+    if (next_step != NULL && next_step[0] != '\0') {
+        fprintf(stream, " next=\"%s\"", next_step);
+    }
+
+    fprintf(stream, "\n");
 }
 
 void zt_diag_render_ci_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics) {

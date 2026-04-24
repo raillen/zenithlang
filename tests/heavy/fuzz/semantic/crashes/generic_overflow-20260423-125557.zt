@@ -1,0 +1,10 @@
+-- CRASH: Accepted unexpected code
+-- Seed: 20260423
+-- Iteration: 2
+
+namespace fuzz.generic_overflow
+
+public func main() -> int
+    const x: list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<list<int>>>>>>>>>>>>>>>>> = []
+    return len(x)
+end

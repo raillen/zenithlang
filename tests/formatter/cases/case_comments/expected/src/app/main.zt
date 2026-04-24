@@ -1,5 +1,16 @@
 namespace app.main
 
+-- helper comment should stay attached
+func helper(value: int) -> int 
+    -- positive branch comment
+    if value > 0 
+        return value
+    end
+    -- fallback comment
+    return 0
+end
+
 -- main comment
-func helper(value: -- main comment
-func helper(value: 
+func main() -> int 
+    return helper(2)
+end

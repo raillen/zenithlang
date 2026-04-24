@@ -31,6 +31,9 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #endif
 
 #ifdef _WIN32
@@ -39,6 +42,16 @@ typedef SOCKET zt_socket_handle;
 #else
 typedef int zt_socket_handle;
 #define ZT_NET_INVALID_SOCKET (-1)
+#endif
+
+#if defined(_MSC_VER)
+#define ZT_THREAD_LOCAL __declspec(thread)
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define ZT_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__) || defined(__clang__)
+#define ZT_THREAD_LOCAL __thread
+#else
+#error "Zenith runtime requires thread-local storage support"
 #endif
 
 static void zt_pqueue_i64_ensure_capacity(zt_pqueue_i64 *heap, size_t needed);
@@ -227,9 +240,9 @@ static size_t zt_require_added_size(size_t left, size_t right, const char *messa
     return result;
 }
 
-static zt_runtime_error_info zt_last_error;
-static char zt_last_error_message[256];
-static char zt_last_error_code[64];
+static ZT_THREAD_LOCAL zt_runtime_error_info zt_last_error;
+static ZT_THREAD_LOCAL char zt_last_error_message[256];
+static ZT_THREAD_LOCAL char zt_last_error_code[64];
 
 static void zt_runtime_store_error(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span) {
     snprintf(zt_last_error_message, sizeof(zt_last_error_message), "%s", zt_safe_message(message));
@@ -1977,17 +1990,17 @@ static int zt_runtime_exit_code_for_kind(zt_error_kind kind) {
     }
 }
 
-void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span) {
+ZT_NORETURN void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span) {
     zt_runtime_report_error(kind, message, code, span);
     zt_runtime_print_error(&zt_last_error);
     exit(zt_runtime_exit_code_for_kind(kind));
 }
 
-void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span) {
+ZT_NORETURN void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span) {
     zt_runtime_error_ex(kind, message, NULL, span);
 }
 
-void zt_runtime_error(zt_error_kind kind, const char *message) {
+ZT_NORETURN void zt_runtime_error(zt_error_kind kind, const char *message) {
     zt_runtime_error_ex(kind, message, NULL, zt_runtime_span_unknown());
 }
 
@@ -2003,58 +2016,77 @@ void zt_check(zt_bool condition, const char *message) {
     }
 }
 
-void zt_panic(const char *message) {
+ZT_NORETURN void zt_panic(const char *message) {
     zt_runtime_error(ZT_ERR_PANIC, message);
 }
 
-void zt_test_fail(zt_text *message) {
+ZT_NORETURN void zt_test_fail(zt_text *message) {
     const char *raw = (message != NULL && message->data != NULL) ? message->data : "";
     const char *final_message = raw[0] != '\0' ? raw : "test failed";
     zt_runtime_error_ex(ZT_ERR_TEST_FAILED, final_message, "test.fail", zt_runtime_span_unknown());
 }
 
-void zt_test_skip(zt_text *reason) {
+ZT_NORETURN void zt_test_skip(zt_text *reason) {
     const char *raw = (reason != NULL && reason->data != NULL) ? reason->data : "";
     const char *final_message = raw[0] != '\0' ? raw : "test skipped";
     zt_runtime_error_ex(ZT_ERR_TEST_SKIPPED, final_message, "test.skip", zt_runtime_span_unknown());
 }
 
-void zt_contract_failed(const char *message, zt_runtime_span span) {
+ZT_NORETURN void zt_contract_failed(const char *message, zt_runtime_span span) {
     zt_runtime_error_with_span(ZT_ERR_CONTRACT, message, span);
 }
 
+/*
+ * Concatenate `base_message` with a short value suffix and raise a contract
+ * panic. Uses a dynamically-sized buffer so arbitrarily long base messages
+ * are not truncated; falls back to a fixed stack buffer only if allocation
+ * fails. The dynamic buffer is intentionally leaked because
+ * `zt_contract_failed` never returns.
+ */
+static void zt_contract_failed_with_suffix(
+        const char *base_message,
+        const char *value_suffix,
+        zt_runtime_span span) {
+    const char *safe_base = zt_safe_message(base_message);
+    const char *safe_suffix = value_suffix != NULL ? value_suffix : "";
+    size_t base_len = strlen(safe_base);
+    size_t suffix_len = strlen(safe_suffix);
+    size_t total_len = base_len + suffix_len;
+    char *buffer;
+
+    buffer = (char *)malloc(total_len + 1);
+    if (buffer == NULL) {
+        char fallback[512];
+        fallback[0] = '\0';
+        zt_runtime_append_text(fallback, sizeof(fallback), safe_base);
+        zt_runtime_append_text(fallback, sizeof(fallback), safe_suffix);
+        zt_contract_failed(fallback, span);
+        return; /* unreachable: zt_contract_failed never returns */
+    }
+
+    if (base_len > 0) memcpy(buffer, safe_base, base_len);
+    if (suffix_len > 0) memcpy(buffer + base_len, safe_suffix, suffix_len);
+    buffer[total_len] = '\0';
+
+    zt_contract_failed(buffer, span);
+    /* unreachable: buffer is intentionally leaked on panic */
+}
+
 void zt_contract_failed_i64(const char *message, zt_int value, zt_runtime_span span) {
-    char full_message[512];
-    char value_text[64];
-    full_message[0] = '\0';
-    snprintf(value_text, sizeof(value_text), "%lld", (long long)value);
-    zt_runtime_append_text(full_message, sizeof(full_message), zt_safe_message(message));
-    zt_runtime_append_text(full_message, sizeof(full_message), " (value: ");
-    zt_runtime_append_text(full_message, sizeof(full_message), value_text);
-    zt_runtime_append_text(full_message, sizeof(full_message), ")");
-    zt_contract_failed(full_message, span);
+    char suffix[96];
+    snprintf(suffix, sizeof(suffix), " (value: %lld)", (long long)value);
+    zt_contract_failed_with_suffix(message, suffix, span);
 }
 
 void zt_contract_failed_float(const char *message, zt_float value, zt_runtime_span span) {
-    char full_message[512];
-    char value_text[64];
-    full_message[0] = '\0';
-    snprintf(value_text, sizeof(value_text), "%.17g", (double)value);
-    zt_runtime_append_text(full_message, sizeof(full_message), zt_safe_message(message));
-    zt_runtime_append_text(full_message, sizeof(full_message), " (value: ");
-    zt_runtime_append_text(full_message, sizeof(full_message), value_text);
-    zt_runtime_append_text(full_message, sizeof(full_message), ")");
-    zt_contract_failed(full_message, span);
+    char suffix[96];
+    snprintf(suffix, sizeof(suffix), " (value: %.17g)", (double)value);
+    zt_contract_failed_with_suffix(message, suffix, span);
 }
 
 void zt_contract_failed_bool(const char *message, zt_bool value, zt_runtime_span span) {
-    char full_message[512];
-    full_message[0] = '\0';
-    zt_runtime_append_text(full_message, sizeof(full_message), zt_safe_message(message));
-    zt_runtime_append_text(full_message, sizeof(full_message), " (value: ");
-    zt_runtime_append_text(full_message, sizeof(full_message), value ? "true" : "false");
-    zt_runtime_append_text(full_message, sizeof(full_message), ")");
-    zt_contract_failed(full_message, span);
+    const char *suffix = value ? " (value: true)" : " (value: false)";
+    zt_contract_failed_with_suffix(message, suffix, span);
 }
 
 static zt_text *zt_text_from_utf8_unchecked(const char *data, size_t len) {
@@ -2856,9 +2888,19 @@ zt_bytes *zt_thread_boundary_copy_bytes(const zt_bytes *value) {
     return zt_bytes_from_array(value->data, value->len);
 }
 
+zt_list_i64 *zt_thread_boundary_copy_list_i64(const zt_list_i64 *list) {
+    zt_runtime_require_list_i64(list, "zt_thread_boundary_copy_list_i64 requires list");
+    return zt_list_i64_from_array(list->data, list->len);
+}
+
 zt_list_text *zt_thread_boundary_copy_list_text(const zt_list_text *list) {
     zt_runtime_require_list_text(list, "zt_thread_boundary_copy_list_text requires list");
     return zt_list_text_deep_copy(list);
+}
+
+zt_map_text_text *zt_thread_boundary_copy_map_text_text(const zt_map_text_text *map) {
+    zt_runtime_require_map_text_text(map, "zt_thread_boundary_copy_map_text_text requires map");
+    return (zt_map_text_text *)zt_deep_copy((void *)map);
 }
 
 zt_dyn_text_repr *zt_thread_boundary_copy_dyn_text_repr(const zt_dyn_text_repr *value) {
@@ -7163,6 +7205,30 @@ zt_int zt_net_error_kind_index(zt_core_error error) {
 #define ZT_BOREALIS_RAYLIB_WINDOW_ID 1
 #define ZT_BOREALIS_MAX_WINDOWS 8
 #define ZT_BOREALIS_MAX_KEYS_PER_WINDOW 64
+#define ZT_BOREALIS_MAX_RAYLIB_TEXTURES 256
+#define ZT_BOREALIS_MAX_RAYLIB_SOUNDS 128
+#define ZT_BOREALIS_PATH_CAPACITY 4096
+
+#ifdef _WIN32
+#define ZT_BOREALIS_RAYLIB_PLATFORM_DIR "windows-x64"
+#define ZT_BOREALIS_RAYLIB_OS_DIR "windows"
+#else
+#ifdef __APPLE__
+#if defined(__aarch64__) || defined(__arm64__)
+#define ZT_BOREALIS_RAYLIB_PLATFORM_DIR "macos-arm64"
+#else
+#define ZT_BOREALIS_RAYLIB_PLATFORM_DIR "macos-x64"
+#endif
+#define ZT_BOREALIS_RAYLIB_OS_DIR "macos"
+#else
+#if defined(__aarch64__)
+#define ZT_BOREALIS_RAYLIB_PLATFORM_DIR "linux-arm64"
+#else
+#define ZT_BOREALIS_RAYLIB_PLATFORM_DIR "linux-x64"
+#endif
+#define ZT_BOREALIS_RAYLIB_OS_DIR "linux"
+#endif
+#endif
 
 typedef struct zt_borealis_key_state {
     zt_bool used;
@@ -7267,6 +7333,32 @@ typedef struct zt_borealis_raylib_color {
     unsigned char a;
 } zt_borealis_raylib_color;
 
+typedef struct zt_borealis_raylib_vector2 {
+    float x;
+    float y;
+} zt_borealis_raylib_vector2;
+
+typedef struct zt_borealis_raylib_texture {
+    unsigned int id;
+    int width;
+    int height;
+    int mipmaps;
+    int format;
+} zt_borealis_raylib_texture;
+
+typedef struct zt_borealis_raylib_audio_stream {
+    void *buffer;
+    void *processor;
+    unsigned int sampleRate;
+    unsigned int sampleSize;
+    unsigned int channels;
+} zt_borealis_raylib_audio_stream;
+
+typedef struct zt_borealis_raylib_sound {
+    zt_borealis_raylib_audio_stream stream;
+    unsigned int frameCount;
+} zt_borealis_raylib_sound;
+
 typedef void (*zt_borealis_raylib_init_window_fn)(int width, int height, const char *title);
 typedef void (*zt_borealis_raylib_close_window_fn)(void);
 typedef int (*zt_borealis_raylib_window_should_close_fn)(void);
@@ -7282,6 +7374,22 @@ typedef void (*zt_borealis_raylib_draw_circle_fn)(int center_x, int center_y, fl
 typedef void (*zt_borealis_raylib_draw_circle_lines_fn)(int center_x, int center_y, float radius, zt_borealis_raylib_color color);
 typedef void (*zt_borealis_raylib_draw_text_fn)(const char *text, int pos_x, int pos_y, int font_size, zt_borealis_raylib_color color);
 typedef int (*zt_borealis_raylib_is_key_fn)(int key);
+typedef void (*zt_borealis_raylib_draw_triangle_fn)(zt_borealis_raylib_vector2 v1, zt_borealis_raylib_vector2 v2, zt_borealis_raylib_vector2 v3, zt_borealis_raylib_color color);
+typedef void (*zt_borealis_raylib_draw_ellipse_fn)(int center_x, int center_y, float radius_h, float radius_v, zt_borealis_raylib_color color);
+typedef int (*zt_borealis_raylib_measure_text_fn)(const char *text, int font_size);
+typedef zt_borealis_raylib_texture (*zt_borealis_raylib_load_texture_fn)(const char *file_name);
+typedef void (*zt_borealis_raylib_unload_texture_fn)(zt_borealis_raylib_texture texture);
+typedef void (*zt_borealis_raylib_draw_texture_fn)(zt_borealis_raylib_texture texture, int pos_x, int pos_y, zt_borealis_raylib_color tint);
+typedef void (*zt_borealis_raylib_draw_texture_ex_fn)(zt_borealis_raylib_texture texture, zt_borealis_raylib_vector2 position, float rotation, float scale, zt_borealis_raylib_color tint);
+typedef void (*zt_borealis_raylib_init_audio_device_fn)(void);
+typedef void (*zt_borealis_raylib_close_audio_device_fn)(void);
+typedef int (*zt_borealis_raylib_is_audio_device_ready_fn)(void);
+typedef void (*zt_borealis_raylib_set_master_volume_fn)(float volume);
+typedef zt_borealis_raylib_sound (*zt_borealis_raylib_load_sound_fn)(const char *file_name);
+typedef void (*zt_borealis_raylib_unload_sound_fn)(zt_borealis_raylib_sound sound);
+typedef void (*zt_borealis_raylib_play_sound_fn)(zt_borealis_raylib_sound sound);
+typedef void (*zt_borealis_raylib_stop_sound_fn)(zt_borealis_raylib_sound sound);
+typedef void (*zt_borealis_raylib_set_sound_volume_fn)(zt_borealis_raylib_sound sound, float volume);
 
 typedef struct zt_borealis_raylib_runtime {
     zt_bool load_attempted;
@@ -7290,6 +7398,7 @@ typedef struct zt_borealis_raylib_runtime {
     zt_bool frame_open;
     zt_int window_id;
     void *library;
+    char loaded_path[ZT_BOREALIS_PATH_CAPACITY];
     zt_borealis_raylib_init_window_fn init_window;
     zt_borealis_raylib_close_window_fn close_window;
     zt_borealis_raylib_window_should_close_fn window_should_close;
@@ -7307,9 +7416,41 @@ typedef struct zt_borealis_raylib_runtime {
     zt_borealis_raylib_is_key_fn is_key_down;
     zt_borealis_raylib_is_key_fn is_key_pressed;
     zt_borealis_raylib_is_key_fn is_key_released;
+    zt_borealis_raylib_draw_triangle_fn draw_triangle;
+    zt_borealis_raylib_draw_ellipse_fn draw_ellipse;
+    zt_borealis_raylib_measure_text_fn measure_text;
+    zt_borealis_raylib_load_texture_fn load_texture;
+    zt_borealis_raylib_unload_texture_fn unload_texture;
+    zt_borealis_raylib_draw_texture_fn draw_texture;
+    zt_borealis_raylib_draw_texture_ex_fn draw_texture_ex;
+    zt_borealis_raylib_init_audio_device_fn init_audio_device;
+    zt_borealis_raylib_close_audio_device_fn close_audio_device;
+    zt_borealis_raylib_is_audio_device_ready_fn is_audio_device_ready;
+    zt_borealis_raylib_set_master_volume_fn set_master_volume;
+    zt_borealis_raylib_load_sound_fn load_sound;
+    zt_borealis_raylib_unload_sound_fn unload_sound;
+    zt_borealis_raylib_play_sound_fn play_sound;
+    zt_borealis_raylib_stop_sound_fn stop_sound;
+    zt_borealis_raylib_set_sound_volume_fn set_sound_volume;
 } zt_borealis_raylib_runtime;
 
+typedef struct zt_borealis_raylib_texture_slot {
+    zt_bool used;
+    zt_int handle;
+    zt_borealis_raylib_texture texture;
+} zt_borealis_raylib_texture_slot;
+
+typedef struct zt_borealis_raylib_sound_slot {
+    zt_bool used;
+    zt_int handle;
+    zt_borealis_raylib_sound sound;
+} zt_borealis_raylib_sound_slot;
+
 static zt_borealis_raylib_runtime zt_borealis_raylib = {0};
+static zt_borealis_raylib_texture_slot zt_borealis_raylib_textures[ZT_BOREALIS_MAX_RAYLIB_TEXTURES];
+static zt_borealis_raylib_sound_slot zt_borealis_raylib_sounds[ZT_BOREALIS_MAX_RAYLIB_SOUNDS];
+static zt_int zt_borealis_raylib_next_texture_handle = 1;
+static zt_int zt_borealis_raylib_next_sound_handle = 1;
 
 static void *zt_borealis_dynlib_open(const char *name) {
 #ifdef _WIN32
@@ -7338,6 +7479,126 @@ static void zt_borealis_dynlib_close(void *library) {
     FreeLibrary((HMODULE)library);
 #else
     dlclose(library);
+#endif
+}
+
+static zt_bool zt_borealis_copy_cstr(char *dest, size_t capacity, const char *source) {
+    size_t length;
+    if (dest == NULL || capacity == 0 || source == NULL) {
+        return false;
+    }
+    length = strlen(source);
+    if (length >= capacity) {
+        return false;
+    }
+    memcpy(dest, source, length + 1);
+    return true;
+}
+
+static zt_bool zt_borealis_path_is_sep(char value) {
+    return value == '/' || value == '\\';
+}
+
+static zt_bool zt_borealis_path_join(char *dest, size_t capacity, const char *left, const char *right) {
+    size_t left_len;
+    size_t right_len;
+    zt_bool needs_sep;
+
+    if (dest == NULL || capacity == 0 || left == NULL || right == NULL || left[0] == '\0' || right[0] == '\0') {
+        return false;
+    }
+
+    left_len = strlen(left);
+    right_len = strlen(right);
+    needs_sep = !zt_borealis_path_is_sep(left[left_len - 1]);
+    if (left_len + (needs_sep ? 1u : 0u) + right_len >= capacity) {
+        return false;
+    }
+
+    memcpy(dest, left, left_len);
+    if (needs_sep) {
+        dest[left_len] = '/';
+        left_len += 1;
+    }
+    memcpy(dest + left_len, right, right_len + 1);
+    return true;
+}
+
+static zt_bool zt_borealis_path_dirname_in_place(char *path) {
+    size_t length;
+    size_t index;
+
+    if (path == NULL || path[0] == '\0') {
+        return false;
+    }
+
+    length = strlen(path);
+    while (length > 0 && zt_borealis_path_is_sep(path[length - 1])) {
+        length -= 1;
+        path[length] = '\0';
+    }
+
+    index = length;
+    while (index > 0) {
+        index -= 1;
+        if (zt_borealis_path_is_sep(path[index])) {
+            if (index == 0) {
+                path[1] = '\0';
+            } else {
+                path[index] = '\0';
+            }
+            return true;
+        }
+    }
+
+    return zt_borealis_copy_cstr(path, ZT_BOREALIS_PATH_CAPACITY, ".");
+}
+
+static zt_bool zt_borealis_get_cwd(char *dest, size_t capacity) {
+    if (dest == NULL || capacity == 0) {
+        return false;
+    }
+#ifdef _WIN32
+    return _getcwd(dest, (int)capacity) != NULL;
+#else
+    return getcwd(dest, capacity) != NULL;
+#endif
+}
+
+static zt_bool zt_borealis_get_executable_dir(char *dest, size_t capacity) {
+    if (dest == NULL || capacity == 0) {
+        return false;
+    }
+#ifdef _WIN32
+    {
+        DWORD length = GetModuleFileNameA(NULL, dest, (DWORD)capacity);
+        if (length == 0 || length >= capacity) {
+            dest[0] = '\0';
+            return false;
+        }
+        return zt_borealis_path_dirname_in_place(dest);
+    }
+#else
+#ifdef __APPLE__
+    {
+        uint32_t length = (uint32_t)capacity;
+        if (_NSGetExecutablePath(dest, &length) != 0) {
+            dest[0] = '\0';
+            return false;
+        }
+        return zt_borealis_path_dirname_in_place(dest);
+    }
+#else
+    {
+        ssize_t length = readlink("/proc/self/exe", dest, capacity - 1);
+        if (length <= 0 || (size_t)length >= capacity) {
+            dest[0] = '\0';
+            return false;
+        }
+        dest[length] = '\0';
+        return zt_borealis_path_dirname_in_place(dest);
+    }
+#endif
 #endif
 }
 
@@ -7378,6 +7639,22 @@ static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
     zt_borealis_raylib.is_key_down = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyDown");
     zt_borealis_raylib.is_key_pressed = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyPressed");
     zt_borealis_raylib.is_key_released = (zt_borealis_raylib_is_key_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsKeyReleased");
+    zt_borealis_raylib.draw_triangle = (zt_borealis_raylib_draw_triangle_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawTriangle");
+    zt_borealis_raylib.draw_ellipse = (zt_borealis_raylib_draw_ellipse_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawEllipse");
+    zt_borealis_raylib.measure_text = (zt_borealis_raylib_measure_text_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "MeasureText");
+    zt_borealis_raylib.load_texture = (zt_borealis_raylib_load_texture_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "LoadTexture");
+    zt_borealis_raylib.unload_texture = (zt_borealis_raylib_unload_texture_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "UnloadTexture");
+    zt_borealis_raylib.draw_texture = (zt_borealis_raylib_draw_texture_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawTexture");
+    zt_borealis_raylib.draw_texture_ex = (zt_borealis_raylib_draw_texture_ex_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "DrawTextureEx");
+    zt_borealis_raylib.init_audio_device = (zt_borealis_raylib_init_audio_device_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "InitAudioDevice");
+    zt_borealis_raylib.close_audio_device = (zt_borealis_raylib_close_audio_device_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "CloseAudioDevice");
+    zt_borealis_raylib.is_audio_device_ready = (zt_borealis_raylib_is_audio_device_ready_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "IsAudioDeviceReady");
+    zt_borealis_raylib.set_master_volume = (zt_borealis_raylib_set_master_volume_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "SetMasterVolume");
+    zt_borealis_raylib.load_sound = (zt_borealis_raylib_load_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "LoadSound");
+    zt_borealis_raylib.unload_sound = (zt_borealis_raylib_unload_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "UnloadSound");
+    zt_borealis_raylib.play_sound = (zt_borealis_raylib_play_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "PlaySound");
+    zt_borealis_raylib.stop_sound = (zt_borealis_raylib_stop_sound_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "StopSound");
+    zt_borealis_raylib.set_sound_volume = (zt_borealis_raylib_set_sound_volume_fn)zt_borealis_dynlib_symbol(zt_borealis_raylib.library, "SetSoundVolume");
 
     return zt_borealis_raylib.init_window != NULL &&
            zt_borealis_raylib.close_window != NULL &&
@@ -7397,6 +7674,132 @@ static zt_bool zt_borealis_raylib_assign_required_symbols(void) {
            zt_borealis_raylib.is_key_released != NULL;
 }
 
+static void zt_borealis_raylib_reset_failed_candidate(void) {
+    if (zt_borealis_raylib.library != NULL) {
+        zt_borealis_dynlib_close(zt_borealis_raylib.library);
+    }
+    memset(&zt_borealis_raylib, 0, sizeof(zt_borealis_raylib));
+    zt_borealis_raylib.load_attempted = true;
+    zt_borealis_raylib.window_id = ZT_BOREALIS_RAYLIB_WINDOW_ID;
+}
+
+static zt_bool zt_borealis_raylib_open_candidate(const char *path) {
+    if (path == NULL || path[0] == '\0') {
+        return false;
+    }
+
+    zt_borealis_raylib.library = zt_borealis_dynlib_open(path);
+    if (zt_borealis_raylib.library == NULL) {
+        return false;
+    }
+
+    if (zt_borealis_raylib_assign_required_symbols()) {
+        zt_borealis_raylib.loaded = true;
+        zt_borealis_copy_cstr(zt_borealis_raylib.loaded_path, sizeof(zt_borealis_raylib.loaded_path), path);
+        return true;
+    }
+
+    zt_borealis_raylib_reset_failed_candidate();
+    return false;
+}
+
+static zt_bool zt_borealis_raylib_try_names_in_dir(const char *dir, const char *const *names) {
+    size_t index;
+    char candidate[ZT_BOREALIS_PATH_CAPACITY];
+
+    if (dir == NULL || dir[0] == '\0' || names == NULL) {
+        return false;
+    }
+
+    for (index = 0; names[index] != NULL; index += 1) {
+        if (!zt_borealis_path_join(candidate, sizeof(candidate), dir, names[index])) {
+            continue;
+        }
+        if (zt_borealis_raylib_open_candidate(candidate)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static zt_bool zt_borealis_raylib_try_relative_dir(
+        const char *root,
+        const char *relative_dir,
+        const char *const *names) {
+    char dir[ZT_BOREALIS_PATH_CAPACITY];
+    if (!zt_borealis_path_join(dir, sizeof(dir), root, relative_dir)) {
+        return false;
+    }
+    return zt_borealis_raylib_try_names_in_dir(dir, names);
+}
+
+static zt_bool zt_borealis_raylib_try_module_layout(const char *root, const char *const *names) {
+    static const char *relative_dirs[] = {
+        "packages/borealis/native/raylib/" ZT_BOREALIS_RAYLIB_PLATFORM_DIR,
+        "packages/borealis/native/raylib/" ZT_BOREALIS_RAYLIB_PLATFORM_DIR "/lib",
+        "packages/borealis/native/raylib/" ZT_BOREALIS_RAYLIB_OS_DIR,
+        "packages/borealis/native/raylib/" ZT_BOREALIS_RAYLIB_OS_DIR "/lib",
+        "packages/borealis/native/raylib",
+        "packages/borealis/native/raylib/lib",
+        "native/raylib/" ZT_BOREALIS_RAYLIB_PLATFORM_DIR,
+        "native/raylib/" ZT_BOREALIS_RAYLIB_PLATFORM_DIR "/lib",
+        "native/raylib/" ZT_BOREALIS_RAYLIB_OS_DIR,
+        "native/raylib/" ZT_BOREALIS_RAYLIB_OS_DIR "/lib",
+        "native/raylib",
+        "native/raylib/lib",
+        NULL
+    };
+    size_t index;
+
+    if (root == NULL || root[0] == '\0') {
+        return false;
+    }
+
+    for (index = 0; relative_dirs[index] != NULL; index += 1) {
+        if (zt_borealis_raylib_try_relative_dir(root, relative_dirs[index], names)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static zt_bool zt_borealis_raylib_try_module_layout_upwards(const char *root, const char *const *names) {
+    char current[ZT_BOREALIS_PATH_CAPACITY];
+    size_t depth;
+
+    if (!zt_borealis_copy_cstr(current, sizeof(current), root)) {
+        return false;
+    }
+
+    for (depth = 0; depth < 6; depth += 1) {
+        if (zt_borealis_raylib_try_module_layout(current, names)) {
+            return true;
+        }
+        if (!zt_borealis_path_dirname_in_place(current)) {
+            break;
+        }
+    }
+
+    return false;
+}
+
+static zt_bool zt_borealis_raylib_try_env_path(const char *const *names) {
+    const char *env_path = getenv("BOREALIS_RAYLIB_PATH");
+    if (env_path == NULL || env_path[0] == '\0') {
+        env_path = getenv("ZENITH_RAYLIB_PATH");
+    }
+    if (env_path == NULL || env_path[0] == '\0') {
+        return false;
+    }
+
+    if (zt_borealis_raylib_open_candidate(env_path)) {
+        return true;
+    }
+    return zt_borealis_raylib_try_names_in_dir(env_path, names);
+}
+
 static zt_bool zt_borealis_raylib_try_load(void) {
     size_t index;
 #ifdef _WIN32
@@ -7406,6 +7809,7 @@ static zt_bool zt_borealis_raylib_try_load(void) {
 #else
     const char *candidates[] = {"libraylib.so", "libraylib.so.5", "libraylib.so.4", NULL};
 #endif
+    char root[ZT_BOREALIS_PATH_CAPACITY];
 
     if (zt_borealis_raylib.load_attempted) {
         return zt_borealis_raylib.loaded;
@@ -7414,24 +7818,128 @@ static zt_bool zt_borealis_raylib_try_load(void) {
     zt_borealis_raylib.load_attempted = true;
     zt_borealis_raylib.window_id = ZT_BOREALIS_RAYLIB_WINDOW_ID;
 
-    for (index = 0; candidates[index] != NULL; index += 1) {
-        zt_borealis_raylib.library = zt_borealis_dynlib_open(candidates[index]);
-        if (zt_borealis_raylib.library == NULL) {
-            continue;
-        }
+    if (zt_borealis_raylib_try_env_path(candidates)) {
+        return true;
+    }
 
-        if (zt_borealis_raylib_assign_required_symbols()) {
-            zt_borealis_raylib.loaded = true;
+    for (index = 0; candidates[index] != NULL; index += 1) {
+        if (zt_borealis_raylib_open_candidate(candidates[index])) {
             return true;
         }
+    }
 
-        zt_borealis_dynlib_close(zt_borealis_raylib.library);
-        memset(&zt_borealis_raylib, 0, sizeof(zt_borealis_raylib));
-        zt_borealis_raylib.load_attempted = true;
-        zt_borealis_raylib.window_id = ZT_BOREALIS_RAYLIB_WINDOW_ID;
+    if (zt_borealis_get_executable_dir(root, sizeof(root))) {
+        if (zt_borealis_raylib_try_names_in_dir(root, candidates)) {
+            return true;
+        }
+        if (zt_borealis_raylib_try_module_layout_upwards(root, candidates)) {
+            return true;
+        }
+    }
+
+    if (zt_borealis_get_cwd(root, sizeof(root))) {
+        if (zt_borealis_raylib_try_names_in_dir(root, candidates)) {
+            return true;
+        }
+        if (zt_borealis_raylib_try_module_layout_upwards(root, candidates)) {
+            return true;
+        }
     }
 
     return false;
+}
+
+zt_bool zt_borealis_raylib_available(void) {
+    return zt_borealis_raylib_try_load();
+}
+
+zt_text *zt_borealis_raylib_loaded_path(void) {
+    if (!zt_borealis_raylib_try_load()) {
+        return zt_text_from_utf8_literal("");
+    }
+    return zt_text_from_utf8(zt_borealis_raylib.loaded_path, strlen(zt_borealis_raylib.loaded_path));
+}
+
+static zt_borealis_raylib_texture_slot *zt_borealis_raylib_find_texture(zt_int handle) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_TEXTURES; index += 1) {
+        if (zt_borealis_raylib_textures[index].used &&
+            zt_borealis_raylib_textures[index].handle == handle) {
+            return &zt_borealis_raylib_textures[index];
+        }
+    }
+    return NULL;
+}
+
+static zt_borealis_raylib_texture_slot *zt_borealis_raylib_alloc_texture(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_TEXTURES; index += 1) {
+        if (!zt_borealis_raylib_textures[index].used) {
+            memset(&zt_borealis_raylib_textures[index], 0, sizeof(zt_borealis_raylib_texture_slot));
+            zt_borealis_raylib_textures[index].used = true;
+            zt_borealis_raylib_textures[index].handle = zt_borealis_raylib_next_texture_handle;
+            zt_borealis_raylib_next_texture_handle += 1;
+            if (zt_borealis_raylib_next_texture_handle <= 0) {
+                zt_borealis_raylib_next_texture_handle = 1;
+            }
+            return &zt_borealis_raylib_textures[index];
+        }
+    }
+    return NULL;
+}
+
+static zt_borealis_raylib_sound_slot *zt_borealis_raylib_find_sound(zt_int handle) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_SOUNDS; index += 1) {
+        if (zt_borealis_raylib_sounds[index].used &&
+            zt_borealis_raylib_sounds[index].handle == handle) {
+            return &zt_borealis_raylib_sounds[index];
+        }
+    }
+    return NULL;
+}
+
+static zt_borealis_raylib_sound_slot *zt_borealis_raylib_alloc_sound(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_SOUNDS; index += 1) {
+        if (!zt_borealis_raylib_sounds[index].used) {
+            memset(&zt_borealis_raylib_sounds[index], 0, sizeof(zt_borealis_raylib_sound_slot));
+            zt_borealis_raylib_sounds[index].used = true;
+            zt_borealis_raylib_sounds[index].handle = zt_borealis_raylib_next_sound_handle;
+            zt_borealis_raylib_next_sound_handle += 1;
+            if (zt_borealis_raylib_next_sound_handle <= 0) {
+                zt_borealis_raylib_next_sound_handle = 1;
+            }
+            return &zt_borealis_raylib_sounds[index];
+        }
+    }
+    return NULL;
+}
+
+static void zt_borealis_raylib_release_all_textures(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_TEXTURES; index += 1) {
+        if (!zt_borealis_raylib_textures[index].used) {
+            continue;
+        }
+        if (zt_borealis_raylib.unload_texture != NULL) {
+            zt_borealis_raylib.unload_texture(zt_borealis_raylib_textures[index].texture);
+        }
+        memset(&zt_borealis_raylib_textures[index], 0, sizeof(zt_borealis_raylib_texture_slot));
+    }
+}
+
+static void zt_borealis_raylib_release_all_sounds(void) {
+    size_t index;
+    for (index = 0; index < ZT_BOREALIS_MAX_RAYLIB_SOUNDS; index += 1) {
+        if (!zt_borealis_raylib_sounds[index].used) {
+            continue;
+        }
+        if (zt_borealis_raylib.unload_sound != NULL) {
+            zt_borealis_raylib.unload_sound(zt_borealis_raylib_sounds[index].sound);
+        }
+        memset(&zt_borealis_raylib_sounds[index], 0, sizeof(zt_borealis_raylib_sound_slot));
+    }
 }
 
 static zt_outcome_i64_core_error zt_borealis_raylib_open_window(
@@ -7480,6 +7988,14 @@ static zt_outcome_void_core_error zt_borealis_raylib_close_window(zt_int window_
     if (zt_borealis_raylib.frame_open) {
         zt_borealis_raylib.end_drawing();
         zt_borealis_raylib.frame_open = false;
+    }
+
+    zt_borealis_raylib_release_all_textures();
+    zt_borealis_raylib_release_all_sounds();
+    if (zt_borealis_raylib.close_audio_device != NULL &&
+        zt_borealis_raylib.is_audio_device_ready != NULL &&
+        zt_borealis_raylib.is_audio_device_ready()) {
+        zt_borealis_raylib.close_audio_device();
     }
 
     zt_borealis_raylib.close_window();
@@ -7706,6 +8222,367 @@ static zt_bool zt_borealis_raylib_is_key_released(zt_int window_id, zt_int input
         return false;
     }
     return zt_borealis_raylib.is_key_released((int)input_code) ? true : false;
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_triangle(
+        zt_int window_id,
+        zt_float x1,
+        zt_float y1,
+        zt_float x2,
+        zt_float y2,
+        zt_float x3,
+        zt_float y3,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    zt_borealis_raylib_vector2 v1;
+    zt_borealis_raylib_vector2 v2;
+    zt_borealis_raylib_vector2 v3;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (zt_borealis_raylib.draw_triangle == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawTriangle is not available");
+    }
+
+    v1.x = (float)x1;
+    v1.y = (float)y1;
+    v2.x = (float)x2;
+    v2.y = (float)y2;
+    v3.x = (float)x3;
+    v3.y = (float)y3;
+    zt_borealis_raylib.draw_triangle(v1, v2, v3, zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_ellipse(
+        zt_int window_id,
+        zt_float x,
+        zt_float y,
+        zt_float radius_h,
+        zt_float radius_v,
+        zt_int color_r,
+        zt_int color_g,
+        zt_int color_b,
+        zt_int color_a) {
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (zt_borealis_raylib.draw_ellipse == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawEllipse is not available");
+    }
+
+    zt_borealis_raylib.draw_ellipse(
+        (int)lround(x),
+        (int)lround(y),
+        (float)radius_h,
+        (float)radius_v,
+        zt_borealis_make_raylib_color(color_r, color_g, color_b, color_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_int zt_borealis_raylib_measure_text(const zt_text *value, zt_int font_size) {
+    const char *text = value != NULL ? zt_text_data(value) : "";
+    zt_int fallback = (zt_int)((strlen(text) * (size_t)(font_size > 0 ? font_size : 0)) / 2u);
+    if (zt_borealis_raylib_try_load() && zt_borealis_raylib.measure_text != NULL) {
+        zt_int measured = (zt_int)zt_borealis_raylib.measure_text(text, (int)font_size);
+        if (measured > 0 || text[0] == '\0' || font_size <= 0) {
+            return measured;
+        }
+    }
+    return fallback;
+}
+
+zt_outcome_i64_core_error zt_borealis_raylib_load_texture(const zt_text *path) {
+    const char *file_name;
+    zt_borealis_raylib_texture texture;
+    zt_borealis_raylib_texture_slot *slot;
+
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.load_texture == NULL) {
+        return zt_outcome_i64_core_error_failure_message("borealis: Raylib texture support is not available");
+    }
+
+    file_name = path != NULL ? zt_text_data(path) : "";
+    texture = zt_borealis_raylib.load_texture(file_name);
+    if (texture.id == 0) {
+        return zt_outcome_i64_core_error_failure_message("borealis: failed to load Raylib texture");
+    }
+
+    slot = zt_borealis_raylib_alloc_texture();
+    if (slot == NULL) {
+        if (zt_borealis_raylib.unload_texture != NULL) {
+            zt_borealis_raylib.unload_texture(texture);
+        }
+        return zt_outcome_i64_core_error_failure_message("borealis: no free Raylib texture slots");
+    }
+
+    slot->texture = texture;
+    return zt_outcome_i64_core_error_success(slot->handle);
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_unload_texture(zt_int texture_handle) {
+    zt_borealis_raylib_texture_slot *slot = zt_borealis_raylib_find_texture(texture_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (zt_borealis_raylib.unload_texture != NULL) {
+        zt_borealis_raylib.unload_texture(slot->texture);
+    }
+    memset(slot, 0, sizeof(zt_borealis_raylib_texture_slot));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_int zt_borealis_raylib_texture_width(zt_int texture_handle) {
+    zt_borealis_raylib_texture_slot *slot = zt_borealis_raylib_find_texture(texture_handle);
+    return slot != NULL ? (zt_int)slot->texture.width : 0;
+}
+
+zt_int zt_borealis_raylib_texture_height(zt_int texture_handle) {
+    zt_borealis_raylib_texture_slot *slot = zt_borealis_raylib_find_texture(texture_handle);
+    return slot != NULL ? (zt_int)slot->texture.height : 0;
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_texture(
+        zt_int window_id,
+        zt_int texture_handle,
+        zt_float x,
+        zt_float y,
+        zt_int tint_r,
+        zt_int tint_g,
+        zt_int tint_b,
+        zt_int tint_a) {
+    zt_borealis_raylib_texture_slot *slot;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (zt_borealis_raylib.draw_texture == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawTexture is not available");
+    }
+    slot = zt_borealis_raylib_find_texture(texture_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib texture handle");
+    }
+
+    zt_borealis_raylib.draw_texture(
+        slot->texture,
+        (int)lround(x),
+        (int)lround(y),
+        zt_borealis_make_raylib_color(tint_r, tint_g, tint_b, tint_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_draw_texture_ex(
+        zt_int window_id,
+        zt_int texture_handle,
+        zt_float x,
+        zt_float y,
+        zt_float rotation,
+        zt_float scale,
+        zt_int tint_r,
+        zt_int tint_g,
+        zt_int tint_b,
+        zt_int tint_a) {
+    zt_borealis_raylib_texture_slot *slot;
+    zt_borealis_raylib_vector2 position;
+
+    if (zt_borealis_is_stub_window(window_id)) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (!zt_borealis_raylib.window_open || window_id != zt_borealis_raylib.window_id) {
+        return zt_outcome_void_core_error_failure_message("borealis: desktop window is not open");
+    }
+    if (zt_borealis_raylib.draw_texture_ex == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib DrawTextureEx is not available");
+    }
+    slot = zt_borealis_raylib_find_texture(texture_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib texture handle");
+    }
+
+    position.x = (float)x;
+    position.y = (float)y;
+    zt_borealis_raylib.draw_texture_ex(
+        slot->texture,
+        position,
+        (float)rotation,
+        (float)scale,
+        zt_borealis_make_raylib_color(tint_r, tint_g, tint_b, tint_a));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_init_audio_device(void) {
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.init_audio_device == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib audio support is not available");
+    }
+    zt_borealis_raylib.init_audio_device();
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_close_audio_device(void) {
+    if (zt_borealis_raylib.close_audio_device != NULL) {
+        zt_borealis_raylib.close_audio_device();
+    }
+    return zt_outcome_void_core_error_success();
+}
+
+zt_bool zt_borealis_raylib_is_audio_device_ready(void) {
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.is_audio_device_ready == NULL) {
+        return false;
+    }
+    return zt_borealis_raylib.is_audio_device_ready() ? true : false;
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_set_master_volume(zt_float volume) {
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.set_master_volume == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib audio support is not available");
+    }
+    zt_borealis_raylib.set_master_volume((float)volume);
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_i64_core_error zt_borealis_raylib_load_sound(const zt_text *path) {
+    const char *file_name;
+    zt_borealis_raylib_sound sound;
+    zt_borealis_raylib_sound_slot *slot;
+
+    if (!zt_borealis_raylib_try_load() || zt_borealis_raylib.load_sound == NULL) {
+        return zt_outcome_i64_core_error_failure_message("borealis: Raylib sound support is not available");
+    }
+
+    file_name = path != NULL ? zt_text_data(path) : "";
+    sound = zt_borealis_raylib.load_sound(file_name);
+    if (sound.frameCount == 0) {
+        return zt_outcome_i64_core_error_failure_message("borealis: failed to load Raylib sound");
+    }
+
+    slot = zt_borealis_raylib_alloc_sound();
+    if (slot == NULL) {
+        if (zt_borealis_raylib.unload_sound != NULL) {
+            zt_borealis_raylib.unload_sound(sound);
+        }
+        return zt_outcome_i64_core_error_failure_message("borealis: no free Raylib sound slots");
+    }
+
+    slot->sound = sound;
+    return zt_outcome_i64_core_error_success(slot->handle);
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_unload_sound(zt_int sound_handle) {
+    zt_borealis_raylib_sound_slot *slot = zt_borealis_raylib_find_sound(sound_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (zt_borealis_raylib.unload_sound != NULL) {
+        zt_borealis_raylib.unload_sound(slot->sound);
+    }
+    memset(slot, 0, sizeof(zt_borealis_raylib_sound_slot));
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_play_sound(zt_int sound_handle) {
+    zt_borealis_raylib_sound_slot *slot = zt_borealis_raylib_find_sound(sound_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib sound handle");
+    }
+    if (zt_borealis_raylib.play_sound == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib PlaySound is not available");
+    }
+    zt_borealis_raylib.play_sound(slot->sound);
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_stop_sound(zt_int sound_handle) {
+    zt_borealis_raylib_sound_slot *slot = zt_borealis_raylib_find_sound(sound_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_success();
+    }
+    if (zt_borealis_raylib.stop_sound != NULL) {
+        zt_borealis_raylib.stop_sound(slot->sound);
+    }
+    return zt_outcome_void_core_error_success();
+}
+
+zt_outcome_void_core_error zt_borealis_raylib_set_sound_volume(zt_int sound_handle, zt_float volume) {
+    zt_borealis_raylib_sound_slot *slot = zt_borealis_raylib_find_sound(sound_handle);
+    if (slot == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: unknown Raylib sound handle");
+    }
+    if (zt_borealis_raylib.set_sound_volume == NULL) {
+        return zt_outcome_void_core_error_failure_message("borealis: Raylib SetSoundVolume is not available");
+    }
+    zt_borealis_raylib.set_sound_volume(slot->sound, (float)volume);
+    return zt_outcome_void_core_error_success();
+}
+
+zt_float zt_borealis_raylib_vector2_length(zt_float x, zt_float y) {
+    return sqrt((x * x) + (y * y));
+}
+
+zt_float zt_borealis_raylib_vector2_distance(zt_float ax, zt_float ay, zt_float bx, zt_float by) {
+    zt_float dx = bx - ax;
+    zt_float dy = by - ay;
+    return sqrt((dx * dx) + (dy * dy));
+}
+
+zt_float zt_borealis_raylib_lerp(zt_float start, zt_float finish, zt_float amount) {
+    return start + ((finish - start) * amount);
+}
+
+zt_float zt_borealis_raylib_ease_linear(zt_float t, zt_float b, zt_float c, zt_float d) {
+    if (d == 0.0) return b + c;
+    return (c * t / d) + b;
+}
+
+zt_float zt_borealis_raylib_ease_sine_in(zt_float t, zt_float b, zt_float c, zt_float d) {
+    const zt_float half_pi = 1.57079632679489661923;
+    if (d == 0.0) return b + c;
+    return (-c * cos(t / d * half_pi)) + c + b;
+}
+
+zt_float zt_borealis_raylib_ease_sine_out(zt_float t, zt_float b, zt_float c, zt_float d) {
+    const zt_float half_pi = 1.57079632679489661923;
+    if (d == 0.0) return b + c;
+    return (c * sin(t / d * half_pi)) + b;
+}
+
+zt_float zt_borealis_raylib_ease_sine_in_out(zt_float t, zt_float b, zt_float c, zt_float d) {
+    const zt_float pi = 3.14159265358979323846;
+    if (d == 0.0) return b + c;
+    return (-c / 2.0 * (cos(pi * t / d) - 1.0)) + b;
+}
+
+zt_float zt_borealis_raylib_ease_quad_in(zt_float t, zt_float b, zt_float c, zt_float d) {
+    if (d == 0.0) return b + c;
+    t = t / d;
+    return (c * t * t) + b;
+}
+
+zt_float zt_borealis_raylib_ease_quad_out(zt_float t, zt_float b, zt_float c, zt_float d) {
+    if (d == 0.0) return b + c;
+    t = t / d;
+    return (-c * t * (t - 2.0)) + b;
+}
+
+zt_float zt_borealis_raylib_ease_quad_in_out(zt_float t, zt_float b, zt_float c, zt_float d) {
+    if (d == 0.0) return b + c;
+    t = t / (d / 2.0);
+    if (t < 1.0) {
+        return (c / 2.0 * t * t) + b;
+    }
+    t = t - 1.0;
+    return (-c / 2.0 * ((t * (t - 2.0)) - 1.0)) + b;
 }
 
 static const zt_borealis_desktop_api zt_borealis_raylib_desktop_api = {
@@ -8583,6 +9460,152 @@ ZT_DEFINE_BTREESET_IMPL(text, zt_text *, ZT_HEAP_BTREESET_TEXT, 1, "text", strcm
 
 ZT_DEFINE_GRID3D_IMPL(i64, zt_int, ZT_HEAP_GRID3D_I64, 0, "int", 0)
 ZT_DEFINE_GRID3D_IMPL(text, zt_text *, ZT_HEAP_GRID3D_TEXT, 1, "text", zt_text_from_utf8_literal(""))
+
+/* R3.M4: Generic dyn dispatch runtime implementation */
+
+zt_dyn_value *zt_dyn_box(void *data, zt_vtable *vtable) {
+    zt_dyn_value *dyn;
+    if (data == NULL || vtable == NULL) {
+        return NULL;
+    }
+    dyn = (zt_dyn_value *)malloc(sizeof(zt_dyn_value));
+    if (dyn == NULL) {
+        zt_runtime_error(ZT_ERR_MEMORY, "failed to allocate dyn box");
+    }
+    dyn->header.rc = 1;
+    dyn->header.kind = ZT_HEAP_DYN_VALUE;
+    dyn->data = data;
+    dyn->vtable = vtable;
+    /* Vtables are static const - no ref counting needed */
+    return dyn;
+}
+
+void *zt_dyn_unbox(const zt_dyn_value *dyn) {
+    if (dyn == NULL) {
+        return NULL;
+    }
+    return dyn->data;
+}
+
+zt_vtable *zt_dyn_get_vtable(const zt_dyn_value *dyn) {
+    if (dyn == NULL) {
+        return NULL;
+    }
+    return dyn->vtable;
+}
+
+void zt_dyn_drop(zt_dyn_value *dyn) {
+    if (dyn == NULL) {
+        return;
+    }
+    if (dyn->header.rc > 0) {
+        dyn->header.rc -= 1;
+    }
+    if (dyn->header.rc == 0) {
+        if (dyn->vtable != NULL && dyn->vtable->drop != NULL) {
+            dyn->vtable->drop(dyn->data);
+        }
+        if (dyn->vtable != NULL) {
+            zt_release((void *)dyn->vtable);
+        }
+        free(dyn);
+    }
+}
+
+zt_dyn_value *zt_dyn_clone(const zt_dyn_value *dyn) {
+    zt_dyn_value *clone;
+    void *cloned_data;
+    if (dyn == NULL) {
+        return NULL;
+    }
+    zt_retain((void *)dyn);
+    if (dyn->vtable == NULL || dyn->vtable->clone_out == NULL) {
+        return (zt_dyn_value *)dyn;
+    }
+    clone = (zt_dyn_value *)malloc(sizeof(zt_dyn_value));
+    if (clone == NULL) {
+        zt_runtime_error(ZT_ERR_MEMORY, "failed to allocate dyn clone");
+    }
+    cloned_data = malloc(dyn->vtable->method_count > 0 ? 256 : 64);
+    if (cloned_data == NULL) {
+        zt_runtime_error(ZT_ERR_MEMORY, "failed to allocate cloned data");
+    }
+    dyn->vtable->clone_out(cloned_data, dyn->data);
+    clone->header.rc = 1;
+    clone->header.kind = ZT_HEAP_DYN_VALUE;
+    clone->data = cloned_data;
+    clone->vtable = dyn->vtable;
+    zt_retain((void *)dyn->vtable);
+    return clone;
+}
+
+/* Generic dyn list implementation */
+zt_list_dyn *zt_list_dyn_create(void) {
+    zt_list_dyn *list;
+    list = (zt_list_dyn *)malloc(sizeof(zt_list_dyn));
+    if (list == NULL) {
+        zt_runtime_error(ZT_ERR_MEMORY, "failed to allocate dyn list");
+    }
+    list->header.rc = 1;
+    list->header.kind = ZT_HEAP_LIST_DYN;
+    list->len = 0;
+    list->capacity = 8;
+    list->data = (zt_dyn_value **)malloc(sizeof(zt_dyn_value *) * list->capacity);
+    if (list->data == NULL) {
+        zt_runtime_error(ZT_ERR_MEMORY, "failed to allocate dyn list data");
+    }
+    return list;
+}
+
+void zt_list_dyn_append(zt_list_dyn *list, zt_dyn_value *value) {
+    if (list == NULL || value == NULL) {
+        return;
+    }
+    if (list->len >= list->capacity) {
+        size_t new_capacity = list->capacity * 2;
+        zt_dyn_value **new_data = (zt_dyn_value **)realloc(list->data, sizeof(zt_dyn_value *) * new_capacity);
+        if (new_data == NULL) {
+            zt_runtime_error(ZT_ERR_MEMORY, "failed to resize dyn list");
+        }
+        list->data = new_data;
+        list->capacity = new_capacity;
+    }
+    list->data[list->len] = value;
+    list->len += 1;
+    zt_retain((void *)value);
+}
+
+zt_dyn_value *zt_list_dyn_get(const zt_list_dyn *list, zt_int index) {
+    zt_int idx;
+    if (list == NULL) {
+        return NULL;
+    }
+    idx = index;
+    if (idx < 0) {
+        idx = (zt_int)list->len + idx;
+    }
+    if (idx < 0 || idx >= (zt_int)list->len) {
+        zt_runtime_error(ZT_ERR_BOUNDS, "dyn list index out of bounds");
+    }
+    return list->data[idx];
+}
+
+void zt_list_dyn_free(zt_list_dyn *list) {
+    size_t i;
+    if (list == NULL) {
+        return;
+    }
+    if (list->header.rc > 0) {
+        list->header.rc -= 1;
+    }
+    if (list->header.rc == 0) {
+        for (i = 0; i < list->len; i += 1) {
+            zt_dyn_drop(list->data[i]);
+        }
+        free(list->data);
+        free(list);
+    }
+}
 
 
 

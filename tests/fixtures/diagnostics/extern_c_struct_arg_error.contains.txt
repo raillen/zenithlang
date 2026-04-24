@@ -1,0 +1,3 @@
+tests/behavior/extern_c_struct_arg_error/src/app/main.zt
+type mismatch
+expected text but got Snapshot

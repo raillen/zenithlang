@@ -1,0 +1,271 @@
+namespace preview_runner
+
+import std.fs as fs
+import std.io as io
+import std.text as text
+
+func main() -> result<void, core.Error>
+    io.write("{\"protocol\":1,\"seq\":0,\"channel\":\"event\",\"kind\":\"status\",\"payload\":{\"status\":\"starting\"}}\n")?
+
+    var running: bool = true
+    var next_seq: int = 1
+
+    while running
+        const line_opt: optional<text> = io.read_line()?
+
+        match line_opt
+            case none ->
+                running = false
+            case value line ->
+                const trimmed: text = text.trim(line)
+
+                if text.is_empty(trimmed)
+                    continue
+                end
+
+                if text.contains(trimmed, "\"kind\":\"hello\"")
+                    next_seq = respond_hello(next_seq)?
+                else if text.contains(trimmed, "\"kind\":\"enter_play_mode\"")
+                    next_seq = respond_play_mode(next_seq)?
+                else if text.contains(trimmed, "\"kind\":\"stop_play_mode\"")
+                    next_seq = respond_stop_play_mode(next_seq)?
+                else if text.contains(trimmed, "\"kind\":\"ping\"")
+                    next_seq = respond_pong(next_seq, trimmed)?
+                else if text.contains(trimmed, "\"kind\":\"open_scene\"")
+                    next_seq = respond_open_scene(next_seq, trimmed)?
+                else if text.contains(trimmed, "\"kind\":\"open_project\"")
+                    next_seq = respond_open_project(next_seq)?
+                else if text.contains(trimmed, "\"kind\":\"select_entity\"")
+                    next_seq = next_seq + 1
+                else if text.contains(trimmed, "\"kind\":\"focus_entity\"")
+                    next_seq = next_seq + 1
+                end
+        end
+    end
+
+    return success()
+end
+
+func respond_hello(seq: int) -> result<int, core.Error>
+    var s: int = seq
+
+    const hello_resp: text = build_envelope(s, "event", "hello", "{\"role\":\"preview\",\"project_path\":\"\"}")
+    io.write(hello_resp)?
+    s = s + 1
+
+    const status_resp: text = build_envelope(s, "event", "status", "{\"status\":\"ready\"}")
+    io.write(status_resp)?
+    s = s + 1
+
+    return success(s)
+end
+
+func respond_play_mode(seq: int) -> result<int, core.Error>
+    const status_resp: text = build_envelope(seq, "event", "status", "{\"status\":\"playing\"}")
+    io.write(status_resp)?
+    return success(seq + 1)
+end
+
+func respond_stop_play_mode(seq: int) -> result<int, core.Error>
+    const status_resp: text = build_envelope(seq, "event", "status", "{\"status\":\"stopped\"}")
+    io.write(status_resp)?
+    return success(seq + 1)
+end
+
+func respond_pong(seq: int, line: text) -> result<int, core.Error>
+    const token: text = extract_ping_token(line)
+    const pong_payload: text = text.join(["{\"token\":\"", token, "\"}"])
+    const pong_resp: text = build_envelope(seq, "heartbeat", "pong", pong_payload)
+    io.write(pong_resp)?
+    return success(seq + 1)
+end
+
+func respond_open_scene(seq: int, line: text) -> result<int, core.Error>
+    var s: int = seq
+
+    const loading: text = build_envelope(s, "event", "status", "{\"status\":\"loading\"}")
+    io.write(loading)?
+    s = s + 1
+
+    const scene_path: text = extract_payload_path(line)
+    const scene_load: SceneLoadInfo = load_scene_info(scene_path)
+    const diagnostic_payload: text = text.join([
+        "{\"level\":\"info\",\"message\":\"open_scene path=",
+        scene_load.path,
+        " entities=",
+        int_to_text(scene_load.entity_count),
+        " loaded=",
+        bool_to_text(scene_load.loaded),
+        "\"}"
+    ])
+    const diagnostic: text = build_envelope(s, "event", "diagnostic", diagnostic_payload)
+    io.write(diagnostic)?
+    s = s + 1
+
+    const ready: text = build_envelope(s, "event", "status", "{\"status\":\"ready\"}")
+    io.write(ready)?
+    s = s + 1
+
+    return success(s)
+end
+
+struct SceneLoadInfo
+    path: text
+    entity_count: int
+    loaded: bool
+end
+
+func load_scene_info(scene_path: text) -> SceneLoadInfo
+    if text.is_empty(scene_path)
+        return SceneLoadInfo(path: "", entity_count: 0, loaded: false)
+    end
+
+    match fs.read_text(scene_path)
+        case success(content) ->
+            return SceneLoadInfo(path: scene_path, entity_count: count_occurrences(content, "\"stable_id\""), loaded: true)
+        case error(read_error) ->
+            const package_path: text = text.join(["packages/borealis/", scene_path])
+            match fs.read_text(package_path)
+                case success(content2) ->
+                    return SceneLoadInfo(path: package_path, entity_count: count_occurrences(content2, "\"stable_id\""), loaded: true)
+                case error(package_read_error) ->
+                    return SceneLoadInfo(path: scene_path, entity_count: 0, loaded: false)
+            end
+    end
+end
+
+func respond_open_project(seq: int) -> result<int, core.Error>
+    var s: int = seq
+
+    const loading: text = build_envelope(s, "event", "status", "{\"status\":\"loading\"}")
+    io.write(loading)?
+    s = s + 1
+
+    const ready: text = build_envelope(s, "event", "status", "{\"status\":\"ready\"}")
+    io.write(ready)?
+    s = s + 1
+
+    return success(s)
+end
+
+func build_envelope(seq: int, channel: text, kind: text, payload: text) -> text
+    return text.join(["{\"protocol\":1,\"seq\":", int_to_text(seq), ",\"channel\":\"", channel, "\",\"kind\":\"", kind, "\",\"payload\":", payload, "}\n"])
+end
+
+func extract_ping_token(line: text) -> text
+    const key: text = "\"token\":\""
+    const start_idx: int = text.index_of(line, key)
+    if start_idx < 0
+        return ""
+    end
+
+    const value_start: int = start_idx + len(key)
+    var end_idx: int = value_start
+    while end_idx < len(line)
+        if line[end_idx] == "\""
+            break
+        end
+        end_idx = end_idx + 1
+    end
+
+    if value_start >= len(line)
+        return ""
+    end
+    if end_idx > len(line)
+        end_idx = len(line)
+    end
+
+    return text._slice_from(text._slice_to(line, end_idx - 1), value_start)
+end
+
+func extract_payload_path(line: text) -> text
+    const key: text = "\"path\":\""
+    const start_idx: int = text.index_of(line, key)
+    if start_idx < 0
+        return ""
+    end
+
+    const value_start: int = start_idx + len(key)
+    var end_idx: int = value_start
+    while end_idx < len(line)
+        if line[end_idx] == "\""
+            break
+        end
+        end_idx = end_idx + 1
+    end
+
+    if value_start >= len(line)
+        return ""
+    end
+    if end_idx > len(line)
+        end_idx = len(line)
+    end
+
+    return text._slice_from(text._slice_to(line, end_idx - 1), value_start)
+end
+
+func count_occurrences(value: text, needle: text) -> int
+    if text.is_empty(needle)
+        return 0
+    end
+
+    var count: int = 0
+    var index: int = 0
+    while index < len(value)
+        const rest: text = text._slice_from(value, index)
+        const found: int = text.index_of(rest, needle)
+        if found < 0
+            break
+        end
+
+        count = count + 1
+        index = index + found + len(needle)
+    end
+
+    return count
+end
+
+func bool_to_text(value: bool) -> text
+    if value
+        return "true"
+    end
+
+    return "false"
+end
+
+func int_to_text(value: int) -> text
+    if value == 0
+        return "0"
+    end
+
+    var v: int = value
+    var out: text = ""
+
+    while v > 0
+        const digit: int = v % 10
+        if digit == 0
+            out = text.join(["0", out])
+        else if digit == 1
+            out = text.join(["1", out])
+        else if digit == 2
+            out = text.join(["2", out])
+        else if digit == 3
+            out = text.join(["3", out])
+        else if digit == 4
+            out = text.join(["4", out])
+        else if digit == 5
+            out = text.join(["5", out])
+        else if digit == 6
+            out = text.join(["6", out])
+        else if digit == 7
+            out = text.join(["7", out])
+        else if digit == 8
+            out = text.join(["8", out])
+        else if digit == 9
+            out = text.join(["9", out])
+        end
+        v = v / 10
+    end
+
+    return out
+end

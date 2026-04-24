@@ -15,9 +15,42 @@ func main() -> int
     const found: optional<model.Profile> = model.find_profile(1)
     const copied: optional<model.Profile> = found
     const missing: optional<model.Profile> = model.find_profile(99)
+    const direct: model.Profile = model.make_profile()
+    const wrapped_direct: optional<model.Profile> = direct
+    const returned_optional: optional<model.Profile> = model.return_optional_profile()
+    var assigned: optional<model.Profile> = none
+    var slot: model.Slot = model.empty_slot()
+    const built_slot: model.Slot = model.Slot(profile: model.make_profile())
+
+    assigned = model.make_profile()
+    slot.profile = model.make_profile()
 
     if is_missing(missing) == false
         return 1
+    end
+
+    if model.unwrap_name(wrapped_direct) != "Lina"
+        return 10
+    end
+
+    if model.unwrap_name(assigned) != "Lina"
+        return 11
+    end
+
+    if model.unwrap_name(returned_optional) != "Lina"
+        return 12
+    end
+
+    if model.unwrap_name(model.make_profile()) != "Lina"
+        return 13
+    end
+
+    if model.slot_name(slot) != "Lina"
+        return 14
+    end
+
+    if model.slot_name(built_slot) != "Lina"
+        return 15
     end
 
     var left: model.Profile = model.empty_profile()
@@ -61,6 +94,10 @@ func main() -> int
 
     if right.name != "Lina"
         return 9
+    end
+
+    if direct.tags[0] != "wind"
+        return 16
     end
 
     return 0

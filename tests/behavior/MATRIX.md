@@ -40,8 +40,11 @@ Legend:
 | `text_slice_len` | `text` slice and `len(text)` | `8` |
 | `text_utf8_index_slice` | `text` index/slice por code point com UTF-8 multi-byte | `21` |
 | `std_text_basic` | `std.text` alpha-safe (`trim`, busca, predicados, `limit`, `to_utf8`) | `0` |
+| `std_concurrent_boundary_copy_basic` | `std.concurrent` transfer helpers (`copy_int`, `copy_text`, `copy_bytes`, `copy_list_int`, `copy_list_text`, `copy_map_text_text`) | `0` |
 | `map_basic` | `map<text,text>` literal, index and update | `0` |
+| `map_empty_expected_type` | Empty map literal `{}` with expected `map<int,bool>` in init and function call | `0` |
 | `map_int_text_basic` | `map<int,text>` literal, index, update and `len(map)` | `7` |
+| `map_struct_expected_type` | Empty map literal `{}` with expected `map<int,Flag>` and generated `optional<Flag>` helper | `0` |
 | `map_safe_get` | Safe lookup `map.get(key) -> optional<text>` sem panic em chave ausente | `15` |
 | `list_safe_get` | Safe lookup `list.get(index) -> optional<int>` sem panic em indice ausente | `27` |
 | `map_len_basic` | `len(map<text,text>)` | `2` |
@@ -49,7 +52,7 @@ Legend:
 | `value_semantics_struct_managed` | Copy/mutate isolation para struct com campos `list/map` via rebind COW | `131` |
 | `value_semantics_arc_isolation` | Chain-copy isolation (`a -> b -> c`) for `list` and `map` under COW/RC | `158` |
 | `value_semantics_optional_result_managed` | `optional<list<int>>` creation/copy and `result<list<int>, text>` `?` with COW-safe list mutation | `0` |
-| `optional_struct_qualified_managed` | `optional<mod.Struct>` com `struct` qualificada, retorno direto de payload e isolamento de campo gerenciado em `list<text>` | `0` |
+| `optional_struct_qualified_managed` | `optional<mod.Struct>` com `struct` qualificada, retorno direto, atribuicao/call-site implicitos, campo opcional em outra `struct` e isolamento de `list<text>` | `0` |
 | `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
 | `std_collections_queue_stack_cow` | `queue/stack` com retorno estruturado (`colecao + item`) e isolamento por copia em `dequeue/pop` | `0` |
 | `optional_result_basic` | 
@@ -87,7 +90,11 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `public_var_module` | Top-level `public var` imported via alias (`module.VAR`) | `42` |
 | `public_var_module_state` | `public var` shares state across functions in the owning module | `4` |
 | `borealis_backend_fallback_stub` | Borealis desktop-profile request (`backend_id=1`) with safe fallback to stub when adapter is unavailable; covers window + draw + input queries | `0` |
+| `borealis_raylib_binding_stub` | `borealis.raylib` binding smoke in stub-safe mode: shapes, text, input, `measure_text`, `raymath` helpers, easing functions, `require_available()`, clear empty-path errors for texture/sound and stub-safe texture draw fallback | `0` |
+| `borealis_raylib_assets_real` | `borealis.raylib` real-assets probe: conditional native `.png`/`.wav` loading, texture metadata, texture draw, audio init and `load/play/stop/unload` when Raylib is available | `0` |
+| `borealis_foundations_stub` | Borealis foundations smoke: typed asset loaders, asset metadata/stable ids, typed events, save, storage, services, database, UI/HUD widgets, editor metadata and persistent settings coverage, including empty-string persistence semantics, settings profiles and clear key-kind conflicts | `0` |
 | `borealis_ecs_hybrid_stub` | Borealis ECS hybrid (stub run-pass): component store API em `borealis.engine.ecs` | `0` |
+| `borealis_runtime_gameplay_stub` | Borealis runtime/gameplay smoke: contracts, entities, movement, controllers, vehicles, animation, audio, ai, camera, input, world and procedural working together | `0` |
 | `where_contracts_ok` | Runtime `where` contracts on parameter, struct construction and field assignment | `40` |
 
 ## Invalid Projects
@@ -104,6 +111,7 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `multifile_import_cycle` | Import cycle rejection |
 | `multifile_private_access` | Access to non-public symbol via import alias is rejected |
 | `public_var_cross_namespace_write_error` | Cross-namespace mutation of `public var` via import alias is rejected |
+| `std_concurrent_boundary_copy_unsupported_error` | `std.concurrent.copy_text(...)` rejects values outside the accepted payload type |
 | `std_random_cross_namespace_write_error` | Cross-namespace mutation of `std.random` `public var` via import alias is rejected |
 | `project_unknown_key_manifest` | Manifest unknown key diagnostic (`project.*`) |
 | `fmt_interpolation_type_error` | `fmt` rejeita tipo sem `TextRepresentable<T>` |
