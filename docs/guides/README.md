@@ -8,6 +8,7 @@ Agrupar guias de estudo e material pratico de apoio.
 
 - Guias teoricos.
 - Guias operacionais para contribuicao.
+- Guias de uso das ferramentas oficiais.
 
 ## Dependencias
 
@@ -20,5 +21,6 @@ Agrupar guias de estudo e material pratico de apoio.
 
 ## Documentos
 
+- `editor-vscode.md`: uso local do Compass LSP e da extensao VSCode beta.
 - `practical-and-theoretical-guide.md`
 - `raw/` (historico integral sem normalizacao editorial)

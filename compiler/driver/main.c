@@ -1275,7 +1275,7 @@ cleanup:
 }
 
 
-static int zt_handle_doc_check(zt_driver_context *ctx, const char *input_path) {
+int zt_handle_doc_check(zt_driver_context *ctx, const char *input_path) {
     zt_project_manifest manifest;
     char project_root[512];
     zt_project_source_file_list source_files;
@@ -1504,7 +1504,7 @@ static int zt_handle_project_info(zt_driver_context *ctx, const char *input_path
     return 0;
 }
 
-static int zt_handle_project_command(
+int zt_handle_project_command(
         zt_driver_context *ctx,
         const char *command,
         const char *input_path,
@@ -3000,6 +3000,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+ 
     if (strcmp(command, "create") == 0) {
         const char *target = NULL;
         int create_lib = 0;

@@ -1,0 +1,94 @@
+--- @target: namespace
+# std.validate - Validation Predicates
+
+Small pure bool helpers for `where` and regular conditions.
+No IO, no parsing, no transforms.
+---
+
+--- @target: between
+```zt
+public func between(value: int, min: int, max: int) -> bool
+```
+
+Inclusive range check.
+---
+
+--- @target: positive
+```zt
+public func positive(value: int) -> bool
+```
+
+`true` when value is `> 0`.
+---
+
+--- @target: non_negative
+```zt
+public func non_negative(value: int) -> bool
+```
+
+`true` when value is `>= 0`.
+---
+
+--- @target: negative
+```zt
+public func negative(value: int) -> bool
+```
+
+`true` when value is `< 0`.
+---
+
+--- @target: non_zero
+```zt
+public func non_zero(value: int) -> bool
+```
+
+`true` when value is not zero.
+---
+
+--- @target: one_of
+```zt
+public func one_of(value: int, candidates: list<int>) -> bool
+```
+
+`true` when `value` is inside `candidates`.
+---
+
+--- @target: one_of_text
+```zt
+public func one_of_text(value: text, candidates: list<text>) -> bool
+```
+
+`true` when text value is inside `candidates`.
+---
+
+--- @target: not_empty
+```zt
+public func not_empty(value: text) -> bool
+```
+
+`true` when text length is `> 0`.
+---
+
+--- @target: min_length
+```zt
+public func min_length(value: text, min: int) -> bool
+```
+
+`true` when `len(value) >= min`.
+---
+
+--- @target: max_length
+```zt
+public func max_length(value: text, max: int) -> bool
+```
+
+`true` when `len(value) <= max`.
+---
+
+--- @target: length_between
+```zt
+public func length_between(value: text, min: int, max: int) -> bool
+```
+
+`true` when text length is in `[min, max]`.
+---

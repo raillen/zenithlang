@@ -1,0 +1,52 @@
+{
+  "name": "zenith-vscode",
+  "displayName": "Zenith Language Beta",
+  "description": "Compass LSP beta for Zenith files.",
+  "version": "0.1.0",
+  "publisher": "zenith-lang",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "activationEvents": [
+    "onLanguage:zenith"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "zenith",
+        "aliases": ["Zenith", "zenith"],
+        "extensions": [".zt"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "zenith",
+        "scopeName": "source.zenith",
+        "path": "./syntaxes/zenith.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      { "command": "zenith.check", "title": "Zenith: Check Project" },
+      { "command": "zenith.build", "title": "Zenith: Build Project" },
+      { "command": "zenith.run", "title": "Zenith: Run Project" }
+    ],
+    "configuration": {
+      "title": "Zenith",
+      "properties": {
+        "zenith.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to zt-lsp. Empty means use the repository binary or PATH."
+        },
+        "zenith.cli.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to zt CLI. Empty means use the repository binary or PATH."
+        }
+      }
+    }
+  }
+}

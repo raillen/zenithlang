@@ -128,12 +128,28 @@ Objetivo:
 
 - fluxo de edicao pronto para uso diario.
 
+Status em 2026-04-25:
+
+- beta local implementada;
+- smoke LSP automatizado;
+- extensao VSCode local criada em `tools/vscode-zenith`;
+- validacao manual no VSCode executada durante uso real;
+- autocomplete de membro ajustado para nao misturar globais depois de `.`;
+- autocomplete contextual cobre variaveis locais, parametros, `list<T>.get`, `map<K,V>.get`, `core.Error` e campos de structs do arquivo aberto.
+- autocomplete de `import ...` sugere `std.*` e namespaces de módulos `.zt` indexados no workspace.
+- indice de workspace sincroniza arquivos `.zt` e habilita autocomplete/definition cross-file para simbolos top-level.
+- indice agora considera `namespace`, `import ... as ...` e `public` em sugestoes e definition cross-file.
+
 Entregas:
 
 - diagnostics em tempo real;
 - hover de simbolos;
 - go-to-definition;
 - format-on-save com `zt fmt`;
+- autocomplete contextual global, local e de membro;
+- autocomplete de caminhos de import;
+- indice de workspace para simbolos top-level cross-file;
+- regras de import/namespace/public no indice do LSP;
 - comando rapido `check/build/run` no editor.
 
 ## R4.M2 - ZPM MVP

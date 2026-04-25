@@ -11,6 +11,7 @@ Centralizar planejamento por ciclo, com relacao explicita entre roadmap, checkli
 - Planejamento de ciclo 3.0 (v3).
 - Planejamento de ciclo 4.0 (v4).
 - Roadmap complementar de estabilizacao.
+- Planejamento Borealis como package e como engine/editor completo.
 
 ## Dependencias
 
@@ -37,3 +38,6 @@ Centralizar planejamento por ciclo, com relacao explicita entre roadmap, checkli
 - `roadmap-v4.md`
 - `checklist-v4.md`
 - `stabilization-roadmap.md`
+- `borealis-roadmap-v1.md`
+- `borealis-checklist-v1.md`
+- `borealis-engine-roadmap-v2.md`

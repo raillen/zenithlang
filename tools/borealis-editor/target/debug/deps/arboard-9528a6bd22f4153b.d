@@ -1,0 +1,8 @@
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\arboard-9528a6bd22f4153b.d: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\common.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\mod.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\windows.rs
+
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\libarboard-9528a6bd22f4153b.rmeta: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\common.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\mod.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\windows.rs
+
+C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\lib.rs:
+C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\common.rs:
+C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\mod.rs:
+C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arboard-3.6.1\src\platform\windows.rs:

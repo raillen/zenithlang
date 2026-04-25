@@ -1,11 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Canvas } from "@react-three/fiber";
-import { Grid, OrbitControls, PerspectiveCamera, TransformControls } from "@react-three/drei";
-import { MOUSE } from "three";
+import { Canvas, useThree } from "@react-three/fiber";
+import {
+  Environment,
+  GizmoHelper,
+  GizmoViewport,
+  Grid,
+  OrbitControls,
+  OrthographicCamera,
+  PerspectiveCamera,
+  TransformControls,
+} from "@react-three/drei";
+import { MOUSE, Vector3 } from "three";
 import {
   Activity,
   Archive,
   BadgeAlert,
+  BookOpen,
   Box,
   Braces,
   Check,
@@ -16,9 +26,13 @@ import {
   Component,
   Cuboid,
   Database,
+  FilePlus2,
   FileCode2,
+  FolderOpen,
   FolderTree,
+  Home,
   Layers3,
+  LayoutTemplate,
   Maximize2,
   MousePointer2,
   Move3D,
@@ -37,15 +51,44 @@ import {
 } from "lucide-react";
 import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
-import { isTauriRuntime, loadStudioSnapshot, writeScriptDocument } from "./backend";
-import { createMockSnapshot } from "./mockData";
+import {
+  createBorealisProject,
+  isTauriRuntime,
+  loadStudioHome,
+  loadStudioSnapshot,
+  pauseRuntimePreview,
+  pollRuntimePreview,
+  startRuntimePreview,
+  stopRuntimePreview,
+  writeSceneDocument,
+  writeScriptDocument,
+} from "./backend";
+import {
+  BOREALIS_COMPONENTS,
+  componentSchema,
+  componentSummary,
+  componentValue,
+  setComponentValue,
+  type ComponentFieldSchema,
+} from "./borealisCatalog";
+import { createMockHome, createMockSnapshot } from "./mockData";
 import type {
   AssetKind,
   BottomTab,
   ConsoleLine,
+  DocumentationLink,
+  NewProjectRequest,
+  PreviewCommandResult,
+  PreviewEvent,
+  PreviewStatus,
+  ProjectTemplateId,
+  ProjectTemplate,
   ProjectAsset,
+  SceneComponent,
+  SceneDocument,
   SceneEntity,
   ScriptDocument,
+  StudioHome,
   StudioMode,
   StudioSnapshot,
   Transform3D,
@@ -90,9 +133,40 @@ interface ViewportPanState {
 }
 
 type ViewMode = "2d" | "3d";
+type ViewProjection = "perspective" | "orthographic" | "isometric";
+type ViewOrientation = "free" | "top" | "bottom" | "left" | "right" | "front" | "back";
+type RenderMode = "wireframe" | "color" | "texture" | "light";
+type ShortcutTemplate = "blender" | "3dsmax" | "maya";
+type ThemeMode = "codex" | "xcode" | "unity-dark";
+type SnapMode = "grid" | "object" | "grid-object";
+type SnapSettings = {
+  gridSize: number;
+  snapToGrid: boolean;
+  snapToObject: boolean;
+};
+type StudioPreferences = {
+  gizmoSize: number;
+  ptzSpeed: number;
+  shortcutTemplate: ShortcutTemplate;
+  snapMode: SnapMode;
+  theme: ThemeMode;
+};
+
+const VIEW_ORIENTATIONS: Array<{ id: ViewOrientation; label: string; shortcut: string }> = [
+  { id: "top", label: "Top", shortcut: "T" },
+  { id: "bottom", label: "Bottom", shortcut: "B" },
+  { id: "left", label: "Left", shortcut: "L" },
+  { id: "right", label: "Right", shortcut: "R" },
+  { id: "front", label: "Front", shortcut: "F" },
+  { id: "back", label: "Back", shortcut: "K" },
+];
 
 export function BorealisStudioApp() {
   const [snapshot, setSnapshot] = useState<StudioSnapshot>(() => createMockSnapshot());
+  const [home, setHome] = useState<StudioHome>(() => createMockHome());
+  const [homeVisible, setHomeVisible] = useState(true);
+  const [homeBusy, setHomeBusy] = useState(false);
+  const [homeError, setHomeError] = useState<string | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("loading");
   const [selectedEntityId, setSelectedEntityId] = useState("player");
   const [selectedScriptPath, setSelectedScriptPath] = useState("src/app/player_controller.zt");
@@ -100,6 +174,18 @@ export function BorealisStudioApp() {
   const [bottomTab, setBottomTab] = useState<BottomTab>("assets");
   const [mode, setMode] = useState<StudioMode>("move");
   const [scriptEditorOpen, setScriptEditorOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sceneDirty, setSceneDirty] = useState(false);
+  const [savingScene, setSavingScene] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [preferences, setPreferences] = useState<StudioPreferences>({
+    gizmoSize: 0.75,
+    ptzSpeed: 1,
+    shortcutTemplate: "blender",
+    snapMode: "grid-object",
+    theme: "codex",
+  });
   const [layout, setLayout] = useState<LayoutState>({
     left: 280,
     right: 292,
@@ -110,20 +196,16 @@ export function BorealisStudioApp() {
 
   useEffect(() => {
     let cancelled = false;
-    loadStudioSnapshot()
-      .then((loaded) => {
+    loadStudioHome()
+      .then((loadedHome) => {
         if (cancelled) return;
-        setSnapshot(loaded);
+        setHome(loadedHome);
         setBridgeStatus("tauri");
-        const firstEntity = loaded.scene.entities[0];
-        if (firstEntity) {
-          setSelectedEntityId(firstEntity.id);
-          setSelectedScriptPath(entityScript(firstEntity) ?? loaded.scripts[0]?.path ?? "");
-        }
       })
       .catch(() => {
         if (cancelled) return;
         setBridgeStatus(isTauriRuntime() ? "error" : "browser");
+        setHome(createMockHome());
       });
 
     return () => {
@@ -144,15 +226,13 @@ export function BorealisStudioApp() {
       }
 
       const key = event.key.toLowerCase();
-      if (key === "q") setMode("select");
-      if (key === "g") setMode("move");
-      if (key === "r") setMode("rotate");
-      if (key === "s") setMode("scale");
+      const shortcutMode = modeForShortcut(preferences.shortcutTemplate, key);
+      if (shortcutMode) setMode(shortcutMode);
     }
 
     window.addEventListener("keydown", handleToolShortcut);
     return () => window.removeEventListener("keydown", handleToolShortcut);
-  }, []);
+  }, [preferences.shortcutTemplate]);
 
   const selectedEntity = useMemo(
     () => snapshot.scene.entities.find((entity) => entity.id === selectedEntityId) ?? null,
@@ -178,6 +258,115 @@ export function BorealisStudioApp() {
     }));
   }
 
+  function applySnapshot(loaded: StudioSnapshot) {
+    setSnapshot(loaded);
+    setSceneDirty(false);
+    setPreviewStatus("idle");
+    setHomeVisible(false);
+    setHomeError(null);
+
+    const firstEntity = loaded.scene.entities[0];
+    if (firstEntity) {
+      setSelectedEntityId(firstEntity.id);
+      setSelectedScriptPath(entityScript(firstEntity) ?? loaded.scripts[0]?.path ?? "");
+    } else {
+      setSelectedEntityId("");
+      setSelectedScriptPath(loaded.scripts[0]?.path ?? "");
+    }
+  }
+
+  function useMockProject(projectPath: string, message: string) {
+    const mock = createMockSnapshot();
+    applySnapshot({
+      ...mock,
+      projectPath,
+      console: [
+        ...mock.console,
+        {
+          id: `mock-project-${Date.now()}`,
+          level: "warn",
+          source: "studio",
+          message,
+        },
+      ],
+    });
+    setBridgeStatus("browser");
+  }
+
+  async function openProject(projectPath: string) {
+    const trimmed = projectPath.trim();
+    if (!trimmed) {
+      setHomeError("Informe o caminho de um arquivo zenith.ztproj ou de uma pasta de projeto.");
+      return;
+    }
+
+    setHomeBusy(true);
+    setHomeError(null);
+    try {
+      const loaded = await loadStudioSnapshot(trimmed);
+      applySnapshot(loaded);
+      setBridgeStatus("tauri");
+    } catch (error) {
+      if (bridgeStatus === "browser") {
+        useMockProject(trimmed, `Browser mode opened mock data for ${trimmed}.`);
+      } else {
+        setHomeError(`Nao foi possivel abrir o projeto: ${String(error)}`);
+      }
+    } finally {
+      setHomeBusy(false);
+    }
+  }
+
+  async function openDefaultProject() {
+    await openProject(home.defaultProjectPath);
+  }
+
+  async function createProject(request: NewProjectRequest) {
+    if (!request.projectName.trim()) {
+      setHomeError("Informe um nome para o projeto.");
+      return;
+    }
+
+    setHomeBusy(true);
+    setHomeError(null);
+    try {
+      const loaded = await createBorealisProject(request);
+      applySnapshot(loaded);
+      setBridgeStatus("tauri");
+    } catch (error) {
+      if (bridgeStatus === "browser") {
+        const mock = createMockSnapshot();
+        applySnapshot({
+          ...mock,
+          projectName: request.projectName,
+          projectPath: `${request.parentDir || home.defaultProjectsDir}/${request.projectName}/zenith.ztproj`,
+          console: [
+            ...mock.console,
+            {
+              id: `mock-new-project-${Date.now()}`,
+              level: "warn",
+              source: "studio",
+              message: "Browser mode shows a mock project. Use the Tauri app to create files on disk.",
+            },
+          ],
+        });
+        setBridgeStatus("browser");
+      } else {
+        setHomeError(`Nao foi possivel criar o projeto: ${String(error)}`);
+      }
+    } finally {
+      setHomeBusy(false);
+    }
+  }
+
+  function updateScene(updater: (scene: SceneDocument) => SceneDocument) {
+    setSceneDirty(true);
+    setSnapshot((current) => ({
+      ...current,
+      scene: updater(current.scene),
+    }));
+  }
+
   function selectEntity(entity: SceneEntity) {
     setSelectedEntityId(entity.id);
     const script = entityScript(entity);
@@ -186,16 +375,18 @@ export function BorealisStudioApp() {
     }
   }
 
+  function clearSelection() {
+    setSelectedEntityId("");
+    setDragState(null);
+  }
+
   function updateSelectedEntity(patch: Partial<SceneEntity>) {
     if (!selectedEntity) return;
-    setSnapshot((current) => ({
-      ...current,
-      scene: {
-        ...current.scene,
-        entities: current.scene.entities.map((entity) =>
-          entity.id === selectedEntity.id ? { ...entity, ...patch } : entity,
-        ),
-      },
+    updateScene((scene) => ({
+      ...scene,
+      entities: scene.entities.map((entity) =>
+        entity.id === selectedEntity.id ? { ...entity, ...patch } : entity,
+      ),
     }));
   }
 
@@ -220,7 +411,7 @@ export function BorealisStudioApp() {
 
   async function saveScript(script: ScriptDocument) {
     try {
-      await writeScriptDocument(script);
+      await writeScriptDocument(script, snapshot.projectRoot);
       setSnapshot((current) => ({
         ...current,
         scripts: current.scripts.map((item) =>
@@ -243,6 +434,124 @@ export function BorealisStudioApp() {
       });
     }
   }
+
+  async function saveScene() {
+    setSavingScene(true);
+    try {
+      await writeSceneDocument(snapshot.scene, snapshot.projectRoot);
+      setSceneDirty(false);
+      appendConsole({
+        level: "info",
+        source: "studio",
+        message: `Saved ${snapshot.scene.path}`,
+      });
+    } catch (error) {
+      appendConsole({
+        level: bridgeStatus === "browser" ? "warn" : "error",
+        source: "studio",
+        message:
+          bridgeStatus === "browser"
+            ? "Browser mode keeps scene edits in memory."
+            : `Could not save ${snapshot.scene.path}: ${String(error)}`,
+      });
+    } finally {
+      setSavingScene(false);
+    }
+  }
+
+  async function startPreview() {
+    setPreviewBusy(true);
+    setPreviewStatus("starting");
+    try {
+      const result = await startRuntimePreview(snapshot.projectPath, snapshot.scene);
+      applyPreviewResult(result, "Preview started with the current scene draft.");
+    } catch (error) {
+      setPreviewStatus(bridgeStatus === "browser" ? "unavailable" : "error");
+      appendConsole({
+        level: bridgeStatus === "browser" ? "warn" : "error",
+        source: "preview",
+        message:
+          bridgeStatus === "browser"
+            ? "Play mode needs the Tauri desktop app. Browser mode keeps the editor preview-only."
+            : `Could not start preview: ${String(error)}`,
+      });
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
+  async function pausePreview() {
+    setPreviewBusy(true);
+    try {
+      const result = await pauseRuntimePreview();
+      applyPreviewResult(result, "Preview paused.");
+    } catch (error) {
+      setPreviewStatus("error");
+      appendConsole({
+        level: "error",
+        source: "preview",
+        message: `Could not pause preview: ${String(error)}`,
+      });
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
+  async function stopPreview() {
+    setPreviewBusy(true);
+    try {
+      const result = await stopRuntimePreview();
+      applyPreviewResult(result, "Preview stopped.");
+    } catch (error) {
+      setPreviewStatus("error");
+      appendConsole({
+        level: "error",
+        source: "preview",
+        message: `Could not stop preview: ${String(error)}`,
+      });
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
+  function applyPreviewResult(result: PreviewCommandResult, fallbackMessage?: string) {
+    const nextStatus = normalizePreviewStatus(result.status);
+    setPreviewStatus(nextStatus);
+
+    if (result.events.length === 0 && fallbackMessage) {
+      appendConsole({
+        level: "info",
+        source: "preview",
+        message: fallbackMessage,
+      });
+      return;
+    }
+
+    result.events.forEach((event) => {
+      appendConsole(previewEventToConsoleLine(event, result.runner));
+    });
+  }
+
+  useEffect(() => {
+    if (bridgeStatus !== "tauri") return;
+    if (!["starting", "loading", "ready", "playing", "paused"].includes(previewStatus)) return;
+
+    const timer = window.setInterval(() => {
+      pollRuntimePreview()
+        .then((result) => {
+          if (result.events.length > 0) {
+            applyPreviewResult(result);
+          } else {
+            setPreviewStatus(normalizePreviewStatus(result.status));
+          }
+        })
+        .catch(() => {
+          setPreviewStatus("error");
+        });
+    }, 1200);
+
+    return () => window.clearInterval(timer);
+  }, [bridgeStatus, previewStatus]);
 
   function attachScript(path: string) {
     if (!selectedEntity) return;
@@ -285,12 +594,9 @@ export function BorealisStudioApp() {
       },
     };
 
-    setSnapshot((current) => ({
-      ...current,
-      scene: {
-        ...current.scene,
-        entities: [...current.scene.entities, entity],
-      },
+    updateScene((scene) => ({
+      ...scene,
+      entities: [...scene.entities, entity],
     }));
     setSelectedEntityId(entity.id);
     appendConsole({
@@ -370,7 +676,7 @@ export function BorealisStudioApp() {
 
   return (
     <div
-      className="studio-shell"
+      className={`studio-shell theme-${preferences.theme}`}
       style={
         {
           "--left-width": `${layout.left}px`,
@@ -379,24 +685,49 @@ export function BorealisStudioApp() {
         } as React.CSSProperties
       }
     >
-      <MenuBar bridgeStatus={bridgeStatus} />
+      <MenuBar
+        bridgeStatus={bridgeStatus}
+        projectName={snapshot.projectName}
+        onOpenDefaultProject={openDefaultProject}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onShowHome={() => setHomeVisible(true)}
+      />
 
-      <div className="studio-workspace">
-        <NavigatorPanel
-          assets={snapshot.assets}
-          entities={snapshot.scene.entities}
-          selectedEntityId={selectedEntityId}
-          onSelectEntity={selectEntity}
+      {homeVisible ? (
+        <StartScreen
+          bridgeStatus={bridgeStatus}
+          busy={homeBusy}
+          error={homeError}
+          home={home}
+          onCreateProject={createProject}
+          onOpenDefaultProject={openDefaultProject}
+          onOpenProject={openProject}
         />
+      ) : (
+        <div className="studio-workspace">
+          <NavigatorPanel
+            assets={snapshot.assets}
+            entities={snapshot.scene.entities}
+            selectedEntityId={selectedEntityId}
+            onSelectEntity={selectEntity}
+          />
 
         <div className="resize-handle resize-handle-vertical resize-handle-left" onPointerDown={(event) => startResize("left", event)} />
 
         <main className="stage-panel">
           <StageToolbar
             mode={mode}
+            previewBusy={previewBusy}
+            previewStatus={previewStatus}
+            sceneDirty={sceneDirty}
+            savingScene={savingScene}
             viewMode={viewMode}
             selectedEntity={selectedEntity}
             onModeChange={setMode}
+            onPausePreview={pausePreview}
+            onSaveScene={saveScene}
+            onStartPreview={startPreview}
+            onStopPreview={stopPreview}
             onViewModeChange={setViewMode}
           />
 
@@ -407,19 +738,16 @@ export function BorealisStudioApp() {
                 mode={mode}
                 viewMode={viewMode}
                 selectedEntityId={selectedEntityId}
+                preferences={preferences}
                 dragState={dragState}
                 onAssetDrop={createEntityFromAsset}
                 onDragStateChange={setDragState}
+                onClearSelection={clearSelection}
                 onSelectEntity={selectEntity}
                 onUpdateTransform={(id, transform) => {
-                  setSnapshot((current) => ({
-                    ...current,
-                    scene: {
-                      ...current.scene,
-                      entities: current.scene.entities.map((entity) =>
-                        entity.id === id ? { ...entity, transform } : entity,
-                      ),
-                    },
+                  updateScene((scene) => ({
+                    ...scene,
+                    entities: scene.entities.map((entity) => (entity.id === id ? { ...entity, transform } : entity)),
                   }));
                 }}
               />
@@ -430,9 +758,18 @@ export function BorealisStudioApp() {
         <div className="resize-handle resize-handle-vertical resize-handle-right" onPointerDown={(event) => startResize("right", event)} />
 
         <InspectorPanel
+          assets={snapshot.assets}
           entity={selectedEntity}
           scripts={snapshot.scripts}
           onAttachScript={attachScript}
+          onComponentChange={(index, component) => {
+            if (!selectedEntity) return;
+            updateSelectedEntity({
+              components: selectedEntity.components.map((current, currentIndex) =>
+                currentIndex === index ? component : current,
+              ),
+            });
+          }}
           onEntityChange={updateSelectedEntity}
           onTransformChange={updateSelectedTransform}
         />
@@ -450,10 +787,11 @@ export function BorealisStudioApp() {
           onScriptSelect={setSelectedScriptPath}
           onTabChange={setBottomTab}
         />
-      </div>
+        </div>
+      )}
 
-      {assetDrag ? <AssetDragPreview asset={assetDrag.asset} x={assetDrag.x} y={assetDrag.y} /> : null}
-      {scriptEditorOpen ? (
+      {!homeVisible && assetDrag ? <AssetDragPreview asset={assetDrag.asset} x={assetDrag.x} y={assetDrag.y} /> : null}
+      {!homeVisible && scriptEditorOpen ? (
         <ScriptEditorWindow
           activeScript={activeScript}
           scripts={snapshot.scripts}
@@ -465,25 +803,411 @@ export function BorealisStudioApp() {
           onScriptSelect={setSelectedScriptPath}
         />
       ) : null}
+      {settingsOpen ? (
+        <SettingsWindow
+          preferences={preferences}
+          onClose={() => setSettingsOpen(false)}
+          onPreferencesChange={(patch) => setPreferences((current) => ({ ...current, ...patch }))}
+        />
+      ) : null}
     </div>
   );
 }
 
-function MenuBar({ bridgeStatus }: { bridgeStatus: BridgeStatus }) {
-  const menus = ["File", "Edit", "Assets", "GameObject", "Component", "Window", "Help"];
+function MenuBar({
+  bridgeStatus,
+  projectName,
+  onOpenDefaultProject,
+  onOpenSettings,
+  onShowHome,
+}: {
+  bridgeStatus: BridgeStatus;
+  projectName: string;
+  onOpenDefaultProject: () => void;
+  onOpenSettings: () => void;
+  onShowHome: () => void;
+}) {
+  const menus = [
+    { label: "Start", onClick: onShowHome },
+    { label: "Open", onClick: () => void onOpenDefaultProject() },
+    { label: "Edit", onClick: onOpenSettings },
+    { label: "Assets" },
+    { label: "GameObject" },
+    { label: "Component" },
+    { label: "Window" },
+    { label: "Help", onClick: onShowHome },
+  ];
 
   return (
     <nav aria-label="Application menu" className="menu-bar visible" data-tauri-drag-region>
       <div className="menu-items">
         {menus.map((menu) => (
-          <button key={menu}>{menu}</button>
+          <button key={menu.label} onClick={menu.onClick}>
+            {menu.label}
+          </button>
         ))}
       </div>
+      <span className="menu-project">{projectName}</span>
       <StatusPill tone={bridgeStatus === "tauri" ? "good" : "warn"}>
         {bridgeStatus === "tauri" ? "Tauri" : "Browser"}
       </StatusPill>
     </nav>
   );
+}
+
+function StartScreen({
+  bridgeStatus,
+  busy,
+  error,
+  home,
+  onCreateProject,
+  onOpenDefaultProject,
+  onOpenProject,
+}: {
+  bridgeStatus: BridgeStatus;
+  busy: boolean;
+  error: string | null;
+  home: StudioHome;
+  onCreateProject: (request: NewProjectRequest) => void;
+  onOpenDefaultProject: () => void;
+  onOpenProject: (projectPath: string) => void;
+}) {
+  const firstTemplate: ProjectTemplate = home.templates[0] ?? {
+    id: "empty3d",
+    name: "Empty 3D",
+    summary: "Cena 3D limpa com camera e cubo.",
+    defaultName: "Projeto Borealis 3D",
+    tags: ["3D", "starter"],
+  };
+  const [projectPath, setProjectPath] = useState(home.defaultProjectPath);
+  const [projectName, setProjectName] = useState(firstTemplate.defaultName);
+  const [parentDir, setParentDir] = useState(home.defaultProjectsDir);
+  const [templateId, setTemplateId] = useState<ProjectTemplateId>(firstTemplate.id);
+  const selectedTemplate = home.templates.find((template) => template.id === templateId) ?? firstTemplate;
+  const runtimeTone = home.runtimeMode === "missing" ? "warn" : "good";
+  const runtimeLabel = home.runtimeMode === "sdk" ? "SDK" : home.runtimeMode === "repo-dev" ? "Dev repo" : "Runtime";
+
+  useEffect(() => {
+    setProjectPath(home.defaultProjectPath);
+    setParentDir(home.defaultProjectsDir);
+  }, [home.defaultProjectPath, home.defaultProjectsDir]);
+
+  function chooseTemplate(template: ProjectTemplate) {
+    setTemplateId(template.id);
+    setProjectName((current) => (current.trim() ? current : template.defaultName));
+  }
+
+  return (
+    <main className="start-screen">
+      <section className="start-hero">
+        <div className="start-kicker">
+          <Home size={15} strokeWidth={ICON_STROKE} />
+          Borealis Studio
+        </div>
+        <h1>Comece por um projeto real.</h1>
+        <p>
+          Abra um zenith.ztproj, crie um projeto novo ou use o pacote Borealis como amostra. O preview
+          precisa desse caminho correto para iniciar o runner.
+        </p>
+        <div className="start-actions">
+          <button className="start-primary" disabled={busy} onClick={() => void onOpenDefaultProject()} type="button">
+            <FolderOpen size={15} strokeWidth={ICON_STROKE} />
+            Abrir Borealis
+          </button>
+          <button className="start-secondary" onClick={() => setProjectPath(home.defaultProjectPath)} type="button">
+            Usar caminho padrao
+          </button>
+        </div>
+        <div className="start-meta">
+          <StatusPill tone={bridgeStatus === "tauri" ? "good" : "warn"}>
+            {bridgeStatus === "tauri" ? "Ponte desktop pronta" : "Fallback browser"}
+          </StatusPill>
+          <StatusPill tone={runtimeTone}>{runtimeLabel}</StatusPill>
+          <span>{home.workspaceRoot}</span>
+        </div>
+        <div className="start-runtime">
+          <span>{home.runtimeStatus}</span>
+          {home.sdkRoot ? <small>SDK: {home.sdkRoot}</small> : null}
+          {!home.sdkRoot && home.repoRoot ? <small>Repo: {home.repoRoot}</small> : null}
+        </div>
+      </section>
+
+      <section className="start-grid">
+        <form
+          className="start-panel start-open-panel"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onOpenProject(projectPath);
+          }}
+        >
+          <div className="start-panel-title">
+            <FolderOpen size={16} strokeWidth={ICON_STROKE} />
+            <div>
+              <strong>Abrir projeto</strong>
+              <span>Arquivo zenith.ztproj ou pasta de projeto.</span>
+            </div>
+          </div>
+          <label className="start-field">
+            <span>Caminho</span>
+            <input value={projectPath} onChange={(event) => setProjectPath(event.target.value)} />
+          </label>
+          <button className="start-panel-action" disabled={busy} type="submit">
+            Abrir
+          </button>
+        </form>
+
+        <form
+          className="start-panel start-new-panel"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onCreateProject({ projectName, parentDir, templateId });
+          }}
+        >
+          <div className="start-panel-title">
+            <FilePlus2 size={16} strokeWidth={ICON_STROKE} />
+            <div>
+              <strong>Novo projeto</strong>
+              <span>Cria pastas, manifesto, cena e script inicial.</span>
+            </div>
+          </div>
+          <label className="start-field">
+            <span>Nome</span>
+            <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+          </label>
+          <label className="start-field">
+            <span>Pasta</span>
+            <input value={parentDir} onChange={(event) => setParentDir(event.target.value)} />
+          </label>
+          <label className="start-field">
+            <span>Template</span>
+            <select value={templateId} onChange={(event) => setTemplateId(event.target.value as ProjectTemplateId)}>
+              {home.templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>{selectedTemplate.summary}</p>
+          <button className="start-panel-action" disabled={busy} type="submit">
+            Criar e abrir
+          </button>
+        </form>
+
+        <section className="start-panel start-template-panel">
+          <div className="start-panel-title">
+            <LayoutTemplate size={16} strokeWidth={ICON_STROKE} />
+            <div>
+              <strong>Templates</strong>
+              <span>Escolha a base antes de criar.</span>
+            </div>
+          </div>
+          <div className="template-list">
+            {home.templates.map((template) => (
+              <button
+                className={template.id === templateId ? "selected" : ""}
+                key={template.id}
+                onClick={() => chooseTemplate(template)}
+                type="button"
+              >
+                <strong>{template.name}</strong>
+                <span>{template.summary}</span>
+                <small>{template.tags.join(" / ")}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="start-panel start-docs-panel">
+          <div className="start-panel-title">
+            <BookOpen size={16} strokeWidth={ICON_STROKE} />
+            <div>
+              <strong>Documentacao</strong>
+              <span>Arquivos locais para consulta rapida.</span>
+            </div>
+          </div>
+          <div className="docs-list">
+            {home.docs.map((doc) => (
+              <DocumentationRow doc={doc} key={doc.path} />
+            ))}
+          </div>
+        </section>
+      </section>
+
+      {error ? (
+        <div className="start-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+    </main>
+  );
+}
+
+function DocumentationRow({ doc }: { doc: DocumentationLink }) {
+  return (
+    <div className="doc-row">
+      <strong>{doc.title}</strong>
+      <span>{doc.summary}</span>
+      <code>{doc.path}</code>
+    </div>
+  );
+}
+
+function SettingsWindow({
+  preferences,
+  onClose,
+  onPreferencesChange,
+}: {
+  preferences: StudioPreferences;
+  onClose: () => void;
+  onPreferencesChange: (patch: Partial<StudioPreferences>) => void;
+}) {
+  const keybindRows = keybindsForTemplate(preferences.shortcutTemplate);
+
+  return (
+    <div className="settings-backdrop" role="presentation">
+      <motion.section
+        animate={{ opacity: 1, scale: 1 }}
+        className="settings-window"
+        initial={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <header className="settings-header">
+          <div>
+            <span>Preferences</span>
+            <strong>Editor settings</strong>
+          </div>
+          <button className="top-icon-button" onClick={onClose} title="Close" type="button">
+            <X size={15} strokeWidth={ICON_STROKE} />
+          </button>
+        </header>
+
+        <div className="settings-grid">
+          <section className="settings-section">
+            <h3>Viewport</h3>
+            <label>
+              <span>Gizmo size</span>
+              <input
+                max={1.8}
+                min={0.35}
+                onChange={(event) => onPreferencesChange({ gizmoSize: Number(event.target.value) })}
+                step={0.05}
+                type="range"
+                value={preferences.gizmoSize}
+              />
+              <strong>{preferences.gizmoSize.toFixed(2)}</strong>
+            </label>
+            <label>
+              <span>PTZ speed</span>
+              <input
+                max={2.4}
+                min={0.25}
+                onChange={(event) => onPreferencesChange({ ptzSpeed: Number(event.target.value) })}
+                step={0.05}
+                type="range"
+                value={preferences.ptzSpeed}
+              />
+              <strong>{preferences.ptzSpeed.toFixed(2)}</strong>
+            </label>
+            <label>
+              <span>Default snap</span>
+              <select
+                onChange={(event) => onPreferencesChange({ snapMode: event.target.value as SnapMode })}
+                value={preferences.snapMode}
+              >
+                <option value="grid">Grid</option>
+                <option value="object">Object</option>
+                <option value="grid-object">Grid + object</option>
+              </select>
+            </label>
+            <label>
+              <span>Theme</span>
+              <select
+                onChange={(event) => onPreferencesChange({ theme: event.target.value as ThemeMode })}
+                value={preferences.theme}
+              >
+                <option value="codex">Codex</option>
+                <option value="xcode">Xcode</option>
+                <option value="unity-dark">Unity Dark</option>
+              </select>
+            </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>Keybinds</h3>
+            <label>
+              <span>Template</span>
+              <select
+                onChange={(event) => onPreferencesChange({ shortcutTemplate: event.target.value as ShortcutTemplate })}
+                value={preferences.shortcutTemplate}
+              >
+                <option value="blender">Blender</option>
+                <option value="3dsmax">3ds Max</option>
+                <option value="maya">Maya</option>
+              </select>
+            </label>
+            <div className="keybind-list">
+              {keybindRows.map((row) => (
+                <div className="keybind-row" key={`${row.action}-${row.keys}`}>
+                  <span>{row.action}</span>
+                  <kbd>{row.keys}</kbd>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </motion.section>
+    </div>
+  );
+}
+
+function keybindsForTemplate(template: ShortcutTemplate) {
+  if (template === "3dsmax") {
+    return [
+      { action: "Orbit", keys: "Alt + MMB" },
+      { action: "Pan", keys: "MMB" },
+      { action: "Zoom", keys: "Wheel" },
+      { action: "Move", keys: "W" },
+      { action: "Rotate", keys: "E" },
+      { action: "Scale", keys: "R" },
+    ];
+  }
+
+  if (template === "maya") {
+    return [
+      { action: "Orbit", keys: "Alt + LMB" },
+      { action: "Pan", keys: "Alt + MMB" },
+      { action: "Zoom", keys: "Alt + RMB" },
+      { action: "Move", keys: "W" },
+      { action: "Rotate", keys: "E" },
+      { action: "Scale", keys: "R" },
+    ];
+  }
+
+  return [
+    { action: "Orbit", keys: "MMB" },
+    { action: "Pan", keys: "Shift + MMB" },
+    { action: "Zoom", keys: "Wheel" },
+    { action: "Front", keys: "Numpad 1" },
+    { action: "Right", keys: "Numpad 3" },
+    { action: "Top", keys: "Numpad 7" },
+    { action: "Pie view", keys: "Alt + Z" },
+  ];
+}
+
+function modeForShortcut(template: ShortcutTemplate, key: string): StudioMode | null {
+  if (template === "blender") {
+    if (key === "q") return "select";
+    if (key === "g") return "move";
+    if (key === "r") return "rotate";
+    if (key === "s") return "scale";
+  }
+
+  if (key === "q") return "select";
+  if (key === "w") return "move";
+  if (key === "e") return "rotate";
+  if (key === "r") return "scale";
+  return null;
 }
 
 function CommandSearchButton() {
@@ -609,17 +1333,36 @@ function NavigatorPanel({
 
 function StageToolbar({
   mode,
+  previewBusy,
+  previewStatus,
+  sceneDirty,
   selectedEntity,
+  savingScene,
   viewMode,
   onModeChange,
+  onPausePreview,
+  onSaveScene,
+  onStartPreview,
+  onStopPreview,
   onViewModeChange,
 }: {
   mode: StudioMode;
+  previewBusy: boolean;
+  previewStatus: PreviewStatus;
+  sceneDirty: boolean;
   selectedEntity: SceneEntity | null;
+  savingScene: boolean;
   viewMode: ViewMode;
   onModeChange: (mode: StudioMode) => void;
+  onPausePreview: () => void;
+  onSaveScene: () => void;
+  onStartPreview: () => void;
+  onStopPreview: () => void;
   onViewModeChange: (mode: ViewMode) => void;
 }) {
+  const canPausePreview = ["playing", "ready", "paused"].includes(previewStatus);
+  const canStopPreview = !["idle", "stopped", "unavailable"].includes(previewStatus);
+
   return (
     <div className="stage-toolbar">
       <Segmented tabs={["2d", "3d"]} value={viewMode} onChange={onViewModeChange} />
@@ -640,21 +1383,41 @@ function StageToolbar({
           </ToolButton>
         </div>
         <div className="transport-controls" aria-label="Preview controls">
-          <ToolButton label="Play">
+          <ToolButton
+            active={["starting", "loading", "ready", "playing"].includes(previewStatus)}
+            disabled={previewBusy}
+            label="Play Preview"
+            onClick={onStartPreview}
+          >
             <Play size={15} strokeWidth={ICON_STROKE} />
           </ToolButton>
-          <ToolButton label="Pause">
+          <ToolButton
+            active={previewStatus === "paused"}
+            disabled={previewBusy || !canPausePreview}
+            label="Pause Preview"
+            onClick={onPausePreview}
+          >
             <Pause size={15} strokeWidth={ICON_STROKE} />
           </ToolButton>
-          <ToolButton label="Stop">
+          <ToolButton
+            active={previewStatus === "stopped"}
+            disabled={previewBusy || !canStopPreview}
+            label="Stop Preview"
+            onClick={onStopPreview}
+          >
             <Square size={14} strokeWidth={ICON_STROKE} />
           </ToolButton>
         </div>
       </div>
       <div className="stage-status">
+        <button className="panel-action stage-save-action" disabled={savingScene} onClick={onSaveScene} title="Save scene">
+          <Save size={14} strokeWidth={ICON_STROKE} />
+          {savingScene ? "Saving" : "Save Scene"}
+        </button>
         <StatusPill>{mode}</StatusPill>
         <StatusPill>{selectedEntity ? selectedEntity.name : "No selection"}</StatusPill>
-        <StatusPill tone="good">Saved</StatusPill>
+        <StatusPill tone={sceneDirty ? "warn" : "good"}>{sceneDirty ? "Unsaved scene" : "Scene saved"}</StatusPill>
+        <StatusPill tone={previewStatusTone(previewStatus)}>{previewStatusLabel(previewStatus)}</StatusPill>
       </div>
     </div>
   );
@@ -665,8 +1428,10 @@ function SceneViewport({
   mode,
   viewMode,
   selectedEntityId,
+  preferences,
   dragState,
   onAssetDrop,
+  onClearSelection,
   onDragStateChange,
   onSelectEntity,
   onUpdateTransform,
@@ -675,8 +1440,10 @@ function SceneViewport({
   mode: StudioMode;
   viewMode: ViewMode;
   selectedEntityId: string;
+  preferences: StudioPreferences;
   dragState: DragState | null;
   onAssetDrop: (asset: ProjectAsset) => void;
+  onClearSelection: () => void;
   onDragStateChange: (state: DragState | null) => void;
   onSelectEntity: (entity: SceneEntity) => void;
   onUpdateTransform: (id: string, transform: Transform3D) => void;
@@ -724,11 +1491,19 @@ function SceneViewport({
 
   function handleViewportWheel(event: React.WheelEvent<HTMLDivElement>) {
     event.preventDefault();
-    const direction = event.deltaY < 0 ? 1 : -1;
-    updateActiveCamera((camera) => ({
-      ...camera,
-      zoom: clamp(Number((camera.zoom + direction * 0.08).toFixed(2)), 0.45, 2.4),
-    }));
+    if (event.ctrlKey || event.metaKey) {
+      const direction = event.deltaY < 0 ? 1 : -1;
+      updateActiveCamera((camera) => ({
+        ...camera,
+        zoom: clamp(Number((camera.zoom + direction * 0.08).toFixed(2)), 0.45, 2.4),
+      }));
+    } else {
+      updateActiveCamera((camera) => ({
+        ...camera,
+        panX: Math.round(camera.panX - event.deltaX / camera.zoom),
+        panY: Math.round(camera.panY - event.deltaY / camera.zoom),
+      }));
+    }
   }
 
   function handleViewportPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -771,11 +1546,13 @@ function SceneViewport({
     dragState,
     entities,
     mode,
+    preferences,
     selectedEntityId,
     onDragStateChange,
     onEntityPointerDown: handleEntityPointerDown,
     onEntityPointerMove: handleEntityPointerMove,
     onResetCamera: resetActiveCamera,
+    onClearSelection,
     onSelectEntity,
     onUpdateTransform,
   };
@@ -816,11 +1593,13 @@ interface ViewportRendererProps {
   dragState: DragState | null;
   entities: SceneEntity[];
   mode: StudioMode;
+  preferences: StudioPreferences;
   selectedEntityId: string;
   onDragStateChange: (state: DragState | null) => void;
   onEntityPointerDown: (entity: SceneEntity, event: PointerEvent<HTMLButtonElement>) => void;
   onEntityPointerMove: (entity: SceneEntity, event: PointerEvent<HTMLButtonElement>) => void;
   onResetCamera: () => void;
+  onClearSelection: () => void;
   onSelectEntity: (entity: SceneEntity) => void;
   onUpdateTransform: (id: string, transform: Transform3D) => void;
 }
@@ -828,29 +1607,143 @@ interface ViewportRendererProps {
 function Viewport3D({
   entities,
   mode,
+  preferences,
   selectedEntityId,
+  onClearSelection,
   onResetCamera,
   onSelectEntity,
   onUpdateTransform,
 }: ViewportRendererProps) {
+  const orbitRef = useRef<any>(null);
+  const [projection, setProjection] = useState<ViewProjection>("perspective");
+  const [orientation, setOrientation] = useState<ViewOrientation>("free");
+  const [renderMode, setRenderMode] = useState<RenderMode>("light");
+  const [radialOpen, setRadialOpen] = useState(false);
+  const [gridEditing, setGridEditing] = useState(false);
+  const [gridDraft, setGridDraft] = useState("25");
+  const [transforming, setTransforming] = useState(false);
+  const [snapSettings, setSnapSettings] = useState<SnapSettings>({
+    gridSize: 1,
+    snapToGrid: preferences.snapMode === "grid" || preferences.snapMode === "grid-object",
+    snapToObject: preferences.snapMode === "object" || preferences.snapMode === "grid-object",
+  });
   const transformMode = mode === "rotate" ? "rotate" : mode === "scale" ? "scale" : "translate";
+  const cameraMode = projection === "isometric" ? "isometric" : projection;
+
+  useEffect(() => {
+    setSnapSettings((current) => ({
+      ...current,
+      snapToGrid: preferences.snapMode === "grid" || preferences.snapMode === "grid-object",
+      snapToObject: preferences.snapMode === "object" || preferences.snapMode === "grid-object",
+    }));
+  }, [preferences.snapMode]);
+
+  useEffect(() => {
+    function handleViewportMenu(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.altKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        setRadialOpen((current) => !current);
+      }
+
+      if (radialOpen) {
+        const selectedView = VIEW_ORIENTATIONS.find((item) => item.shortcut.toLowerCase() === event.key.toLowerCase());
+        if (selectedView) {
+          event.preventDefault();
+          selectOrientation(selectedView.id);
+        }
+      }
+
+      if (event.code.startsWith("Numpad")) {
+        const nextOrientation = numpadOrientation(event.code, event.ctrlKey);
+        if (nextOrientation) {
+          event.preventDefault();
+          selectOrientation(nextOrientation);
+        }
+
+        if (event.code === "Numpad5") {
+          event.preventDefault();
+          setProjection((current) => (current === "orthographic" ? "perspective" : "orthographic"));
+        }
+
+        if (event.code === "Numpad9") {
+          event.preventDefault();
+          setOrientation((current) => oppositeOrientation(current));
+        }
+      }
+
+      if (event.key === "Escape") {
+        setRadialOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleViewportMenu);
+    return () => window.removeEventListener("keydown", handleViewportMenu);
+  }, [radialOpen]);
+
+  function selectProjection(nextProjection: ViewProjection) {
+    setProjection(nextProjection);
+    if (nextProjection === "isometric") {
+      setOrientation("free");
+    }
+  }
+
+  function selectOrientation(nextOrientation: ViewOrientation) {
+    setOrientation(nextOrientation);
+    setRadialOpen(false);
+  }
+
+  function updateSnapSettings(patch: Partial<SnapSettings>) {
+    setSnapSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function commitGridSize() {
+    const nextSize = clamp(Number(gridDraft) || snapSettings.gridSize, 0.25, 10);
+    updateSnapSettings({ gridSize: nextSize });
+    setGridDraft(String(nextSize));
+    setGridEditing(false);
+  }
 
   return (
     <>
-      <Canvas className="viewport-canvas" shadows>
-        <PerspectiveCamera makeDefault position={[7.5, 6, 8]} fov={48} />
-        <color attach="background" args={["#15171b"]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight castShadow intensity={1.2} position={[6, 8, 5]} />
+      <Canvas className="viewport-canvas" onPointerMissed={onClearSelection} shadows>
+        {projection === "perspective" ? (
+          <PerspectiveCamera makeDefault position={[10, 8, 10]} fov={38} />
+        ) : (
+          <OrthographicCamera makeDefault position={[10, 8, 10]} zoom={58} near={0.1} far={1000} />
+        )}
+        <ViewportCameraController orientation={orientation} projection={projection} controlsRef={orbitRef} />
+        <color attach="background" args={["#1c1c1c"]} />
+        <ambientLight intensity={0.4} />
+        <directionalLight castShadow intensity={0.8} position={[10, 12, 10]} />
+        <Environment preset="city" />
         <Grid
-          args={[24, 24]}
-          cellColor="#343943"
-          cellSize={1}
-          fadeDistance={24}
-          fadeStrength={1.8}
-          sectionColor="#44607f"
-          sectionSize={4}
+          args={[30, 30]}
+          cellColor="#2c2c2c"
+          cellSize={snapSettings.gridSize}
+          fadeDistance={30}
+          fadeStrength={1}
+          sectionColor="#353535"
+          sectionSize={snapSettings.gridSize * 5}
+          infiniteGrid
         />
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+          <planeGeometry args={[60, 0.015]} />
+          <meshBasicMaterial color="#df746c" transparent opacity={0.6} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, Math.PI / 2]} position={[0, -0.02, 0]}>
+          <planeGeometry args={[60, 0.015]} />
+          <meshBasicMaterial color="#72c08b" transparent opacity={0.6} />
+        </mesh>
         <group>
           {entities.map((entity) => {
             const selected = entity.id === selectedEntityId;
@@ -859,61 +1752,275 @@ function Viewport3D({
                 entity={entity}
                 key={entity.id}
                 mode={mode}
+                renderMode={renderMode}
                 selected={selected}
+                snapSettings={snapSettings}
                 transformMode={transformMode}
+                entities={entities}
+                gizmoSize={preferences.gizmoSize}
                 onSelect={onSelectEntity}
+                onTransformingChange={setTransforming}
                 onUpdateTransform={onUpdateTransform}
               />
             );
           })}
         </group>
         <OrbitControls
+          ref={orbitRef}
+          enabled={!transforming}
           enableDamping
           makeDefault
-          maxDistance={26}
-          minDistance={3.5}
+          maxDistance={40}
+          minDistance={2}
+          enablePan
+          enableRotate
+          enableZoom
+          panSpeed={preferences.ptzSpeed}
+          rotateSpeed={preferences.ptzSpeed}
+          zoomSpeed={preferences.ptzSpeed}
           mouseButtons={{
             MIDDLE: MOUSE.ROTATE,
             RIGHT: MOUSE.PAN,
           }}
           screenSpacePanning
         />
+
+        <GizmoHelper alignment="bottom-right" margin={[40, 40]}>
+          <GizmoViewport axisColors={["#df746c", "#72c08b", "#68a4ff"]} labelColor="#efefef" />
+        </GizmoHelper>
       </Canvas>
       <div className="viewport-overlay-top">
         <StatusPill>Scene 3D</StatusPill>
-        <StatusPill>MMB Orbit</StatusPill>
+        <StatusPill>MMB orbit</StatusPill>
+        <StatusPill>Shift+MMB pan</StatusPill>
         <StatusPill>{mode === "select" ? "Select" : transformMode}</StatusPill>
-        <StatusPill>Perspective</StatusPill>
-        <StatusPill>Pivot</StatusPill>
+        <StatusPill>{cameraMode}</StatusPill>
+        <StatusPill>{orientation === "free" ? "Free" : orientation}</StatusPill>
         <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
       </div>
+      <div className="viewport-view-controls" aria-label="3D viewport view controls">
+        <label>
+          <span>View</span>
+          <select value={orientation} onChange={(event) => selectOrientation(event.target.value as ViewOrientation)}>
+            <option value="free">Free</option>
+            {VIEW_ORIENTATIONS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="viewport-viewbar">
+          {(["perspective", "orthographic", "isometric"] as ViewProjection[]).map((item) => (
+            <button
+              className={projection === item ? "active" : ""}
+              key={item}
+              onClick={() => selectProjection(item)}
+              type="button"
+            >
+              {item === "orthographic" ? "Ortho" : item}
+            </button>
+          ))}
+        </div>
+        <label>
+          <span>Render</span>
+          <select value={renderMode} onChange={(event) => setRenderMode(event.target.value as RenderMode)}>
+            <option value="wireframe">Wire</option>
+            <option value="color">Color</option>
+            <option value="texture">Texture</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+      </div>
+      <div className="viewport-snap-panel">
+        <label>
+          <span>Grid m</span>
+          <input
+            max={10}
+            min={0.25}
+            onChange={(event) => {
+              updateSnapSettings({ gridSize: Number(event.target.value) });
+              setGridDraft(event.target.value);
+            }}
+            step={0.25}
+            type="range"
+            value={snapSettings.gridSize}
+          />
+          {gridEditing ? (
+            <input
+              className="grid-size-input"
+              autoFocus
+              onBlur={commitGridSize}
+              onChange={(event) => setGridDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitGridSize();
+                if (event.key === "Escape") {
+                  setGridDraft(String(snapSettings.gridSize));
+                  setGridEditing(false);
+                }
+              }}
+              type="number"
+              value={gridDraft}
+            />
+          ) : (
+            <strong onDoubleClick={() => setGridEditing(true)} title="Double-click to type grid size">
+              {snapSettings.gridSize}
+            </strong>
+          )}
+        </label>
+        <button
+          className={snapSettings.snapToGrid ? "active" : ""}
+          onClick={() => updateSnapSettings({ snapToGrid: !snapSettings.snapToGrid })}
+          type="button"
+        >
+          Snap grid
+        </button>
+        <button
+          className={snapSettings.snapToObject ? "active" : ""}
+          onClick={() => updateSnapSettings({ snapToObject: !snapSettings.snapToObject })}
+          type="button"
+        >
+          Snap object
+        </button>
+      </div>
+      <AnimatePresence>
+        {radialOpen ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            className="viewport-radial-menu"
+            exit={{ opacity: 0, scale: 0.92, x: "-50%", y: "-50%" }}
+            initial={{ opacity: 0, scale: 0.92, x: "-50%", y: "-50%" }}
+            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <button className="radial-center" onClick={() => setRadialOpen(false)} type="button">
+              Alt+Z
+            </button>
+            {VIEW_ORIENTATIONS.map((item, index) => {
+              const angle = -90 + index * 60;
+              return (
+                <button
+                  className={`radial-item ${orientation === item.id ? "active" : ""}`}
+                  key={item.id}
+                  onClick={() => selectOrientation(item.id)}
+                  style={{ "--radial-angle": `${angle}deg` } as React.CSSProperties}
+                  type="button"
+                >
+                  <span>{item.label}</span>
+                  <small>{item.shortcut}</small>
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       <div className="viewport-axis axis-x">X</div>
       <div className="viewport-axis axis-y">Y</div>
       <div className="viewport-axis axis-z">Z</div>
       <div className="viewport-footer">
         <span>Viewport 3D</span>
-        <span>{entities.length} objects</span>
+        <span>{entities.length} objects | Scene Collection</span>
       </div>
     </>
   );
 }
 
+function ViewportCameraController({
+  controlsRef,
+  orientation,
+  projection,
+}: {
+  controlsRef: React.MutableRefObject<any>;
+  orientation: ViewOrientation;
+  projection: ViewProjection;
+}) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const position = cameraPositionForView(projection, orientation);
+    camera.position.copy(position);
+    camera.up.set(0, 1, 0);
+    if (orientation === "top") camera.up.set(0, 0, -1);
+    if (orientation === "bottom") camera.up.set(0, 0, 1);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+
+    const controls = controlsRef.current;
+    if (controls) {
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+  }, [camera, controlsRef, orientation, projection]);
+
+  return null;
+}
+
+function cameraPositionForView(projection: ViewProjection, orientation: ViewOrientation) {
+  if (projection === "isometric") return new Vector3(8, 7, 8);
+
+  const distance = projection === "orthographic" ? 12 : 14;
+  switch (orientation) {
+    case "top":
+      return new Vector3(0, distance, 0.001);
+    case "bottom":
+      return new Vector3(0, -distance, 0.001);
+    case "left":
+      return new Vector3(-distance, 0, 0);
+    case "right":
+      return new Vector3(distance, 0, 0);
+    case "front":
+      return new Vector3(0, 0, distance);
+    case "back":
+      return new Vector3(0, 0, -distance);
+    case "free":
+    default:
+      return new Vector3(10, 8, 10);
+  }
+}
+
+function numpadOrientation(code: string, ctrlKey: boolean): ViewOrientation | null {
+  if (code === "Numpad1") return ctrlKey ? "back" : "front";
+  if (code === "Numpad3") return ctrlKey ? "left" : "right";
+  if (code === "Numpad7") return ctrlKey ? "bottom" : "top";
+  return null;
+}
+
+function oppositeOrientation(orientation: ViewOrientation): ViewOrientation {
+  if (orientation === "front") return "back";
+  if (orientation === "back") return "front";
+  if (orientation === "right") return "left";
+  if (orientation === "left") return "right";
+  if (orientation === "top") return "bottom";
+  if (orientation === "bottom") return "top";
+  return "back";
+}
+
 function Viewport3DEntity({
+  entities,
   entity,
+  gizmoSize,
   mode,
+  renderMode,
   selected,
+  snapSettings,
   transformMode,
   onSelect,
+  onTransformingChange,
   onUpdateTransform,
 }: {
+  entities: SceneEntity[];
   entity: SceneEntity;
+  gizmoSize: number;
   mode: StudioMode;
+  renderMode: RenderMode;
   selected: boolean;
+  snapSettings: SnapSettings;
   transformMode: "translate" | "rotate" | "scale";
   onSelect: (entity: SceneEntity) => void;
+  onTransformingChange: (active: boolean) => void;
   onUpdateTransform: (id: string, transform: Transform3D) => void;
 }) {
   const groupRef = useRef<Group | null>(null);
+  const [controlTarget, setControlTarget] = useState<Group | null>(null);
   const isCamera = entity.components.some((component) => component.kind === "camera3d");
   const isModel = entity.components.some((component) => component.kind === "mesh3d" || component.kind === "model3d");
   const color = selected ? "#68a4ff" : isCamera ? "#72c08b" : isModel ? "#d9a05c" : "#9aa4b5";
@@ -927,6 +2034,18 @@ function Viewport3DEntity({
     Math.max(0.25, entity.transform.scaleZ),
     Math.max(0.25, entity.transform.scaleY),
   ];
+
+  useEffect(() => {
+    if (groupRef.current) {
+      setControlTarget(groupRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selected || mode === "select") {
+      onTransformingChange(false);
+    }
+  }, [mode, onTransformingChange, selected]);
 
   useEffect(() => {
     const group = groupRef.current;
@@ -953,17 +2072,23 @@ function Viewport3DEntity({
   function commitTransform() {
     const group = groupRef.current;
     if (!group) return;
-    onUpdateTransform(entity.id, {
-      x: Math.round(group.position.x / 0.04),
-      y: Math.round(group.position.z / 0.04),
-      z: Math.round((group.position.y - 0.45) / 0.04),
-      rotationX: Math.round((group.rotation.x * 180) / Math.PI),
-      rotationY: Math.round((group.rotation.y * 180) / Math.PI),
-      rotationZ: Math.round((group.rotation.z * 180) / Math.PI),
-      scaleX: Number(Math.max(0.1, group.scale.x).toFixed(2)),
-      scaleY: Number(Math.max(0.1, group.scale.z).toFixed(2)),
-      scaleZ: Number(Math.max(0.1, group.scale.y).toFixed(2)),
-    });
+    const nextTransform = snapTransform(
+      {
+        x: Math.round(group.position.x / 0.04),
+        y: Math.round(group.position.z / 0.04),
+        z: Math.round((group.position.y - 0.45) / 0.04),
+        rotationX: Math.round((group.rotation.x * 180) / Math.PI),
+        rotationY: Math.round((group.rotation.y * 180) / Math.PI),
+        rotationZ: Math.round((group.rotation.z * 180) / Math.PI),
+        scaleX: Number(Math.max(0.1, group.scale.x).toFixed(2)),
+        scaleY: Number(Math.max(0.1, group.scale.z).toFixed(2)),
+        scaleZ: Number(Math.max(0.1, group.scale.y).toFixed(2)),
+      },
+      entity,
+      entities,
+      snapSettings,
+    );
+    onUpdateTransform(entity.id, nextTransform);
   }
 
   const entityNode = (
@@ -980,38 +2105,52 @@ function Viewport3DEntity({
         }}
       >
         {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
-        <meshStandardMaterial color={color} roughness={0.55} metalness={0.08} />
+        <ViewportEntityMaterial color={color} renderMode={renderMode} />
       </mesh>
       {selected ? (
         <group>
-          <mesh scale={[1.12, 1.12, 1.12]}>
+          <mesh scale={[1.05, 1.05, 1.05]}>
             {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
             <meshBasicMaterial color="#68a4ff" wireframe />
-          </mesh>
-          <mesh position={[0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
-            <meshBasicMaterial color="#df746c" />
-          </mesh>
-          <mesh position={[0, 0.9, 0]}>
-            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
-            <meshBasicMaterial color="#72c08b" />
-          </mesh>
-          <mesh position={[0, 0, 0.9]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
-            <meshBasicMaterial color="#68a4ff" />
           </mesh>
         </group>
       ) : null}
     </group>
   );
 
-  if (!selected || mode === "select") return entityNode;
+  if (!selected || mode === "select" || !controlTarget) return entityNode;
 
   return (
-    <TransformControls mode={transformMode} onObjectChange={commitTransform} size={0.75}>
+    <>
       {entityNode}
-    </TransformControls>
+      <TransformControls
+        mode={transformMode}
+        object={controlTarget}
+        onMouseDown={() => onTransformingChange(true)}
+        onMouseUp={() => {
+          onTransformingChange(false);
+          commitTransform();
+        }}
+        size={gizmoSize}
+      />
+    </>
   );
+}
+
+function ViewportEntityMaterial({ color, renderMode }: { color: string; renderMode: RenderMode }) {
+  if (renderMode === "wireframe") {
+    return <meshBasicMaterial color={color} wireframe />;
+  }
+
+  if (renderMode === "color") {
+    return <meshBasicMaterial color={color} />;
+  }
+
+  if (renderMode === "texture") {
+    return <meshStandardMaterial color={color} roughness={0.72} metalness={0.04} />;
+  }
+
+  return <meshStandardMaterial color={color} roughness={0.4} metalness={0.2} />;
 }
 
 function Viewport2D({
@@ -1211,15 +2350,19 @@ function CodePanel({
 }
 
 function InspectorPanel({
+  assets,
   entity,
   scripts,
   onAttachScript,
+  onComponentChange,
   onEntityChange,
   onTransformChange,
 }: {
+  assets: ProjectAsset[];
   entity: SceneEntity | null;
   scripts: ScriptDocument[];
   onAttachScript: (path: string) => void;
+  onComponentChange: (index: number, component: SceneComponent) => void;
   onEntityChange: (patch: Partial<SceneEntity>) => void;
   onTransformChange: (patch: Partial<Transform3D>) => void;
 }) {
@@ -1276,16 +2419,42 @@ function InspectorPanel({
           />
         </InspectorGroup>
 
-        <InspectorGroup title="Components">
-          {entity.components.map((component) => (
-            <div className="component-row" key={`${component.kind}-${component.asset ?? component.script ?? ""}`}>
-              <Component size={15} strokeWidth={ICON_STROKE} />
-              <div>
-                <strong>{component.kind}</strong>
-                <span>{component.asset ?? component.script ?? component.profile ?? "configured"}</span>
-              </div>
-            </div>
+        <InspectorGroup title="Components" noPadding>
+          {entity.components.map((component, index) => (
+            <ComponentCard
+              assets={assets}
+              component={component}
+              key={`${component.kind}-${component.asset ?? component.script ?? component.profile ?? index}`}
+              scripts={scripts}
+              onChange={(nextComponent) => onComponentChange(index, nextComponent)}
+              onRemove={() => {
+                const next = [...entity.components];
+                next.splice(index, 1);
+                onEntityChange({ components: next });
+              }}
+            />
           ))}
+          <div className="add-component-row">
+            <select
+              className="component-input"
+              value=""
+              onChange={(event) => {
+                if (!event.target.value) return;
+                onEntityChange({
+                  components: [...entity.components, { kind: event.target.value }],
+                });
+              }}
+            >
+              <option value="">+ Add Component</option>
+              {Object.entries(BOREALIS_COMPONENTS)
+                .filter(([kind]) => !entity.components.some((c) => c.kind === kind))
+                .map(([kind, schema]) => (
+                  <option key={kind} value={kind}>
+                    {kind} - {schema.description}
+                  </option>
+                ))}
+            </select>
+          </div>
         </InspectorGroup>
 
         <InspectorGroup title="Script">
@@ -1304,6 +2473,175 @@ function InspectorPanel({
       </div>
     </aside>
   );
+}
+
+function ComponentCard({
+  assets,
+  component,
+  scripts,
+  onChange,
+  onRemove,
+}: {
+  assets: ProjectAsset[];
+  component: SceneComponent;
+  scripts: ScriptDocument[];
+  onChange: (component: SceneComponent) => void;
+  onRemove?: () => void;
+}) {
+  const schema = componentSchema(component);
+  const knownKeys = new Set(["kind", "type", ...schema.fields.map((field) => field.key)]);
+  const unknownEntries = Object.entries(component.properties ?? {}).filter(([key]) => !knownKeys.has(key));
+
+  return (
+    <div className="component-card">
+      <div className="component-card-header">
+        <Component size={15} strokeWidth={ICON_STROKE} />
+        <strong>{component.kind}</strong>
+        {onRemove && (
+          <button className="remove-btn" onClick={onRemove} title="Remove Component">
+            <X size={14} strokeWidth={ICON_STROKE} />
+          </button>
+        )}
+      </div>
+      <div className="component-card-body">
+        {schema.fields.length > 0 ? (
+          <div className="component-fields">
+            {schema.fields.map((field) => (
+              <div className="component-field" key={field.key}>
+                <span>{field.label}</span>
+                <ComponentFieldControl
+                  assets={assets}
+                  component={component}
+                  field={field}
+                  scripts={scripts}
+                  onChange={(value) => onChange(setComponentValue(component, field.key, value))}
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {unknownEntries.length > 0 ? (
+          <div className="component-fields unknown">
+            {unknownEntries.map(([key, value]) => (
+              <div className="component-field" key={key}>
+                <span>{key}</span>
+                <code>{formatComponentValue(value)}</code>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ComponentFieldControl({
+  assets,
+  component,
+  field,
+  scripts,
+  onChange,
+}: {
+  assets: ProjectAsset[];
+  component: SceneComponent;
+  field: ComponentFieldSchema;
+  scripts: ScriptDocument[];
+  onChange: (value: unknown) => void;
+}) {
+  const value = componentValue(component, field.key);
+
+  if (field.kind === "boolean") {
+    return (
+      <input
+        checked={value === true}
+        className="component-check"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+    );
+  }
+
+  if (field.kind === "number") {
+    return (
+      <input
+        className="component-input"
+        onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))}
+        type="number"
+        value={componentInputValue(value)}
+      />
+    );
+  }
+
+  if (field.kind === "select") {
+    return (
+      <select className="component-input" onChange={(event) => onChange(event.target.value)} value={String(value ?? "")}>
+        <option value="">None</option>
+        {(field.options ?? []).map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (field.kind === "asset") {
+    const currentValue = String(value ?? "");
+    const options = includeCurrentOption(assetOptionsForComponentField(component, field, assets, scripts), currentValue);
+    return (
+      <select
+        className="component-input"
+        onChange={(event) => onChange(event.target.value || undefined)}
+        value={currentValue}
+      >
+        <option value="">None</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      className="component-input"
+      onChange={(event) => onChange(event.target.value)}
+      value={componentInputValue(value)}
+    />
+  );
+}
+
+function includeCurrentOption(options: string[], value: string): string[] {
+  if (!value || options.includes(value)) return options;
+  return [value, ...options];
+}
+
+function componentInputValue(value: unknown): string | number {
+  if (typeof value === "number" || typeof value === "string") return value;
+  if (typeof value === "boolean") return String(value);
+  return "";
+}
+
+function assetOptionsForComponentField(
+  component: SceneComponent,
+  field: ComponentFieldSchema,
+  assets: ProjectAsset[],
+  scripts: ScriptDocument[],
+): string[] {
+  if (field.key === "script" || component.kind === "script") {
+    return scripts.map((script) => script.path);
+  }
+
+  let wantedKind: AssetKind | null = null;
+  if (component.kind === "model3d") wantedKind = "model";
+  else if (component.kind === "sprite") wantedKind = "texture";
+  else if (component.kind === "audio" || component.kind === "audio3d") wantedKind = "audio";
+
+  return assets
+    .filter((asset) => asset.kind !== "scene" && (!wantedKind || asset.kind === wantedKind))
+    .map((asset) => asset.path);
 }
 
 function BottomDock({
@@ -1524,11 +2862,16 @@ function SectionTitle({ label }: { label: string }) {
   );
 }
 
-function InspectorGroup({ children, title }: { children: React.ReactNode; title: string }) {
+function InspectorGroup({ children, title, noPadding }: { children: React.ReactNode; title: string; noPadding?: boolean }) {
   return (
     <section className="inspector-group">
-      <h3>{title}</h3>
-      {children}
+      <div className="inspector-group-header">
+        <ChevronDown size={11} strokeWidth={ICON_STROKE} />
+        <h3>{title}</h3>
+      </div>
+      <div className={`inspector-group-content ${noPadding ? "no-padding" : ""}`}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -1625,16 +2968,24 @@ function DockTab({
 function ToolButton({
   active,
   children,
+  disabled,
   label,
   onClick,
 }: {
   active?: boolean;
   children: React.ReactNode;
+  disabled?: boolean;
   label: string;
   onClick?: () => void;
 }) {
   return (
-    <button className={`tool-button ${active ? "active" : ""}`} onClick={onClick} title={label}>
+    <button
+      aria-pressed={active}
+      className={`tool-button ${active ? "active" : ""}`}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+    >
       {children}
     </button>
   );
@@ -1644,33 +2995,117 @@ function StatusPill({ children, tone = "neutral" }: { children: React.ReactNode;
   return <span className={`status-pill ${tone}`}>{children}</span>;
 }
 
+function normalizePreviewStatus(status: string): PreviewStatus {
+  const knownStatuses: PreviewStatus[] = [
+    "idle",
+    "starting",
+    "loading",
+    "ready",
+    "playing",
+    "paused",
+    "stopped",
+    "exited",
+    "error",
+    "unavailable",
+  ];
+  return knownStatuses.includes(status as PreviewStatus) ? (status as PreviewStatus) : "error";
+}
+
+function previewStatusTone(status: PreviewStatus): "neutral" | "good" | "warn" {
+  if (status === "ready" || status === "playing") return "good";
+  if (["paused", "error", "unavailable", "exited"].includes(status)) return "warn";
+  return "neutral";
+}
+
+function previewStatusLabel(status: PreviewStatus): string {
+  const labels: Record<PreviewStatus, string> = {
+    idle: "Preview idle",
+    starting: "Preview starting",
+    loading: "Preview loading",
+    ready: "Preview ready",
+    playing: "Preview playing",
+    paused: "Preview paused",
+    stopped: "Preview stopped",
+    exited: "Preview exited",
+    error: "Preview error",
+    unavailable: "Preview unavailable",
+  };
+  return labels[status];
+}
+
+function previewEventToConsoleLine(event: PreviewEvent, runner?: string): Omit<ConsoleLine, "id"> {
+  let message = event.raw;
+
+  if (event.kind === "hello" && runner) {
+    message = `Preview connected through ${runner}`;
+  } else if (event.status) {
+    message = `Preview status: ${event.status}`;
+    if (typeof event.entityCount === "number") {
+      message += ` (${event.entityCount} entities)`;
+    }
+  } else if (event.message) {
+    message = event.message;
+  } else if (event.kind) {
+    message = `Preview event: ${event.kind}`;
+  }
+
+  return {
+    level: event.channel === "error" || event.raw.startsWith("[stderr]") ? "error" : "info",
+    source: "preview",
+    message,
+  };
+}
+
 function entityScript(entity: SceneEntity): string | undefined {
   return entity.components.find((component) => component.kind === "script")?.script;
 }
 
+function formatComponentValue(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "none";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
 function entityClass(entity: SceneEntity): string {
-  if (entity.components.some((component) => component.kind === "camera3d")) return "camera";
+  if (entity.components.some((component) => component.kind === "camera3d" || component.kind === "camera2d")) return "camera";
   if (entity.components.some((component) => component.kind === "cube3d")) return "cube";
   if (entity.components.some((component) => component.kind === "model3d")) return "model";
+  if (entity.components.some((component) => component.kind === "audio" || component.kind === "audio3d")) return "audio";
+  if (entity.components.some((component) => component.kind === "ui" || component.kind === "ui3d" || component.kind === "hud")) return "ui";
   return "default";
 }
 
 function entityGlyph(entity: SceneEntity) {
-  if (entity.components.some((component) => component.kind === "camera3d")) {
+  if (entity.components.some((component) => component.kind === "camera3d" || component.kind === "camera2d")) {
     return <Maximize2 size={16} strokeWidth={ICON_STROKE} />;
   }
   if (entity.components.some((component) => component.kind === "cube3d")) {
     return <Cuboid size={17} strokeWidth={ICON_STROKE} />;
   }
+  if (entity.components.some((component) => component.kind === "audio" || component.kind === "audio3d")) {
+    return <Activity size={17} strokeWidth={ICON_STROKE} />;
+  }
+  if (entity.components.some((component) => component.kind === "ui" || component.kind === "ui3d" || component.kind === "hud")) {
+    return <LayoutTemplate size={17} strokeWidth={ICON_STROKE} />;
+  }
   return <Box size={17} strokeWidth={ICON_STROKE} />;
 }
 
 function entityIcon(entity: SceneEntity) {
-  if (entity.components.some((component) => component.kind === "camera3d")) {
+  if (entity.components.some((component) => component.kind === "camera3d" || component.kind === "camera2d")) {
     return <Maximize2 size={12} strokeWidth={ICON_STROKE} />;
   }
   if (entity.components.some((component) => component.kind === "script")) {
     return <Braces size={12} strokeWidth={ICON_STROKE} />;
+  }
+  if (entity.components.some((component) => component.kind === "audio" || component.kind === "audio3d")) {
+    return <Activity size={12} strokeWidth={ICON_STROKE} />;
+  }
+  if (entity.components.some((component) => component.kind === "ui" || component.kind === "ui3d" || component.kind === "hud")) {
+    return <LayoutTemplate size={12} strokeWidth={ICON_STROKE} />;
+  }
+  if (entity.components.some((component) => component.kind === "render3d" || component.kind === "postfx")) {
+    return <WandSparkles size={12} strokeWidth={ICON_STROKE} />;
   }
   return <Box size={12} strokeWidth={ICON_STROKE} />;
 }
@@ -1697,6 +3132,99 @@ function project2d(transform: Transform3D): { x: number; y: number } {
     x: transform.x * 0.72,
     y: transform.y * 0.5,
   };
+}
+
+function snapTransform(
+  transform: Transform3D,
+  entity: SceneEntity,
+  entities: SceneEntity[],
+  settings: SnapSettings,
+): Transform3D {
+  let next = { ...transform };
+
+  if (settings.snapToGrid) {
+    const sceneStep = gridMetersToSceneUnits(settings.gridSize);
+    next = {
+      ...next,
+      x: snapValue(next.x, sceneStep),
+      y: snapValue(next.y, sceneStep),
+      z: snapValue(next.z, sceneStep),
+    };
+  }
+
+  if (settings.snapToObject) {
+    next = snapTransformToObjects(next, entity, entities, settings.gridSize);
+  }
+
+  return next;
+}
+
+function snapTransformToObjects(
+  transform: Transform3D,
+  entity: SceneEntity,
+  entities: SceneEntity[],
+  gridSize: number,
+): Transform3D {
+  const threshold = clamp(gridMetersToSceneUnits(gridSize) * 0.5, 4, 18);
+  const movingBounds = entityBounds({ ...entity, transform });
+  let next = { ...transform };
+  let best = { axis: "" as "x" | "y" | "z" | "", delta: 0, distance: Number.POSITIVE_INFINITY };
+
+  for (const target of entities) {
+    if (target.id === entity.id) continue;
+    const targetBounds = entityBounds(target);
+    const candidates = [
+      { axis: "x" as const, delta: targetBounds.maxX - movingBounds.minX },
+      { axis: "x" as const, delta: targetBounds.minX - movingBounds.maxX },
+      { axis: "x" as const, delta: target.transform.x - transform.x },
+      { axis: "y" as const, delta: targetBounds.maxY - movingBounds.minY },
+      { axis: "y" as const, delta: targetBounds.minY - movingBounds.maxY },
+      { axis: "y" as const, delta: target.transform.y - transform.y },
+      { axis: "z" as const, delta: targetBounds.maxZ - movingBounds.minZ },
+      { axis: "z" as const, delta: targetBounds.minZ - movingBounds.maxZ },
+      { axis: "z" as const, delta: target.transform.z - transform.z },
+    ];
+
+    for (const candidate of candidates) {
+      const distance = Math.abs(candidate.delta);
+      if (distance < best.distance && distance <= threshold) {
+        best = { axis: candidate.axis, delta: candidate.delta, distance };
+      }
+    }
+  }
+
+  if (best.axis) {
+    next = {
+      ...next,
+      [best.axis]: Math.round(next[best.axis] + best.delta),
+    };
+  }
+
+  return next;
+}
+
+function entityBounds(entity: SceneEntity) {
+  const halfX = Math.max(0.25, entity.transform.scaleX) * 12.5;
+  const halfY = Math.max(0.25, entity.transform.scaleY) * 12.5;
+  const halfZ = Math.max(0.25, entity.transform.scaleZ) * 12.5;
+
+  return {
+    minX: entity.transform.x - halfX,
+    maxX: entity.transform.x + halfX,
+    minY: entity.transform.y - halfY,
+    maxY: entity.transform.y + halfY,
+    minZ: entity.transform.z - halfZ,
+    maxZ: entity.transform.z + halfZ,
+  };
+}
+
+function snapValue(value: number, step: number): number {
+  if (step <= 0) return value;
+  return Math.round(value / step) * step;
+}
+
+function gridMetersToSceneUnits(gridSize: number): number {
+  return gridSize / 0.04;
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -27,6 +27,7 @@
 #include "compiler/tooling/formatter.h"
 #include "compiler/utils/l10n.h"
 #include "compiler/driver/doc_show.h"
+#include "compiler/driver/zpm.h"
 #include "runtime/c/zenith_rt.h"
 
 #include <ctype.h>
@@ -82,7 +83,9 @@ typedef struct zt_driver_context {
     int use_action_first;
     const zt_project_manifest *active_manifest;
     int telemetry_enabled;
-    char project_root_abs[512];
+    int verbose;
+    int quiet;
+    const char *project_path;
     zt_path_filter_list since_filter;
 } zt_driver_context;
 
@@ -139,6 +142,7 @@ void zt_project_source_file_list_init(zt_project_source_file_list *list);
 void zt_project_source_file_list_dispose(zt_project_source_file_list *list);
 int zt_project_source_file_list_push(zt_project_source_file_list *list, const char *path);
 int zt_project_discover_zt_files(const char *directory, zt_project_source_file_list *files);
+int zt_project_discover_packages(const char *project_root, zt_project_source_file_list *files);
 int zt_namespace_to_relative_path(const char *namespace_name, char *dest, size_t capacity);
 const char *zt_last_namespace_segment(const char *namespace_name);
 const zt_ast_node *zt_find_entry_root(const zt_project_source_file_list *files, const char *entry_namespace);
@@ -230,5 +234,12 @@ int zt_compile_c_file(
         const char *exe_path,
         const zt_project_manifest *manifest);
 int zt_run_executable(zt_driver_context *ctx, const char *exe_path);
+int zt_handle_doc_check(zt_driver_context *ctx, const char *input_path);
+int zt_handle_project_command(
+        zt_driver_context *ctx,
+        const char *command,
+        const char *input_path,
+        const char *output_path,
+        int run_output);
 
 #endif /* ZT_DRIVER_INTERNAL_H */

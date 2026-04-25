@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "name": "sample_3d",
+  "document_id": "scene:sample_3d",
+  "entities": [
+    {
+      "stable_id": "camera-3d",
+      "name": "Camera 3D",
+      "layer": "world3d",
+      "tags": [
+        "camera",
+        "3d"
+      ],
+      "transform": {
+        "x": 120,
+        "y": -120,
+        "z": 120,
+        "rotation": 0,
+        "rotation_x": -35,
+        "rotation_y": 35,
+        "rotation_z": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "camera3d",
+          "projection": "perspective"
+        }
+      ]
+    },
+    {
+      "stable_id": "player",
+      "name": "Player",
+      "layer": "actors",
+      "tags": [
+        "player",
+        "controllable"
+      ],
+      "transform": {
+        "x": 28,
+        "y": 18,
+        "z": 24,
+        "rotation": 0,
+        "rotation_x": 0,
+        "rotation_y": 0,
+        "rotation_z": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "model3d",
+          "asset": "assets/triangle.obj"
+        },
+        {
+          "kind": "script",
+          "script": "src/app/player_controller.zt"
+        }
+      ]
+    },
+    {
+      "stable_id": "cube-01",
+      "name": "Cube 01",
+      "layer": "world3d",
+      "tags": [
+        "3d",
+        "prop"
+      ],
+      "transform": {
+        "x": 164,
+        "y": 82,
+        "z": 18,
+        "rotation": 0,
+        "rotation_x": 0,
+        "rotation_y": 0,
+        "rotation_z": 0,
+        "scale_x": 1.2,
+        "scale_y": 1.2,
+        "scale_z": 1.2
+      },
+      "components": [
+        {
+          "kind": "cube3d",
+          "size": 48
+        },
+        {
+          "kind": "script",
+          "script": "src/app/spinning_cube.zt"
+        }
+      ]
+    },
+    {
+      "stable_id": "entity-04",
+      "name": "triangle",
+      "layer": "world3d",
+      "tags": [
+        "3d",
+        "asset"
+      ],
+      "transform": {
+        "x": 25,
+        "y": 100,
+        "z": 24,
+        "rotation": 0,
+        "rotation_x": 0,
+        "rotation_y": 0,
+        "rotation_z": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "scale_z": 1
+      },
+      "components": [
+        {
+          "kind": "model3d",
+          "asset": "packages/borealis/assets/triangle.obj"
+        }
+      ]
+    }
+  ]
+}

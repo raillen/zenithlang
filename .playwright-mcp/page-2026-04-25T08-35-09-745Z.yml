@@ -1,0 +1,138 @@
+- generic [ref=e3]:
+  - navigation "Application menu" [ref=e4]:
+    - generic [ref=e5]:
+      - button "File" [ref=e6]
+      - button "Edit" [ref=e7]
+      - button "Assets" [ref=e8]
+      - button "GameObject" [ref=e9]
+      - button "Component" [ref=e10]
+      - button "Window" [ref=e11]
+      - button "Help" [ref=e12]
+    - generic [ref=e13]: Browser
+  - generic [ref=e14]:
+    - complementary [ref=e15]:
+      - generic [ref=e17]:
+        - img [ref=e18]
+        - strong [ref=e23]: Navigator
+        - generic [ref=e24]: Scene
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - img [ref=e27]
+          - generic [ref=e31]: sample_3d.scene.json
+          - generic [ref=e32]: scene
+        - button "Camera 3D world3d" [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e39]: Camera 3D
+          - generic [ref=e40]: world3d
+        - button "Player actors" [ref=e41]:
+          - img [ref=e42]
+          - generic [ref=e45]: Player
+          - generic [ref=e46]: actors
+        - button "Cube 01 world3d" [ref=e47]:
+          - img [ref=e48]
+          - generic [ref=e51]: Cube 01
+          - generic [ref=e52]: world3d
+    - main [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - button "2d" [ref=e57]
+          - button "3d" [ref=e58]
+        - generic [ref=e59]:
+          - button "Open command search" [ref=e61]:
+            - img [ref=e62]
+          - generic "Transform tools" [ref=e65]:
+            - button "Select" [ref=e66]:
+              - img [ref=e67]
+            - button "Move" [ref=e69]:
+              - img [ref=e70]
+            - button "Rotate" [ref=e75]:
+              - img [ref=e76]
+            - button "Scale" [ref=e79]:
+              - img [ref=e80]
+          - generic "Preview controls" [ref=e85]:
+            - button "Play" [ref=e86]:
+              - img [ref=e87]
+            - button "Pause" [ref=e89]:
+              - img [ref=e90]
+            - button "Stop" [ref=e93]:
+              - img [ref=e94]
+        - generic [ref=e96]:
+          - button "Save Scene" [ref=e97]:
+            - img [ref=e98]
+            - text: Save Scene
+          - generic [ref=e102]: move
+          - generic [ref=e103]: Player
+          - generic [ref=e104]: Scene saved
+      - generic [ref=e107]:
+        - generic [ref=e111]:
+          - generic [ref=e112]: Scene 3D
+          - generic [ref=e113]: MMB orbit
+          - generic [ref=e114]: Shift+MMB pan
+          - generic [ref=e115]: translate
+          - generic [ref=e116]: perspective
+          - generic [ref=e117]: Free
+          - button "Reset" [ref=e118]
+        - generic "3D viewport view controls" [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]: View
+            - combobox "View" [ref=e122]:
+              - option "Free" [selected]
+              - option "Top"
+              - option "Bottom"
+              - option "Left"
+              - option "Right"
+              - option "Front"
+              - option "Back"
+          - generic [ref=e123]:
+            - button "perspective" [ref=e124]
+            - button "Ortho" [ref=e125]
+            - button "isometric" [ref=e126]
+          - generic [ref=e127]:
+            - generic [ref=e128]: Render
+            - combobox "Render" [ref=e129]:
+              - option "Wire"
+              - option "Color"
+              - option "Texture"
+              - option "Light" [selected]
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - generic [ref=e132]: Grid m
+            - slider "Grid m 1" [ref=e133]: "1"
+            - strong [ref=e134]: "1"
+          - button "Snap grid" [ref=e135]
+          - button "Snap object" [ref=e136]
+        - generic [ref=e137]:
+          - generic [ref=e138]: Viewport 3D
+          - generic [ref=e139]: 3 objects | Scene Collection
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - button "Assets" [ref=e143]:
+          - img [ref=e144]
+          - text: Assets
+        - button "Console" [ref=e147]:
+          - img [ref=e148]
+          - text: Console
+        - button "Problems" [ref=e150]:
+          - img [ref=e151]
+          - text: Problems
+      - generic [ref=e153]:
+        - generic [ref=e154]:
+          - img [ref=e155]
+          - slider "Asset icon size" [ref=e158]: "112"
+        - generic [ref=e159]:
+          - button "sample_3d.scene.json packages/borealis/scenes/sample_3d.scene.json" [ref=e160]:
+            - img [ref=e162]
+            - strong [ref=e166]: sample_3d.scene.json
+            - generic [ref=e167]: packages/borealis/scenes/sample_3d.scene.json
+          - button "triangle.obj packages/borealis/assets/triangle.obj" [ref=e168]:
+            - img [ref=e170]
+            - strong [ref=e174]: triangle.obj
+            - generic [ref=e175]: packages/borealis/assets/triangle.obj
+          - button "player_controller.zt src/app/player_controller.zt" [ref=e176]:
+            - img [ref=e178]
+            - strong [ref=e183]: player_controller.zt
+            - generic [ref=e184]: src/app/player_controller.zt
+          - button "spinning_cube.zt src/app/spinning_cube.zt" [ref=e185]:
+            - img [ref=e187]
+            - strong [ref=e192]: spinning_cube.zt
+            - generic [ref=e193]: src/app/spinning_cube.zt

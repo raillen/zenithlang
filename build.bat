@@ -22,22 +22,43 @@ if not defined CC_BIN (
     exit /b 1
 )
 
-set "C_FILES="
+set "COMMON_FILES="
 for /r compiler %%f in (*.c) do (
-    if /I not "%%~nxf"=="lsp.c" (
-        set "C_FILES=!C_FILES! "%%f""
+    set "FILE_NAME=%%~nxf"
+    if /I "!FILE_NAME!"=="main.c" (
+        rem Skip
+    ) else if /I "!FILE_NAME!"=="zpm_main.c" (
+        rem Skip
+    ) else if /I "!FILE_NAME!"=="lsp.c" (
+        rem Skip
+    ) else (
+        set "COMMON_FILES=!COMMON_FILES! "%%f""
     )
 )
 
-if not defined C_FILES (
+if not defined COMMON_FILES (
     echo FAIL
-    echo No C files found under compiler/.
+    echo No common C files found under compiler/.
     exit /b 1
 )
 
-set "CMD=%CC_BIN% -O0 -Wall -Wextra -I. -o zt.exe%C_FILES%"
-echo Building with: %CMD%
-call %CMD%
+echo Building zt.exe...
+set "ZT_CMD=%CC_BIN% -O0 -Wall -Wextra -I. -o zt.exe compiler\driver\main.c %COMMON_FILES%"
+call %ZT_CMD%
+set "ZT_RC=%ERRORLEVEL%"
+
+echo Building zpm.exe...
+set "ZPM_CMD=%CC_BIN% -O0 -Wall -Wextra -I. -o zpm.exe compiler\driver\zpm_main.c %COMMON_FILES%"
+call %ZPM_CMD%
+set "ZPM_RC=%ERRORLEVEL%"
+
+if %ZT_RC%==0 if %ZPM_RC%==0 (
+    echo SUCCESS
+    exit /b 0
+)
+
+echo FAIL (zt: %ZT_RC%, zpm: %ZPM_RC%)
+exit /b 1
 set "RC=%ERRORLEVEL%"
 
 echo Exit code: %RC%

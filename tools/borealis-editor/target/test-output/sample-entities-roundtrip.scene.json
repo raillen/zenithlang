@@ -1,0 +1,90 @@
+{
+  "document_id": "scene:sample",
+  "entities": [
+    {
+      "components": [
+        {
+          "asset": "assets/player.png",
+          "kind": "sprite"
+        },
+        {
+          "kind": "controller",
+          "profile": "platformer"
+        }
+      ],
+      "layer": "actors",
+      "name": "Player",
+      "stable_id": "player",
+      "tags": [
+        "player",
+        "controllable"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 105.45455169677734,
+        "y": 67.2727279663086,
+        "z": 0.0
+      }
+    },
+    {
+      "components": [
+        {
+          "kind": "ai",
+          "profile": "patrol"
+        }
+      ],
+      "layer": "actors",
+      "name": "Enemy 01",
+      "parent": "player",
+      "stable_id": "enemy-01",
+      "tags": [
+        "enemy"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 220.0,
+        "y": 96.0,
+        "z": 0.0
+      }
+    },
+    {
+      "components": [
+        {
+          "kind": "dialog"
+        }
+      ],
+      "layer": "actors",
+      "name": "NPC 01",
+      "stable_id": "npc-01",
+      "tags": [
+        "npc"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 320.0,
+        "y": 180.0,
+        "z": 0.0
+      }
+    }
+  ],
+  "name": "sample",
+  "version": 1.0
+}

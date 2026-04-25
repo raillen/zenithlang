@@ -139,6 +139,17 @@ def print_contributor_next_steps():
             emitted.add(key)
             continue
 
+        if key == "tooling/lsp_smoke":
+            print("    - Re-run LSP smoke: python tests/lsp/test_lsp_smoke.py")
+            print("      If build fails: python tools/build_lsp.py")
+            emitted.add(key)
+            continue
+
+        if key == "tooling/vscode_extension_syntax":
+            print("    - Recheck VSCode extension syntax: node --check tools/vscode-zenith/extension.js")
+            emitted.add(key)
+            continue
+
         if key.startswith("behavior/"):
             behavior_name = key.split("/", 1)[1]
             project_path = os.path.join(BEHAVIOR_DIR, behavior_name)
@@ -283,7 +294,36 @@ def main():
         print("  [SKIP] tooling gate project not found")
         RESULTS["skip"].append("tooling/gate_project_missing")
 
-    section("3. Behavior Tests")
+    section("3. LSP Smoke")
+    lsp_smoke = os.path.join("tests", "lsp", "test_lsp_smoke.py")
+    if os.path.exists(lsp_smoke):
+        rc_lsp, out_lsp = run_cmd(
+            "lsp-smoke",
+            [sys.executable, lsp_smoke],
+            timeout=60,
+        )
+        lsp_ok = rc_lsp == 0 and "lsp smoke ok" in out_lsp
+        print(f"  [{'OK' if lsp_ok else 'FAIL':<4}] Compass LSP smoke")
+        mark(lsp_ok, "tooling/lsp_smoke", out_lsp[:400] if not lsp_ok else None)
+    else:
+        print("  [SKIP] LSP smoke runner not found")
+        RESULTS["skip"].append("tooling/lsp_smoke_missing")
+
+    rc_node, _out_node = run_cmd("node-version", ["node", "--version"], timeout=10)
+    if rc_node == 0 and os.path.exists(os.path.join("tools", "vscode-zenith", "extension.js")):
+        rc_ext, out_ext = run_cmd(
+            "vscode-extension-syntax",
+            ["node", "--check", os.path.join("tools", "vscode-zenith", "extension.js")],
+            timeout=30,
+        )
+        ext_ok = rc_ext == 0
+        print(f"  [{'OK' if ext_ok else 'FAIL':<4}] VSCode extension syntax")
+        mark(ext_ok, "tooling/vscode_extension_syntax", out_ext[:400] if not ext_ok else None)
+    else:
+        print("  [SKIP] VSCode extension syntax (node not available or extension missing)")
+        RESULTS["skip"].append("tooling/vscode_extension_syntax")
+
+    section("4. Behavior Tests")
     if not os.path.isdir(BEHAVIOR_DIR):
         print("  [FAIL] tests/behavior not found")
         RESULTS["fail"].append("behavior_root_missing")
@@ -297,7 +337,7 @@ def main():
                 continue
             test_behavior_project(test_name, test_path)
 
-    section("4. Cross Validation (new vs old driver)")
+    section("5. Cross Validation (new vs old driver)")
     if os.path.exists(ZT_OLD):
         for test_name in ["std_io_basic", "simple_app", "result_question_basic", "optional_result_basic"]:
             test_path = os.path.join(BEHAVIOR_DIR, test_name)
@@ -313,7 +353,7 @@ def main():
         print("  [SKIP] old driver not found (compiler/driver/zt-next-v2.exe)")
         RESULTS["skip"].append("crossval/old_driver_missing")
 
-    section("5. Unit Test Binaries")
+    section("6. Unit Test Binaries")
     unit_bins = []
     for root, _dirs, files in os.walk("tests"):
         for filename in files:
@@ -336,7 +376,7 @@ def main():
             print(f"  [{'OK' if ok else 'FAIL':<4}] {name}")
             mark(ok, f"unit/{name}", out[:160] if not ok else None)
 
-    section("6. Formatter Golden Tests")
+    section("7. Formatter Golden Tests")
     if os.path.exists(os.path.join("tests", "formatter", "run_formatter_golden.py")):
         rc, out = run_cmd(
             "formatter-golden",
@@ -350,7 +390,7 @@ def main():
         print("  [SKIP] formatter golden runner not found")
         RESULTS["skip"].append("formatter/golden_missing")
 
-    section("7. Hardening Tests")
+    section("8. Hardening Tests")
     hardening_scripts = [
         ("hardening/determinism", os.path.join("tests", "hardening", "test_determinism.py"), 120),
         ("hardening/roundtrip_emit_c", os.path.join("tests", "hardening", "test_roundtrip_emit_c.py"), 180),
@@ -367,7 +407,7 @@ def main():
         print(f"  [{'OK' if ok else 'FAIL':<4}] {key}")
         mark(ok, key, out[:400] if not ok else None)
 
-    section("8. Stdlib Modules")
+    section("9. Stdlib Modules")
     if os.path.isdir("stdlib"):
         for root, _dirs, files in os.walk("stdlib"):
             for filename in sorted(files):

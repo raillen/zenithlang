@@ -1,9 +1,13 @@
 # Decision 011 - Borealis Editor Stack
 
-- Status: accepted
+- Status: superseded by `015-borealis-studio-tauri-react-stack.md`
 - Date: 2026-04-22
 - Type: architecture / editor / stack
 - Scope: Borealis editor application, desktop shell, UI toolkit, preview integration
+
+> Superseded note, 2026-04-25:
+> Decision 015 makes `Tauri + React + TypeScript` the active Borealis Studio stack.
+> This file is kept as historical context for the Rust + egui path.
 
 ## Summary
 

@@ -1,0 +1,69 @@
+-- Zenith Standard Library — Format Module
+-- Presentation formatting: numbers, dates, bytes, hex, binary (Decision 060).
+-- 🏗️ TYPES
+-- 🏗️ EXTERN C
+-- 🔢 NUMBER / PERCENT
+-- 📅 DATE / DATETIME
+-- 💾 BYTES / HEX / BIN
+namespace std.format
+
+public enum BytesStyle
+    Binary
+    Decimal
+end
+
+extern c
+    func zt_format_number(value: float, decimals: int) -> text
+    func zt_format_percent(value: float, decimals: int) -> text
+    func zt_format_date(millis: int, style: text) -> text
+    func zt_format_datetime(millis: int, style: text, locale: text) -> text
+    func zt_format_date_pattern(millis: int, pattern: text) -> text
+    func zt_format_datetime_pattern(millis: int, pattern: text) -> text
+    func zt_format_hex_i64(value: int) -> text
+    func zt_format_bin_i64(value: int) -> text
+    func zt_format_bytes_binary(value: int, decimals: int) -> text
+    func zt_format_bytes_decimal(value: int, decimals: int) -> text
+end
+
+public func number(value: float, decimals: int = 0) -> text
+    return format.zt_format_number(value, decimals)
+end
+
+public func percent(value: float, decimals: int = 0) -> text
+    return format.zt_format_percent(value, decimals)
+end
+
+public func date(millis: int, style: text = "iso") -> text
+    return format.zt_format_date(millis, style)
+end
+
+public func datetime(millis: int, style: text = "short", locale: text = "") -> text
+    return format.zt_format_datetime(millis, style, locale)
+end
+
+public func date_pattern(millis: int, pattern: text) -> text
+    return format.zt_format_date_pattern(millis, pattern)
+end
+
+public func datetime_pattern(millis: int, pattern: text) -> text
+    return format.zt_format_datetime_pattern(millis, pattern)
+end
+
+public func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binary, decimals: int = 1) -> text
+    match style
+        case format.BytesStyle.Binary ->
+            return format.zt_format_bytes_binary(value, decimals)
+        case format.BytesStyle.Decimal ->
+            return format.zt_format_bytes_decimal(value, decimals)
+        case default ->
+            return format.zt_format_bytes_binary(value, decimals)
+    end
+end
+
+public func hex(value: int) -> text
+    return format.zt_format_hex_i64(value)
+end
+
+public func bin(value: int) -> text
+    return format.zt_format_bin_i64(value)
+end

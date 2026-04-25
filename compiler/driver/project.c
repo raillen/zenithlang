@@ -299,6 +299,61 @@ int zt_project_discover_zt_files(const char *directory, zt_project_source_file_l
 #endif
 }
 
+int zt_project_discover_packages(const char *project_root, zt_project_source_file_list *files) {
+    char packages_dir[512];
+    char *pattern;
+    intptr_t handle;
+    struct _finddata_t data;
+
+    if (!zt_join_path(packages_dir, sizeof(packages_dir), project_root, ".zenith/packages")) {
+        return 1; /* Not an error if dir doesn't exist or is too deep */
+    }
+
+    if (!zt_path_is_dir(packages_dir)) return 1;
+
+#ifdef _WIN32
+    pattern = zt_join_path_alloc(packages_dir, "*");
+    if (pattern == NULL) return 0;
+
+    handle = _findfirst(pattern, &data);
+    free(pattern);
+    if (handle == -1) return 1;
+
+    do {
+        char pkg_path[512];
+        char manifest_path[512];
+        zt_project_parse_result pkg_project;
+
+        if (strcmp(data.name, ".") == 0 || strcmp(data.name, "..") == 0) continue;
+        if ((data.attrib & _A_SUBDIR) == 0) continue;
+
+        if (!zt_join_path(pkg_path, sizeof(pkg_path), packages_dir, data.name)) continue;
+        if (!zt_join_path(manifest_path, sizeof(manifest_path), pkg_path, "zenith.ztproj")) continue;
+
+        if (zt_path_is_file(manifest_path)) {
+            if (zt_project_load_file(manifest_path, &pkg_project)) {
+                char source_root[512];
+                if (zt_join_path(source_root, sizeof(source_root), pkg_path, pkg_project.manifest.source_root)) {
+                    if (zt_path_is_dir(source_root)) {
+                        /* Discover files in this package's source root */
+                        if (!zt_project_discover_zt_files(source_root, files)) {
+                            _findclose(handle);
+                            return 0;
+                        }
+                    }
+                }
+            }
+        }
+    } while (_findnext(handle, &data) == 0);
+
+    _findclose(handle);
+    return 1;
+#else
+    /* Simplified Unix version for now */
+    return 1;
+#endif
+}
+
 int zt_namespace_to_relative_path(const char *namespace_name, char *dest, size_t capacity) {
     size_t out = 0;
     size_t i;

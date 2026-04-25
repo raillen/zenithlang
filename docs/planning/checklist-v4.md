@@ -153,34 +153,45 @@ R4.M0 (base)
 #### R4.M1 - Compass LSP v1 + VSCode beta
 
 **Entregas:**
-- [ ] Diagnostics em tempo real
-- [ ] Hover de simbolos
-- [ ] Go-to-definition
-- [ ] Format-on-save com `zt fmt`
-- [ ] Comando rapido `check/build/run` no editor
+- [x] Diagnostics em tempo real
+- [x] Hover de simbolos
+- [x] Go-to-definition
+- [x] Format-on-save com `zt fmt`
+- [x] Autocomplete contextual global, local e de membro (`list.get`, `map.get`, `core.Error`, campos de struct)
+- [x] Autocomplete de `import ...` com `std.*` e módulos `.zt` indexados do projeto
+- [x] Indice de workspace para simbolos top-level cross-file
+- [x] Indice ciente de `namespace`, `import ... as ...` e `public`
+- [x] Comando rapido `check/build/run` no editor
 
 **Criterio de aceite:**
-- [ ] Fluxo de edicao diario validado em projeto real
+- [x] Fluxo de edicao diario validado em projeto real
+
+**Nota de status (2026-04-25):**
+- Implementacao beta local concluida.
+- Validado por smoke LSP automatizado e syntax check da extensao.
+- Ajustado apos validacao manual do usuario: diagnostics estavam OK; autocomplete de membro precisava ser contextual.
+- Endurecido com indice in-memory do workspace para autocomplete e definition cross-file.
+- Endurecido com regras de import/namespace/public para evitar sugestoes cross-file fora de contexto.
 
 **Evidencias:**
-- [ ] `docs/reports/release/R4.M1-lsp-vscode-report.md`
-- [ ] `docs/guides/README.md` com onboarding do editor
+- [x] `docs/reports/release/R4.M1-lsp-vscode-report.md`
+- [x] `docs/guides/README.md` com onboarding do editor
 
 #### R4.M2 - ZPM MVP
 
 **Entregas:**
-- [ ] `zpm init`
-- [ ] `zpm add <pkg>`
-- [ ] `zpm install`
-- [ ] lockfile reproduzivel
-- [ ] `zpm publish` (fluxo minimo)
+- [x] `zpm init`
+- [x] `zpm add <pkg>`
+- [x] `zpm install`
+- [x] lockfile reproduzivel
+- [x] `zpm publish` (fluxo minimo)
 
 **Criterio de aceite:**
-- [ ] Pacote local instalado e publicado em fluxo reproduzivel
+- [x] Pacote local instalado e publicado em fluxo reproduzivel
 
 **Evidencias:**
-- [ ] `docs/reports/release/R4.M2-zpm-report.md`
-- [ ] guia de uso inicial do ZPM
+- [x] `docs/reports/release/R4.M2-zpm-report.md`
+- [x] guia de uso inicial do ZPM
 
 ---
 

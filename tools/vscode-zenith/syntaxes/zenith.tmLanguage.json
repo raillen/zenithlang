@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Zenith",
+  "scopeName": "source.zenith",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#numbers" },
+    { "include": "#types" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-dash.zenith", "match": "--.*$" }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        { "name": "string.quoted.double.zenith", "begin": "\"", "end": "\"", "patterns": [{ "name": "constant.character.escape.zenith", "match": "\\\\." }] }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "keyword.control.zenith", "match": "\\b(namespace|import|as|func|return|end|if|else|while|for|in|repeat|times|match|case|default|break|continue|apply|where|public|mut|extern|host|c)\\b" },
+        { "name": "storage.type.zenith", "match": "\\b(var|const|struct|trait|enum|dyn|callable)\\b" },
+        { "name": "constant.language.zenith", "match": "\\b(true|false|none|success|error)\\b" }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "name": "constant.numeric.zenith", "match": "\\b[0-9]+(\\.[0-9]+)?\\b" }
+      ]
+    },
+    "types": {
+      "patterns": [
+        { "name": "support.type.zenith", "match": "\\b(int|float|bool|text|bytes|void|optional|result|list|map|core\\.Error)\\b" }
+      ]
+    }
+  }
+}

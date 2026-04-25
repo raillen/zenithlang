@@ -1,8 +1,11 @@
 namespace preview_runner
 
-import std.fs as fs
 import std.io as io
 import std.text as text
+
+extern c
+    func zt_host_read_file(file_path: text) -> result<text, core.Error>
+end
 
 func main() -> result<void, core.Error>
     io.write("{\"protocol\":1,\"seq\":0,\"channel\":\"event\",\"kind\":\"status\",\"payload\":{\"status\":\"starting\"}}\n")?
@@ -128,12 +131,12 @@ func load_scene_info(scene_path: text) -> SceneLoadInfo
         return SceneLoadInfo(path: "", entity_count: 0, loaded: false)
     end
 
-    match fs.read_text(scene_path)
+    match zt_host_read_file(scene_path)
         case success(content) ->
             return SceneLoadInfo(path: scene_path, entity_count: count_occurrences(content, "\"stable_id\""), loaded: true)
         case error(read_error) ->
             const package_path: text = text.join(["packages/borealis/", scene_path])
-            match fs.read_text(package_path)
+            match zt_host_read_file(package_path)
                 case success(content2) ->
                     return SceneLoadInfo(path: package_path, entity_count: count_occurrences(content2, "\"stable_id\""), loaded: true)
                 case error(package_read_error) ->

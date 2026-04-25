@@ -1,0 +1,45 @@
+namespace tests.integration.zpm_v2
+
+import std.test as test
+import std.io as io
+import std.os as os
+
+@test.case
+func test_zpm_commands() -> result<void, core.Error>
+    // 1. zpm help
+    test.assert(os.run("zpm help")? == 0)
+    
+    // 2. zpm init
+    os.remove_dir_recursive("test_project")?
+    os.make_dir("test_project")?
+    test.assert(os.run("zpm init test_project")? == 0)
+    test.assert(os.file_exists("test_project/zenith.ztproj")?)
+    
+    // 3. zpm add
+    test.assert(os.run("zpm add json@1.2.3 test_project")? == 0)
+    let content = io.read_file("test_project/zenith.ztproj")?
+    test.assert(content.contains("json = \"1.2.3\"")?)
+    
+    // 4. zpm install
+    test.assert(os.run("zpm install test_project")? == 0)
+    test.assert(os.file_exists("test_project/zenith.lock")?)
+    let lock = io.read_file("test_project/zenith.lock")?
+    test.assert(lock.contains("name = \"json\"")?)
+    test.assert(lock.contains("version = \"1.2.3\"")?)
+    
+    // 5. zpm list
+    test.assert(os.run("zpm list test_project")? == 0)
+    
+    // 6. zpm find
+    test.assert(os.run("zpm find json")? == 0)
+    
+    // 7. zpm remove
+    test.assert(os.run("zpm remove json test_project")? == 0)
+    let content_after = io.read_file("test_project/zenith.ztproj")?
+    test.assert(!content_after.contains("json = \"1.2.3\"")?)
+    
+    // 8. Cleanup
+    os.remove_dir_recursive("test_project")?
+    
+    return success()
+end

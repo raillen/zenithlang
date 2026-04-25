@@ -4,6 +4,20 @@ export type AssetKind = "scene" | "script" | "model" | "texture" | "audio" | "da
 
 export type BottomTab = "assets" | "console" | "problems";
 
+export type ProjectTemplateId = "empty3d" | "topdown2d" | "scripted3d";
+
+export type PreviewStatus =
+  | "idle"
+  | "starting"
+  | "loading"
+  | "ready"
+  | "playing"
+  | "paused"
+  | "stopped"
+  | "exited"
+  | "error"
+  | "unavailable";
+
 export interface Transform3D {
   x: number;
   y: number;
@@ -21,6 +35,7 @@ export interface SceneComponent {
   asset?: string;
   script?: string;
   profile?: string;
+  properties?: Record<string, unknown>;
 }
 
 export interface SceneEntity {
@@ -61,9 +76,59 @@ export interface ConsoleLine {
   message: string;
 }
 
+export interface PreviewEvent {
+  raw: string;
+  channel?: string;
+  kind?: string;
+  status?: string;
+  message?: string;
+  loaded?: boolean;
+  entityCount?: number;
+}
+
+export interface PreviewCommandResult {
+  status: PreviewStatus | string;
+  runner?: string;
+  events: PreviewEvent[];
+}
+
+export interface ProjectTemplate {
+  id: ProjectTemplateId;
+  name: string;
+  summary: string;
+  defaultName: string;
+  tags: string[];
+}
+
+export interface DocumentationLink {
+  title: string;
+  path: string;
+  summary: string;
+}
+
+export interface StudioHome {
+  workspaceRoot: string;
+  appRoot: string;
+  repoRoot?: string;
+  sdkRoot?: string;
+  runtimeMode: "sdk" | "repo-dev" | "missing" | string;
+  runtimeStatus: string;
+  defaultProjectPath: string;
+  defaultProjectsDir: string;
+  templates: ProjectTemplate[];
+  docs: DocumentationLink[];
+}
+
+export interface NewProjectRequest {
+  projectName: string;
+  parentDir: string;
+  templateId: ProjectTemplateId;
+}
+
 export interface StudioSnapshot {
   projectName: string;
   projectPath: string;
+  projectRoot: string;
   scene: SceneDocument;
   assets: ProjectAsset[];
   scripts: ScriptDocument[];

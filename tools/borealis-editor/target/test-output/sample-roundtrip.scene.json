@@ -1,0 +1,90 @@
+{
+  "document_id": "scene:sample-edited",
+  "entities": [
+    {
+      "components": [
+        {
+          "asset": "assets/player.png",
+          "kind": "sprite"
+        },
+        {
+          "kind": "collider2d"
+        }
+      ],
+      "layer": "foreground",
+      "name": "Player Edited",
+      "stable_id": "player",
+      "tags": [
+        "hero",
+        "controllable"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 180.0,
+        "y": 140.0,
+        "z": 0.0
+      }
+    },
+    {
+      "components": [
+        {
+          "kind": "ai",
+          "profile": "patrol"
+        }
+      ],
+      "layer": "actors",
+      "name": "Enemy 01",
+      "parent": "player",
+      "stable_id": "enemy-01",
+      "tags": [
+        "enemy"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 220.0,
+        "y": 96.0,
+        "z": 0.0
+      }
+    },
+    {
+      "components": [
+        {
+          "kind": "camera2d",
+          "zoom": 1
+        }
+      ],
+      "layer": "world",
+      "name": "Main Camera",
+      "stable_id": "camera-main",
+      "tags": [
+        "camera"
+      ],
+      "transform": {
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    }
+  ],
+  "name": "sample-edited",
+  "version": 1.0
+}

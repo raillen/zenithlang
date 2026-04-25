@@ -1,4 +1,4 @@
-import type { StudioSnapshot, Transform3D } from "./types";
+import type { StudioHome, StudioSnapshot, Transform3D } from "./types";
 
 const baseTransform: Transform3D = {
   x: 0,
@@ -16,6 +16,7 @@ export function createMockSnapshot(): StudioSnapshot {
   return {
     projectName: "Borealis",
     projectPath: "packages/borealis/zenith.ztproj",
+    projectRoot: "packages/borealis",
     scene: {
       name: "sample_3d",
       path: "packages/borealis/scenes/sample_3d.scene.json",
@@ -26,7 +27,7 @@ export function createMockSnapshot(): StudioSnapshot {
           name: "Camera 3D",
           layer: "world3d",
           tags: ["camera", "3d"],
-          components: [{ kind: "camera3d", profile: "perspective" }],
+          components: [{ kind: "camera3d", profile: "perspective", properties: { projection: "perspective" } }],
           transform: {
             ...baseTransform,
             x: 120,
@@ -42,8 +43,8 @@ export function createMockSnapshot(): StudioSnapshot {
           layer: "actors",
           tags: ["player", "controllable"],
           components: [
-            { kind: "model3d", asset: "assets/triangle.obj" },
-            { kind: "script", script: "src/app/player_controller.zt" },
+            { kind: "model3d", asset: "assets/triangle.obj", properties: { asset: "assets/triangle.obj" } },
+            { kind: "script", script: "src/app/player_controller.zt", properties: { script: "src/app/player_controller.zt" } },
           ],
           transform: {
             ...baseTransform,
@@ -58,8 +59,8 @@ export function createMockSnapshot(): StudioSnapshot {
           layer: "world3d",
           tags: ["3d", "prop"],
           components: [
-            { kind: "cube3d" },
-            { kind: "script", script: "src/app/spinning_cube.zt" },
+            { kind: "cube3d", properties: { size: 48 } },
+            { kind: "script", script: "src/app/spinning_cube.zt", properties: { script: "src/app/spinning_cube.zt" } },
           ],
           transform: {
             ...baseTransform,
@@ -77,13 +78,13 @@ export function createMockSnapshot(): StudioSnapshot {
       {
         id: "scene-sample-3d",
         name: "sample_3d.scene.json",
-        path: "packages/borealis/scenes/sample_3d.scene.json",
+        path: "scenes/sample_3d.scene.json",
         kind: "scene",
       },
       {
         id: "asset-triangle",
         name: "triangle.obj",
-        path: "packages/borealis/assets/triangle.obj",
+        path: "assets/triangle.obj",
         kind: "model",
       },
       {
@@ -159,6 +160,59 @@ export function createMockSnapshot(): StudioSnapshot {
         level: "warn",
         source: "compiler",
         message: "Runtime preview is not attached in browser mode.",
+      },
+    ],
+  };
+}
+
+export function createMockHome(): StudioHome {
+  return {
+    workspaceRoot: "browser://borealis-studio",
+    appRoot: "browser://borealis-studio",
+    repoRoot: undefined,
+    sdkRoot: undefined,
+    runtimeMode: "missing",
+    runtimeStatus: "Runtime desktop indisponivel no modo browser.",
+    defaultProjectPath: "packages/borealis/zenith.ztproj",
+    defaultProjectsDir: "Borealis Projects",
+    templates: [
+      {
+        id: "empty3d",
+        name: "Empty 3D",
+        summary: "Cena 3D limpa com camera, cubo e espaco para os primeiros sistemas.",
+        defaultName: "Projeto Borealis 3D",
+        tags: ["3D", "starter"],
+      },
+      {
+        id: "topdown2d",
+        name: "Top-down 2D",
+        summary: "Cena 2D pequena para movimento, sprites e testes iniciais de gameplay.",
+        defaultName: "Projeto Borealis 2D",
+        tags: ["2D", "gameplay"],
+      },
+      {
+        id: "scripted3d",
+        name: "Scripted 3D",
+        summary: "Amostra 3D com script anexado para iterar no preview.",
+        defaultName: "Projeto Borealis Scripted",
+        tags: ["3D", "scripts"],
+      },
+    ],
+    docs: [
+      {
+        title: "Studio README",
+        path: "tools/borealis-studio/README.md",
+        summary: "Comandos, escopo atual e fluxo de preview.",
+      },
+      {
+        title: "Stack Decision",
+        path: "packages/borealis/decisions/015-borealis-studio-tauri-react-stack.md",
+        summary: "Direcao ativa com Tauri + React.",
+      },
+      {
+        title: "Preview IPC",
+        path: "packages/borealis/decisions/014-borealis-editor-preview-ipc.md",
+        summary: "Protocolo JSONL usado pelo Play mode.",
       },
     ],
   };

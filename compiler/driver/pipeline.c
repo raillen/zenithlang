@@ -1973,6 +1973,7 @@ int zt_collect_project_sources(
         zt_project_source_file_list_dispose(source_files);
         return 0;
     }
+    zt_project_discover_packages(project_root, source_files);
 
     if (source_files->count == 0) {
         zt_print_single_diag(ctx, "project", ZT_DIAG_PROJECT_ERROR, zt_source_span_unknown(), "source.root '%s' contains no .zt files", source_root_path);

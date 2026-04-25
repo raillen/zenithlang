@@ -19,7 +19,8 @@ ZT_PROJECT_SECTION_ZDOC,
     ZT_PROJECT_SECTION_DIAGNOSTICS,
     ZT_PROJECT_SECTION_ACCESSIBILITY,
     ZT_PROJECT_SECTION_DEPENDENCIES,
-    ZT_PROJECT_SECTION_DEV_DEPENDENCIES
+    ZT_PROJECT_SECTION_DEV_DEPENDENCIES,
+    ZT_PROJECT_SECTION_SCRIPTS
 } zt_project_section;
 
 static const char *zt_project_safe_text(const char *text) {
@@ -39,6 +40,7 @@ static const char *zt_project_section_name(zt_project_section section) {
         case ZT_PROJECT_SECTION_ACCESSIBILITY: return "accessibility";
         case ZT_PROJECT_SECTION_DEPENDENCIES: return "dependencies";
         case ZT_PROJECT_SECTION_DEV_DEPENDENCIES: return "dev_dependencies";
+        case ZT_PROJECT_SECTION_SCRIPTS: return "scripts";
         default: return "<none>";
     }
 }
@@ -440,6 +442,36 @@ static int zt_project_assign_dependency(
     return 1;
 }
 
+static int zt_project_assign_script(
+        zt_project_manifest *manifest,
+        const char *key,
+        const char *value,
+        zt_project_parse_result *result,
+        int line_number) {
+    size_t index;
+    zt_project_script_entry *entry;
+
+    if (manifest == NULL || key == NULL || key[0] == '\0') {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_ASSIGNMENT, line_number, "script name cannot be empty");
+        return 0;
+    }
+
+    for (index = 0; index < manifest->script_count; index += 1) {
+        if (strcmp(manifest->scripts[index].name, key) == 0) {
+            return zt_project_parse_string_value(value, manifest->scripts[index].command, sizeof(manifest->scripts[index].command), result, line_number);
+        }
+    }
+
+    if (manifest->script_count >= ZT_PROJECT_MAX_SCRIPTS) {
+        zt_project_set_error(result, ZT_PROJECT_INVALID_ASSIGNMENT, line_number, "too many scripts in manifest");
+        return 0;
+    }
+
+    entry = &manifest->scripts[manifest->script_count++];
+    zt_project_copy_checked(entry->name, sizeof(entry->name), key);
+    return zt_project_parse_string_value(value, entry->command, sizeof(entry->command), result, line_number);
+}
+
 static int zt_project_parse_bool_value(
         const char *value_text,
         int *dest,
@@ -475,6 +507,10 @@ static int zt_project_assign_value(
     if (section == ZT_PROJECT_SECTION_DEPENDENCIES ||
             section == ZT_PROJECT_SECTION_DEV_DEPENDENCIES) {
         return zt_project_assign_dependency(manifest, section, key, value, result, line_number);
+    }
+
+    if (section == ZT_PROJECT_SECTION_SCRIPTS) {
+        return zt_project_assign_script(manifest, key, value, result, line_number);
     }
 
     if (section == ZT_PROJECT_SECTION_PROJECT) {
@@ -874,5 +910,95 @@ int zt_project_resolve_entry_source_path(
 #undef ZT_APPEND_TEXT
 #undef ZT_APPEND_CHAR
 
+    return 1;
+}
+
+int zt_project_manifest_serialize(const zt_project_manifest *manifest, char *buffer, size_t capacity) {
+    size_t out = 0;
+    size_t i;
+
+    if (manifest == NULL || buffer == NULL || capacity == 0) return 0;
+
+#define ZT_SCLIP(format, ...) do { \
+        int _zt_res = snprintf(buffer + out, capacity - out, format, ##__VA_ARGS__); \
+        if (_zt_res < 0 || (size_t)_zt_res >= capacity - out) return 0; \
+        out += (size_t)_zt_res; \
+    } while (0)
+
+    ZT_SCLIP("[project]\n");
+    ZT_SCLIP("name = \"%s\"\n", manifest->project_name);
+    ZT_SCLIP("kind = \"%s\"\n", manifest->project_kind);
+    ZT_SCLIP("version = \"%s\"\n", manifest->version);
+    if (manifest->lang[0] != '\0') {
+        ZT_SCLIP("lang = \"%s\"\n", manifest->lang);
+    }
+    ZT_SCLIP("\n");
+
+    ZT_SCLIP("[source]\n");
+    ZT_SCLIP("root = \"%s\"\n", manifest->source_root);
+    ZT_SCLIP("\n");
+
+    if (strcmp(manifest->project_kind, "app") == 0) {
+        ZT_SCLIP("[app]\n");
+        ZT_SCLIP("entry = \"%s\"\n", manifest->app_entry);
+        ZT_SCLIP("\n");
+    } else if (strcmp(manifest->project_kind, "lib") == 0) {
+        ZT_SCLIP("[lib]\n");
+        ZT_SCLIP("root_namespace = \"%s\"\n", manifest->lib_root_namespace);
+        ZT_SCLIP("\n");
+    }
+
+    if (manifest->build_target[0] != '\0' || 
+        manifest->build_profile[0] != '\0' || 
+        manifest->build_output[0] != '\0' || 
+        manifest->build_monomorphization_limit != ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT) {
+        ZT_SCLIP("[build]\n");
+        if (manifest->build_target[0] != '\0') ZT_SCLIP("target = \"%s\"\n", manifest->build_target);
+        if (manifest->build_profile[0] != '\0') ZT_SCLIP("profile = \"%s\"\n", manifest->build_profile);
+        if (manifest->build_output[0] != '\0') ZT_SCLIP("output = \"%s\"\n", manifest->build_output);
+        if (manifest->build_monomorphization_limit != ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT) {
+            ZT_SCLIP("monomorphization_limit = %zu\n", manifest->build_monomorphization_limit);
+        }
+        if (manifest->build_linker_flags[0] != '\0') ZT_SCLIP("linker_flags = \"%s\"\n", manifest->build_linker_flags);
+        ZT_SCLIP("\n");
+    }
+
+    if (manifest->dependency_count > 0) {
+        ZT_SCLIP("[dependencies]\n");
+        for (i = 0; i < manifest->dependency_count; i += 1) {
+            ZT_SCLIP("%s = %s\n", manifest->dependencies[i].name, manifest->dependencies[i].spec);
+        }
+        ZT_SCLIP("\n");
+    }
+
+    if (manifest->dev_dependency_count > 0) {
+        ZT_SCLIP("[dev_dependencies]\n");
+        for (i = 0; i < manifest->dev_dependency_count; i += 1) {
+            ZT_SCLIP("%s = %s\n", manifest->dev_dependencies[i].name, manifest->dev_dependencies[i].spec);
+        }
+        ZT_SCLIP("\n");
+    }
+
+    if (manifest->diag_profile[0] != '\0') {
+        ZT_SCLIP("[diagnostics]\n");
+        ZT_SCLIP("profile = \"%s\"\n", manifest->diag_profile);
+        ZT_SCLIP("\n");
+    }
+
+    if (manifest->accessibility_profile[0] != '\0' || manifest->accessibility_telemetry) {
+        ZT_SCLIP("[accessibility]\n");
+        if (manifest->accessibility_profile[0] != '\0') ZT_SCLIP("profile = \"%s\"\n", manifest->accessibility_profile);
+        if (manifest->accessibility_telemetry) ZT_SCLIP("telemetry = true\n");
+    }
+
+    if (manifest->script_count > 0) {
+        ZT_SCLIP("[scripts]\n");
+        for (i = 0; i < manifest->script_count; i += 1) {
+            ZT_SCLIP("%s = \"%s\"\n", manifest->scripts[i].name, manifest->scripts[i].command);
+        }
+        ZT_SCLIP("\n");
+    }
+
+#undef ZT_SCLIP
     return 1;
 }

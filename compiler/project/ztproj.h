@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #define ZT_PROJECT_MAX_DEPENDENCIES 64
+#define ZT_PROJECT_MAX_SCRIPTS 32
 #define ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT 1024u
 
 typedef enum zt_project_error_code {
@@ -37,6 +38,11 @@ typedef struct zt_project_dependency_entry {
     char spec[256];
 } zt_project_dependency_entry;
 
+typedef struct zt_project_script_entry {
+    char name[64];
+    char command[512];
+} zt_project_script_entry;
+
 typedef struct zt_project_manifest {
     char project_name[128];
     char project_kind[16];
@@ -61,6 +67,9 @@ typedef struct zt_project_manifest {
 
     size_t dev_dependency_count;
     zt_project_dependency_entry dev_dependencies[ZT_PROJECT_MAX_DEPENDENCIES];
+
+    size_t script_count;
+    zt_project_script_entry scripts[ZT_PROJECT_MAX_SCRIPTS];
 
 /* Internal compatibility fields used by the current bootstrap driver. */
     char entry[128];
@@ -89,6 +98,7 @@ const char *zt_project_manifest_entry_namespace(const zt_project_manifest *manif
 
 int zt_project_parse_text(const char *text, size_t length, zt_project_parse_result *result);
 int zt_project_load_file(const char *path, zt_project_parse_result *result);
+int zt_project_manifest_serialize(const zt_project_manifest *manifest, char *buffer, size_t capacity);
 
 int zt_project_resolve_entry_source_path(
     const zt_project_manifest *manifest,
