@@ -56,6 +56,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_IDENT_EXPR: return "ident_expr";
         case ZT_AST_FMT_EXPR: return "fmt_expr";
         case ZT_AST_GROUPED_EXPR: return "grouped_expr";
+        case ZT_AST_CLOSURE_EXPR: return "closure_expr";
         case ZT_AST_WHERE_CLAUSE: return "where_clause";
         case ZT_AST_MATCH_BINDING: return "match_binding";
         case ZT_AST_VALUE_BINDING: return "value_binding";

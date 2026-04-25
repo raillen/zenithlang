@@ -95,6 +95,7 @@ typedef struct zt_function_context {
     zt_type *return_type;
     zt_type *self_type;
     int in_mutating_method;
+    int is_closure;
     zt_binding_scope *scope;
 } zt_function_context;
 
@@ -195,6 +196,23 @@ static zt_binding *zt_binding_scope_lookup(zt_binding_scope *scope, const char *
         }
         cursor = cursor->parent;
     }
+    return NULL;
+}
+
+static zt_binding *zt_binding_scope_lookup_extended(zt_binding_scope *scope, const char *name, zt_binding_kind kind, zt_binding_scope **out_scope) {
+    zt_binding_scope *cursor = scope;
+
+    while (cursor != NULL) {
+        size_t i;
+        for (i = 0; i < cursor->count; i++) {
+            if (cursor->items[i].kind == kind && cursor->items[i].name != NULL && strcmp(cursor->items[i].name, name) == 0) {
+                if (out_scope != NULL) *out_scope = cursor;
+                return &cursor->items[i];
+            }
+        }
+        cursor = cursor->parent;
+    }
+    if (out_scope != NULL) *out_scope = NULL;
     return NULL;
 }
 
@@ -583,6 +601,7 @@ static int zt_type_expected_arity(const char *name) {
     if (strcmp(name, "btreeset") == 0) return 1;
     if (strcmp(name, "grid3d") == 0) return 1;
     if (strcmp(name, "dyn") == 0) return 1;
+    if (strcmp(name, "lazy") == 0) return 1;
     if (strcmp(name, "result") == 0) return 2;
     if (strcmp(name, "map") == 0) return 2;
     return -1;
@@ -1078,6 +1097,7 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
         if (strcmp(name, "btreeset") == 0) return zt_type_make_with_args(ZT_TYPE_BTREESET, NULL, args);
         if (strcmp(name, "grid3d") == 0) return zt_type_make_with_args(ZT_TYPE_GRID3D, NULL, args);
         if (strcmp(name, "dyn") == 0) return zt_type_make_with_args(ZT_TYPE_DYN, NULL, args);
+        if (strcmp(name, "lazy") == 0) return zt_type_make_with_args(ZT_TYPE_LAZY, NULL, args);
         if (strcmp(name, "map") == 0) {
             zt_type *map_type = zt_type_make_with_args(ZT_TYPE_MAP, NULL, args);
             if (!zt_checker_type_implements_trait(checker, scope, map_type->args.items[0], "Hashable") ||
@@ -1720,8 +1740,22 @@ static int zt_checker_expression_is_mutable_target(const zt_ast_node *node, zt_b
             if (strcmp(node->as.ident_expr.name, "self") == 0) {
                 return fn_ctx != NULL && fn_ctx->in_mutating_method;
             }
-            binding = zt_binding_scope_lookup(scope, node->as.ident_expr.name, ZT_BINDING_VALUE);
-            return binding != NULL && binding->is_mutable;
+            {
+                zt_binding_scope *found_scope = NULL;
+                binding = zt_binding_scope_lookup_extended(scope, node->as.ident_expr.name, ZT_BINDING_VALUE, &found_scope);
+                if (binding != NULL && binding->is_mutable) {
+                    int is_local = 0;
+                    zt_binding_scope *s = scope;
+                    zt_binding_scope *fn_root = fn_ctx != NULL ? fn_ctx->scope : NULL;
+                    while (s != NULL) {
+                        if (s == found_scope) { is_local = 1; break; }
+                        if (s == fn_root) break;
+                        s = s->parent;
+                    }
+                    return is_local;
+                }
+                return 0;
+            }
         case ZT_AST_FIELD_EXPR:
             return zt_checker_expression_is_mutable_target(node->as.field_expr.object, scope, fn_ctx);
         case ZT_AST_INDEX_EXPR:
@@ -1974,6 +2008,23 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 param = func_decl->as.func_decl.params.items[i];
                 param_type = zt_checker_resolve_type(checker, param->as.param.type_node, scope);
                 arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[i], scope, fn_ctx, param_type);
+                
+                if (func_decl->as.func_decl.body == NULL) {
+                    if (param_type != NULL && param_type->kind == ZT_TYPE_CALLABLE) {
+                        if (node->as.call_expr.positional_args.items[i]->kind == ZT_AST_CLOSURE_EXPR) {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, node->as.call_expr.positional_args.items[i]->span, "cannot pass an anonymous closure directly to an extern c function");
+                        } else if (node->as.call_expr.positional_args.items[i]->kind == ZT_AST_IDENT_EXPR) {
+                            const char *ident_name = node->as.call_expr.positional_args.items[i]->as.ident_expr.name;
+                            const zt_ast_node *ident_decl = zt_catalog_find_decl(&checker->catalog, ident_name);
+                            if (ident_decl == NULL || ident_decl->kind != ZT_AST_FUNC_DECL) {
+                                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, node->as.call_expr.positional_args.items[i]->span, "only pure module-level functions can be passed to extern c");
+                            }
+                        } else {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, node->as.call_expr.positional_args.items[i]->span, "only pure module-level functions can be passed to extern c");
+                        }
+                    }
+                }
+
                 if (!zt_checker_same_or_contextually_assignable(checker, scope, param_type, &arg_info, node->as.call_expr.positional_args.items[i]->span)) {
                     zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, node->as.call_expr.positional_args.items[i]->span, "argument type mismatch", param_type, arg_info.type);
                 }
@@ -2002,6 +2053,23 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                         if (used_params != NULL) used_params[p] = 1;
                         param_type = zt_checker_resolve_type(checker, param->as.param.type_node, scope);
                         arg_info = zt_checker_check_expression(checker, arg->value, scope, fn_ctx, param_type);
+                        
+                        if (func_decl->as.func_decl.body == NULL) {
+                            if (param_type != NULL && param_type->kind == ZT_TYPE_CALLABLE) {
+                                if (arg->value->kind == ZT_AST_CLOSURE_EXPR) {
+                                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, arg->value->span, "cannot pass an anonymous closure directly to an extern c function");
+                                } else if (arg->value->kind == ZT_AST_IDENT_EXPR) {
+                                    const char *ident_name = arg->value->as.ident_expr.name;
+                                    const zt_ast_node *ident_decl = zt_catalog_find_decl(&checker->catalog, ident_name);
+                                    if (ident_decl == NULL || ident_decl->kind != ZT_AST_FUNC_DECL) {
+                                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, arg->value->span, "only pure module-level functions can be passed to extern c");
+                                    }
+                                } else {
+                                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED, arg->value->span, "only pure module-level functions can be passed to extern c");
+                                }
+                            }
+                        }
+
                         if (!zt_checker_same_or_contextually_assignable(checker, scope, param_type, &arg_info, arg->span)) {
                             zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, arg->span, "named argument type mismatch", param_type, arg_info.type);
                         }
@@ -2802,6 +2870,53 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
             zt_expr_info_dispose(&object_info);
             return info;
         }
+        case ZT_AST_CLOSURE_EXPR: {
+            zt_type_list param_types = zt_type_list_make();
+            zt_type *return_type_eval = NULL;
+            zt_binding_scope closure_scope;
+            zt_function_context closure_ctx;
+            size_t i;
+            
+            zt_binding_scope_init(&closure_scope, scope);
+            for (i = 0; i < node->as.closure_expr.params.count; i++) {
+                const zt_ast_node *param = node->as.closure_expr.params.items[i];
+                zt_type *param_type = zt_checker_resolve_type(checker, param->as.param.type_node, &closure_scope);
+                zt_type_list_push(&param_types, zt_type_clone(param_type));
+                zt_binding_scope_declare(&closure_scope, ZT_BINDING_VALUE, param->as.param.name, zt_type_clone(param_type), 0);
+                zt_type_dispose(param_type);
+            }
+            
+            if (node->as.closure_expr.return_type != NULL) {
+                return_type_eval = zt_checker_resolve_type(checker, node->as.closure_expr.return_type, &closure_scope);
+            } else if (expected_type != NULL &&
+                       expected_type->kind == ZT_TYPE_CALLABLE &&
+                       expected_type->args.count > 0 &&
+                       expected_type->args.items[0] != NULL) {
+                return_type_eval = zt_type_clone(expected_type->args.items[0]);
+            } else {
+                zt_diag_list_add(
+                    &checker->result->diagnostics,
+                    ZT_DIAG_INVALID_TYPE,
+                    node->span,
+                    "lambda expression requires an expected func type or an explicit return type");
+                return_type_eval = zt_type_make(ZT_TYPE_UNKNOWN);
+            }
+            
+            closure_ctx.return_type = return_type_eval;
+            closure_ctx.self_type = fn_ctx != NULL ? fn_ctx->self_type : NULL;
+            closure_ctx.in_mutating_method = fn_ctx != NULL ? fn_ctx->in_mutating_method : 0;
+            closure_ctx.is_closure = 1;
+            closure_ctx.scope = &closure_scope;
+            
+            zt_checker_check_block(checker, node->as.closure_expr.body, &closure_scope, &closure_ctx);
+            
+            zt_type_dispose(info.type);
+            info.type = zt_type_make_callable(zt_type_clone(return_type_eval), param_types);
+            
+            zt_type_dispose(return_type_eval);
+            zt_binding_scope_dispose(&closure_scope);
+            return info;
+        }
         case ZT_AST_CALL_EXPR:
             zt_expr_info_dispose(&info);
             return zt_checker_check_call_expr(checker, node, scope, fn_ctx, expected_type);
@@ -3054,11 +3169,30 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
             zt_expr_info_dispose(&expr_info);
             zt_type_dispose(decl_type);
             break;
-        case ZT_AST_ASSIGN_STMT:
-            binding = zt_binding_scope_lookup(scope, stmt->as.assign_stmt.name, ZT_BINDING_VALUE);
+        case ZT_AST_ASSIGN_STMT: {
+            zt_binding_scope *found_scope = NULL;
+            binding = zt_binding_scope_lookup_extended(scope, stmt->as.assign_stmt.name, ZT_BINDING_VALUE, &found_scope);
             if (binding != NULL) {
                 expr_info = zt_checker_check_expression(checker, stmt->as.assign_stmt.value, scope, fn_ctx, binding->type);
-                if (!binding->is_mutable) {
+                
+                int is_capture = 0;
+                if (fn_ctx != NULL && fn_ctx->is_closure && fn_ctx->scope != NULL) {
+                    zt_binding_scope *s = scope;
+                    zt_binding_scope *fn_root = fn_ctx->scope;
+                    int is_local = 0;
+                    while (s != NULL) {
+                        if (s == found_scope) { is_local = 1; break; }
+                        if (s == fn_root) break;
+                        s = s->parent;
+                    }
+                    if (!is_local && found_scope != NULL && binding->is_mutable) {
+                        is_capture = 1;
+                    }
+                }
+
+                if (is_capture) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED, stmt->span, "cannot assign to captured variable '%s'", stmt->as.assign_stmt.name);
+                } else if (!binding->is_mutable) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CONST_REASSIGNMENT, stmt->span, "cannot assign to immutable binding '%s'", stmt->as.assign_stmt.name);
                 } else if (!zt_checker_same_or_contextually_assignable(checker, scope, binding->type, &expr_info, stmt->as.assign_stmt.value->span)) {
                     zt_checker_diag_type(checker, ZT_DIAG_TYPE_MISMATCH, stmt->span, "assignment type mismatch", binding->type, expr_info.type);
@@ -3066,6 +3200,7 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 zt_expr_info_dispose(&expr_info);
             }
             break;
+        }
         case ZT_AST_FIELD_ASSIGN_STMT: {
             zt_expr_info object_info = zt_checker_check_expression(checker, stmt->as.field_assign_stmt.object, scope, fn_ctx, NULL);
             zt_type *field_type = NULL;
@@ -3636,6 +3771,7 @@ static void zt_checker_check_func_like(zt_checker *checker, const zt_ast_node *f
     fn_ctx.return_type = zt_checker_resolve_type(checker, func_decl->as.func_decl.return_type, &scope);
     fn_ctx.self_type = self_type;
     fn_ctx.in_mutating_method = in_mutating_method;
+    fn_ctx.is_closure = 0;
     fn_ctx.scope = &scope;
 
     if (self_type != NULL) {

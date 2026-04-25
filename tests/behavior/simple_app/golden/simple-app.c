@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static zt_int zt_app_main__main(void);
+static zt_int zt_app_main__main(void *zt_ctx);
 
-static zt_int zt_app_main__main(void) {
+static zt_int zt_app_main__main(void *zt_ctx) {
     zt_int a;
     zt_int b;
     goto zt_block_entry;
@@ -21,5 +21,5 @@ zt_block_entry:
 
 int main(int argc, char **argv) {
     zt_runtime_capture_process_args(argc, argv);
-    return (int)zt_app_main__main();
+    return (int)zt_app_main__main(NULL);
 }

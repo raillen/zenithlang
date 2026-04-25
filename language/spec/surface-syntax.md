@@ -219,6 +219,7 @@ list<T>
 map<Key, Value>
 optional<T>
 result<Success, Error>
+lazy<T>
 ```
 
 Rules:
@@ -231,6 +232,7 @@ Rules:
 - `bytes` is a fundamental binary type in the surface language
 - `void` is restricted to no-value type positions such as `result<void, E>`
 - `void` is not valid for locals, fields, parameters, lists, maps or optionals
+- `lazy<T>` is explicit delayed evaluation; R3.M8 executes only `lazy<int>` through `std.lazy`
 - `grid` is not a core MVP type
 
 ## Numeric Model
@@ -681,6 +683,71 @@ Rules:
 - ordinary build does not run tests
 - `zt test` discovers and runs tests
 
+## Closures v1
+
+Closures are anonymous `func` expressions.
+
+They create a value with type `func(...) -> ...`.
+
+```zt
+const factor: int = 5
+
+const add_factor: func(int) -> int = func(value: int) -> int
+    return value + factor
+end
+```
+
+Rules:
+
+- captured values are copied into the closure context
+- captured values are immutable inside the closure
+- assigning to a captured outer variable is an error
+- mutable capture is deferred to a future feature
+- `func(...)` values are not raw global functions
+- internally, `func(...)` values carry a function pointer plus a context pointer
+
+## Lambdas v1
+
+Lambdas are expression-bodied closure sugar.
+
+Canonical form:
+
+```zt
+const twice: func(int) -> int = func(value: int) => value * 2
+```
+
+Rules:
+
+- lambdas use the same capture and lifetime model as closures
+- lambdas require typed parameters
+- return type is inferred from the expected `func(...) -> ...` type
+- use explicit `func ... end` when the body needs statements
+- v1 does not support untyped parameters
+- v1 does not support block lambdas
+
+## Explicit Lazy Values
+
+Lazy values use the explicit type `lazy<T>`.
+
+R3.M8 executes the first narrow slice:
+
+```zt
+import std.lazy as lazy
+
+const later: lazy<int> = lazy.once_int(func() => compute_value())
+const value: int = lazy.force_int(later)
+```
+
+Rules:
+
+- creating `lazy<int>` does not run the thunk
+- `force_int(...)` runs the thunk
+- the current runtime slice is one-shot
+- reusing the same lazy value after forcing is a runtime contract error
+- ordinary expressions are still eager
+- there is no implicit lazy conversion
+- lazy iterators are future surface, not public executable API in R3.M8
+
 ## UI And Abstract Trees (Zero-Magic-DSL)
 
 Zenith strictly repudiates syntactic-sugar macros and secret DSLs (Domain Specific Languages) for UI or Graph generation (like JSX or HTML). 
@@ -710,7 +777,6 @@ Not part of the MVP surface:
 - macros
 - user-facing C interop
 - overloads
-- lambdas
 - safe navigation with `?`
 - conditional compilation in `.zt`
 - optional dependencies/features in source syntax

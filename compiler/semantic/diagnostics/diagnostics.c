@@ -1,4 +1,4 @@
-﻿#include "compiler/semantic/diagnostics/diagnostics.h"
+#include "compiler/semantic/diagnostics/diagnostics.h"
 #include "compiler/utils/l10n.h"
 
 #include <stdarg.h>
@@ -183,7 +183,9 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "callable.escape_struct_field";
         case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "callable.escape_container";
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "callable.extern_c_signature";
+        case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "callable.extern_c_closure_unsupported";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
+        case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "closure.mut_capture_unsupported";
         default: return "unknown";
     }
 }
@@ -257,7 +259,9 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "callable.escape_struct_field";
         case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "callable.escape_container";
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "callable.extern_c_signature";
+        case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "callable.extern_c_closure_unsupported";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
+        case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "closure.mut_capture_unsupported";
         default: return "internal.unknown";
     }
 }
@@ -334,7 +338,9 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD: return "A callable cannot be stored as a struct field in v1; closures with captures are deferred to R3.M6.";
         case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "Callables cannot appear inside list, map, optional, or result element types in v1.";
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "Only primitive, text, and bytes shapes are allowed in callables that cross the extern c boundary.";
+        case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "Closures capturing variables cannot be passed to an extern c boundary. Use a plain non-capturing function.";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "Only a non-generic top-level named function can be used as a callable value in v1.";
+        case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "Captured scoped variables in Zenith are immutable snapshots (by value). You cannot assign a new value to a captured variable.";
         default: return NULL;
     }
 }
@@ -548,7 +554,9 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD:
         case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER:
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE:
+        case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED:
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF:
+        case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED:
             return ZT_DIAG_EFFORT_MODERATE;
 
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH:
@@ -688,8 +696,12 @@ const char *zt_diag_next_text(zt_diag_code code) {
             return "Re-run `zt check` after moving the callable to an allowed position.";
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE:
             return "Re-run `zt check` after narrowing the callable to boundary-safe shapes.";
+        case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED:
+            return "Re-run `zt check` after passing a pure named function without captures instead.";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF:
             return "Re-run `zt check` after referencing a non-generic top-level function.";
+        case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED:
+            return "Re-run `zt check` after removing assignments to outer variables from the closure body.";
         default:
             return NULL;
     }

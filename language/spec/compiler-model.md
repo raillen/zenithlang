@@ -99,6 +99,23 @@ Rules:
 - C nullable values must not introduce `null` into Zenith
 - future C nullable interop maps to `optional<T>`
 
+## Function ABI And Closures
+
+Generated Zenith functions use an internal context-first ABI:
+
+```c
+return_type zt_module__function(void *zt_ctx, ...user_args)
+```
+
+Rules:
+
+- `zt_ctx` is internal compiler/runtime plumbing
+- direct calls pass `NULL` when there is no closure context
+- closure calls pass the stored context pointer
+- `func(...)` values lower to managed closure fat pointers
+- trait/dyn wrappers must also pass the internal context argument
+- user-facing Zenith syntax does not expose `zt_ctx`
+
 ## Generics And Monomorphization
 
 The first C target strategy for generics is monomorphization.

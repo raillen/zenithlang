@@ -10,9 +10,10 @@
 
 ## Purpose
 
-Consolidate the official callable-delegates v1 surface into a single
-authoritative document. This is the narrow first-class function-pointer
-surface; captures and lambdas live on separate milestones.
+Consolidate the official callable-delegates surface into a single
+authoritative document. R3.M5 introduced callable types and named
+function references. R3.M6 changed `func(...)` values into managed
+closure fat pointers. R3.M7 adds expression lambdas as closure sugar.
 
 ## Type Syntax
 
@@ -73,9 +74,9 @@ No variance. No implicit conversion. A signature mismatch emits
 
 ## Escape Rules (v1)
 
-A v1 callable carries no captured state (it is a bare function pointer).
-The escape rules are therefore permissive for local/parametric use and
-strict for stored positions:
+Callable values are managed closure fat pointers after R3.M6.
+
+The v1 storage rules remain conservative:
 
 Allowed positions:
 
@@ -232,8 +233,6 @@ end
 
 ## Non-Goals For v1
 
-- closures with captures (R3.M6)
-- lambda literals (R3.M7)
 - generic callables
 - returning callables from `extern c`
 - callables as struct fields / container elements

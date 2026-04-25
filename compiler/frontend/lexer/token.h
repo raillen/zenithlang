@@ -84,6 +84,7 @@ typedef enum zt_token_kind {
     ZT_TOKEN_GT,
     ZT_TOKEN_GTE,
     ZT_TOKEN_ARROW,
+    ZT_TOKEN_FAT_ARROW,
     ZT_TOKEN_DOT,
     ZT_TOKEN_DOTDOT,
     ZT_TOKEN_COMMA,

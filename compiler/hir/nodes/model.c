@@ -58,6 +58,7 @@ const char *zt_hir_expr_kind_name(zt_hir_expr_kind kind) {
         case ZT_HIR_CALL_INDIRECT_EXPR: return "call_indirect_expr";
         case ZT_HIR_CONSTRUCT_EXPR: return "construct_expr";
         case ZT_HIR_VALUE_BINDING_EXPR: return "value_binding_expr";
+        case ZT_HIR_CLOSURE_EXPR: return "closure_expr";
         default: return "unknown";
     }
 }
@@ -118,6 +119,7 @@ zt_hir_field_init_list zt_hir_field_init_list_make(void) { zt_hir_field_init_lis
 zt_hir_map_entry_list zt_hir_map_entry_list_make(void) { zt_hir_map_entry_list list = {0}; return list; }
 zt_hir_match_case_list zt_hir_match_case_list_make(void) { zt_hir_match_case_list list = {0}; return list; }
 zt_hir_module_var_list zt_hir_module_var_list_make(void) { zt_hir_module_var_list list = {0}; return list; }
+zt_hir_capture_list zt_hir_capture_list_make(void) { zt_hir_capture_list list = {0}; return list; }
 
 void zt_hir_string_list_push(zt_hir_string_list *list, char *value) {
     char **new_items;
@@ -246,6 +248,18 @@ void zt_hir_match_case_list_push(zt_hir_match_case_list *list, zt_hir_match_case
     list->items[list->count++] = match_case;
 }
 
+
+void zt_hir_capture_list_push(zt_hir_capture_list *list, zt_hir_capture capture) {
+    zt_hir_capture *new_items;
+    if (list == NULL) return;
+    if (list->count >= list->capacity) {
+        new_items = (zt_hir_capture *)zt_hir_realloc_array(list->items, &list->capacity, sizeof(zt_hir_capture));
+        if (new_items == NULL) return;
+        list->items = new_items;
+    }
+    list->items[list->count++] = capture;
+}
+
 void zt_hir_module_var_list_push(zt_hir_module_var_list *list, zt_hir_module_var module_var) {
     zt_hir_module_var *new_items;
     if (list == NULL) return;
@@ -325,6 +339,12 @@ void zt_hir_expr_dispose(zt_hir_expr *expr) {
             break;
         case ZT_HIR_VALUE_BINDING_EXPR:
             free(expr->as.value_binding_expr.name);
+            break;
+        case ZT_HIR_CLOSURE_EXPR:
+            zt_hir_param_list_dispose(&expr->as.closure_expr.params);
+            zt_type_dispose(expr->as.closure_expr.return_type);
+            zt_hir_stmt_dispose(expr->as.closure_expr.body);
+            zt_hir_capture_list_dispose(&expr->as.closure_expr.captures);
             break;
         default: break;
     }
@@ -480,6 +500,18 @@ void zt_hir_match_case_list_dispose(zt_hir_match_case_list *list) {
     for (i = 0; i < list->count; i++) {
         zt_hir_expr_list_dispose(&list->items[i].patterns);
         zt_hir_stmt_dispose(list->items[i].body);
+    }
+    free(list->items);
+    memset(list, 0, sizeof(*list));
+}
+
+
+void zt_hir_capture_list_dispose(zt_hir_capture_list *list) {
+    size_t i;
+    if (list == NULL) return;
+    for (i = 0; i < list->count; i++) {
+        free(list->items[i].name);
+        zt_type_dispose(list->items[i].type);
     }
     free(list->items);
     memset(list, 0, sizeof(*list));

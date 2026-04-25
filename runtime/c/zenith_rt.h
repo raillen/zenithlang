@@ -61,6 +61,8 @@ typedef enum zt_heap_kind {
     ZT_HEAP_DYN_VALUE = 30,
     ZT_HEAP_VTABLE = 31,
     ZT_HEAP_LIST_DYN = 32,
+    ZT_HEAP_CLOSURE = 33,
+    ZT_HEAP_LAZY_I64 = 34,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -140,6 +142,22 @@ typedef struct zt_list_dyn {
     size_t capacity;
     zt_dyn_value **data;
 } zt_list_dyn;
+
+/* R3.M6: Closure fat pointer representation */
+typedef struct zt_closure {
+    zt_header header;
+    void *fn;
+    void *ctx;
+    void (*drop_ctx)(void *);
+} zt_closure;
+
+/* R3.M8: Explicit one-shot lazy value for int.
+ * The thunk is forced only through std.lazy.force_int and cannot be reused. */
+typedef struct zt_lazy_i64 {
+    zt_header header;
+    zt_closure *thunk;
+    zt_bool consumed;
+} zt_lazy_i64;
 
 /* Runtime helper functions for dyn dispatch */
 zt_dyn_value *zt_dyn_box(void *data, zt_vtable *vtable);
@@ -868,6 +886,13 @@ zt_outcome_optional_i64_core_error zt_host_fs_created_at_core(const zt_text *pat
 zt_list_text *zt_host_os_args(void);
 zt_optional_text zt_host_os_env(const zt_text *name);
 zt_int zt_host_os_pid(void);
+
+zt_closure *zt_closure_create(void *fn, void *ctx);
+zt_closure *zt_closure_create_with_drop(void *fn, void *ctx, void (*drop_ctx)(void *));
+zt_lazy_i64 *zt_lazy_i64_once(zt_closure *thunk);
+zt_int zt_lazy_i64_force(zt_lazy_i64 *value);
+zt_bool zt_lazy_i64_is_consumed(const zt_lazy_i64 *value);
+
 zt_text *zt_host_os_platform(void);
 zt_text *zt_host_os_arch(void);
 zt_outcome_i64_core_error zt_host_process_run(const zt_text *program, const zt_list_text *args, zt_optional_text cwd);

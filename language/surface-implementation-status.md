@@ -1,7 +1,7 @@
 # Zenith Surface Implementation Status
 
 - Status: current compiler cut snapshot
-- Date: 2026-04-23
+- Date: 2026-04-24
 - Labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`, `Executable`, `Conformant`, `Deferred`, `Risk`, `Rejected`
 
 ## Language Surface
@@ -20,6 +20,9 @@
 | Unsigned aliases (`u8/u16/u32/u64`) | `Conformant` | covered in `u_alias_basic` |
 | Namespace `public var` (read public, write owner namespace) | `Conformant` | covered in `public_var_module`, `public_var_module_state`, `public_var_cross_namespace_write_error` |
 | `std.random` public state (`seeded`, `last_seed`, `draw_count`, `stats`) | `Conformant` | covered in `std_random_basic`, `std_random_state_observability`, `std_random_between_branches`, `std_random_cross_namespace_write_error` |
+| Closures v1 (`func ... end`, immutable capture) | `Conformant` | covered in `closure_capture_basic` and `closure_mut_capture_error`; mutable capture remains deferred |
+| Lambdas v1 + int HOFs (`func(...) => expr`) | `Conformant` | covered in `lambda_hof_basic`; HOF subset is `std.collections.map_int/filter_int/reduce_int` |
+| Explicit lazy v1 (`lazy<int>`) | `Conformant` | covered in `lazy_explicit_order_basic` and `lazy_reuse_error`; generic lazy and lazy iterators remain future work |
 
 ## Tooling And Runtime
 

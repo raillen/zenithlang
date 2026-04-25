@@ -157,6 +157,47 @@ public func queue_int_peek(queue: list<int>) -> optional<int>
     return collections.zt_queue_i64_peek(queue)
 end
 
+public func map_int(values: list<int>, mapper: func(int) -> int) -> list<int>
+    var out: list<int> = collections.queue_int_new()
+    var index: int = 0
+
+    while index < len(values)
+        const value: int = values[index]
+        out = collections.queue_int_enqueue(out, mapper(value))
+        index = index + 1
+    end
+
+    return out
+end
+
+public func filter_int(values: list<int>, predicate: func(int) -> bool) -> list<int>
+    var out: list<int> = collections.queue_int_new()
+    var index: int = 0
+
+    while index < len(values)
+        const value: int = values[index]
+        if predicate(value)
+            out = collections.queue_int_enqueue(out, value)
+        end
+        index = index + 1
+    end
+
+    return out
+end
+
+public func reduce_int(values: list<int>, initial: int, reducer: func(int, int) -> int) -> int
+    var acc: int = initial
+    var index: int = 0
+
+    while index < len(values)
+        const value: int = values[index]
+        acc = reducer(acc, value)
+        index = index + 1
+    end
+
+    return acc
+end
+
 public func queue_text_new() -> list<text>
     return collections.zt_queue_text_new()
 end

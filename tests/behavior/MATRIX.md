@@ -89,6 +89,9 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `public_const_module` | Top-level `public const` imported via alias (`module.CONST`) | `42` |
 | `public_var_module` | Top-level `public var` imported via alias (`module.VAR`) | `42` |
 | `public_var_module_state` | `public var` shares state across functions in the owning module | `4` |
+| `closure_capture_basic` | Anonymous closure with immutable by-value capture | `0` |
+| `lambda_hof_basic` | Lambda sugar `func(...) => expr` with `map_int`, `filter_int`, `reduce_int` and immutable capture | `0` |
+| `lazy_explicit_order_basic` | Explicit `lazy<int>` runs the thunk only on `force_int` | `0` |
 | `borealis_backend_fallback_stub` | Borealis desktop-profile request (`backend_id=1`) with safe fallback to stub when adapter is unavailable; covers window + draw + input queries | `0` |
 | `borealis_raylib_binding_stub` | `borealis.raylib` binding smoke in stub-safe mode: shapes, text, input, `measure_text`, `raymath` helpers, easing functions, `require_available()`, clear empty-path errors for texture/sound and stub-safe texture draw fallback | `0` |
 | `borealis_raylib_assets_real` | `borealis.raylib` real-assets probe: conditional native `.png`/`.wav` loading, texture metadata, texture draw, audio init and `load/play/stop/unload` when Raylib is available | `0` |
@@ -111,6 +114,9 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `multifile_import_cycle` | Import cycle rejection |
 | `multifile_private_access` | Access to non-public symbol via import alias is rejected |
 | `public_var_cross_namespace_write_error` | Cross-namespace mutation of `public var` via import alias is rejected |
+| `closure_mut_capture_error` | Mutation of a captured closure variable is rejected |
+| `lambda_return_mismatch_error` | Lambda return must match the expected `func(...) -> ...` type |
+| `lazy_reuse_error` | Runtime contract rejects forcing the same one-shot `lazy<int>` twice |
 | `std_concurrent_boundary_copy_unsupported_error` | `std.concurrent.copy_text(...)` rejects values outside the accepted payload type |
 | `std_random_cross_namespace_write_error` | Cross-namespace mutation of `std.random` `public var` via import alias is rejected |
 | `project_unknown_key_manifest` | Manifest unknown key diagnostic (`project.*`) |

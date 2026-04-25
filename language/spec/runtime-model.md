@@ -16,12 +16,54 @@ Managed values include:
 
 - `text`
 - `bytes`
+- `func(...)` closures
+- `lazy<T>` values
 - `list<T>`
 - `map<K, V>`
 - `optional<T>` when `T` is managed
 - `result<T, E>` when either side is managed
 - structs with managed fields
 - enums with managed payloads
+
+## Closure Runtime Values
+
+Closure values are managed runtime values.
+
+A closure value stores:
+
+- a function pointer
+- a context pointer
+- an optional context drop hook
+
+The context pointer stores captured values.
+
+Rules:
+
+- captures are immutable snapshots in closures v1
+- managed captures are retained when the closure is created
+- managed captures are released when the closure is released
+- non-capturing functions still use the same `func(...)` value model
+- generated Zenith functions receive an internal `zt_ctx` argument
+- normal user code never writes or reads `zt_ctx`
+
+## Lazy Runtime Values
+
+`lazy<T>` values are managed runtime values.
+
+R3.M8 ships `lazy<int>` as a one-shot value.
+
+A lazy value stores:
+
+- a closure thunk
+- a consumed flag
+
+Rules:
+
+- creating the lazy value retains the thunk
+- forcing the value calls the thunk once
+- forcing releases the stored thunk after the call
+- forcing the same value again raises `runtime.contract`
+- ordinary expression evaluation remains eager
 
 ## Ownership Requirements
 

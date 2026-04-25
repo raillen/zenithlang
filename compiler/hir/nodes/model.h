@@ -61,7 +61,8 @@ typedef enum zt_hir_expr_kind {
     ZT_HIR_FUNC_REF_EXPR,
     ZT_HIR_CALL_INDIRECT_EXPR,
     ZT_HIR_CONSTRUCT_EXPR,
-    ZT_HIR_VALUE_BINDING_EXPR
+    ZT_HIR_VALUE_BINDING_EXPR,
+    ZT_HIR_CLOSURE_EXPR
 } zt_hir_expr_kind;
 
 typedef struct zt_hir_string_list {
@@ -99,6 +100,18 @@ typedef struct zt_hir_param_list {
     size_t count;
     size_t capacity;
 } zt_hir_param_list;
+
+typedef struct zt_hir_capture {
+    char *name;
+    zt_type *type;
+} zt_hir_capture;
+
+typedef struct zt_hir_capture_list {
+    zt_hir_capture *items;
+    size_t count;
+    size_t capacity;
+} zt_hir_capture_list;
+
 
 typedef struct zt_hir_field_decl {
     char *name;
@@ -312,6 +325,12 @@ struct zt_hir_expr {
         struct { zt_hir_expr *callable; zt_hir_expr_list args; } call_indirect_expr;
         struct { char *type_name; zt_hir_field_init_list fields; } construct_expr;
         struct { char *name; } value_binding_expr;
+        struct {
+            zt_hir_param_list params;
+            zt_type *return_type;
+            zt_hir_stmt *body;
+            zt_hir_capture_list captures;
+        } closure_expr;
     } as;
 };
 
@@ -362,6 +381,9 @@ zt_hir_match_case_list zt_hir_match_case_list_make(void);
 void zt_hir_match_case_list_push(zt_hir_match_case_list *list, zt_hir_match_case match_case);
 void zt_hir_match_case_list_dispose(zt_hir_match_case_list *list);
 zt_hir_module_var_list zt_hir_module_var_list_make(void);
+zt_hir_capture_list zt_hir_capture_list_make(void);
+void zt_hir_capture_list_push(zt_hir_capture_list *list, zt_hir_capture capture);
+void zt_hir_capture_list_dispose(zt_hir_capture_list *list);
 void zt_hir_module_var_list_push(zt_hir_module_var_list *list, zt_hir_module_var module_var);
 void zt_hir_module_var_list_dispose(zt_hir_module_var_list *list);
 

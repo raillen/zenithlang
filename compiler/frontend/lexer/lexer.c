@@ -590,6 +590,10 @@ zt_token zt_lexer_next_token(zt_lexer *lexer) {
             return zt_lexer_make_token(lexer, ZT_TOKEN_COLON, 0, start_line, start_column, ":", 1);
 
         case '=':
+            if (next == '>') {
+                zt_lexer_advance(lexer);
+                return zt_lexer_make_token(lexer, ZT_TOKEN_FAT_ARROW, 0, start_line, start_column, "=>", 2);
+            }
             if (next == '=') {
                 zt_lexer_advance(lexer);
                 return zt_lexer_make_token(lexer, ZT_TOKEN_EQEQ, 0, start_line, start_column, "==", 2);

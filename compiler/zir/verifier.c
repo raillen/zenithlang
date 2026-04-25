@@ -294,6 +294,7 @@ static size_t zir_count_function_definitions(const zir_module *module_decl, cons
     }
 
     count += function_decl->param_count;
+    count += function_decl->context_captures.count;
     for (block_index = 0; block_index < function_decl->block_count; block_index += 1) {
         size_t instruction_index;
         const zir_block *block = &function_decl->blocks[block_index];
@@ -339,6 +340,13 @@ static int zir_collect_function_definitions(
     for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
         if (!zir_symbol_table_add_unique(defined, function_decl->params[param_index].name)) {
             zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register function parameter");
+            return 0;
+        }
+    }
+
+    for (param_index = 0; param_index < function_decl->context_captures.count; param_index += 1) {
+        if (!zir_symbol_table_add_unique(defined, function_decl->context_captures.items[param_index].name)) {
+            zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register closure capture");
             return 0;
         }
     }
@@ -702,6 +710,15 @@ static int zir_verify_expr(
         case ZIR_EXPR_FUNC_REF:
             return zir_verify_metadata_text(expr->as.func_ref.func_name, context, span, result) &&
                    zir_verify_type_name(expr->as.func_ref.callable_type_name, context, span, result);
+
+        case ZIR_EXPR_MAKE_CLOSURE: {
+            size_t i;
+            if (!zir_verify_metadata_text(expr->as.make_closure.func_name, context, span, result)) return 0;
+            for (i = 0; i < expr->as.make_closure.captures.count; i++) {
+                if (!zir_verify_expr(expr->as.make_closure.captures.items[i], defined, context, span, result)) return 0;
+            }
+            return 1;
+        }
 
         case ZIR_EXPR_CALL_INDIRECT: {
             size_t i;

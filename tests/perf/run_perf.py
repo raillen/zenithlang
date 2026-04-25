@@ -33,6 +33,7 @@ def bench_specs():
         # micro runtime + stdlib
         {"id": "micro_runtime_core", "scenario": "micro_runtime", "cat": "runtime", "kind": "bin", "project": ROOT / "tests" / "perf" / "m36_runtime_core", "expect": "m36-runtime-core-ok", "suites": ["quick", "nightly"]},
         {"id": "micro_stdlib_core", "scenario": "micro_stdlib", "cat": "stdlib", "kind": "bin", "project": ROOT / "tests" / "perf" / "m36_stdlib_core", "expect": "m36-stdlib-core-ok", "suites": ["quick", "nightly"]},
+        {"id": "micro_lambda_hof_run", "scenario": "micro_lambda_hof", "cat": "stdlib", "kind": "cmd", "cmd": "run", "project": ROOT / "tests" / "behavior" / "lambda_hof_basic", "suites": ["quick", "nightly"]},
         # macro small
         {"id": "macro_small_check", "scenario": "macro_small", "cat": "macro", "kind": "cmd", "cmd": "check", "project": ROOT / "tests" / "behavior" / "simple_app", "suites": ["quick", "nightly"]},
         {"id": "macro_small_build_cold", "scenario": "macro_small", "cat": "macro", "kind": "cmd", "cmd": "build", "project": ROOT / "tests" / "behavior" / "simple_app", "cold": True, "suites": ["quick", "nightly"]},

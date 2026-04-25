@@ -25,7 +25,11 @@ const LABEL_SCENE_VIEW: &str = "Scene";
 const LABEL_SCENE_3D: &str = "Scene 3D";
 const LABEL_CONSOLE: &str = "Console";
 const LABEL_GAME: &str = "Game";
-const LABEL_TOOLBAR: &str = "Toolbar";
+
+const INSPECTOR_CONTENT_MAX_WIDTH: f32 = 356.0;
+const INSPECTOR_LABEL_WIDTH: f32 = 92.0;
+const INSPECTOR_ROW_HEIGHT: f32 = 23.0;
+const INSPECTOR_FIELD_MAX_WIDTH: f32 = 252.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BottomDockTab {
@@ -347,24 +351,38 @@ impl BorealisEditorApp {
                         ui.horizontal_wrapped(|ui| {
                             for item in section.items {
                                 let selected = self.selected_tree_item == item.id;
+                                let extension = path_extension(&item.path);
                                 let response = ui.add_sized(
-                                    [118.0, 36.0],
+                                    [128.0, 62.0],
                                     egui::Button::new(
-                                        egui::RichText::new(format!("asset\n{}", item.label))
-                                            .size(10.5)
-                                            .monospace()
-                                            .color(if selected {
-                                                rgb(238, 245, 255)
+                                        egui::RichText::new(format!(
+                                            "{}  {}\n{}",
+                                            project_item_kind_icon(&item.kind, &item.path),
+                                            if extension.is_empty() {
+                                                "asset"
                                             } else {
-                                                color_text()
-                                            }),
+                                                extension.as_str()
+                                            },
+                                            item.label
+                                        ))
+                                        .size(10.0)
+                                        .monospace()
+                                        .color(if selected { color_text() } else { color_text() }),
                                     )
                                     .fill(if selected {
-                                        color_accent()
+                                        color_selected()
                                     } else {
                                         color_field()
                                     })
-                                    .corner_radius(egui::CornerRadius::same(2)),
+                                    .stroke(egui::Stroke::new(
+                                        1.0,
+                                        if selected {
+                                            color_accent()
+                                        } else {
+                                            color_border()
+                                        },
+                                    ))
+                                    .corner_radius(egui::CornerRadius::same(3)),
                                 );
                                 self.handle_project_item_response(response, &item);
                             }
@@ -374,22 +392,13 @@ impl BorealisEditorApp {
 
                     for item in section.items {
                         let selected = self.selected_tree_item == item.id;
-                        let icon = match item.kind {
-                            ProjectTreeItemKind::SceneCandidate => "scene",
-                            ProjectTreeItemKind::Example => "ex",
-                            ProjectTreeItemKind::Asset => "asset",
-                            ProjectTreeItemKind::Module => "mod",
-                        };
+                        let icon = project_item_kind_icon(&item.kind, &item.path);
                         let response = ui.selectable_label(
                             selected,
-                            egui::RichText::new(format!("{icon:<5} {}", item.label))
+                            egui::RichText::new(format!("{icon:<6} {}", item.label))
                                 .size(11.0)
                                 .monospace()
-                                .color(if selected {
-                                    rgb(238, 245, 255)
-                                } else {
-                                    color_text()
-                                }),
+                                .color(if selected { color_text() } else { color_text() }),
                         );
                         self.handle_project_item_response(response, &item);
                     }
@@ -921,60 +930,66 @@ impl BorealisEditorApp {
     fn render_inspector(&mut self, ui: &mut egui::Ui) {
         ui.push_id("inspector", |ui| {
             self.render_entity_inspector(ui);
-            ui.separator();
+            ui.add_space(8.0);
 
             let Some(item) = self.selected_project_item() else {
-                section_caption(ui, "Project selection");
-                ui.label(
-                    egui::RichText::new("Selecione um item na arvore do projeto.")
-                        .size(11.0)
-                        .color(color_text_dim()),
+                empty_state(
+                    ui,
+                    "Sem item do Project",
+                    "Selecione uma cena, modulo ou asset para ver detalhes.",
                 );
                 return;
             };
 
-            section_caption(ui, "Project selection");
-            kv_row(ui, "Name", &item.label);
-            kv_row(ui, "Type", tree_item_kind_label(&item.kind));
-            kv_row(ui, "Path", &item.path);
-
-            ui.add_space(8.0);
-            match item.kind {
-                ProjectTreeItemKind::SceneCandidate
-                | ProjectTreeItemKind::Example
-                | ProjectTreeItemKind::Module => {
-                    ui.horizontal(|ui| {
-                        if mini_button(ui, "Use", "Usar como cena ativa").clicked() {
-                            self.activate_scene_from_ui(item.path.clone(), false);
-                        }
-
-                        if mini_button(ui, "Open", "Abrir cena no preview").clicked() {
-                            self.activate_scene_from_ui(item.path.clone(), true);
-                        }
-                    });
-                }
-                ProjectTreeItemKind::Asset => {
-                    ui.label(
-                        egui::RichText::new("Asset detectado pelo projeto.")
-                            .size(11.0)
-                            .color(color_text_dim()),
+            inspector_section(ui, "Project selection", |ui| {
+                ui.horizontal(|ui| {
+                    status_chip(
+                        ui,
+                        project_item_kind_icon(&item.kind, &item.path),
+                        color_accent(),
                     );
-                    if mini_button(ui, "Log", "Registrar asset no transcript").clicked() {
-                        self.push_transcript(format!("Asset selecionado: {}", item.path));
+                    status_chip(ui, tree_item_kind_label(&item.kind), color_text_dim());
+                });
+                ui.add_space(4.0);
+                kv_row(ui, "Name", &item.label);
+                kv_row(ui, "Path", &item.path);
+
+                ui.add_space(8.0);
+                match &item.kind {
+                    ProjectTreeItemKind::SceneCandidate
+                    | ProjectTreeItemKind::Example
+                    | ProjectTreeItemKind::Module => {
+                        ui.horizontal(|ui| {
+                            if primary_button(ui, "Use", "Usar como cena ativa").clicked() {
+                                self.activate_scene_from_ui(item.path.clone(), false);
+                            }
+
+                            if mini_button(ui, "Open", "Abrir cena no preview").clicked() {
+                                self.activate_scene_from_ui(item.path.clone(), true);
+                            }
+                        });
+                    }
+                    ProjectTreeItemKind::Asset => {
+                        ui.label(
+                            egui::RichText::new("Asset detectado pelo projeto.")
+                                .size(11.0)
+                                .color(color_text_dim()),
+                        );
+                        if mini_button(ui, "Log", "Registrar asset no transcript").clicked() {
+                            self.push_transcript(format!("Asset selecionado: {}", item.path));
+                        }
                     }
                 }
-            }
+            });
         });
     }
 
     fn render_entity_inspector(&mut self, ui: &mut egui::Ui) {
-        section_caption(ui, "Entity");
-
         let Some(entity) = self.selected_scene_entity_info().cloned() else {
-            ui.label(
-                egui::RichText::new("Nenhuma entidade selecionada.")
-                    .size(11.0)
-                    .color(color_text_dim()),
+            empty_state(
+                ui,
+                "Nenhuma entidade selecionada",
+                "Selecione uma entidade na hierarquia ou no viewport.",
             );
             return;
         };
@@ -995,142 +1010,113 @@ impl BorealisEditorApp {
         let mut model_asset = entity.model_asset.clone();
         let mut changed = false;
 
-        changed |= inspector_text_field(ui, "Name", &mut name);
-        kv_row(ui, "Stable ID", &entity.stable_id);
-        changed |= inspector_text_field(ui, "Layer", &mut layer);
-        changed |= inspector_text_field(ui, "Parent", &mut parent);
-        changed |= inspector_text_field(ui, "Tags", &mut tags);
-
-        section_caption(ui, "Transform");
-        ui.horizontal(|ui| {
-            ui.add_sized(
-                [68.0, 20.0],
-                egui::Label::new(
-                    egui::RichText::new("Position")
-                        .size(11.0)
-                        .color(color_text_dim()),
-                ),
-            );
-            changed |= ui
-                .add(egui::DragValue::new(&mut x).speed(1.0).prefix("x "))
-                .changed();
-            changed |= ui
-                .add(egui::DragValue::new(&mut y).speed(1.0).prefix("y "))
-                .changed();
-            changed |= ui
-                .add(egui::DragValue::new(&mut z).speed(1.0).prefix("z "))
-                .changed();
+        inspector_section(ui, "Entity", |ui| {
+            ui.horizontal(|ui| {
+                status_chip(
+                    ui,
+                    if entity_is_3d(&entity) { "3D" } else { "2D" },
+                    color_accent(),
+                );
+                status_chip(ui, empty_as_dash(&entity.layer), color_text_dim());
+            });
+            ui.add_space(4.0);
+            changed |= inspector_text_field(ui, "Name", &mut name);
+            kv_row(ui, "Stable ID", &entity.stable_id);
+            changed |= inspector_text_field(ui, "Layer", &mut layer);
+            changed |= inspector_text_field(ui, "Parent", &mut parent);
+            changed |= inspector_text_field(ui, "Tags", &mut tags);
         });
+        ui.add_space(7.0);
 
-        ui.horizontal(|ui| {
-            ui.add_sized(
-                [68.0, 20.0],
-                egui::Label::new(
-                    egui::RichText::new("Scale")
-                        .size(11.0)
-                        .color(color_text_dim()),
-                ),
+        inspector_section(ui, "Transform", |ui| {
+            changed |= inspector_vec3_row(ui, "Position", &mut x, &mut y, &mut z, 1.0);
+            changed |= inspector_vec3_row(
+                ui,
+                "Rotation",
+                &mut rotation_x,
+                &mut rotation_y,
+                &mut rotation,
+                1.0,
             );
-            changed |= ui
-                .add(egui::DragValue::new(&mut scale_x).speed(0.05).prefix("x "))
-                .changed();
-            changed |= ui
-                .add(egui::DragValue::new(&mut scale_y).speed(0.05).prefix("y "))
-                .changed();
-            changed |= ui
-                .add(egui::DragValue::new(&mut scale_z).speed(0.05).prefix("z "))
-                .changed();
+            changed |=
+                inspector_vec3_row(ui, "Scale", &mut scale_x, &mut scale_y, &mut scale_z, 0.05);
         });
-
-        ui.horizontal(|ui| {
-            ui.add_sized(
-                [68.0, 20.0],
-                egui::Label::new(
-                    egui::RichText::new("Rotation")
-                        .size(11.0)
-                        .color(color_text_dim()),
-                ),
-            );
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut rotation_x)
-                        .speed(1.0)
-                        .prefix("x "),
-                )
-                .changed();
-            changed |= ui
-                .add(
-                    egui::DragValue::new(&mut rotation_y)
-                        .speed(1.0)
-                        .prefix("y "),
-                )
-                .changed();
-            changed |= ui
-                .add(egui::DragValue::new(&mut rotation).speed(1.0).prefix("z "))
-                .changed();
-        });
+        ui.add_space(7.0);
 
         if entity_is_3d(&entity) {
-            section_caption(ui, "3D Asset");
-            changed |= inspector_text_field(ui, "Model", &mut model_asset);
+            inspector_section(ui, "3D asset", |ui| {
+                changed |= inspector_text_field(ui, "Model", &mut model_asset);
+                ui.label(
+                    egui::RichText::new("Model paths are saved into model3d components.")
+                        .size(10.5)
+                        .color(color_text_faint()),
+                );
+            });
+            ui.add_space(7.0);
         }
 
         let mut remove_component = None;
         let mut add_component = None;
 
-        section_caption(ui, "Components");
-        if entity.components.is_empty() {
-            ui.label(
-                egui::RichText::new("Nenhum component adicionado.")
-                    .size(11.0)
-                    .color(color_text_dim()),
-            );
-        } else {
-            for (index, component) in entity.components.iter().enumerate() {
-                egui::Frame::new()
-                    .fill(color_field())
-                    .inner_margin(egui::Margin::symmetric(6, 3))
-                    .stroke(egui::Stroke::new(1.0, color_border()))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                egui::RichText::new(component)
-                                    .size(11.0)
-                                    .monospace()
-                                    .color(color_text()),
-                            );
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    if mini_button(ui, "X", "Remover component").clicked() {
-                                        remove_component = Some(index);
-                                    }
-                                },
-                            );
+        inspector_section(ui, "Components", |ui| {
+            if entity.components.is_empty() {
+                empty_state(
+                    ui,
+                    "Sem components",
+                    "Adicione sprite, script, camera ou recursos 3D.",
+                );
+            } else {
+                for (index, component) in entity.components.iter().enumerate() {
+                    egui::Frame::new()
+                        .fill(rgb(239, 240, 242))
+                        .inner_margin(egui::Margin::symmetric(7, 4))
+                        .stroke(egui::Stroke::new(1.0, color_border()))
+                        .corner_radius(egui::CornerRadius::same(3))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(component)
+                                        .size(11.0)
+                                        .monospace()
+                                        .color(color_text()),
+                                );
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        if danger_button(ui, "Remove", "Remover component")
+                                            .clicked()
+                                        {
+                                            remove_component = Some(index);
+                                        }
+                                    },
+                                );
+                            });
                         });
-                    });
-            }
-        }
-
-        ui.menu_button("Add Component", |ui| {
-            for component in [
-                "sprite",
-                "controller",
-                "camera2d",
-                "ai",
-                "collider2d",
-                "script",
-                "model3d",
-                "cube3d",
-                "camera3d",
-                "light3d",
-            ] {
-                if ui.button(component).clicked() {
-                    add_component = Some(component.to_string());
-                    ui.close();
                 }
             }
+
+            ui.add_space(5.0);
+            ui.menu_button("Add component", |ui| {
+                for component in [
+                    "sprite",
+                    "controller",
+                    "camera2d",
+                    "ai",
+                    "collider2d",
+                    "script",
+                    "model3d",
+                    "cube3d",
+                    "camera3d",
+                    "light3d",
+                ] {
+                    if ui.button(component).clicked() {
+                        add_component = Some(component.to_string());
+                        ui.close();
+                    }
+                }
+            });
         });
+        ui.add_space(7.0);
 
         if changed {
             self.apply_scene_entity_edit(
@@ -1162,26 +1148,31 @@ impl BorealisEditorApp {
             self.add_component_to_entity(&entity.stable_id, &component);
         }
 
-        ui.horizontal(|ui| {
-            if mini_button(ui, "Select", "Selecionar no preview").clicked() {
-                self.selected_entity_id = entity.stable_id.clone();
-                self.select_entity_from_ui();
-            }
+        inspector_section(ui, "Actions", |ui| {
+            ui.horizontal(|ui| {
+                if primary_button(ui, "Select", "Selecionar no preview").clicked() {
+                    self.selected_entity_id = entity.stable_id.clone();
+                    self.select_entity_from_ui();
+                }
 
-            if mini_button(ui, "Delete", "Remover entidade da cena").clicked() {
-                self.remove_selected_scene_entity_from_model();
-            }
+                if danger_button(ui, "Delete", "Remover entidade da cena").clicked() {
+                    self.remove_selected_scene_entity_from_model();
+                }
+            });
+            ui.label(
+                egui::RichText::new("Actions apply to the selected scene entity.")
+                    .size(10.5)
+                    .color(color_text_faint()),
+            );
         });
     }
 
     fn render_scene_settings(&mut self, ui: &mut egui::Ui) {
-        section_caption(ui, "Scene");
-
         let Some(document) = self.scene_document.clone() else {
-            ui.label(
-                egui::RichText::new("Nenhuma cena carregada.")
-                    .size(11.0)
-                    .color(color_text_dim()),
+            empty_state(
+                ui,
+                "Nenhuma cena carregada",
+                "Carregue uma cena para editar nome, estado e sincronizacao.",
             );
             return;
         };
@@ -1190,46 +1181,50 @@ impl BorealisEditorApp {
         let mut document_id = document.document_id.clone();
         let mut changed = false;
 
-        ui.horizontal(|ui| {
-            status_chip(
-                ui,
-                if self.scene_dirty { "dirty" } else { "saved" },
-                if self.scene_dirty {
-                    color_warning()
-                } else {
-                    color_play()
-                },
+        inspector_section(ui, "Scene", |ui| {
+            ui.horizontal(|ui| {
+                status_chip(
+                    ui,
+                    if self.scene_dirty { "dirty" } else { "saved" },
+                    if self.scene_dirty {
+                        color_warning()
+                    } else {
+                        color_play()
+                    },
+                );
+                status_chip(ui, scene_format_label(&document.format), color_text_dim());
+            });
+            ui.add_space(4.0);
+            changed |= inspector_text_field(ui, "Name", &mut scene_name);
+            changed |= inspector_text_field(ui, "Document ID", &mut document_id);
+            kv_row(ui, "File", &document.source_path);
+
+            if changed {
+                self.apply_scene_document_edit(scene_name, document_id);
+            }
+
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if primary_button(ui, "Save", "Salvar cena").clicked() {
+                    self.save_scene_document_from_ui();
+                }
+                if mini_button(ui, "Save+Sync", "Salvar e sincronizar com preview").clicked() {
+                    if self.save_scene_document_internal() {
+                        self.sync_scene_to_preview_from_ui();
+                    }
+                }
+                if mini_button(ui, "Reload", "Recarregar cena do disco").clicked() {
+                    if self.ensure_scene_change_is_safe("recarregar a cena") {
+                        self.load_current_scene_document();
+                    }
+                }
+            });
+
+            ui.checkbox(
+                &mut self.auto_sync_preview,
+                "Auto Sync preview depois de salvar",
             );
-            status_chip(ui, scene_format_label(&document.format), color_text_dim());
         });
-        changed |= inspector_text_field(ui, "Name", &mut scene_name);
-        changed |= inspector_text_field(ui, "Document ID", &mut document_id);
-        kv_row(ui, "File", &document.source_path);
-
-        if changed {
-            self.apply_scene_document_edit(scene_name, document_id);
-        }
-
-        ui.horizontal(|ui| {
-            if mini_button(ui, "Save", "Salvar cena").clicked() {
-                self.save_scene_document_from_ui();
-            }
-            if mini_button(ui, "Save+Sync", "Salvar e sincronizar com preview").clicked() {
-                if self.save_scene_document_internal() {
-                    self.sync_scene_to_preview_from_ui();
-                }
-            }
-            if mini_button(ui, "Reload", "Recarregar cena do disco").clicked() {
-                if self.ensure_scene_change_is_safe("recarregar a cena") {
-                    self.load_current_scene_document();
-                }
-            }
-        });
-
-        ui.checkbox(
-            &mut self.auto_sync_preview,
-            "Auto Sync preview depois de salvar",
-        );
     }
 
     fn render_scene_document(&mut self, ui: &mut egui::Ui) {
@@ -1238,114 +1233,197 @@ impl BorealisEditorApp {
         }
 
         let Some(document) = self.scene_document.clone() else {
-            ui.label(
-                egui::RichText::new("Carregue uma cena para listar entidades.")
-                    .size(11.0)
-                    .color(color_text_dim()),
+            empty_state(
+                ui,
+                "Nenhuma cena carregada",
+                "Carregue uma cena para listar entidades.",
             );
             return;
         };
 
-        kv_row(ui, "Scene", &document.name);
-        kv_row(ui, "Format", scene_format_label(&document.format));
-        kv_row(ui, "Entities", document.entities.len().to_string());
-        ui.add_space(8.0);
+        egui::Frame::new()
+            .fill(color_field())
+            .inner_margin(egui::Margin::symmetric(8, 7))
+            .stroke(egui::Stroke::new(1.0, color_border()))
+            .corner_radius(egui::CornerRadius::same(3))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(&document.name)
+                            .size(11.5)
+                            .strong()
+                            .color(color_text()),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        status_chip(
+                            ui,
+                            format!("{} entities", document.entities.len()),
+                            color_text_dim(),
+                        );
+                        status_chip(ui, scene_format_label(&document.format), color_text_dim());
+                    });
+                });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if primary_button(ui, "Create", "Criar entidade").clicked() {
+                        self.create_scene_entity_in_model();
+                    }
+                    if danger_button(ui, "Delete", "Remover entidade selecionada").clicked() {
+                        self.remove_selected_scene_entity_from_model();
+                    }
+                });
+            });
+        ui.add_space(7.0);
 
         ui.horizontal(|ui| {
-            if mini_button(ui, "Create", "Criar entidade").clicked() {
-                self.create_scene_entity_in_model();
-            }
-            if mini_button(ui, "Delete", "Remover entidade selecionada").clicked() {
-                self.remove_selected_scene_entity_from_model();
-            }
-            if mini_button(ui, "Focus", "Centralizar entidade selecionada").clicked() {
-                self.request_focus_selected_in_viewport();
-            }
-            if mini_button(ui, "Frame", "Enquadrar toda a cena").clicked() {
-                self.request_frame_all_in_viewport();
+            ui.add_sized(
+                [ui.available_width(), 24.0],
+                egui::TextEdit::singleline(&mut self.hierarchy_filter)
+                    .hint_text("Search entities")
+                    .desired_width(f32::INFINITY),
+            );
+            if !self.hierarchy_filter.trim().is_empty()
+                && mini_button(ui, "Clear", "Limpar busca").clicked()
+            {
+                self.hierarchy_filter.clear();
             }
         });
-        ui.add_space(8.0);
 
-        inspector_text_field(ui, "Filter", &mut self.hierarchy_filter);
-        ui.horizontal(|ui| {
-            let filter = self.hierarchy_filter.trim();
-            if filter.is_empty() {
-                status_chip(
-                    ui,
-                    format!("{} visible", document.entities.len()),
-                    color_text_dim(),
-                );
-            } else {
+        let filter_text = self.hierarchy_filter.trim().to_string();
+        if !filter_text.is_empty() {
+            ui.add_space(5.0);
+            ui.horizontal(|ui| {
                 let visible = document
                     .entities
                     .iter()
-                    .filter(|entity| entity_matches_filter(entity, filter))
+                    .filter(|entity| entity_matches_filter(entity, &filter_text))
                     .count();
                 status_chip(ui, format!("{} matches", visible), color_text_dim());
-                if mini_button(ui, "Clear", "Limpar busca").clicked() {
-                    self.hierarchy_filter.clear();
-                }
-            }
-        });
-        ui.add_space(8.0);
+            });
+        }
+        ui.add_space(7.0);
 
         if document.entities.is_empty() {
-            ui.label(
-                egui::RichText::new("(sem entidades detectadas)")
-                    .size(11.0)
-                    .monospace()
-                    .color(color_text_faint()),
+            empty_state(
+                ui,
+                "Sem entidades",
+                "Use Create para adicionar a primeira entidade da cena.",
             );
             return;
         }
 
+        egui::Frame::new()
+            .fill(rgb(232, 234, 237))
+            .inner_margin(egui::Margin::symmetric(6, 5))
+            .stroke(egui::Stroke::new(1.0, color_border()))
+            .corner_radius(egui::CornerRadius::same(3))
+            .show(ui, |ui| {
+                let filter = filter_text.to_ascii_lowercase();
+                if filter.is_empty() {
+                    let mut roots: Vec<_> = document
+                        .entities
+                        .iter()
+                        .filter(|entity| {
+                            entity.parent.is_empty()
+                                || !document
+                                    .entities
+                                    .iter()
+                                    .any(|candidate| candidate.stable_id == entity.parent)
+                        })
+                        .cloned()
+                        .collect();
+                    roots.sort_by(|left, right| left.name.cmp(&right.name));
+                    for entity in roots {
+                        self.render_scene_hierarchy_node(ui, &document, entity);
+                    }
+                } else {
+                    let mut matches: Vec<_> = document
+                        .entities
+                        .into_iter()
+                        .filter(|entity| entity_matches_filter(entity, &filter))
+                        .collect();
+                    matches.sort_by(|left, right| left.name.cmp(&right.name));
+
+                    if matches.is_empty() {
+                        empty_state(
+                            ui,
+                            "Sem resultados",
+                            "Nenhuma entidade combina com a busca.",
+                        );
+                    } else {
+                        for entity in matches {
+                            self.render_scene_hierarchy_leaf(ui, &entity);
+                        }
+                    }
+                }
+            });
+    }
+
+    fn render_preview_connection(&mut self, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new(
-            egui::RichText::new("Entities")
+            egui::RichText::new("Preview connection")
                 .size(11.5)
                 .strong()
                 .color(color_text()),
         )
-        .default_open(true)
+        .default_open(false)
         .show(ui, |ui| {
-            let filter = self.hierarchy_filter.trim().to_ascii_lowercase();
-            if filter.is_empty() {
-                let mut roots: Vec<_> = document
-                    .entities
-                    .iter()
-                    .filter(|entity| {
-                        entity.parent.is_empty()
-                            || !document
-                                .entities
-                                .iter()
-                                .any(|candidate| candidate.stable_id == entity.parent)
-                    })
-                    .cloned()
-                    .collect();
-                roots.sort_by(|left, right| left.name.cmp(&right.name));
-                for entity in roots {
-                    self.render_scene_hierarchy_node(ui, &document, entity);
-                }
-            } else {
-                let mut matches: Vec<_> = document
-                    .entities
-                    .into_iter()
-                    .filter(|entity| entity_matches_filter(entity, &filter))
-                    .collect();
-                matches.sort_by(|left, right| left.name.cmp(&right.name));
-
-                if matches.is_empty() {
-                    ui.label(
-                        egui::RichText::new("Nenhuma entidade combina com o filtro.")
-                            .size(11.0)
-                            .color(color_text_dim()),
-                    );
-                } else {
-                    for entity in matches {
-                        self.render_scene_hierarchy_leaf(ui, &entity);
+            ui.horizontal(|ui| {
+                status_chip(
+                    ui,
+                    if self.preview.is_mock() {
+                        "mock"
+                    } else {
+                        "real"
+                    },
+                    if self.preview.is_mock() {
+                        color_warning()
+                    } else {
+                        color_play()
+                    },
+                );
+                status_chip(ui, format!("{:?}", self.preview.state()), color_text_dim());
+            });
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                if mini_button(
+                    ui,
+                    if self.preview.is_mock() {
+                        "Use Real"
+                    } else {
+                        "Use Mock"
+                    },
+                    "Alternar entre preview real e mock",
+                )
+                .clicked()
+                {
+                    let new_val = !self.preview.is_mock();
+                    self.preview.set_mock(new_val);
+                    if new_val {
+                        self.push_transcript("Mock mode: ATIVO - simulando respostas");
+                    } else {
+                        self.push_transcript("Real mode: ATIVO - usando preview compilado");
                     }
                 }
-            }
+
+                if mini_button(ui, "Open", "Abrir projeto no preview").clicked() {
+                    self.open_project_in_preview();
+                }
+            });
+
+            egui::CollapsingHeader::new(
+                egui::RichText::new("Paths")
+                    .size(11.0)
+                    .color(color_text_dim()),
+            )
+            .default_open(false)
+            .show(ui, |ui| {
+                inspector_text_field(ui, "Project", &mut self.project_path);
+                inspector_text_field(ui, "Preview", &mut self.preview_path);
+                if mini_button(ui, "Inspect", "Inspecionar manifesto do projeto").clicked() {
+                    self.refresh_project_summary();
+                }
+            });
         });
     }
 
@@ -1603,155 +1681,143 @@ impl BorealisEditorApp {
                 });
             });
 
-            ui.add_space(2.0);
+            ui.add_space(3.0);
             ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new(LABEL_TOOLBAR)
-                        .size(10.5)
-                        .monospace()
-                        .color(color_text_faint()),
-                );
-                ui.separator();
-                if mini_toggle(
-                    ui,
-                    self.transform_tool == TransformTool::Hand,
-                    "Hand",
-                    "Pan tool",
-                )
-                .clicked()
-                {
-                    self.transform_tool = TransformTool::Hand;
-                }
-                if mini_toggle(
-                    ui,
-                    self.transform_tool == TransformTool::Move,
-                    "Move",
-                    "Move tool",
-                )
-                .clicked()
-                {
-                    self.transform_tool = TransformTool::Move;
-                }
-                if mini_toggle(
-                    ui,
-                    self.transform_tool == TransformTool::Rotate,
-                    "Rot",
-                    "Rotate tool",
-                )
-                .clicked()
-                {
-                    self.transform_tool = TransformTool::Rotate;
-                }
-                if mini_toggle(
-                    ui,
-                    self.transform_tool == TransformTool::Scale,
-                    "Scale",
-                    "Scale tool",
-                )
-                .clicked()
-                {
-                    self.transform_tool = TransformTool::Scale;
-                }
-                ui.separator();
-
                 let is_playing = self.preview.current_status() == PreviewStatus::Playing;
                 let is_paused = self.preview.current_status() == PreviewStatus::Paused;
 
-                if ui
-                    .add(
-                        egui::Button::new(
-                            egui::RichText::new(if is_playing { "\u{25A0}" } else { "\u{25B6}" })
-                                .size(12.0)
-                                .strong()
-                                .color(if is_playing {
-                                    rgb(255, 255, 255)
-                                } else {
-                                    rgb(255, 255, 255)
-                                }),
-                        )
-                        .fill(if is_playing {
-                            color_play()
-                        } else {
-                            rgb(72, 145, 72)
-                        })
-                        .min_size(egui::vec2(28.0, 24.0))
-                        .corner_radius(egui::CornerRadius::same(3)),
+                toolbar_group(ui, "Transform", |ui| {
+                    if toolbar_toggle(
+                        ui,
+                        self.transform_tool == TransformTool::Hand,
+                        icon_label('\u{270B}', "Hand"),
+                        "Pan tool",
                     )
-                    .on_hover_text(if is_playing { "Stop Play" } else { "Play" })
                     .clicked()
-                {
-                    if is_playing {
+                    {
+                        self.transform_tool = TransformTool::Hand;
+                    }
+                    if toolbar_toggle(
+                        ui,
+                        self.transform_tool == TransformTool::Move,
+                        icon_label('\u{2194}', "Move"),
+                        "Move tool",
+                    )
+                    .clicked()
+                    {
+                        self.transform_tool = TransformTool::Move;
+                    }
+                    if toolbar_toggle(
+                        ui,
+                        self.transform_tool == TransformTool::Rotate,
+                        icon_label('\u{27F3}', "Rot"),
+                        "Rotate tool",
+                    )
+                    .clicked()
+                    {
+                        self.transform_tool = TransformTool::Rotate;
+                    }
+                    if toolbar_toggle(
+                        ui,
+                        self.transform_tool == TransformTool::Scale,
+                        icon_label('\u{2922}', "Scale"),
+                        "Scale tool",
+                    )
+                    .clicked()
+                    {
+                        self.transform_tool = TransformTool::Scale;
+                    }
+                });
+
+                toolbar_group(ui, "Runtime", |ui| {
+                    if toolbar_button(ui, icon_label('\u{25B7}', "Preview"), "Iniciar preview")
+                        .clicked()
+                    {
+                        self.start_preview_from_ui();
+                    }
+
+                    let play_button = egui::Button::new(
+                        egui::RichText::new(icon_label('\u{25B6}', "Play"))
+                            .size(11.0)
+                            .strong()
+                            .color(rgb(255, 255, 255)),
+                    )
+                    .fill(color_play())
+                    .stroke(egui::Stroke::new(1.0, rgb(35, 105, 58)))
+                    .min_size(egui::vec2(62.0, 24.0))
+                    .corner_radius(egui::CornerRadius::same(3));
+                    if ui
+                        .add_enabled(!is_playing, play_button)
+                        .on_hover_text("Entrar em play mode")
+                        .clicked()
+                    {
+                        self.enter_play_mode_from_ui();
+                    }
+
+                    let pause_button = egui::Button::new(
+                        egui::RichText::new(icon_label('\u{23F8}', "Pause"))
+                            .size(11.0)
+                            .strong()
+                            .color(rgb(255, 255, 255)),
+                    )
+                    .fill(color_warning())
+                    .stroke(egui::Stroke::new(1.0, rgb(135, 82, 28)))
+                    .min_size(egui::vec2(68.0, 24.0))
+                    .corner_radius(egui::CornerRadius::same(3));
+                    if ui
+                        .add_enabled(is_playing, pause_button)
+                        .on_hover_text("Pausar play mode")
+                        .clicked()
+                    {
+                        self.pause_play_mode_from_ui();
+                    }
+
+                    let step_button = egui::Button::new(
+                        egui::RichText::new(icon_label('\u{23ED}', "Step"))
+                            .size(11.0)
+                            .color(color_text()),
+                    )
+                    .fill(color_field())
+                    .stroke(egui::Stroke::new(1.0, color_border()))
+                    .min_size(egui::vec2(62.0, 24.0))
+                    .corner_radius(egui::CornerRadius::same(3));
+                    if ui
+                        .add_enabled(is_playing || is_paused, step_button)
+                        .on_hover_text("Avancar um frame")
+                        .clicked()
+                    {
+                        self.push_transcript("Step forward (frame by frame)".to_string());
+                    }
+
+                    let stop_button = egui::Button::new(
+                        egui::RichText::new(icon_label('\u{25A0}', "Stop"))
+                            .size(11.0)
+                            .color(rgb(255, 255, 255)),
+                    )
+                    .fill(color_danger())
+                    .stroke(egui::Stroke::new(1.0, rgb(138, 46, 41)))
+                    .min_size(egui::vec2(62.0, 24.0))
+                    .corner_radius(egui::CornerRadius::same(3));
+                    if ui
+                        .add_enabled(
+                            is_playing || is_paused || self.preview_connected(),
+                            stop_button,
+                        )
+                        .on_hover_text("Parar preview")
+                        .clicked()
+                    {
                         self.stop_preview_from_ui();
-                    } else {
-                        self.enter_play_mode_from_ui();
                     }
-                }
+                });
 
-                let pause_button = egui::Button::new(
-                    egui::RichText::new("\u{23EA}")
-                        .size(12.0)
-                        .strong()
-                        .color(rgb(255, 255, 255)),
-                )
-                .fill(if is_paused {
-                    rgb(180, 140, 50)
-                } else {
-                    rgb(120, 120, 120)
-                })
-                .min_size(egui::vec2(28.0, 24.0))
-                .corner_radius(egui::CornerRadius::same(3));
-                if ui
-                    .add_enabled(!is_playing || is_paused, pause_button)
-                    .on_hover_text("Pause")
-                    .clicked()
-                {
-                    if is_playing {
-                        self.pause_play_mode_from_ui();
-                    } else {
-                        self.enter_play_mode_from_ui();
-                        self.pause_play_mode_from_ui();
+                toolbar_group(ui, "Scene", |ui| {
+                    if toolbar_button(ui, icon_label('\u{25A3}', "Save"), "Salvar cena").clicked() {
+                        self.save_scene_document_from_ui();
                     }
-                }
-
-                let step_button = egui::Button::new(
-                    egui::RichText::new("\u{23E9}")
-                        .size(12.0)
-                        .strong()
-                        .color(rgb(255, 255, 255)),
-                )
-                .fill(rgb(120, 120, 120))
-                .min_size(egui::vec2(28.0, 24.0))
-                .corner_radius(egui::CornerRadius::same(3));
-                if ui
-                    .add_enabled(is_playing || is_paused, step_button)
-                    .on_hover_text("Step Forward")
-                    .clicked()
-                {
-                    self.push_transcript("Step forward (frame by frame)".to_string());
-                }
-
-                ui.separator();
-
-                if mini_button(ui, "Start", "Iniciar preview").clicked() {
-                    self.start_preview_from_ui();
-                }
-                if mini_button(ui, "Save", "Salvar cena").clicked() {
-                    self.save_scene_document_from_ui();
-                }
-                if mini_button(ui, "Sync", "Sincronizar cena com preview").clicked() {
-                    self.sync_scene_to_preview_from_ui();
-                }
-
-                ui.separator();
-                if mini_button(ui, "Ping", "Enviar ping ao preview").clicked() {
-                    self.ping_preview_from_ui();
-                }
-                if mini_button(ui, "Focus", "Centralizar entidade selecionada").clicked() {
-                    self.request_focus_selected_in_viewport();
-                }
-                if mini_button(ui, "Frame", "Enquadrar toda a cena").clicked() {
-                    self.request_frame_all_in_viewport();
-                }
+                    if primary_button(ui, "Sync", "Sincronizar cena com preview").clicked() {
+                        self.sync_scene_to_preview_from_ui();
+                    }
+                });
 
                 ui.separator();
                 status_chip(
@@ -1798,52 +1864,11 @@ impl BorealisEditorApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                dock_title(ui, LABEL_HIERARCHY, "scene objects");
+                dock_title(ui, LABEL_HIERARCHY, "");
                 self.render_scene_document(ui);
 
-                ui.separator();
-                dock_title(ui, "Connection", "preview bridge");
-                egui::CollapsingHeader::new(
-                    egui::RichText::new("Transport")
-                        .size(11.5)
-                        .strong()
-                        .color(color_text()),
-                )
-                .default_open(true)
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if mini_button(
-                            ui,
-                            if self.preview.is_mock() {
-                                "Use Real"
-                            } else {
-                                "Use Mock"
-                            },
-                            "Alternar entre preview real e mock",
-                        )
-                        .clicked()
-                        {
-                            let new_val = !self.preview.is_mock();
-                            self.preview.set_mock(new_val);
-                            if new_val {
-                                self.push_transcript("Mock mode: ATIVO - simulando respostas");
-                            } else {
-                                self.push_transcript("Real mode: ATIVO - usando preview compilado");
-                            }
-                        }
-
-                        if mini_button(ui, "Open", "Abrir projeto no preview").clicked() {
-                            self.open_project_in_preview();
-                        }
-                    });
-
-                    section_caption(ui, "Paths");
-                    inspector_text_field(ui, "Project", &mut self.project_path);
-                    inspector_text_field(ui, "Preview", &mut self.preview_path);
-                    if mini_button(ui, "Inspect", "Inspecionar manifesto do projeto").clicked() {
-                        self.refresh_project_summary();
-                    }
-                });
+                ui.add_space(10.0);
+                self.render_preview_connection(ui);
             });
     }
 
@@ -1851,31 +1876,36 @@ impl BorealisEditorApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                ui.set_width(ui.available_width().min(INSPECTOR_CONTENT_MAX_WIDTH));
+
                 dock_title(ui, LABEL_INSPECTOR, "properties");
                 self.render_inspector(ui);
 
-                ui.separator();
-                dock_title(ui, "Selection", "preview target");
-                inspector_text_field(ui, "Scene", &mut self.scene_path);
-                ui.horizontal(|ui| {
-                    if mini_button(ui, "Load", "Carregar no editor").clicked() {
-                        let scene_path = self.scene_path.clone();
-                        self.activate_scene_from_ui(scene_path, false);
-                    }
-                    if mini_button(ui, "Open", "Abrir no preview").clicked() {
-                        self.open_scene_from_ui();
+                ui.add_space(8.0);
+                inspector_section(ui, "Preview target", |ui| {
+                    inspector_text_field(ui, "Scene", &mut self.scene_path);
+                    ui.horizontal(|ui| {
+                        if mini_button(ui, "Load", "Carregar no editor").clicked() {
+                            let scene_path = self.scene_path.clone();
+                            self.activate_scene_from_ui(scene_path, false);
+                        }
+                        if primary_button(ui, "Open", "Abrir no preview").clicked() {
+                            self.open_scene_from_ui();
+                        }
+                    });
+
+                    ui.add_space(5.0);
+                    inspector_text_field(ui, "Entity", &mut self.selected_entity_id);
+                    if mini_button(ui, "Select Entity", "Selecionar entidade no preview").clicked()
+                    {
+                        self.select_entity_from_ui();
                     }
                 });
 
-                inspector_text_field(ui, "Entity", &mut self.selected_entity_id);
-                if mini_button(ui, "Select Entity", "Selecionar entidade no preview").clicked() {
-                    self.select_entity_from_ui();
-                }
-
-                ui.separator();
+                ui.add_space(8.0);
                 self.render_scene_settings(ui);
 
-                ui.separator();
+                ui.add_space(8.0);
                 egui::CollapsingHeader::new(
                     egui::RichText::new("Project Info")
                         .size(11.5)
@@ -1887,22 +1917,23 @@ impl BorealisEditorApp {
                     self.render_project_summary(ui);
                 });
 
-                ui.separator();
-                section_caption(ui, "Last message");
-                ui.add_sized(
-                    [ui.available_width(), 18.0],
-                    egui::Label::new(
-                        egui::RichText::new(if self.last_sent_line.is_empty() {
-                            "(nenhuma ainda)"
-                        } else {
-                            &self.last_sent_line
-                        })
-                        .size(11.0)
-                        .monospace()
-                        .color(color_text_dim()),
-                    )
-                    .truncate(),
-                );
+                ui.add_space(8.0);
+                inspector_section(ui, "Last message", |ui| {
+                    ui.add_sized(
+                        [ui.available_width(), 20.0],
+                        egui::Label::new(
+                            egui::RichText::new(if self.last_sent_line.is_empty() {
+                                "(nenhuma ainda)"
+                            } else {
+                                &self.last_sent_line
+                            })
+                            .size(11.0)
+                            .monospace()
+                            .color(color_text_dim()),
+                        )
+                        .truncate(),
+                    );
+                });
             });
     }
 
@@ -2070,7 +2101,7 @@ impl BorealisEditorApp {
                 };
                 let overlay_rect =
                     egui::Rect::from_center_size(rect.center(), egui::vec2(220.0, 38.0));
-                ui.painter().rect_filled(overlay_rect, 3.0, rgb(42, 42, 42));
+                ui.painter().rect_filled(overlay_rect, 3.0, color_field());
                 ui.painter().rect_stroke(
                     overlay_rect,
                     3.0,
@@ -2297,23 +2328,24 @@ impl BorealisEditorApp {
                 }
             }
             let selected = allow_selection && self.selected_scene_entity == entity.stable_id;
+            let is_camera = entity
+                .components
+                .iter()
+                .any(|component| component == "camera2d" || component == "camera3d");
+            let is_3d_entity = entity_is_3d(&entity);
             let fill = if response.hovered() {
                 color_entity_hover()
             } else if selected {
                 color_accent()
-            } else if entity
-                .components
-                .iter()
-                .any(|component| component == "camera2d" || component == "camera3d")
-            {
+            } else if is_camera {
                 color_camera()
-            } else if entity_is_3d(&entity) {
+            } else if is_3d_entity {
                 rgb(86, 90, 96)
             } else {
                 color_entity()
             };
 
-            if is_scene_3d && entity_is_3d(&entity) {
+            if is_scene_3d && is_3d_entity {
                 draw_entity_box_3d(ui, entity_rect, fill, selected);
             } else {
                 ui.painter().rect_filled(entity_rect, 2.0, fill);
@@ -2345,7 +2377,11 @@ impl BorealisEditorApp {
                 egui::Align2::CENTER_CENTER,
                 entity.name.clone(),
                 egui::FontId::monospace(11.0),
-                rgb(236, 236, 236),
+                if selected || is_camera || is_3d_entity {
+                    rgb(255, 255, 255)
+                } else {
+                    color_text()
+                },
             );
             if is_scene_view {
                 draw_entity_pivot_gizmo(ui, position, is_scene_3d);
@@ -2378,17 +2414,24 @@ impl BorealisEditorApp {
     }
 
     fn render_console(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical()
-            .stick_to_bottom(true)
+        egui::Frame::new()
+            .fill(color_console_bg())
+            .inner_margin(egui::Margin::symmetric(8, 6))
+            .stroke(egui::Stroke::new(1.0, color_border()))
+            .corner_radius(egui::CornerRadius::same(3))
             .show(ui, |ui| {
-                for line in &self.transcript {
-                    ui.label(
-                        egui::RichText::new(line)
-                            .size(11.0)
-                            .monospace()
-                            .color(color_text_dim()),
-                    );
-                }
+                egui::ScrollArea::vertical()
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        for line in &self.transcript {
+                            ui.label(
+                                egui::RichText::new(line)
+                                    .size(11.0)
+                                    .monospace()
+                                    .color(color_console_text()),
+                            );
+                        }
+                    });
             });
     }
 
@@ -2433,42 +2476,65 @@ impl BorealisEditorApp {
             ui.separator();
 
             ui.vertical(|ui| {
-                section_caption(ui, "Selection");
                 let Some(item) = self.selected_project_item() else {
-                    ui.label(
-                        egui::RichText::new("Selecione um asset, script ou cena.")
-                            .size(11.0)
-                            .color(color_text_dim()),
+                    empty_state(
+                        ui,
+                        "Nada selecionado",
+                        "Escolha uma cena, modulo ou asset no Project.",
                     );
                     ui.separator();
                     self.render_project_bottom_summary(ui);
                     return;
                 };
 
-                kv_row(ui, "Name", &item.label);
-                kv_row(ui, "Type", tree_item_kind_label(&item.kind));
-                kv_row(ui, "Path", &item.path);
-                ui.add_space(6.0);
+                inspector_section(ui, "Selection", |ui| {
+                    ui.horizontal(|ui| {
+                        status_chip(
+                            ui,
+                            project_item_kind_icon(&item.kind, &item.path),
+                            color_accent(),
+                        );
+                        status_chip(ui, tree_item_kind_label(&item.kind), color_text_dim());
+                    });
+                    ui.add_space(4.0);
+                    kv_row(ui, "Name", &item.label);
+                    kv_row(ui, "Type", tree_item_kind_label(&item.kind));
+                    kv_row(ui, "Path", &item.path);
+                    ui.add_space(6.0);
 
-                match item.kind {
-                    ProjectTreeItemKind::SceneCandidate
-                    | ProjectTreeItemKind::Example
-                    | ProjectTreeItemKind::Module => {
-                        ui.horizontal(|ui| {
-                            if mini_button(ui, "Use", "Usar como cena ativa").clicked() {
-                                self.activate_scene_from_ui(item.path.clone(), false);
-                            }
-                            if mini_button(ui, "Open", "Abrir cena no preview").clicked() {
-                                self.activate_scene_from_ui(item.path.clone(), true);
-                            }
-                        });
-                    }
-                    ProjectTreeItemKind::Asset => {
-                        if mini_button(ui, "Log", "Registrar asset no transcript").clicked() {
-                            self.push_transcript(format!("Asset selecionado: {}", item.path));
+                    match &item.kind {
+                        ProjectTreeItemKind::SceneCandidate
+                        | ProjectTreeItemKind::Example
+                        | ProjectTreeItemKind::Module => {
+                            ui.horizontal(|ui| {
+                                if primary_button(ui, "Use", "Usar como cena ativa").clicked() {
+                                    self.activate_scene_from_ui(item.path.clone(), false);
+                                }
+                                if mini_button(ui, "Open", "Abrir cena no preview").clicked() {
+                                    self.activate_scene_from_ui(item.path.clone(), true);
+                                }
+                            });
+                        }
+                        ProjectTreeItemKind::Asset => {
+                            ui.horizontal(|ui| {
+                                if asset_is_model3d(&item.path) {
+                                    status_chip(ui, "drop into Scene 3D", color_axis_z());
+                                } else if asset_is_image2d(&item.path) {
+                                    status_chip(ui, "drop into Scene", color_accent());
+                                } else {
+                                    status_chip(ui, "reference asset", color_text_dim());
+                                }
+                                if mini_button(ui, "Log", "Registrar asset no transcript").clicked()
+                                {
+                                    self.push_transcript(format!(
+                                        "Asset selecionado: {}",
+                                        item.path
+                                    ));
+                                }
+                            });
                         }
                     }
-                }
+                });
 
                 ui.separator();
                 self.render_project_bottom_summary(ui);
@@ -2581,7 +2647,7 @@ impl eframe::App for BorealisEditorApp {
         self.preview.update();
 
         egui::TopBottomPanel::top(TOP_BAR_ID)
-            .exact_height(58.0)
+            .exact_height(70.0)
             .frame(top_bar_frame())
             .show(ctx, |ui| {
                 self.render_top_toolbar(ui);
@@ -2598,9 +2664,9 @@ impl eframe::App for BorealisEditorApp {
 
         egui::SidePanel::right(INSPECTOR_DOCK_ID)
             .resizable(true)
-            .default_width(236.0)
-            .width_range(198.0..=340.0)
-            .frame(dock_frame())
+            .default_width(286.0)
+            .width_range(240.0..=420.0)
+            .frame(inspector_dock_frame())
             .show(ctx, |ui| {
                 self.render_right_dock(ui);
             });
@@ -2725,6 +2791,21 @@ fn path_extension(path: &str) -> String {
         .unwrap_or_default()
 }
 
+fn project_item_kind_icon(kind: &ProjectTreeItemKind, path: &str) -> &'static str {
+    match kind {
+        ProjectTreeItemKind::SceneCandidate => "SCN",
+        ProjectTreeItemKind::Example => "EX",
+        ProjectTreeItemKind::Asset => match path_extension(path).as_str() {
+            "png" | "jpg" | "jpeg" | "webp" => "IMG",
+            "glb" | "gltf" | "obj" | "fbx" | "iqm" | "m3d" => "3D",
+            "wav" | "ogg" | "mp3" => "AUD",
+            "json" => "JSON",
+            _ => "AST",
+        },
+        ProjectTreeItemKind::Module => "MOD",
+    }
+}
+
 fn parse_tags_input(value: &str) -> Vec<String> {
     value
         .split(',')
@@ -2759,31 +2840,10 @@ fn entity_matches_filter(entity: &SceneEntity, filter: &str) -> bool {
 }
 
 fn scene_hierarchy_label(entity: &SceneEntity, selected: bool) -> egui::RichText {
-    let icon = if entity
-        .components
-        .iter()
-        .any(|component| component == "camera3d")
-    {
-        "cam3"
-    } else if entity
-        .components
-        .iter()
-        .any(|component| component == "camera2d")
-    {
-        "cam"
-    } else if entity_is_3d(entity) {
-        "3d"
-    } else if entity.parent.is_empty() {
-        "obj"
-    } else {
-        "sub"
-    };
-
-    egui::RichText::new(format!("{icon:<3} {}", entity.name))
-        .size(11.0)
-        .monospace()
+    egui::RichText::new(&entity.name)
+        .size(11.2)
         .color(if selected {
-            rgb(238, 245, 255)
+            rgb(255, 255, 255)
         } else {
             color_text()
         })
@@ -3218,95 +3278,111 @@ fn rgb(r: u8, g: u8, b: u8) -> egui::Color32 {
 }
 
 fn color_app_bg() -> egui::Color32 {
-    rgb(31, 31, 31)
+    rgb(239, 240, 242)
 }
 
 fn color_top_bar() -> egui::Color32 {
-    rgb(37, 37, 38)
+    rgb(231, 232, 234)
 }
 
 fn color_dock() -> egui::Color32 {
-    rgb(43, 43, 43)
+    rgb(224, 225, 228)
 }
 
 fn color_dock_header() -> egui::Color32 {
-    rgb(49, 49, 49)
+    rgb(211, 213, 217)
 }
 
 fn color_field() -> egui::Color32 {
-    rgb(33, 33, 33)
+    rgb(248, 249, 250)
 }
 
 fn color_viewport() -> egui::Color32 {
-    rgb(29, 30, 32)
+    rgb(202, 205, 211)
 }
 
 fn color_border() -> egui::Color32 {
-    rgb(58, 58, 58)
+    rgb(174, 178, 185)
 }
 
 fn color_border_dark() -> egui::Color32 {
-    rgb(24, 24, 24)
+    rgb(142, 147, 156)
 }
 
 fn color_text() -> egui::Color32 {
-    rgb(214, 214, 214)
+    rgb(35, 38, 43)
 }
 
 fn color_text_dim() -> egui::Color32 {
-    rgb(160, 160, 160)
+    rgb(88, 94, 104)
 }
 
 fn color_text_faint() -> egui::Color32 {
-    rgb(118, 118, 118)
+    rgb(121, 128, 139)
 }
 
 fn color_accent() -> egui::Color32 {
-    rgb(73, 133, 201)
+    rgb(57, 113, 181)
 }
 
 fn color_play() -> egui::Color32 {
-    rgb(88, 164, 93)
+    rgb(54, 132, 75)
 }
 
 fn color_warning() -> egui::Color32 {
-    rgb(214, 145, 66)
+    rgb(174, 111, 41)
 }
 
 fn color_danger() -> egui::Color32 {
-    rgb(190, 83, 73)
+    rgb(178, 67, 59)
 }
 
 fn color_camera() -> egui::Color32 {
-    rgb(92, 124, 82)
+    rgb(83, 133, 78)
 }
 
 fn color_entity() -> egui::Color32 {
-    rgb(76, 78, 82)
+    rgb(166, 171, 180)
 }
 
 fn color_entity_hover() -> egui::Color32 {
-    rgb(94, 96, 102)
+    rgb(190, 196, 206)
 }
 
 fn color_grid_minor() -> egui::Color32 {
-    rgb(39, 40, 43)
+    rgb(187, 191, 199)
 }
 
 fn color_grid_major() -> egui::Color32 {
-    rgb(50, 51, 55)
+    rgb(166, 171, 181)
 }
 
 fn color_axis_x() -> egui::Color32 {
-    rgb(196, 84, 80)
+    rgb(188, 75, 70)
 }
 
 fn color_axis_y() -> egui::Color32 {
-    rgb(98, 151, 86)
+    rgb(70, 142, 83)
 }
 
 fn color_axis_z() -> egui::Color32 {
-    rgb(80, 139, 206)
+    rgb(61, 120, 192)
+}
+
+fn color_toolbar_group() -> egui::Color32 {
+    rgb(219, 221, 225)
+}
+
+fn color_selected() -> egui::Color32 {
+    rgb(206, 224, 246)
+}
+
+fn color_console_bg() -> egui::Color32 {
+    rgb(246, 247, 248)
+}
+
+fn color_console_text() -> egui::Color32 {
+    rgb(65, 71, 82)
 }
 
 fn top_bar_frame() -> egui::Frame {
@@ -3323,9 +3399,21 @@ fn dock_frame() -> egui::Frame {
         .stroke(egui::Stroke::new(1.0, color_border_dark()))
 }
 
+fn inspector_dock_frame() -> egui::Frame {
+    egui::Frame::new()
+        .fill(color_dock())
+        .inner_margin(egui::Margin {
+            left: 10,
+            right: 32,
+            top: 8,
+            bottom: 8,
+        })
+        .stroke(egui::Stroke::new(1.0, color_border_dark()))
+}
+
 fn console_frame() -> egui::Frame {
     egui::Frame::new()
-        .fill(rgb(36, 36, 36))
+        .fill(color_dock())
         .inner_margin(egui::Margin::symmetric(8, 6))
         .stroke(egui::Stroke::new(1.0, color_border_dark()))
 }
@@ -3364,10 +3452,10 @@ fn dock_title(ui: &mut egui::Ui, title: &str, detail: &str) {
 }
 
 fn section_caption(ui: &mut egui::Ui, title: &str) {
-    ui.add_space(6.0);
+    ui.add_space(7.0);
     ui.label(
         egui::RichText::new(title)
-            .size(10.5)
+            .size(10.0)
             .strong()
             .color(color_text_dim()),
     );
@@ -3377,15 +3465,16 @@ fn section_caption(ui: &mut egui::Ui, title: &str) {
 fn inspector_text_field(ui: &mut egui::Ui, label: &str, value: &mut String) -> bool {
     ui.horizontal(|ui| {
         ui.add_sized(
-            [68.0, 20.0],
+            [INSPECTOR_LABEL_WIDTH, INSPECTOR_ROW_HEIGHT],
             egui::Label::new(
                 egui::RichText::new(label)
                     .size(11.0)
                     .color(color_text_dim()),
             ),
         );
+        let field_width = ui.available_width().min(INSPECTOR_FIELD_MAX_WIDTH);
         ui.add_sized(
-            [ui.available_width(), 20.0],
+            [field_width, INSPECTOR_ROW_HEIGHT],
             egui::TextEdit::singleline(value).desired_width(f32::INFINITY),
         )
         .changed()
@@ -3393,18 +3482,62 @@ fn inspector_text_field(ui: &mut egui::Ui, label: &str, value: &mut String) -> b
     .inner
 }
 
-fn kv_row(ui: &mut egui::Ui, label: &str, value: impl std::fmt::Display) {
+fn inspector_vec3_row(
+    ui: &mut egui::Ui,
+    label: &str,
+    x: &mut f32,
+    y: &mut f32,
+    z: &mut f32,
+    speed: f64,
+) -> bool {
     ui.horizontal(|ui| {
         ui.add_sized(
-            [68.0, 18.0],
+            [INSPECTOR_LABEL_WIDTH, INSPECTOR_ROW_HEIGHT],
             egui::Label::new(
                 egui::RichText::new(label)
                     .size(11.0)
                     .color(color_text_dim()),
             ),
         );
+        let fields_width = ui.available_width().min(INSPECTOR_FIELD_MAX_WIDTH);
+        let width = ((fields_width - 12.0) / 3.0).max(46.0);
+        let mut changed = false;
+        changed |= ui
+            .add_sized(
+                [width, INSPECTOR_ROW_HEIGHT],
+                egui::DragValue::new(x).speed(speed).prefix("X "),
+            )
+            .changed();
+        changed |= ui
+            .add_sized(
+                [width, INSPECTOR_ROW_HEIGHT],
+                egui::DragValue::new(y).speed(speed).prefix("Y "),
+            )
+            .changed();
+        changed |= ui
+            .add_sized(
+                [width, INSPECTOR_ROW_HEIGHT],
+                egui::DragValue::new(z).speed(speed).prefix("Z "),
+            )
+            .changed();
+        changed
+    })
+    .inner
+}
+
+fn kv_row(ui: &mut egui::Ui, label: &str, value: impl std::fmt::Display) {
+    ui.horizontal(|ui| {
         ui.add_sized(
-            [ui.available_width(), 18.0],
+            [INSPECTOR_LABEL_WIDTH, INSPECTOR_ROW_HEIGHT],
+            egui::Label::new(
+                egui::RichText::new(label)
+                    .size(11.0)
+                    .color(color_text_dim()),
+            ),
+        );
+        let field_width = ui.available_width().min(INSPECTOR_FIELD_MAX_WIDTH);
+        ui.add_sized(
+            [field_width, INSPECTOR_ROW_HEIGHT],
             egui::Label::new(
                 egui::RichText::new(value.to_string())
                     .size(11.0)
@@ -3419,8 +3552,10 @@ fn kv_row(ui: &mut egui::Ui, label: &str, value: impl std::fmt::Display) {
 fn mini_button(ui: &mut egui::Ui, label: &str, tooltip: &str) -> egui::Response {
     ui.add(
         egui::Button::new(egui::RichText::new(label).size(11.0))
-            .min_size(egui::vec2(48.0, 20.0))
-            .corner_radius(egui::CornerRadius::same(2)),
+            .fill(color_field())
+            .stroke(egui::Stroke::new(1.0, color_border()))
+            .min_size(egui::vec2(50.0, 22.0))
+            .corner_radius(egui::CornerRadius::same(3)),
     )
     .on_hover_text(tooltip)
 }
@@ -3428,15 +3563,174 @@ fn mini_button(ui: &mut egui::Ui, label: &str, tooltip: &str) -> egui::Response 
 fn mini_toggle(ui: &mut egui::Ui, selected: bool, label: &str, tooltip: &str) -> egui::Response {
     ui.add(
         egui::Button::selectable(selected, egui::RichText::new(label).size(11.0))
-            .min_size(egui::vec2(34.0, 20.0))
-            .corner_radius(egui::CornerRadius::same(2)),
+            .fill(if selected {
+                color_selected()
+            } else {
+                color_field()
+            })
+            .stroke(egui::Stroke::new(
+                1.0,
+                if selected {
+                    color_accent()
+                } else {
+                    color_border()
+                },
+            ))
+            .min_size(egui::vec2(38.0, 22.0))
+            .corner_radius(egui::CornerRadius::same(3)),
     )
     .on_hover_text(tooltip)
 }
 
+fn toolbar_button(ui: &mut egui::Ui, label: String, tooltip: &str) -> egui::Response {
+    ui.add(
+        egui::Button::new(egui::RichText::new(label).size(11.0).color(color_text()))
+            .fill(color_field())
+            .stroke(egui::Stroke::new(1.0, color_border()))
+            .min_size(egui::vec2(58.0, 24.0))
+            .corner_radius(egui::CornerRadius::same(3)),
+    )
+    .on_hover_text(tooltip)
+}
+
+fn toolbar_toggle(
+    ui: &mut egui::Ui,
+    selected: bool,
+    label: String,
+    tooltip: &str,
+) -> egui::Response {
+    ui.add(
+        egui::Button::selectable(selected, egui::RichText::new(label).size(11.0))
+            .fill(if selected {
+                color_selected()
+            } else {
+                color_field()
+            })
+            .stroke(egui::Stroke::new(
+                1.0,
+                if selected {
+                    color_accent()
+                } else {
+                    color_border()
+                },
+            ))
+            .min_size(egui::vec2(58.0, 24.0))
+            .corner_radius(egui::CornerRadius::same(3)),
+    )
+    .on_hover_text(tooltip)
+}
+
+fn primary_button(ui: &mut egui::Ui, label: &str, tooltip: &str) -> egui::Response {
+    ui.add(
+        egui::Button::new(
+            egui::RichText::new(label)
+                .size(11.0)
+                .color(rgb(255, 255, 255)),
+        )
+        .fill(color_accent())
+        .stroke(egui::Stroke::new(1.0, rgb(42, 91, 150)))
+        .min_size(egui::vec2(58.0, 23.0))
+        .corner_radius(egui::CornerRadius::same(3)),
+    )
+    .on_hover_text(tooltip)
+}
+
+fn danger_button(ui: &mut egui::Ui, label: &str, tooltip: &str) -> egui::Response {
+    ui.add(
+        egui::Button::new(
+            egui::RichText::new(label)
+                .size(11.0)
+                .color(rgb(255, 255, 255)),
+        )
+        .fill(color_danger())
+        .stroke(egui::Stroke::new(1.0, rgb(138, 46, 41)))
+        .min_size(egui::vec2(58.0, 23.0))
+        .corner_radius(egui::CornerRadius::same(3)),
+    )
+    .on_hover_text(tooltip)
+}
+
+fn toolbar_group<R>(
+    ui: &mut egui::Ui,
+    label: &str,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    egui::Frame::new()
+        .fill(color_toolbar_group())
+        .inner_margin(egui::Margin::symmetric(5, 3))
+        .stroke(egui::Stroke::new(1.0, color_border()))
+        .corner_radius(egui::CornerRadius::same(3))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(label)
+                        .size(10.0)
+                        .monospace()
+                        .color(color_text_faint()),
+                );
+                ui.separator();
+                add_contents(ui)
+            })
+            .inner
+        })
+        .inner
+}
+
+fn inspector_section<R>(
+    ui: &mut egui::Ui,
+    title: &str,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    let inner_width = (ui.available_width() - 16.0).max(0.0);
+    egui::Frame::new()
+        .fill(color_field())
+        .inner_margin(egui::Margin::symmetric(8, 7))
+        .stroke(egui::Stroke::new(1.0, color_border()))
+        .corner_radius(egui::CornerRadius::same(3))
+        .show(ui, |ui| {
+            ui.set_min_width(inner_width);
+            ui.label(
+                egui::RichText::new(title)
+                    .size(11.0)
+                    .strong()
+                    .color(color_text()),
+            );
+            ui.add_space(5.0);
+            add_contents(ui)
+        })
+        .inner
+}
+
+fn icon_label(icon: char, label: &str) -> String {
+    format!("{icon} {label}")
+}
+
+fn empty_state(ui: &mut egui::Ui, title: &str, detail: &str) {
+    let inner_width = (ui.available_width() - 16.0).max(0.0);
+    egui::Frame::new()
+        .fill(rgb(239, 240, 242))
+        .inner_margin(egui::Margin::symmetric(8, 7))
+        .stroke(egui::Stroke::new(1.0, color_border()))
+        .corner_radius(egui::CornerRadius::same(3))
+        .show(ui, |ui| {
+            ui.set_min_width(inner_width);
+            ui.label(
+                egui::RichText::new(title)
+                    .size(11.0)
+                    .strong()
+                    .color(color_text()),
+            );
+            ui.label(
+                egui::RichText::new(detail)
+                    .size(10.5)
+                    .color(color_text_dim()),
+            );
+        });
+}
+
 fn status_chip(ui: &mut egui::Ui, label: impl Into<String>, tone: egui::Color32) {
     egui::Frame::new()
-        .fill(rgb(34, 34, 34))
+        .fill(rgb(236, 238, 241))
         .inner_margin(egui::Margin::symmetric(6, 2))
         .corner_radius(egui::CornerRadius::same(2))
         .stroke(egui::Stroke::new(1.0, color_border()))
@@ -3451,19 +3745,19 @@ fn status_chip(ui: &mut egui::Ui, label: impl Into<String>, tone: egui::Color32)
 }
 
 fn configure_editor_style(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::dark();
+    let mut visuals = egui::Visuals::light();
     visuals.override_text_color = Some(color_text());
     visuals.weak_text_color = Some(color_text_dim());
     visuals.panel_fill = color_dock();
     visuals.window_fill = color_dock();
-    visuals.window_stroke = egui::Stroke::new(1.0, color_border_dark());
+    visuals.window_stroke = egui::Stroke::new(1.0, color_border());
     visuals.window_shadow = egui::Shadow::NONE;
     visuals.window_corner_radius = egui::CornerRadius::ZERO;
     visuals.menu_corner_radius = egui::CornerRadius::same(2);
-    visuals.faint_bg_color = rgb(50, 50, 50);
+    visuals.faint_bg_color = rgb(232, 234, 237);
     visuals.extreme_bg_color = color_field();
     visuals.text_edit_bg_color = Some(color_field());
-    visuals.code_bg_color = color_field();
+    visuals.code_bg_color = rgb(235, 237, 240);
     visuals.warn_fg_color = color_warning();
     visuals.error_fg_color = color_danger();
     visuals.hyperlink_color = color_accent();
@@ -3471,23 +3765,23 @@ fn configure_editor_style(ctx: &egui::Context) {
     visuals.collapsing_header_frame = false;
     visuals.indent_has_left_vline = true;
     visuals.selection.bg_fill = color_accent();
-    visuals.selection.stroke = egui::Stroke::new(1.0, rgb(235, 241, 248));
-    visuals.widgets.noninteractive.bg_fill = color_dock();
-    visuals.widgets.noninteractive.weak_bg_fill = color_app_bg();
+    visuals.selection.stroke = egui::Stroke::new(1.0, rgb(187, 212, 241));
+    visuals.widgets.noninteractive.bg_fill = rgb(226, 228, 232);
+    visuals.widgets.noninteractive.weak_bg_fill = color_dock();
     visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, color_border());
     visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, color_text());
-    visuals.widgets.inactive.bg_fill = rgb(51, 51, 51);
-    visuals.widgets.inactive.weak_bg_fill = rgb(46, 46, 46);
+    visuals.widgets.inactive.bg_fill = color_field();
+    visuals.widgets.inactive.weak_bg_fill = rgb(237, 239, 242);
     visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, color_border());
     visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, color_text());
-    visuals.widgets.hovered.bg_fill = rgb(61, 61, 61);
-    visuals.widgets.hovered.weak_bg_fill = rgb(58, 58, 58);
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, rgb(82, 82, 82));
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, rgb(238, 238, 238));
+    visuals.widgets.hovered.bg_fill = rgb(232, 238, 247);
+    visuals.widgets.hovered.weak_bg_fill = rgb(224, 231, 242);
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, color_accent());
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, color_text());
     visuals.widgets.active.bg_fill = color_accent();
-    visuals.widgets.active.weak_bg_fill = rgb(58, 96, 139);
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, rgb(93, 148, 210));
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, rgb(245, 247, 250));
+    visuals.widgets.active.weak_bg_fill = rgb(87, 134, 194);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, rgb(42, 91, 150));
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, rgb(255, 255, 255));
     visuals.widgets.open = visuals.widgets.hovered;
     for widget in [
         &mut visuals.widgets.noninteractive,
@@ -3496,7 +3790,7 @@ fn configure_editor_style(ctx: &egui::Context) {
         &mut visuals.widgets.active,
         &mut visuals.widgets.open,
     ] {
-        widget.corner_radius = egui::CornerRadius::same(2);
+        widget.corner_radius = egui::CornerRadius::same(3);
         widget.expansion = 0.0;
     }
     ctx.set_visuals(visuals);
@@ -3525,9 +3819,9 @@ fn configure_editor_style(ctx: &egui::Context) {
         ),
     ]);
     style.drag_value_text_style = egui::TextStyle::Monospace;
-    style.animation_time = 0.08;
-    style.spacing.item_spacing = egui::vec2(5.0, 4.0);
-    style.spacing.button_padding = egui::vec2(7.0, 3.0);
+    style.animation_time = 0.12;
+    style.spacing.item_spacing = egui::vec2(6.0, 5.0);
+    style.spacing.button_padding = egui::vec2(8.0, 4.0);
     style.spacing.window_margin = egui::Margin::symmetric(6, 6);
     style.spacing.menu_margin = egui::Margin::symmetric(6, 4);
     style.spacing.indent = 14.0;

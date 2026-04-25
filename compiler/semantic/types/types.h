@@ -42,6 +42,7 @@ typedef enum zt_type_kind {
     ZT_TYPE_BTREESET,
     ZT_TYPE_GRID3D,
     ZT_TYPE_DYN,
+    ZT_TYPE_LAZY,
     ZT_TYPE_CALLABLE,
 } zt_type_kind;
 

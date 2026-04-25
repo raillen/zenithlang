@@ -59,6 +59,18 @@ typedef struct zir_map_entry_list {
     size_t capacity;
 } zir_map_entry_list;
 
+typedef struct zir_capture {
+    const char *name;
+    const char *type_name;
+    zir_span span;
+} zir_capture;
+
+typedef struct zir_capture_list {
+    zir_capture *items;
+    size_t count;
+    size_t capacity;
+} zir_capture_list;
+
 typedef enum zir_expr_kind {
     ZIR_EXPR_NAME,
     ZIR_EXPR_INT,
@@ -96,7 +108,8 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_TRY_PROPAGATE,
     ZIR_EXPR_OPTIONAL_VALUE,
     ZIR_EXPR_FUNC_REF,
-    ZIR_EXPR_CALL_INDIRECT
+    ZIR_EXPR_CALL_INDIRECT,
+    ZIR_EXPR_MAKE_CLOSURE
 } zir_expr_kind;
 
 struct zir_expr {
@@ -165,6 +178,10 @@ struct zir_expr {
             zir_expr *callable;
             zir_expr_list args;
         } call_indirect;
+        struct {
+            const char *func_name;
+            zir_expr_list captures;
+        } make_closure;
     } as;
 };
 
@@ -259,6 +276,9 @@ typedef struct zir_function {
     const char *receiver_type_name;
     const char *implemented_trait_name;
     int is_mutating;
+    int is_closure;
+    const char *closure_ctx_type_name;
+    zir_capture_list context_captures;
 } zir_function;
 
 typedef struct zir_module {
@@ -290,6 +310,10 @@ void zir_named_expr_list_dispose(zir_named_expr_list *list);
 zir_map_entry_list zir_map_entry_list_make(void);
 void zir_map_entry_list_push(zir_map_entry_list *list, zir_map_entry entry);
 void zir_map_entry_list_dispose(zir_map_entry_list *list);
+
+zir_capture_list zir_capture_list_make(void);
+void zir_capture_list_push(zir_capture_list *list, zir_capture capture);
+void zir_capture_list_dispose(zir_capture_list *list);
 
 zir_expr *zir_expr_make_name(const char *text);
 zir_expr *zir_expr_make_int(const char *text);
@@ -328,6 +352,7 @@ zir_expr *zir_expr_make_try_propagate(zir_expr *value);
 zir_expr *zir_expr_make_optional_value(zir_expr *value);
 zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_type_name);
 zir_expr *zir_expr_make_call_indirect(zir_expr *callable);
+zir_expr *zir_expr_make_make_closure(const char *func_name);
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg);
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value);
 void zir_expr_make_list_add_item(zir_expr *expr, zir_expr *item);

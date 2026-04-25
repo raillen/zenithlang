@@ -52,6 +52,7 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_BTREESET: return "btreeset";
         case ZT_TYPE_GRID3D: return "grid3d";
         case ZT_TYPE_DYN: return "dyn";
+        case ZT_TYPE_LAZY: return "lazy";
         case ZT_TYPE_CALLABLE: return "func";
         default: return "unknown";
     }
@@ -200,6 +201,7 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_BTREESET:
         case ZT_TYPE_GRID3D:
         case ZT_TYPE_DYN:
+        case ZT_TYPE_LAZY:
             zt_type_append(buffer, buffer_size, cursor, zt_type_kind_name(type->kind));
             zt_type_append(buffer, buffer_size, cursor, "<");
             for (i = 0; i < type->args.count; i++) {

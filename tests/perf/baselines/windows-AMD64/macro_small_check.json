@@ -1,6 +1,6 @@
 {
   "benchmark_id": "macro_small_check",
-  "generated_at_utc": "2026-04-21T16:02:35.949202+00:00",
+  "generated_at_utc": "2026-04-25T00:07:55.317417+00:00",
   "platform_key": "windows-AMD64",
   "host": {
     "host": "RAILLEN-REDE",
@@ -13,12 +13,12 @@
     "cpu_count": 12
   },
   "metric_values": {
-    "lat_median_ms": 31.002,
-    "lat_p95_ms": 35.761,
-    "lat_std_ms": 3.778,
-    "throughput_ops_per_sec": 32.2563,
+    "lat_median_ms": 7.675,
+    "lat_p95_ms": 7.949,
+    "lat_std_ms": 0.558,
+    "throughput_ops_per_sec": 130.2881,
     "peak_ws": 0,
     "alloc_proxy": 0,
-    "binary_size": 228271
+    "binary_size": 335472
   }
 }

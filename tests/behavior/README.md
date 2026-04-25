@@ -63,6 +63,12 @@ one`, `success` e `error`.
 - `public_var_module_state/`: projeto valido. Exercita persistencia de estado de `public var` entre funcoes do modulo.
 - `optional_struct_qualified_managed/`: projeto valido. Exercita `optional<mod.Struct>` com nome qualificado entre modulos, retorno direto de `struct`, atribuicao/call-site com wrap implicito, campo opcional dentro de outra `struct` e isolamento de `list<text>` no payload.
 - `public_var_cross_namespace_write_error/`: projeto invalido. Garante que `public var` nao pode ser mutado fora do namespace de origem.
+- `closure_capture_basic/`: projeto valido. Exercita closure anonima com captura imutavel por valor.
+- `closure_mut_capture_error/`: projeto invalido. Garante que closure v1 nao permite mutar variavel capturada.
+- `lambda_hof_basic/`: projeto valido. Exercita lambda de expressao (`func(...) => expr`) com `map_int`, `filter_int`, `reduce_int` e captura imutavel.
+- `lambda_return_mismatch_error/`: projeto invalido. Garante que lambda infere retorno pelo tipo `func(...) -> ...` esperado e rejeita retorno incompatível.
+- `lazy_explicit_order_basic/`: projeto valido. Exercita `lazy<int>` explicito, garantindo que o thunk nao roda na criacao e roda no `force_int`.
+- `lazy_reuse_error/`: projeto invalido em runtime. Garante que `lazy<int>` e one-shot e rejeita segundo consumo.
 - `std_random_basic/`: projeto valido. Exercita `std.random` baseline (`seed`, `next`, `between`) e valida o estado publico (`seeded`, `last_seed`, `draw_count`).
 - `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
 - `std_random_between_branches/`: projeto valido. Exercita ramos de `std.random.between` (`min == max` e `max < min`) sem consumo indevido de draw.

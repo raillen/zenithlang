@@ -73,6 +73,7 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_GT: return ">";
         case ZT_TOKEN_GTE: return ">=";
         case ZT_TOKEN_ARROW: return "->";
+        case ZT_TOKEN_FAT_ARROW: return "=>";
         case ZT_TOKEN_DOT: return ".";
         case ZT_TOKEN_DOTDOT: return "..";
         case ZT_TOKEN_COMMA: return ",";

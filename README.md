@@ -9,8 +9,8 @@ Zenith is a reading-first language with explicit semantics and a native compilat
 ## Current state
 
 - Status: alpha published (v2 compiler track)
-- Current source version: `0.3.0-alpha.2` (2026-04-23)
-- Published Windows artifact: `0.3.0-alpha.1` (2026-04-21); `0.3.0-alpha.2` is a source/docs-only patch cut — see `docs/reports/release/0.3.0-alpha.2-release-report.md`
+- Current source version: `0.3.0-alpha.3` (2026-04-24)
+- Latest local Windows artifact: `0.3.0-alpha.3` — see `docs/reports/release/0.3.0-alpha.3-release-report.md`
 - Alpha gate milestone: `R2.M12` closed
 - Language update (2026-04-22): `public var` at namespace scope is now implemented with controlled mutation (read public, write only in owner namespace; no `global` syntax)
 - Correctness update (2026-04-23): 10 residual pendings (`PLI-01..PLI-10`) closed; formatter idempotence gate and emitter symbol-collision guard now mandatory in `pr_gate`
@@ -200,11 +200,11 @@ Performance:
 
 ## Distribution model
 
-Current distribution for pre-release `0.3.0-alpha.1` includes a published package:
+Current local distribution for pre-release `0.3.0-alpha.3` includes a package:
 
-- GitHub Release assets (outside source repository):
-  - `zenith-0.3.0-alpha.1-windows-amd64.zip`
-  - `zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
+- Repository release artifacts:
+  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.3-windows-amd64.zip`
+  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.3-windows-amd64.checksums.txt`
 
 Linux packaging support in-repo:
 

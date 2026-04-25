@@ -173,6 +173,7 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_OPTIONAL_VALUE: return "optional_value";
         case ZIR_EXPR_FUNC_REF: return "func_ref";
         case ZIR_EXPR_CALL_INDIRECT: return "call_indirect";
+        case ZIR_EXPR_MAKE_CLOSURE: return "make_closure";
         default: return "unknown";
     }
 }
@@ -231,6 +232,39 @@ void zir_named_expr_list_dispose(zir_named_expr_list *list) {
     for (i = 0; i < list->count; i++) {
         free((void *)list->items[i].name);
         zir_expr_dispose(list->items[i].value);
+    }
+    free(list->items);
+    list->items = NULL;
+    list->count = 0;
+    list->capacity = 0;
+}
+
+
+zir_capture_list zir_capture_list_make(void) {
+    zir_capture_list list;
+    list.items = NULL;
+    list.count = 0;
+    list.capacity = 0;
+    return list;
+}
+
+void zir_capture_list_push(zir_capture_list *list, zir_capture capture) {
+    if (list->count >= list->capacity) {
+        size_t new_cap = list->capacity == 0 ? 4 : list->capacity * 2;
+        zir_capture *new_items = (zir_capture *)realloc(list->items, new_cap * sizeof(zir_capture));
+        if (new_items == NULL) return;
+        list->items = new_items;
+        list->capacity = new_cap;
+    }
+    list->items[list->count++] = capture;
+}
+
+void zir_capture_list_dispose(zir_capture_list *list) {
+    size_t i;
+    if (list == NULL) return;
+    for (i = 0; i < list->count; i++) {
+        free((void *)list->items[i].name);
+        free((void *)list->items[i].type_name);
     }
     free(list->items);
     list->items = NULL;
@@ -522,6 +556,16 @@ zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_typ
     return expr;
 }
 
+
+zir_expr *zir_expr_make_make_closure(const char *func_name) {
+    zir_expr *expr = (zir_expr *)calloc(1, sizeof(zir_expr));
+    if (expr == NULL) return NULL;
+    expr->kind = ZIR_EXPR_MAKE_CLOSURE;
+    expr->as.make_closure.func_name = strdup(func_name);
+    expr->as.make_closure.captures = zir_expr_list_make();
+    return expr;
+}
+
 zir_expr *zir_expr_make_call_indirect(zir_expr *callable) {
     zir_expr *expr = zir_expr_make(ZIR_EXPR_CALL_INDIRECT);
     if (expr == NULL) return NULL;
@@ -724,6 +768,12 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
                    zir_string_buffer_append(buffer, "(") &&
                    zir_render_expr_list(buffer, &expr->as.call_indirect.args) &&
                    zir_string_buffer_append(buffer, ")");
+        case ZIR_EXPR_MAKE_CLOSURE:
+            return zir_string_buffer_append(buffer, "make_closure ") &&
+                   zir_string_buffer_append(buffer, expr->as.make_closure.func_name) &&
+                   zir_string_buffer_append(buffer, "(") &&
+                   zir_render_expr_list(buffer, &expr->as.make_closure.captures) &&
+                   zir_string_buffer_append(buffer, ")");
         default:
             return zir_string_buffer_append(buffer, "<unsupported>");
     }
@@ -828,6 +878,10 @@ void zir_expr_dispose(zir_expr *expr) {
         case ZIR_EXPR_CALL_INDIRECT:
             zir_expr_dispose(expr->as.call_indirect.callable);
             zir_expr_list_dispose(&expr->as.call_indirect.args);
+            break;
+        case ZIR_EXPR_MAKE_CLOSURE:
+            free((void *)expr->as.make_closure.func_name);
+            zir_expr_list_dispose(&expr->as.make_closure.captures);
             break;
         default:
             break;
@@ -1036,6 +1090,9 @@ zir_function zir_make_function(const char *name, const zir_param *params, size_t
     function_decl.is_mutating = 0;
     function_decl.blocks = blocks;
     function_decl.block_count = block_count;
+    function_decl.is_closure = 0;
+    function_decl.closure_ctx_type_name = NULL;
+    function_decl.context_captures = zir_capture_list_make();
     function_decl.span = zir_make_span(NULL, 0, 0);
     return function_decl;
 }

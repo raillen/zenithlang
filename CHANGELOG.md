@@ -2,6 +2,83 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [0.3.0-alpha.3] - 2026-04-24
+
+Release final do ciclo R3 com artefatos verificaveis locais.
+
+Notas e evidencias:
+
+- `docs/reports/release/0.3.0-alpha.3-notes.md`
+- `docs/reports/release/0.3.0-alpha.3-release-report.md`
+- `docs/reports/compatibility/0.3.0-alpha.3-compatibility.md`
+- `docs/governance/perf-overrides/R3.M9-release-baseline-acceptance.md`
+
+### Adicionado
+
+- `public var` de namespace com leitura externa qualificada e escrita restrita ao namespace dono.
+- concorrencia Phase 1 com helpers explicitos de copia de fronteira.
+- FFI 1.0 Phase 1 com contrato ABI, ownership e shielding.
+- subset minimo de `dyn Trait`.
+- callables tipados e delegates.
+- closures v1 com captura imutavel.
+- lambdas de expressao e HOFs inteiras em `std.collections`.
+- `lazy<int>` explicito e one-shot em `std.lazy`.
+
+### Decisoes De Escopo
+
+- Decision 091 moveu `task`, `channel`, `Shared<T>` e testes de corrida/cancelamento para `R4.CF1`.
+- R3 nao promete concorrencia runtime completa.
+
+### Validacao
+
+- `python build.py` verde.
+- `python run_all_tests.py` verde (`186` pass, `0` fail, `2` skip).
+- `tests/perf/gate_pr.ps1` verde (`167/167`).
+- `tests/perf/gate_nightly.ps1` verde com override documentado de baseline R3.M9.
+- install limpo validado a partir do zip.
+
+## [0.3.0-alpha.3-rc.1] - 2026-04-24
+
+Release candidate do ciclo R3.
+
+Status: **nao publicado como release final**.
+
+Motivo: artefato e install limpo passaram, mas os gates de release ainda estao vermelhos.
+
+Notas e evidencias:
+
+- `docs/reports/release/0.3.0-alpha.3-rc.1-notes.md`
+- `docs/reports/release/0.3.0-alpha.3-rc.1-release-report.md`
+- `docs/reports/compatibility/0.3.0-alpha.3-rc.1-compatibility.md`
+- `docs/reports/release/R3.M9-known-limits-and-risk.md`
+- `docs/reports/R3.M9-borealis-final-alignment.md`
+
+### Adicionado
+
+- `public var` de namespace com leitura externa qualificada e escrita restrita ao namespace dono.
+- primeiro corte de concorrencia com contrato de copia em fronteira.
+- FFI 1.0 Phase 1 com ABI, ownership e shielding documentados.
+- subset minimo de `dyn Trait`.
+- callables tipados e delegates.
+- closures v1 com captura imutavel.
+- lambdas de expressao e HOFs inteiras em `std.collections`.
+- `lazy<int>` explicito e one-shot em `std.lazy`.
+
+### Validacao
+
+- `python build.py` verde.
+- pacote Windows AMD64 gerado.
+- checksum SHA-256 gerado.
+- install limpo validado a partir do zip.
+- `tests/perf/gate_pr.ps1` vermelho.
+- `tests/perf/gate_nightly.ps1` vermelho.
+
+### Bloqueadores Para Release Final
+
+- `behavior/borealis_backend_fallback_stub`.
+- `hardening/differential_validate_between`.
+- drift de baseline em `perf/quick` e `perf/nightly`.
+
 ## [0.3.0-alpha.2] - 2026-04-23
 
 Ciclo de fechamento das 10 pendências corretivas residuais (`PLI-01` a `PLI-10`) documentadas em `reports/pending-language-issues-current.md`. Build verde (`python build.py`), `smoke` verde (`10/10`), `pr_gate` backend `6/6` e `pr_gate` tooling `4/4` (golden + idempotence).

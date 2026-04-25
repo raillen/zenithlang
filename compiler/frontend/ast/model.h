@@ -64,6 +64,7 @@ typedef enum zt_ast_kind {
     ZT_AST_IDENT_EXPR,
     ZT_AST_FMT_EXPR,
     ZT_AST_GROUPED_EXPR,
+    ZT_AST_CLOSURE_EXPR,
     ZT_AST_WHERE_CLAUSE,
     ZT_AST_MATCH_BINDING,
     ZT_AST_VALUE_BINDING
@@ -387,6 +388,13 @@ struct zt_ast_node {
         struct {
             zt_ast_node *inner;
         } grouped_expr;
+
+        struct {
+            zt_ast_node_list params;
+            zt_ast_node *return_type;
+            zt_ast_node *body;
+            int is_lambda;
+        } closure_expr;
 
         struct {
             const char *param_name;

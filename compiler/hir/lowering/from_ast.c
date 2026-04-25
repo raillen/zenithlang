@@ -15,6 +15,8 @@ typedef struct zt_scope {
     zt_scope_binding *items;
     size_t count;
     size_t capacity;
+    int is_closure;
+    zt_hir_capture_list *captures;
 } zt_scope;
 
 typedef struct zt_struct_field_meta {
@@ -199,13 +201,39 @@ static void zt_scope_set(zt_scope *scope, const char *name, const zt_type *type,
     scope->count += 1;
 }
 
-static const zt_type *zt_scope_get(const zt_scope *scope, const char *name) {
-    const zt_scope *cursor = scope;
+static const zt_type *zt_scope_get(zt_scope *scope, const char *name) {
+    zt_scope *cursor = scope;
+    int crossed_closure = 0;
     while (cursor != NULL) {
         size_t i;
         for (i = 0; i < cursor->count; i += 1) {
-            if (zt_text_eq(cursor->items[i].name, name)) return cursor->items[i].type;
+            if (zt_text_eq(cursor->items[i].name, name)) {
+                if (crossed_closure) {
+                    zt_scope *capturer = scope;
+                    while (capturer != cursor) {
+                        if (capturer->is_closure && capturer->captures != NULL) {
+                            size_t c;
+                            int already = 0;
+                            for (c = 0; c < capturer->captures->count; c++) {
+                                if (strcmp(capturer->captures->items[c].name, name) == 0) {
+                                    already = 1;
+                                    break;
+                                }
+                            }
+                            if (!already) {
+                                zt_hir_capture cap;
+                                cap.name = zt_lower_strdup(name);
+                                cap.type = zt_type_clone(cursor->items[i].type);
+                                zt_hir_capture_list_push(capturer->captures, cap);
+                            }
+                        }
+                        capturer = capturer->parent;
+                    }
+                }
+                return cursor->items[i].type;
+            }
         }
+        if (cursor->is_closure) crossed_closure = 1;
         cursor = cursor->parent;
     }
     return NULL;
@@ -287,6 +315,9 @@ static zt_type *zt_lower_type_from_generic(zt_lower_ctx *ctx, const char *name, 
     } else if (zt_text_eq(name, "dyn")) {
         kind = ZT_TYPE_DYN;
         display_name = "dyn";
+    } else if (zt_text_eq(name, "lazy")) {
+        kind = ZT_TYPE_LAZY;
+        display_name = "lazy";
     } else {
         kind = ZT_TYPE_USER;
         display_name = name;
@@ -738,6 +769,7 @@ static zt_hir_expr *zt_make_expr(zt_hir_expr_kind kind, zt_source_span span, zt_
     return expr;
 }
 
+static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_ast_node *stmt);
 static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_ast_node *expr, const zt_type *expected);
 
 static zt_hir_expr_list zt_lower_call_args(
@@ -1564,6 +1596,70 @@ static zt_hir_expr *zt_lower_call_expr(
     }
 }
 
+
+static zt_hir_expr *zt_lower_closure_expr(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *expr,
+        const zt_type *expected) {
+    zt_hir_expr *out;
+    zt_scope closure_scope;
+    size_t i;
+
+    out = zt_hir_expr_make(ZT_HIR_CLOSURE_EXPR, expr->span);
+    if (out == NULL) return NULL;
+    
+    out->as.closure_expr.params = zt_hir_param_list_make();
+    out->as.closure_expr.captures = zt_hir_capture_list_make();
+
+    zt_scope_init(&closure_scope, scope);
+    closure_scope.is_closure = 1;
+    closure_scope.captures = &out->as.closure_expr.captures;
+
+    for (i = 0; i < expr->as.closure_expr.params.count; i++) {
+        zt_hir_param hp;
+        const zt_ast_node *ap = expr->as.closure_expr.params.items[i];
+        hp.name = zt_lower_strdup(ap->as.param.name);
+        hp.type = zt_lower_type_from_ast(ctx, ap->as.param.type_node);
+        hp.where_clause = NULL;
+        zt_hir_param_list_push(&out->as.closure_expr.params, hp);
+        
+        zt_scope_set(&closure_scope, hp.name, hp.type, 0);
+    }
+
+    if (expr->as.closure_expr.return_type != NULL) {
+        out->as.closure_expr.return_type = zt_lower_type_from_ast(ctx, expr->as.closure_expr.return_type);
+    } else if (expected != NULL &&
+               expected->kind == ZT_TYPE_CALLABLE &&
+               expected->args.count > 0 &&
+               expected->args.items[0] != NULL) {
+        out->as.closure_expr.return_type = zt_type_clone(expected->args.items[0]);
+    } else {
+        out->as.closure_expr.return_type = zt_type_make(ZT_TYPE_UNKNOWN);
+    }
+    
+    // Body is a block in AST
+    {
+        const zt_type *saved_return = ctx->current_return_type;
+        ctx->current_return_type = out->as.closure_expr.return_type;
+        zt_hir_stmt *body_stmt = zt_lower_stmt(ctx, &closure_scope, expr->as.closure_expr.body);
+        ctx->current_return_type = saved_return;
+        out->as.closure_expr.body = body_stmt;
+    }
+
+    {
+        zt_type_list param_types = zt_type_list_make();
+        for (i = 0; i < out->as.closure_expr.params.count; i++) {
+            zt_type_list_push(&param_types, zt_type_clone(out->as.closure_expr.params.items[i].type));
+        }
+        zt_type_dispose(out->type);
+        out->type = zt_type_make_callable(zt_type_clone(out->as.closure_expr.return_type), param_types);
+    }
+
+    zt_scope_dispose(&closure_scope);
+    return out;
+}
+static zt_hir_stmt *zt_lower_stmt(zt_lower_ctx *ctx, zt_scope *scope, const zt_ast_node *stmt);
 static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_ast_node *expr, const zt_type *expected) {
     zt_hir_expr *out = NULL;
     if (expr == NULL) return NULL;
@@ -1940,6 +2036,9 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
 
         case ZT_AST_GROUPED_EXPR:
             return zt_lower_expr(ctx, scope, expr->as.grouped_expr.inner, expected);
+
+        case ZT_AST_CLOSURE_EXPR:
+            return zt_lower_closure_expr(ctx, scope, expr, expected);
 
         case ZT_AST_VALUE_BINDING: {
             zt_type *binding_type = expected != NULL && expected->kind == ZT_TYPE_OPTIONAL && expected->args.count > 0
@@ -2538,9 +2637,5 @@ void zt_hir_lower_result_dispose(zt_hir_lower_result *result) {
     result->module = NULL;
     zt_diag_list_dispose(&result->diagnostics);
 }
-
-
-
-
 
 

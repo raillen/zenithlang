@@ -20,9 +20,9 @@ func expect_not(value: bool, message: text) -> result<void, core.Error>
 end
 
 func main() -> result<void, core.Error>
-    -- backend_id 1 = Raylib profile request.
-    -- No desktop adapter linked -> fallback must stay safe on stub path.
-    const window_id: int = zt_borealis_open_window("borealis-backend-fallback-stub", 640, 360, 60, 1)?
+    -- backend_id 0 = deterministic stub backend.
+    -- This keeps the fallback test independent from any local Raylib install.
+    const window_id: int = zt_borealis_open_window("borealis-backend-fallback-stub", 640, 360, 60, 0)?
     const key_code: int = 32
 
     zt_borealis_begin_frame(window_id, 20, 24, 32, 255)?

@@ -25,6 +25,7 @@ The current MVP stdlib module set is:
 - `std.validate`
 - `std.time`
 - `std.format`
+- `std.lazy`
 - `std.os`
 - `std.os.process`
 - `std.test`
@@ -142,6 +143,41 @@ const maybe_item: optional<int> = values.get(3)
 ```
 
 The exact namespace may be finalized during stdlib implementation, but the semantic rule is fixed: expected absence must not require panic.
+
+## Higher-Order Collection Helpers
+
+R3.M7 introduces a narrow higher-order subset in `std.collections`.
+
+Current stable helpers:
+
+- `map_int(values: list<int>, mapper: func(int) -> int) -> list<int>`
+- `filter_int(values: list<int>, predicate: func(int) -> bool) -> list<int>`
+- `reduce_int(values: list<int>, initial: int, reducer: func(int, int) -> int) -> int`
+
+Rules:
+
+- helpers are concrete for `int` in this cut
+- generic HOFs are deferred
+- callbacks use normal `func(...)` closure values
+- callbacks may capture immutable values
+- hot-path users should benchmark before replacing explicit loops
+
+## Explicit Lazy Helpers
+
+R3.M8 introduces `std.lazy` as a narrow explicit lazy module.
+
+Current helpers:
+
+- `once_int(thunk: func() -> int) -> lazy<int>`
+- `force_int(value: lazy<int>) -> int`
+- `is_consumed_int(value: lazy<int>) -> bool`
+
+Rules:
+
+- users must import the module explicitly
+- `lazy<int>` is one-shot in this cut
+- there is no implicit lazy in collection helpers
+- reusable lazy and lazy iterators remain future work
 
 ## Implementation Gate
 

@@ -1,0 +1,2 @@
+[closure.mut_capture_unsupported]
+cannot assign to captured variable 'count'

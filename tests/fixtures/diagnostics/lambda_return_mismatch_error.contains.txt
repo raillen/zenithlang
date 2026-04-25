@@ -1,0 +1,2 @@
+[control_flow.invalid_return]
+return type mismatch

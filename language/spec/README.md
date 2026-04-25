@@ -21,6 +21,9 @@ These spec files are the implementation-facing reference used after the design c
 ## Canonical Documents
 
 - `surface-syntax.md`: user-visible Zenith language syntax and semantic rules.
+- `closures.md`: closure v1 syntax, capture rules, lifetime model and callable fat pointer ABI.
+- `lambdas-hof-guidelines.md`: expression lambda syntax guidance and first HOF usage rules.
+- `lazy.md`: explicit `lazy<T>` rules, one-shot consumption and no implicit lazy evaluation.
 - `stdlib-model.md`: standard library architecture, module policy, error policy and safe API rules.
 - `runtime-model.md`: C runtime, managed values, value semantics, cleanup, panic and contracts.
 - `backend-scalability-risk-model.md`: RC cycles, monomorphization, stack/heap policy and backend scalability gates.
@@ -43,21 +46,24 @@ These spec files are the implementation-facing reference used after the design c
 ## Reading Order
 
 1. `surface-syntax.md`
-2. `stdlib-model.md`
-3. `runtime-model.md`
-4. `backend-scalability-risk-model.md`
-5. `diagnostics-model.md`
-6. `diagnostic-code-catalog.md`
-7. `formatter-model.md`
-8. `project-model.md`
-9. `lockfile-schema.md`
-10. `compiler-model.md`
-11. `tooling-model.md`
-12. `implementation-status.md`
-13. `conformance-matrix.md`
-14. `decision-conflict-audit.md`
-15. `legibility-evaluation.md`
-16. `cognitive-accessibility.md`
+2. `closures.md`
+3. `lambdas-hof-guidelines.md`
+4. `lazy.md`
+5. `stdlib-model.md`
+6. `runtime-model.md`
+7. `backend-scalability-risk-model.md`
+8. `diagnostics-model.md`
+9. `diagnostic-code-catalog.md`
+10. `formatter-model.md`
+11. `project-model.md`
+12. `lockfile-schema.md`
+13. `compiler-model.md`
+14. `tooling-model.md`
+15. `implementation-status.md`
+16. `conformance-matrix.md`
+17. `decision-conflict-audit.md`
+18. `legibility-evaluation.md`
+19. `cognitive-accessibility.md`
 
 ## Relationship To Decisions
 

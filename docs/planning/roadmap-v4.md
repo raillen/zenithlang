@@ -51,6 +51,37 @@ Modelo de capacidade inicial:
 - 25% features de plataforma (web + FFI);
 - 10% exploracao (UI/grafica).
 
+## Backlog herdado do R3
+
+## R4.CF1 - Concurrency Full Surface
+
+Origem:
+
+- `R3.M2`
+- `language/decisions/091-defer-concurrency-full-surface.md`
+
+Objetivo:
+
+- implementar a surface completa de concorrencia sem apressar o fechamento do R3.
+
+Entregas:
+
+- modelo oficial `task`;
+- modelo oficial `channel`;
+- `jobs.spawn/join` ou API equivalente;
+- `Shared<T>` explicito;
+- `atomic<T>` para escalares, se aprovado;
+- checker-level `transferable` predicate;
+- testes de corrida;
+- testes de cancelamento;
+- testes de determinismo sob scheduling.
+
+Regra:
+
+- essa trilha nao retroaltera o R3;
+- R3 permanece como Phase 1 de concorrencia;
+- qualquer implementacao em R4 precisa atualizar `language/spec/concurrency.md`.
+
 ## Gates obrigatorios do ciclo
 
 Nenhuma milestone avanca sem:

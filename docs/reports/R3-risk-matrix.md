@@ -20,20 +20,20 @@
 | ID | Severity | Title | Owner | Deadline | Status | Notes |
 |---|---|---|---|---|---|---|
 | R3-RISK-001 | P1 | `public var` used without mitigation in stdlib/packages | `R3.P1` follow-up | until `R3.M2` start | monitoring | adoption must stay pontual; guideline in `R3.P1.A` analysis |
-| R3-RISK-002 | P1 | namespace state semantics drifts under concurrency before `R3.M2` lands | `R3.M2` | before `R3.M2` merge | open | blocked by `R3.P1.A` analysis already published |
+| R3-RISK-002 | P1 | namespace state semantics drifts under concurrency before `R3.M2` lands | `R3.M2` follow-up | formal deferral | closed | Phase 1 rules published; full concurrent runtime surface moved to `R4.CF1` by Decision 091 |
 | R3-RISK-003 | P0 | `global` keyword reintroduced by accident in formatter/diagnostic text | `R3.M1` | each milestone gate | monitoring | formatter/diagnostics must canonicalize to `public` only |
 | R3-RISK-004 | P1 | `trait` vs `interface` conflict reappears (alias surfaces in docs/tests) | `R3.M4` / `R3.M5` | before `R3.M5` merge | monitoring | per cycle directive: `interface` is not a new concept |
 | R3-RISK-005 | P1 | `mut func` contract weakens because of namespace mutation shortcuts | `R3.M2` | before `R3.M2` merge | monitoring | `mut func` still required for `self` mutation; doc already covered in Decision 086 |
 
 ## 2) Concurrency (`R3.M2`)
 
-`R3.M2` Phase 1 closed 2026-04-23 (see `docs/reports/release/R3.M2-concurrency-base-report.md`). Phases 3-5 are tracked below with updated owners and deadlines.
+`R3.M2` Phase 1 closed 2026-04-23 (see `docs/reports/release/R3.M2-concurrency-base-report.md`). The full runtime surface was formally moved out of R3 by Decision 091 and is now tracked as `R4.CF1`.
 
 | ID | Severity | Title | Owner | Deadline | Status | Notes |
 |---|---|---|---|---|---|---|
-| R3-RISK-010 | P0 | data races via `public var` accessed from multiple tasks | `R3.M2` follow-up (Phase 3) | before `R3.M5` checkpoint | monitoring | single-owner default locked in Decision 087 + `language/spec/concurrency.md`; `task`/`channel` surface not yet shipped, so no runtime exposure in this cut |
-| R3-RISK-011 | P1 | `Shared<T>` surface leaks into beginner path | `R3.M2` follow-up (Phase 5) | before `R3.M9` | monitoring | spec explicitly marks `Shared<T>`/`atomic<T>` as Phase 5 opt-in only |
-| R3-RISK-012 | P1 | cancellation and determinism tests flaky on Windows runner | `R3.M2` follow-up (Phase 3) | with Phase 3 | open | determinism for copy helpers delivered (`std_concurrent_boundary_copy_determinism`); cancellation fixtures await Phase 3 runtime surface |
+| R3-RISK-010 | P0 | data races via `public var` accessed from multiple tasks | `R4.CF1` | R4 planning | closed | closed for R3 by formal deferral; `task`/`channel` runtime surface moved to `R4.CF1` |
+| R3-RISK-011 | P1 | `Shared<T>` surface leaks into beginner path | `R4.CF1` | R4 planning | closed | closed for R3 by formal deferral; `Shared<T>` moved to `R4.CF1` |
+| R3-RISK-012 | P1 | cancellation and determinism tests flaky on Windows runner | `R4.CF1` | R4 planning | closed | order/determinism for copy helpers delivered; race/cancellation runtime fixtures moved to `R4.CF1` |
 
 ## 3) FFI (`R3.M3`)
 
@@ -64,16 +64,16 @@
 
 | ID | Severity | Title | Owner | Deadline | Status | Notes |
 |---|---|---|---|---|---|---|
-| R3-RISK-050 | P1 | implicit lazy leaks via common expressions | `R3.M8` | `R3.M8` merge | open | explicit `lazy<T>` only; block implicit |
-| R3-RISK-051 | P2 | single-consumption invariant not enforced at runtime | `R3.M8` | `R3.M8` merge | monitoring | tests on reuse-invalid required |
+| R3-RISK-050 | P1 | implicit lazy leaks via common expressions | `R3.M8` | `R3.M8` merge | closed | explicit `lazy<T>` only; no implicit lazy conversion added |
+| R3-RISK-051 | P2 | single-consumption invariant not enforced at runtime | `R3.M8` | `R3.M8` merge | closed | `lazy_reuse_error` covers runtime contract |
 
 ## 7) Release (`R3.M9`)
 
 | ID | Severity | Title | Owner | Deadline | Status | Notes |
 |---|---|---|---|---|---|---|
-| R3-RISK-060 | P0 | open P0 without formal acceptance at release cut | `R3.M9` | `R3.M9` merge | monitoring | gate rule already enforced by release gates |
-| R3-RISK-061 | P1 | clean-install validation fails on packaged artifact | `R3.M9` | `R3.M9` merge | open | reuse validation workflow from `R2.M12` |
-| R3-RISK-062 | P1 | perf nightly exceeds budget at release gate | `R3.M9` | `R3.M9` merge | open | reference `docs/governance/baselines/perf-baseline.json` |
+| R3-RISK-060 | P0 | open P0 without formal acceptance at release cut | `R3.M9` | `R3.M9` merge | closed | R3.M9 finalized locally; no P0 open without explicit acceptance |
+| R3-RISK-061 | P1 | clean-install validation fails on packaged artifact | `R3.M9` | `R3.M9` merge | closed | `0.3.0-alpha.3-rc.1` clean install passed; see `docs/reports/release/artifacts/zenith-0.3.0-alpha.3-rc.1-clean-install.log` |
+| R3-RISK-062 | P1 | perf nightly exceeds budget at release gate | `R3.M9` | `R3.M9` merge | closed | nightly command exits 0 with documented R3.M9 baseline override; hard budgets remain guardrail |
 
 ## 8) Borealis Alignment
 

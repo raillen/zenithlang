@@ -32,7 +32,7 @@ Foco do ciclo:
   - `docs/reports/release/*`
   - `docs/reports/compatibility/*`
 
-Status: em execucao
+Status: finalizado
 Data: 2026-04-22
 Base: `0.3.0-alpha.1` publicado (`R2.M12` fechado)
 
@@ -49,7 +49,7 @@ Sinalizacao de entrega:
 
 ## Atualizacao de status (2026-04-23)
 
-`R3.P1.A`, `R3.M0`, `R3.M1`, `R3.M2` e `R3.M3` foram fechadas. `R3.M4` em execucao com **Phase 1 completa** (spec + decision + runtime + checker + emitter type resolution).
+`R3.P1.A`, `R3.M0`, `R3.M1`, `R3.M2`, `R3.M3`, `R3.M4`, `R3.M5`, `R3.M6`, `R3.M7`, `R3.M8` e `R3.M9` foram fechadas. `R3.M2` fechou como **Phase 1 completa**; Decision 091 moveu `task`, `channel`, `Shared<T>` e corrida/cancelamento para `R4.CF1`.
 
 Sinalizacao de entrega:
 
@@ -58,7 +58,7 @@ Sinalizacao de entrega:
 - matriz de riscos R3 publicada em `docs/reports/R3-risk-matrix.md` (zero `P0` sem owner/prazo);
 - checkpoint inicial da trilha Borealis publicado em `docs/reports/R3.M0-borealis-alignment-checkpoint.md`;
 - hardening final de diagnosticos M34 publicado em `docs/reports/release/R3.M1-diagnostics-hardening-report.md` (bloco `NEXT` no renderer action-first, campos `effort=`/`action=`/`next=` no CI renderer, suite dedicada `tests/driver/test_diagnostics_rendering.c` com 41/41 pass);
-- concorrencia base Phase 1 publicada em `docs/reports/release/R3.M2-concurrency-base-report.md` (boundary contract via `std.concurrent.copy_*`, spec authoritative em `language/spec/concurrency.md`, integracao R3.P1.A em Decision 087, determinismo coberto por `tests/behavior/std_concurrent_boundary_copy_determinism`); `task`/`channel`/`Shared<T>` deferidos para Phases 3-5 e rastreados na matriz de riscos;
+- concorrencia base Phase 1 publicada em `docs/reports/release/R3.M2-concurrency-base-report.md` (boundary contract via `std.concurrent.copy_*`, spec authoritative em `language/spec/concurrency.md`, integracao R3.P1.A em Decision 087, determinismo coberto por `tests/behavior/std_concurrent_boundary_copy_determinism`); `task`/`channel`/`Shared<T>` foram formalmente movidos para `R4.CF1` por Decision 091;
 - FFI 1.0 Phase 1 publicada em `docs/reports/release/R3.M3-ffi-1.0-report.md` (spec authoritative em `language/spec/ffi.md` com ABI contract + matriz de tipos permitidos/bloqueados + regras de ownership; shielding empiricamente verificada em `tests/behavior/extern_c_text_len_e2e`; negativa struct-as-arg em `tests/behavior/extern_c_struct_arg_error` com diagnostic pinada); arity/return negatives, callbacks e ABI annotations deferidos e rastreados na matriz de riscos;
 - dyn dispatch Phase 1 publicada: spec em `language/spec/dyn-dispatch.md`, decision em `language/decisions/088-dyn-dispatch-minimum-subset.md`, runtime structures (`zt_vtable`, `zt_dyn_value`, `zt_list_dyn`) em `runtime/c/zenith_rt.h/.c`, validação de subset no checker (`zt_checker_validate_dyn_trait`), type resolution para `dyn<Trait>` e `list<dyn<Trait>>` no emitter; vtable generation, boxing e dynamic dispatch em progresso.
 
@@ -155,6 +155,7 @@ Entregas:
 Objetivo:
 
 - abrir concorrencia sem quebrar previsibilidade de ownership.
+- status: Phase 1 entregue; escopo de runtime completo formalmente movido para `R4.CF1`.
 
 Entregas:
 
@@ -164,6 +165,13 @@ Entregas:
 - integrar conclusoes de `R3.P1.A` para semantica de `public var` em contexto concorrente;
 - testes de corrida, ordem, cancelamento e determinismo do runtime;
 - docs de semantica de concorrencia no spec.
+
+Escopo movido para `R4.CF1`:
+
+- `task` + `channel` ainda nao foram implementados;
+- `Shared<T>` ainda nao foi implementado;
+- testes de corrida e cancelamento dependem da surface de runtime;
+- Decision 091 registra que isso nao bloqueia o release final R3, desde que R3 nao prometa essas surfaces.
 
 ## R3.M3 - M35.2 FFI 1.0
 
@@ -214,32 +222,51 @@ Nota:
 Objetivo:
 
 - introduzir closures com baixo risco semantico.
+- status: implementado em 2026-04-24 no corte R3.M6.
 
 Entregas:
 
-- captura imutavel no primeiro corte;
+- captura imutavel por valor no primeiro corte;
 - proibicao explicita de captura mutavel ate fase posterior;
-- modelo de lifetime definido e testado;
-- diagnosticos para captura invalida.
+- modelo de lifetime definido no runtime e no checker;
+- `func(...)` como fat pointer gerenciado (`fn` + `ctx`);
+- ABI interna com `zt_ctx` em funcoes Zenith;
+- diagnostico `closure.mut_capture_unsupported`;
+- testes positivos e negativos no behavior suite.
+
+Observacao:
+
+- closures v1 nao introduzem variaveis globais;
+- capturas sao snapshots imutaveis;
+- mutabilidade compartilhada em closures fica para uma feature futura, com analise propria.
 
 ## R3.M7 - Lambdas v1 + HOF de stdlib
 
 Objetivo:
 
 - habilitar expressividade funcional sem perder legibilidade.
+- status: implementado em 2026-04-24 no corte R3.M7.
 
 Entregas:
 
-- sintaxe de lambda minimal e consistente com formatter;
-- HOFs base em stdlib (`map`, `filter`, `reduce`) no subset oficial;
+- sintaxe de lambda minimal `func(...) => expr`, consistente com formatter;
+- HOFs base em `std.collections` no subset oficial (`map_int`, `filter_int`, `reduce_int`);
 - guidelines de legibilidade para nao degradar leitura;
-- benchmarks para evitar regressao severa em hot path.
+- benchmark `micro_lambda_hof_run` para evitar regressao severa em hot path.
+
+Observacao:
+
+- lambdas v1 sao acucar para closures v1;
+- retorno e inferido pelo tipo `func(...) -> ...` esperado;
+- parametros continuam tipados;
+- block lambdas e HOFs genericos ficam para fase futura.
 
 ## R3.M8 - Lazy explicito
 
 Objetivo:
 
 - adicionar lazy apenas quando observavel e controlado.
+- status: implementado em 2026-04-24 no corte R3.M8 para `lazy<int>` one-shot explicito.
 
 Entregas:
 
@@ -248,11 +275,19 @@ Entregas:
 - testes de ordem de avaliacao e consumo unico;
 - docs com exemplos de uso correto e armadilhas.
 
+Observacao:
+
+- o tipo `lazy<T>` ja existe no compiler;
+- o runtime executavel inicial cobre `lazy<int>` via `std.lazy.once_int/force_int/is_consumed_int`;
+- `lazy<T>` generico, valores reutilizaveis e iteradores lazy ficam para uma fase futura;
+- nenhuma expressao comum virou lazy implicitamente.
+
 ## R3.M9 - Release do ciclo R3
 
 Objetivo:
 
 - fechar ciclo com pacote validado para uso externo mais exigente.
+- status: `0.3.0-alpha.3` finalizado em 2026-04-24 com artefatos verificaveis locais.
 
 Entregas:
 
@@ -261,6 +296,16 @@ Entregas:
 - pacote, checksum e validacao de install limpo;
 - limite conhecido e risco residual publicados.
 - checkpoint final de alinhamento R3 x Borealis publicado.
+
+Resultado do corte:
+
+- pacote final e checksum gerados;
+- install limpo validado com `check` e `run` em app minimo;
+- relatorios de release, compatibilidade, limites e Borealis publicados;
+- `tests/perf/gate_pr.ps1` verde;
+- `tests/perf/gate_nightly.ps1` verde com override documentado de baseline R3.M9;
+- R3.M2 residual foi formalmente movido para `R4.CF1` por Decision 091;
+- release final local concluido.
 
 ## Trilha paralela Borealis (R3.B0 ate R3.B9)
 

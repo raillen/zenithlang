@@ -1,3 +1,7 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { Canvas } from "@react-three/fiber";
+import { Grid, OrbitControls, PerspectiveCamera, TransformControls } from "@react-three/drei";
+import { MOUSE } from "three";
 import {
   Activity,
   Archive,
@@ -14,9 +18,7 @@ import {
   Database,
   FileCode2,
   FolderTree,
-  GitBranch,
   Layers3,
-  LayoutPanelLeft,
   Maximize2,
   MousePointer2,
   Move3D,
@@ -29,10 +31,12 @@ import {
   Settings2,
   Square,
   Terminal,
-  Triangle,
   WandSparkles,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { Group } from "three";
 import { isTauriRuntime, loadStudioSnapshot, writeScriptDocument } from "./backend";
 import { createMockSnapshot } from "./mockData";
 import type {
@@ -45,7 +49,6 @@ import type {
   StudioMode,
   StudioSnapshot,
   Transform3D,
-  ViewTab,
 } from "./types";
 
 const ICON_STROKE = 1.75;
@@ -56,7 +59,6 @@ interface LayoutState {
   left: number;
   right: number;
   bottom: number;
-  code: number;
 }
 
 interface DragState {
@@ -73,19 +75,35 @@ interface AssetDragState {
   y: number;
 }
 
+interface ViewportCamera {
+  panX: number;
+  panY: number;
+  zoom: number;
+}
+
+interface ViewportPanState {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originPanX: number;
+  originPanY: number;
+}
+
+type ViewMode = "2d" | "3d";
+
 export function BorealisStudioApp() {
   const [snapshot, setSnapshot] = useState<StudioSnapshot>(() => createMockSnapshot());
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("loading");
   const [selectedEntityId, setSelectedEntityId] = useState("player");
   const [selectedScriptPath, setSelectedScriptPath] = useState("src/app/player_controller.zt");
-  const [viewTab, setViewTab] = useState<ViewTab>("scene");
+  const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [bottomTab, setBottomTab] = useState<BottomTab>("assets");
   const [mode, setMode] = useState<StudioMode>("move");
+  const [scriptEditorOpen, setScriptEditorOpen] = useState(false);
   const [layout, setLayout] = useState<LayoutState>({
     left: 280,
     right: 292,
     bottom: 218,
-    code: 360,
   });
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [assetDrag, setAssetDrag] = useState<AssetDragState | null>(null);
@@ -111,6 +129,29 @@ export function BorealisStudioApp() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    function handleToolShortcut(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "q") setMode("select");
+      if (key === "g") setMode("move");
+      if (key === "r") setMode("rotate");
+      if (key === "s") setMode("scale");
+    }
+
+    window.addEventListener("keydown", handleToolShortcut);
+    return () => window.removeEventListener("keydown", handleToolShortcut);
   }, []);
 
   const selectedEntity = useMemo(
@@ -217,6 +258,11 @@ export function BorealisStudioApp() {
     });
   }
 
+  function openScriptEditor(path: string) {
+    setSelectedScriptPath(path);
+    setScriptEditorOpen(true);
+  }
+
   function createEntityFromAsset(asset: ProjectAsset) {
     const count = snapshot.scene.entities.length + 1;
     const isModel = asset.kind === "model";
@@ -298,7 +344,7 @@ export function BorealisStudioApp() {
     });
   }
 
-  function startResize(axis: "left" | "right" | "bottom" | "code", event: PointerEvent<HTMLDivElement>) {
+  function startResize(axis: "left" | "right" | "bottom", event: PointerEvent<HTMLDivElement>) {
     event.preventDefault();
     const startX = event.clientX;
     const startY = event.clientY;
@@ -309,7 +355,6 @@ export function BorealisStudioApp() {
       setLayout((current) => {
         if (axis === "left") return { ...current, left: clamp(initial + delta, 220, 420) };
         if (axis === "right") return { ...current, right: clamp(initial - delta, 240, 420) };
-        if (axis === "code") return { ...current, code: clamp(initial - delta, 320, 620) };
         return { ...current, bottom: clamp(initial + delta, 156, 320) };
       });
     }
@@ -331,41 +376,28 @@ export function BorealisStudioApp() {
           "--left-width": `${layout.left}px`,
           "--right-width": `${layout.right}px`,
           "--bottom-height": `${layout.bottom}px`,
-          "--code-width": `${layout.code}px`,
         } as React.CSSProperties
       }
     >
-      <TopBar
-        bridgeStatus={bridgeStatus}
-        mode={mode}
-        projectName={snapshot.projectName}
-        sceneName={snapshot.scene.name}
-        onModeChange={setMode}
-      />
+      <MenuBar bridgeStatus={bridgeStatus} />
 
       <div className="studio-workspace">
-        <ActivityRail />
-
         <NavigatorPanel
           assets={snapshot.assets}
           entities={snapshot.scene.entities}
           selectedEntityId={selectedEntityId}
-          selectedScriptPath={activeScriptPath}
-          scripts={snapshot.scripts}
-          onAssetDrop={createEntityFromAsset}
-          onAssetPointerDown={beginAssetDrag}
-          onScriptSelect={setSelectedScriptPath}
           onSelectEntity={selectEntity}
         />
 
-        <div className="resize-handle resize-handle-vertical" onPointerDown={(event) => startResize("left", event)} />
+        <div className="resize-handle resize-handle-vertical resize-handle-left" onPointerDown={(event) => startResize("left", event)} />
 
         <main className="stage-panel">
           <StageToolbar
-            activeTab={viewTab}
             mode={mode}
+            viewMode={viewMode}
             selectedEntity={selectedEntity}
-            onTabChange={setViewTab}
+            onModeChange={setMode}
+            onViewModeChange={setViewMode}
           />
 
           <div className="stage-content">
@@ -373,6 +405,7 @@ export function BorealisStudioApp() {
               <SceneViewport
                 entities={snapshot.scene.entities}
                 mode={mode}
+                viewMode={viewMode}
                 selectedEntityId={selectedEntityId}
                 dragState={dragState}
                 onAssetDrop={createEntityFromAsset}
@@ -391,22 +424,10 @@ export function BorealisStudioApp() {
                 }}
               />
             </section>
-
-            <div className="resize-handle resize-handle-code" onPointerDown={(event) => startResize("code", event)} />
-
-            <CodePanel
-              activeScript={activeScript}
-              scripts={snapshot.scripts}
-              selectedEntity={selectedEntity}
-              onAttachScript={attachScript}
-              onSaveScript={saveScript}
-              onScriptChange={updateScriptContent}
-              onScriptSelect={setSelectedScriptPath}
-            />
           </div>
         </main>
 
-        <div className="resize-handle resize-handle-vertical" onPointerDown={(event) => startResize("right", event)} />
+        <div className="resize-handle resize-handle-vertical resize-handle-right" onPointerDown={(event) => startResize("right", event)} />
 
         <InspectorPanel
           entity={selectedEntity}
@@ -425,144 +446,154 @@ export function BorealisStudioApp() {
           scripts={snapshot.scripts}
           onAssetDrop={createEntityFromAsset}
           onAssetPointerDown={beginAssetDrag}
+          onOpenScript={openScriptEditor}
           onScriptSelect={setSelectedScriptPath}
           onTabChange={setBottomTab}
         />
       </div>
 
       {assetDrag ? <AssetDragPreview asset={assetDrag.asset} x={assetDrag.x} y={assetDrag.y} /> : null}
+      {scriptEditorOpen ? (
+        <ScriptEditorWindow
+          activeScript={activeScript}
+          scripts={snapshot.scripts}
+          selectedEntity={selectedEntity}
+          onAttachScript={attachScript}
+          onClose={() => setScriptEditorOpen(false)}
+          onSaveScript={saveScript}
+          onScriptChange={updateScriptContent}
+          onScriptSelect={setSelectedScriptPath}
+        />
+      ) : null}
     </div>
   );
 }
 
-function TopBar({
-  bridgeStatus,
-  mode,
-  projectName,
-  sceneName,
-  onModeChange,
-}: {
-  bridgeStatus: BridgeStatus;
-  mode: StudioMode;
-  projectName: string;
-  sceneName: string;
-  onModeChange: (mode: StudioMode) => void;
-}) {
+function MenuBar({ bridgeStatus }: { bridgeStatus: BridgeStatus }) {
+  const menus = ["File", "Edit", "Assets", "GameObject", "Component", "Window", "Help"];
+
   return (
-    <header className="top-bar" data-tauri-drag-region>
-      <div className="window-controls" aria-hidden="true">
-        <span />
-        <span />
-        <span />
+    <nav aria-label="Application menu" className="menu-bar visible" data-tauri-drag-region>
+      <div className="menu-items">
+        {menus.map((menu) => (
+          <button key={menu}>{menu}</button>
+        ))}
       </div>
-      <div className="brand-lockup">
-        <div className="app-mark">
-          <Triangle size={15} strokeWidth={ICON_STROKE} />
-        </div>
-        <div>
-          <strong>{projectName} Studio</strong>
-          <span>{sceneName}</span>
-        </div>
-      </div>
-
-      <div className="command-center">
-        <Search size={15} strokeWidth={ICON_STROKE} />
-        <input value="Search files, entities, commands" readOnly aria-label="Command search" />
-        <Command size={14} strokeWidth={ICON_STROKE} />
-      </div>
-
-      <div className="top-actions">
-        <ToolButton active={mode === "select"} label="Select" onClick={() => onModeChange("select")}>
-          <MousePointer2 size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <ToolButton active={mode === "move"} label="Move" onClick={() => onModeChange("move")}>
-          <Move3D size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <ToolButton active={mode === "rotate"} label="Rotate" onClick={() => onModeChange("rotate")}>
-          <RotateCcw size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <ToolButton active={mode === "scale"} label="Scale" onClick={() => onModeChange("scale")}>
-          <Scale3D size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <div className="toolbar-divider" />
-        <ToolButton label="Play">
-          <Play size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <ToolButton label="Pause">
-          <Pause size={15} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <ToolButton label="Stop">
-          <Square size={14} strokeWidth={ICON_STROKE} />
-        </ToolButton>
-        <StatusPill tone={bridgeStatus === "tauri" ? "good" : "warn"}>
-          {bridgeStatus === "tauri" ? "Tauri" : "Browser"}
-        </StatusPill>
-      </div>
-    </header>
+      <StatusPill tone={bridgeStatus === "tauri" ? "good" : "warn"}>
+        {bridgeStatus === "tauri" ? "Tauri" : "Browser"}
+      </StatusPill>
+    </nav>
   );
 }
 
-function ActivityRail() {
-  const items = [
-    { icon: LayoutPanelLeft, label: "Workspace", active: true },
-    { icon: FolderTree, label: "Project" },
-    { icon: Code2, label: "Scripts" },
-    { icon: Terminal, label: "Console" },
-    { icon: GitBranch, label: "Source" },
-    { icon: Settings2, label: "Settings" },
-  ];
+function CommandSearchButton() {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!searchRef.current?.contains(event.target as Node)) setSearchOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSearchOpen(false);
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
-    <aside className="activity-rail">
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <button className={item.active ? "active" : ""} key={item.label} title={item.label}>
-            <Icon size={18} strokeWidth={ICON_STROKE} />
-          </button>
-        );
-      })}
-    </aside>
+    <div
+      className="search-popover"
+      ref={searchRef}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setSearchOpen(false);
+      }}
+    >
+      <button
+        aria-expanded={searchOpen}
+        aria-label="Open command search"
+        className={`top-icon-button ${searchOpen ? "active" : ""}`}
+        onClick={() => setSearchOpen((open) => !open)}
+        title="Search"
+      >
+        <Search size={15} strokeWidth={ICON_STROKE} />
+      </button>
+      <AnimatePresence>
+        {searchOpen ? (
+          <>
+            <button
+              aria-label="Close command search"
+              className="command-popover-backdrop"
+              onPointerDown={() => setSearchOpen(false)}
+              tabIndex={-1}
+              type="button"
+            />
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="command-popover"
+              exit={{ opacity: 0, scale: 0.985, y: -4 }}
+              initial={{ opacity: 0, scale: 0.985, y: -4 }}
+              role="dialog"
+              aria-label="Command search"
+              transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="command-input">
+                <Search size={15} strokeWidth={ICON_STROKE} />
+                <input
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setSearchOpen(false);
+                  }}
+                  placeholder="Search files, entities, commands"
+                />
+                <Command size={14} strokeWidth={ICON_STROKE} />
+              </div>
+              <div className="command-suggestions">
+                <button>Open player_controller.zt</button>
+                <button>Select Player entity</button>
+                <button>Show project assets</button>
+              </div>
+            </motion.div>
+          </>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
 function NavigatorPanel({
   assets,
   entities,
-  scripts,
   selectedEntityId,
-  selectedScriptPath,
-  onAssetDrop,
-  onAssetPointerDown,
-  onScriptSelect,
   onSelectEntity,
 }: {
   assets: ProjectAsset[];
   entities: SceneEntity[];
-  scripts: ScriptDocument[];
   selectedEntityId: string;
-  selectedScriptPath: string;
-  onAssetDrop: (asset: ProjectAsset) => void;
-  onAssetPointerDown: (asset: ProjectAsset, event: PointerEvent<HTMLElement>) => void;
-  onScriptSelect: (path: string) => void;
   onSelectEntity: (entity: SceneEntity) => void;
 }) {
+  const sceneAsset = assets.find((asset) => asset.kind === "scene");
+
   return (
     <aside className="side-panel navigator-panel">
-      <PanelHeader icon={<FolderTree size={15} strokeWidth={ICON_STROKE} />} title="Navigator" meta="Project" />
-      <div className="navigator-section">
-        <SectionTitle label="Scenes" />
-        {assets
-          .filter((asset) => asset.kind === "scene")
-          .map((asset) => (
-            <AssetRow asset={asset} key={asset.id} onDrop={onAssetDrop} onPointerDown={onAssetPointerDown} />
-          ))}
-      </div>
-      <div className="navigator-section hierarchy-list">
-        <SectionTitle label="Hierarchy" />
+      <PanelHeader icon={<FolderTree size={13} strokeWidth={ICON_STROKE} />} title="Navigator" meta="Scene" />
+      <div className="navigator-section scene-tree">
+        {sceneAsset ? (
+          <div className="tree-row scene-root">
+            {assetKindIcon(sceneAsset.kind, 12)}
+            <span>{sceneAsset.name}</span>
+            <small>scene</small>
+          </div>
+        ) : null}
         {entities.map((entity) => (
           <button
-            className={`tree-row ${selectedEntityId === entity.id ? "selected" : ""}`}
+            className={`tree-row scene-child ${selectedEntityId === entity.id ? "selected" : ""}`}
             key={entity.id}
             onClick={() => onSelectEntity(entity)}
           >
@@ -572,38 +603,54 @@ function NavigatorPanel({
           </button>
         ))}
       </div>
-      <div className="navigator-section">
-        <SectionTitle label="Scripts" />
-        {scripts.map((script) => (
-          <button
-            className={`tree-row ${selectedScriptPath === script.path ? "selected" : ""}`}
-            key={script.path}
-            onClick={() => onScriptSelect(script.path)}
-          >
-            <FileCode2 size={15} strokeWidth={ICON_STROKE} />
-            <span>{script.name}</span>
-            {script.dirty ? <small>dirty</small> : null}
-          </button>
-        ))}
-      </div>
     </aside>
   );
 }
 
 function StageToolbar({
-  activeTab,
   mode,
   selectedEntity,
-  onTabChange,
+  viewMode,
+  onModeChange,
+  onViewModeChange,
 }: {
-  activeTab: ViewTab;
   mode: StudioMode;
   selectedEntity: SceneEntity | null;
-  onTabChange: (tab: ViewTab) => void;
+  viewMode: ViewMode;
+  onModeChange: (mode: StudioMode) => void;
+  onViewModeChange: (mode: ViewMode) => void;
 }) {
   return (
     <div className="stage-toolbar">
-      <Segmented tabs={["scene", "game", "script"]} value={activeTab} onChange={onTabChange} />
+      <Segmented tabs={["2d", "3d"]} value={viewMode} onChange={onViewModeChange} />
+      <div className="viewport-control-center">
+        <CommandSearchButton />
+        <div className="tool-strip" aria-label="Transform tools">
+          <ToolButton active={mode === "select"} label="Select" onClick={() => onModeChange("select")}>
+            <MousePointer2 size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+          <ToolButton active={mode === "move"} label="Move" onClick={() => onModeChange("move")}>
+            <Move3D size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+          <ToolButton active={mode === "rotate"} label="Rotate" onClick={() => onModeChange("rotate")}>
+            <RotateCcw size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+          <ToolButton active={mode === "scale"} label="Scale" onClick={() => onModeChange("scale")}>
+            <Scale3D size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+        </div>
+        <div className="transport-controls" aria-label="Preview controls">
+          <ToolButton label="Play">
+            <Play size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+          <ToolButton label="Pause">
+            <Pause size={15} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+          <ToolButton label="Stop">
+            <Square size={14} strokeWidth={ICON_STROKE} />
+          </ToolButton>
+        </div>
+      </div>
       <div className="stage-status">
         <StatusPill>{mode}</StatusPill>
         <StatusPill>{selectedEntity ? selectedEntity.name : "No selection"}</StatusPill>
@@ -616,6 +663,7 @@ function StageToolbar({
 function SceneViewport({
   entities,
   mode,
+  viewMode,
   selectedEntityId,
   dragState,
   onAssetDrop,
@@ -625,6 +673,7 @@ function SceneViewport({
 }: {
   entities: SceneEntity[];
   mode: StudioMode;
+  viewMode: ViewMode;
   selectedEntityId: string;
   dragState: DragState | null;
   onAssetDrop: (asset: ProjectAsset) => void;
@@ -633,9 +682,16 @@ function SceneViewport({
   onUpdateTransform: (id: string, transform: Transform3D) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportCameras, setViewportCameras] = useState<Record<ViewMode, ViewportCamera>>({
+    "2d": { panX: 0, panY: 0, zoom: 1 },
+    "3d": { panX: 0, panY: 0, zoom: 1 },
+  });
+  const [viewportPanState, setViewportPanState] = useState<ViewportPanState | null>(null);
+  const activeCamera = viewportCameras[viewMode];
 
   function handleEntityPointerDown(entity: SceneEntity, event: PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelectEntity(entity);
     if (mode !== "move") return;
@@ -654,9 +710,53 @@ function SceneViewport({
     const deltaY = event.clientY - dragState.startY;
     onUpdateTransform(entity.id, {
       ...entity.transform,
-      x: Math.round(dragState.originX + deltaX * 0.75),
-      y: Math.round(dragState.originY + deltaY * 0.75),
+      x: Math.round(dragState.originX + deltaX * 0.75 / activeCamera.zoom),
+      y: Math.round(dragState.originY + deltaY * 0.75 / activeCamera.zoom),
     });
+  }
+
+  function updateActiveCamera(updater: (camera: ViewportCamera) => ViewportCamera) {
+    setViewportCameras((current) => ({
+      ...current,
+      [viewMode]: updater(current[viewMode]),
+    }));
+  }
+
+  function handleViewportWheel(event: React.WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const direction = event.deltaY < 0 ? 1 : -1;
+    updateActiveCamera((camera) => ({
+      ...camera,
+      zoom: clamp(Number((camera.zoom + direction * 0.08).toFixed(2)), 0.45, 2.4),
+    }));
+  }
+
+  function handleViewportPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 1 && !event.altKey) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setViewportPanState({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originPanX: activeCamera.panX,
+      originPanY: activeCamera.panY,
+    });
+  }
+
+  function handleViewportPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!viewportPanState || viewportPanState.pointerId !== event.pointerId) return;
+    const deltaX = (event.clientX - viewportPanState.startX) / activeCamera.zoom;
+    const deltaY = (event.clientY - viewportPanState.startY) / activeCamera.zoom;
+    updateActiveCamera((camera) => ({
+      ...camera,
+      panX: Math.round(viewportPanState.originPanX + deltaX),
+      panY: Math.round(viewportPanState.originPanY + deltaY),
+    }));
+  }
+
+  function resetActiveCamera() {
+    updateActiveCamera(() => ({ panX: 0, panY: 0, zoom: 1 }));
   }
 
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
@@ -666,59 +766,365 @@ function SceneViewport({
     onAssetDrop(JSON.parse(raw) as ProjectAsset);
   }
 
+  const viewportProps: ViewportRendererProps = {
+    camera: activeCamera,
+    dragState,
+    entities,
+    mode,
+    selectedEntityId,
+    onDragStateChange,
+    onEntityPointerDown: handleEntityPointerDown,
+    onEntityPointerMove: handleEntityPointerMove,
+    onResetCamera: resetActiveCamera,
+    onSelectEntity,
+    onUpdateTransform,
+  };
+
+  const viewport2DHandlers =
+    viewMode === "2d"
+      ? {
+          onPointerDown: handleViewportPointerDown,
+          onPointerMove: handleViewportPointerMove,
+          onPointerUp: () => setViewportPanState(null),
+          onPointerCancel: () => setViewportPanState(null),
+          onWheel: handleViewportWheel,
+        }
+      : {};
+
   return (
     <div
-      className="scene-viewport"
+      className={`scene-viewport viewport-${viewMode}`}
       onDragOver={(event) => event.preventDefault()}
       onDrop={handleDrop}
       ref={viewportRef}
+      {...viewport2DHandlers}
+      style={
+        {
+          "--viewport-pan-x": `${activeCamera.panX * activeCamera.zoom}px`,
+          "--viewport-pan-y": `${activeCamera.panY * activeCamera.zoom}px`,
+          "--viewport-zoom": activeCamera.zoom,
+        } as React.CSSProperties
+      }
     >
-      <div className="viewport-grid" />
+      {viewMode === "3d" ? <Viewport3D {...viewportProps} /> : <Viewport2D {...viewportProps} />}
+    </div>
+  );
+}
+
+interface ViewportRendererProps {
+  camera: ViewportCamera;
+  dragState: DragState | null;
+  entities: SceneEntity[];
+  mode: StudioMode;
+  selectedEntityId: string;
+  onDragStateChange: (state: DragState | null) => void;
+  onEntityPointerDown: (entity: SceneEntity, event: PointerEvent<HTMLButtonElement>) => void;
+  onEntityPointerMove: (entity: SceneEntity, event: PointerEvent<HTMLButtonElement>) => void;
+  onResetCamera: () => void;
+  onSelectEntity: (entity: SceneEntity) => void;
+  onUpdateTransform: (id: string, transform: Transform3D) => void;
+}
+
+function Viewport3D({
+  entities,
+  mode,
+  selectedEntityId,
+  onResetCamera,
+  onSelectEntity,
+  onUpdateTransform,
+}: ViewportRendererProps) {
+  const transformMode = mode === "rotate" ? "rotate" : mode === "scale" ? "scale" : "translate";
+
+  return (
+    <>
+      <Canvas className="viewport-canvas" shadows>
+        <PerspectiveCamera makeDefault position={[7.5, 6, 8]} fov={48} />
+        <color attach="background" args={["#15171b"]} />
+        <ambientLight intensity={0.55} />
+        <directionalLight castShadow intensity={1.2} position={[6, 8, 5]} />
+        <Grid
+          args={[24, 24]}
+          cellColor="#343943"
+          cellSize={1}
+          fadeDistance={24}
+          fadeStrength={1.8}
+          sectionColor="#44607f"
+          sectionSize={4}
+        />
+        <group>
+          {entities.map((entity) => {
+            const selected = entity.id === selectedEntityId;
+            return (
+              <Viewport3DEntity
+                entity={entity}
+                key={entity.id}
+                mode={mode}
+                selected={selected}
+                transformMode={transformMode}
+                onSelect={onSelectEntity}
+                onUpdateTransform={onUpdateTransform}
+              />
+            );
+          })}
+        </group>
+        <OrbitControls
+          enableDamping
+          makeDefault
+          maxDistance={26}
+          minDistance={3.5}
+          mouseButtons={{
+            MIDDLE: MOUSE.ROTATE,
+            RIGHT: MOUSE.PAN,
+          }}
+          screenSpacePanning
+        />
+      </Canvas>
+      <div className="viewport-overlay-top">
+        <StatusPill>Scene 3D</StatusPill>
+        <StatusPill>MMB Orbit</StatusPill>
+        <StatusPill>{mode === "select" ? "Select" : transformMode}</StatusPill>
+        <StatusPill>Perspective</StatusPill>
+        <StatusPill>Pivot</StatusPill>
+        <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
+      </div>
       <div className="viewport-axis axis-x">X</div>
       <div className="viewport-axis axis-y">Y</div>
       <div className="viewport-axis axis-z">Z</div>
+      <div className="viewport-footer">
+        <span>Viewport 3D</span>
+        <span>{entities.length} objects</span>
+      </div>
+    </>
+  );
+}
+
+function Viewport3DEntity({
+  entity,
+  mode,
+  selected,
+  transformMode,
+  onSelect,
+  onUpdateTransform,
+}: {
+  entity: SceneEntity;
+  mode: StudioMode;
+  selected: boolean;
+  transformMode: "translate" | "rotate" | "scale";
+  onSelect: (entity: SceneEntity) => void;
+  onUpdateTransform: (id: string, transform: Transform3D) => void;
+}) {
+  const groupRef = useRef<Group | null>(null);
+  const isCamera = entity.components.some((component) => component.kind === "camera3d");
+  const isModel = entity.components.some((component) => component.kind === "mesh3d" || component.kind === "model3d");
+  const color = selected ? "#68a4ff" : isCamera ? "#72c08b" : isModel ? "#d9a05c" : "#9aa4b5";
+  const position: [number, number, number] = [
+    entity.transform.x * 0.04,
+    entity.transform.z * 0.04 + 0.45,
+    entity.transform.y * 0.04,
+  ];
+  const scale: [number, number, number] = [
+    Math.max(0.25, entity.transform.scaleX),
+    Math.max(0.25, entity.transform.scaleZ),
+    Math.max(0.25, entity.transform.scaleY),
+  ];
+
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    group.position.set(position[0], position[1], position[2]);
+    group.rotation.set(
+      (entity.transform.rotationX * Math.PI) / 180,
+      (entity.transform.rotationY * Math.PI) / 180,
+      (entity.transform.rotationZ * Math.PI) / 180,
+    );
+    group.scale.set(scale[0], scale[1], scale[2]);
+  }, [
+    entity.transform.rotationX,
+    entity.transform.rotationY,
+    entity.transform.rotationZ,
+    position[0],
+    position[1],
+    position[2],
+    scale[0],
+    scale[1],
+    scale[2],
+  ]);
+
+  function commitTransform() {
+    const group = groupRef.current;
+    if (!group) return;
+    onUpdateTransform(entity.id, {
+      x: Math.round(group.position.x / 0.04),
+      y: Math.round(group.position.z / 0.04),
+      z: Math.round((group.position.y - 0.45) / 0.04),
+      rotationX: Math.round((group.rotation.x * 180) / Math.PI),
+      rotationY: Math.round((group.rotation.y * 180) / Math.PI),
+      rotationZ: Math.round((group.rotation.z * 180) / Math.PI),
+      scaleX: Number(Math.max(0.1, group.scale.x).toFixed(2)),
+      scaleY: Number(Math.max(0.1, group.scale.z).toFixed(2)),
+      scaleZ: Number(Math.max(0.1, group.scale.y).toFixed(2)),
+    });
+  }
+
+  const entityNode = (
+    <group ref={groupRef} position={position} rotation={[
+      (entity.transform.rotationX * Math.PI) / 180,
+      (entity.transform.rotationY * Math.PI) / 180,
+      (entity.transform.rotationZ * Math.PI) / 180,
+    ]} scale={scale}>
+      <mesh
+        castShadow
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(entity);
+        }}
+      >
+        {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
+        <meshStandardMaterial color={color} roughness={0.55} metalness={0.08} />
+      </mesh>
+      {selected ? (
+        <group>
+          <mesh scale={[1.12, 1.12, 1.12]}>
+            {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
+            <meshBasicMaterial color="#68a4ff" wireframe />
+          </mesh>
+          <mesh position={[0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
+            <meshBasicMaterial color="#df746c" />
+          </mesh>
+          <mesh position={[0, 0.9, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
+            <meshBasicMaterial color="#72c08b" />
+          </mesh>
+          <mesh position={[0, 0, 0.9]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
+            <meshBasicMaterial color="#68a4ff" />
+          </mesh>
+        </group>
+      ) : null}
+    </group>
+  );
+
+  if (!selected || mode === "select") return entityNode;
+
+  return (
+    <TransformControls mode={transformMode} onObjectChange={commitTransform} size={0.75}>
+      {entityNode}
+    </TransformControls>
+  );
+}
+
+function Viewport2D({
+  camera,
+  dragState,
+  entities,
+  mode,
+  selectedEntityId,
+  onDragStateChange,
+  onEntityPointerDown,
+  onEntityPointerMove,
+  onResetCamera,
+  onSelectEntity,
+}: ViewportRendererProps) {
+  return (
+    <>
+      <div className="viewport-grid" />
+      <div className="viewport-axis axis-x">X</div>
+      <div className="viewport-axis axis-y">Y</div>
       <div className="viewport-overlay-top">
-        <StatusPill>Scene 3D</StatusPill>
-        <StatusPill>Global</StatusPill>
-        <StatusPill>Pivot</StatusPill>
+        <StatusPill>Scene 2D</StatusPill>
+        <StatusPill>{Math.round(camera.zoom * 100)}%</StatusPill>
+        <StatusPill>Orthographic</StatusPill>
+        <StatusPill>XY</StatusPill>
+        <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
       </div>
       {entities.map((entity) => {
         const selected = entity.id === selectedEntityId;
-        const position = project3d(entity.transform);
+        const position = project2d(entity.transform);
+        const screenX = (position.x + camera.panX) * camera.zoom;
+        const screenY = (position.y + camera.panY) * camera.zoom;
         return (
           <button
             className={`scene-object ${selected ? "selected" : ""} ${entityClass(entity)}`}
             key={entity.id}
             onClick={() => onSelectEntity(entity)}
-            onPointerDown={(event) => handleEntityPointerDown(entity, event)}
-            onPointerMove={(event) => handleEntityPointerMove(entity, event)}
+            onPointerDown={(event) => onEntityPointerDown(entity, event)}
+            onPointerMove={(event) => onEntityPointerMove(entity, event)}
             onPointerUp={() => onDragStateChange(null)}
             style={{
               left: "50%",
               top: "50%",
-              transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
+              transform: `translate(calc(-50% + ${screenX}px), calc(-50% + ${screenY}px)) scale(${camera.zoom})`,
             }}
           >
             <span className="object-glyph">{entityGlyph(entity)}</span>
             <span className="object-label">{entity.name}</span>
-            {selected ? <ObjectGizmo /> : null}
+            {selected ? <ObjectGizmo viewMode="2d" /> : null}
           </button>
         );
       })}
       <div className="viewport-footer">
-        <span>Viewport</span>
+        <span>Viewport 2D</span>
         <span>{entities.length} objects</span>
       </div>
-    </div>
+    </>
   );
 }
 
-function ObjectGizmo() {
+function ObjectGizmo({ viewMode }: { viewMode: ViewMode }) {
   return (
     <div className="object-gizmo" aria-hidden="true">
       <span className="gizmo-x" />
       <span className="gizmo-y" />
-      <span className="gizmo-z" />
+      {viewMode === "3d" ? <span className="gizmo-z" /> : null}
+    </div>
+  );
+}
+
+function ScriptEditorWindow({
+  activeScript,
+  scripts,
+  selectedEntity,
+  onAttachScript,
+  onClose,
+  onSaveScript,
+  onScriptChange,
+  onScriptSelect,
+}: {
+  activeScript?: ScriptDocument;
+  scripts: ScriptDocument[];
+  selectedEntity: SceneEntity | null;
+  onAttachScript: (path: string) => void;
+  onClose: () => void;
+  onSaveScript: (script: ScriptDocument) => void;
+  onScriptChange: (path: string, content: string) => void;
+  onScriptSelect: (path: string) => void;
+}) {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="script-window-layer" role="dialog" aria-modal="true" aria-label="Script editor">
+      <section className="script-window">
+        <button className="script-window-close" onClick={onClose} title="Close script editor">
+          <X size={16} strokeWidth={ICON_STROKE} />
+        </button>
+        <CodePanel
+          activeScript={activeScript}
+          scripts={scripts}
+          selectedEntity={selectedEntity}
+          onAttachScript={onAttachScript}
+          onSaveScript={onSaveScript}
+          onScriptChange={onScriptChange}
+          onScriptSelect={onScriptSelect}
+        />
+      </section>
     </div>
   );
 }
@@ -907,6 +1313,7 @@ function BottomDock({
   scripts,
   onAssetDrop,
   onAssetPointerDown,
+  onOpenScript,
   onScriptSelect,
   onTabChange,
 }: {
@@ -916,9 +1323,32 @@ function BottomDock({
   scripts: ScriptDocument[];
   onAssetDrop: (asset: ProjectAsset) => void;
   onAssetPointerDown: (asset: ProjectAsset, event: PointerEvent<HTMLElement>) => void;
+  onOpenScript: (path: string) => void;
   onScriptSelect: (path: string) => void;
   onTabChange: (tab: BottomTab) => void;
 }) {
+  const [assetTileSize, setAssetTileSize] = useState(112);
+  const assetPanelRef = useRef<HTMLDivElement | null>(null);
+  const assetIconSize = clamp(Math.round(assetTileSize * 0.22), 18, 38);
+
+  function changeAssetTileSize(delta: number) {
+    setAssetTileSize((current) => clamp(current + delta, 88, 168));
+  }
+
+  useEffect(() => {
+    const panel = assetPanelRef.current;
+    if (!panel) return;
+
+    function handleAssetWheel(event: WheelEvent) {
+      if (!event.altKey) return;
+      event.preventDefault();
+      changeAssetTileSize(event.deltaY < 0 ? 8 : -8);
+    }
+
+    panel.addEventListener("wheel", handleAssetWheel, { passive: false });
+    return () => panel.removeEventListener("wheel", handleAssetWheel);
+  }, []);
+
   return (
     <section className="bottom-dock">
       <div className="bottom-tabs">
@@ -933,16 +1363,40 @@ function BottomDock({
         </DockTab>
       </div>
       {activeTab === "assets" ? (
-        <div className="asset-grid">
-          {assets.map((asset) => (
-            <AssetTile
-              asset={asset}
-              key={asset.id}
-              onDrop={onAssetDrop}
-              onPointerDown={onAssetPointerDown}
-              onScriptSelect={onScriptSelect}
+        <div
+          className="asset-panel"
+          ref={assetPanelRef}
+          style={
+            {
+              "--asset-tile-size": `${assetTileSize}px`,
+              "--asset-icon-size": `${assetIconSize}px`,
+            } as React.CSSProperties
+          }
+        >
+          <div className="asset-panel-toolbar">
+            <ZoomIn size={13} strokeWidth={ICON_STROKE} />
+            <input
+              aria-label="Asset icon size"
+              min={88}
+              max={168}
+              type="range"
+              value={assetTileSize}
+              onChange={(event) => setAssetTileSize(Number(event.target.value))}
             />
-          ))}
+          </div>
+          <div className="asset-grid">
+            {assets.map((asset) => (
+              <AssetTile
+                asset={asset}
+                iconSize={assetIconSize}
+                key={asset.id}
+                onDrop={onAssetDrop}
+                onOpenScript={onOpenScript}
+                onPointerDown={onAssetPointerDown}
+                onScriptSelect={onScriptSelect}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
       {activeTab === "console" ? <ConsoleView lines={console} /> : null}
@@ -951,40 +1405,18 @@ function BottomDock({
   );
 }
 
-function AssetRow({
-  asset,
-  onDrop,
-  onPointerDown,
-}: {
-  asset: ProjectAsset;
-  onDrop: (asset: ProjectAsset) => void;
-  onPointerDown: (asset: ProjectAsset, event: PointerEvent<HTMLElement>) => void;
-}) {
-  return (
-    <button
-      className="tree-row"
-      draggable
-      onDoubleClick={() => onDrop(asset)}
-      onPointerDown={(event) => onPointerDown(asset, event)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData("application/x-borealis-asset", JSON.stringify(asset));
-      }}
-    >
-      {assetKindIcon(asset.kind)}
-      <span>{asset.name}</span>
-      <small>{asset.kind}</small>
-    </button>
-  );
-}
-
 function AssetTile({
   asset,
+  iconSize,
   onDrop,
+  onOpenScript,
   onPointerDown,
   onScriptSelect,
 }: {
   asset: ProjectAsset;
+  iconSize: number;
   onDrop: (asset: ProjectAsset) => void;
+  onOpenScript: (path: string) => void;
   onPointerDown: (asset: ProjectAsset, event: PointerEvent<HTMLElement>) => void;
   onScriptSelect: (path: string) => void;
 }) {
@@ -996,6 +1428,7 @@ function AssetTile({
         if (asset.kind === "script") onScriptSelect(asset.path);
       }}
       onDoubleClick={() => {
+        if (asset.kind === "script") onOpenScript(asset.path);
         if (asset.kind === "model" || asset.kind === "texture") onDrop(asset);
       }}
       onPointerDown={(event) => onPointerDown(asset, event)}
@@ -1003,7 +1436,7 @@ function AssetTile({
         event.dataTransfer.setData("application/x-borealis-asset", JSON.stringify(asset));
       }}
     >
-      <span>{assetKindIcon(asset.kind, 22)}</span>
+      <span>{assetKindIcon(asset.kind, iconSize)}</span>
       <strong>{asset.name}</strong>
       <small>{asset.path}</small>
     </button>
@@ -1085,7 +1518,7 @@ function PanelHeader({
 function SectionTitle({ label }: { label: string }) {
   return (
     <div className="section-title">
-      <ChevronDown size={13} strokeWidth={ICON_STROKE} />
+      <ChevronDown size={11} strokeWidth={ICON_STROKE} />
       <span>{label}</span>
     </div>
   );
@@ -1234,12 +1667,12 @@ function entityGlyph(entity: SceneEntity) {
 
 function entityIcon(entity: SceneEntity) {
   if (entity.components.some((component) => component.kind === "camera3d")) {
-    return <Maximize2 size={15} strokeWidth={ICON_STROKE} />;
+    return <Maximize2 size={12} strokeWidth={ICON_STROKE} />;
   }
   if (entity.components.some((component) => component.kind === "script")) {
-    return <Braces size={15} strokeWidth={ICON_STROKE} />;
+    return <Braces size={12} strokeWidth={ICON_STROKE} />;
   }
-  return <Box size={15} strokeWidth={ICON_STROKE} />;
+  return <Box size={12} strokeWidth={ICON_STROKE} />;
 }
 
 function assetKindIcon(kind: AssetKind, size = 15) {
@@ -1256,6 +1689,13 @@ function project3d(transform: Transform3D): { x: number; y: number } {
   return {
     x: transform.x * 0.55 - transform.y * 0.34,
     y: transform.x * 0.1 + transform.y * 0.22 - transform.z * 0.7,
+  };
+}
+
+function project2d(transform: Transform3D): { x: number; y: number } {
+  return {
+    x: transform.x * 0.72,
+    y: transform.y * 0.5,
   };
 }
 

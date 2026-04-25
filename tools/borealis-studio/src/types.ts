@@ -2,8 +2,6 @@ export type StudioMode = "select" | "move" | "rotate" | "scale";
 
 export type AssetKind = "scene" | "script" | "model" | "texture" | "audio" | "data";
 
-export type ViewTab = "scene" | "game" | "script";
-
 export type BottomTab = "assets" | "console" | "problems";
 
 export interface Transform3D {

@@ -681,6 +681,27 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, "value ");
             sb_append(sb, node->as.value_binding.name);
             break;
+        case ZT_AST_CLOSURE_EXPR:
+            sb_append(sb, "func(");
+            format_node_list_comma(sb, node->as.closure_expr.params);
+            sb_append(sb, ")");
+            if (node->as.closure_expr.return_type) {
+                sb_append(sb, " -> ");
+                format_node(sb, node->as.closure_expr.return_type);
+            }
+            if (node->as.closure_expr.is_lambda &&
+                    node->as.closure_expr.body != NULL &&
+                    node->as.closure_expr.body->kind == ZT_AST_BLOCK &&
+                    node->as.closure_expr.body->as.block.statements.count == 1 &&
+                    node->as.closure_expr.body->as.block.statements.items[0] != NULL &&
+                    node->as.closure_expr.body->as.block.statements.items[0]->kind == ZT_AST_RETURN_STMT) {
+                sb_append(sb, " => ");
+                format_node(sb, node->as.closure_expr.body->as.block.statements.items[0]->as.return_stmt.value);
+                break;
+            }
+            sb_append(sb, " ");
+            format_node(sb, node->as.closure_expr.body);
+            break;
     }
 }
 

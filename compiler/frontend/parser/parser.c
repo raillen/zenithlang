@@ -905,6 +905,49 @@ static int zt_is_named_arg_ahead(zt_parser *p) {
 static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
     zt_token tok = p->current;
 
+    if (tok.kind == ZT_TOKEN_FUNC) {
+        int is_lambda = 0;
+        zt_parser_advance(p);
+        zt_ast_node_list params = zt_parser_parse_params(p);
+        
+        zt_ast_node *return_type = NULL;
+        if (zt_parser_match(p, ZT_TOKEN_ARROW)) {
+            return_type = zt_parser_parse_type(p);
+        }
+
+        zt_ast_node *body = NULL;
+        if (zt_parser_match(p, ZT_TOKEN_FAT_ARROW)) {
+            zt_ast_node *value = zt_parser_parse_expression(p);
+            zt_ast_node *ret = zt_parser_ast_make(p, ZT_AST_RETURN_STMT, value != NULL ? value->span : tok.span);
+            zt_ast_node_list statements = zt_ast_node_list_make();
+            if (ret != NULL) {
+                ret->as.return_stmt.value = value;
+                zt_ast_node_list_push(p->arena, &statements, ret);
+            }
+            body = zt_parser_ast_make(p, ZT_AST_BLOCK, tok.span);
+            if (body != NULL) {
+                body->as.block.statements = statements;
+            }
+            is_lambda = 1;
+        } else {
+            /* Mark that we're entering function body */
+            int was_in_function = p->in_function_body;
+            p->in_function_body = 1;
+            body = zt_parser_parse_block(p);
+            p->in_function_body = was_in_function;
+            
+            zt_parser_expect(p, ZT_TOKEN_END);
+        }
+
+        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_CLOSURE_EXPR, tok.span);
+        if (node == NULL) return NULL;
+        node->as.closure_expr.params = params;
+        node->as.closure_expr.return_type = return_type;
+        node->as.closure_expr.body = body;
+        node->as.closure_expr.is_lambda = is_lambda;
+        return node;
+    }
+
     if (tok.kind == ZT_TOKEN_INT_LITERAL) {
         zt_parser_advance(p);
         zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_INT_EXPR, tok.span);
@@ -1548,8 +1591,14 @@ static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
     return node;
 }
 
+static zt_ast_node *zt_parser_parse_func_decl(zt_parser *p, int is_public, int is_mutating);
+
 static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
     zt_token tok = p->current;
+
+    if (tok.kind == ZT_TOKEN_FUNC) {
+        return zt_parser_parse_func_decl(p, 0, 0);
+    }
 
     if (tok.kind == ZT_TOKEN_CONST) {
         zt_parser_advance(p);

@@ -61,6 +61,9 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_INVALID_RETURN` | `control_flow.invalid_return` | Match function return contract |
 | `ZT_DIAG_INVALID_CONDITION_TYPE` | `control_flow.invalid_condition` | Conditions must be `bool` |
 | `ZT_DIAG_INVALID_CALL` | `type.invalid_call` | Call function values with valid arity |
+| `ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH` | `callable.signature_mismatch` | Match callable parameter and return types |
+| `ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED` | `callable.extern_c_closure_unsupported` | Do not pass capturing closures through raw C function pointers |
+| `ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED` | `closure.mut_capture_unsupported` | Do not assign to captured outer variables in closures v1 |
 | `ZT_DIAG_INVALID_ARGUMENT` | `type.invalid_argument` | Check argument names/order/arity |
 | `ZT_DIAG_INVALID_OPERATOR` | `type.invalid_operator` | Use operator-compatible operands |
 | `ZT_DIAG_INVALID_MAP_KEY_TYPE` | `type.invalid_map_key` | Key must implement required traits |
