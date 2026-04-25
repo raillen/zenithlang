@@ -1,19 +1,4 @@
-import type { SceneComponent } from "./types";
-
-export type ComponentFieldKind = "asset" | "number" | "text" | "select" | "boolean";
-
-export interface ComponentFieldSchema {
-  key: string;
-  label: string;
-  kind: ComponentFieldKind;
-  options?: string[];
-}
-
-export interface ComponentSchema {
-  description: string;
-  fields: ComponentFieldSchema[];
-  module: string;
-}
+import type { BorealisEditorManifest, ComponentSchema, SceneComponent } from "./types";
 
 export const BOREALIS_COMPONENTS: Record<string, ComponentSchema> = {
   ai: {
@@ -185,14 +170,70 @@ export const BOREALIS_COMPONENTS: Record<string, ComponentSchema> = {
   },
 };
 
+let activeComponents: Record<string, ComponentSchema> = BOREALIS_COMPONENTS;
+let activeManifestSource = "fallback:frontend-catalog";
+
+export function configureBorealisCatalog(manifest?: BorealisEditorManifest): void {
+  const manifestComponents = normalizeManifestComponents(manifest?.components);
+  activeComponents =
+    Object.keys(manifestComponents).length > 0
+      ? { ...BOREALIS_COMPONENTS, ...manifestComponents }
+      : BOREALIS_COMPONENTS;
+  activeManifestSource = manifest?.source ?? "fallback:frontend-catalog";
+}
+
+export function borealisComponents(): Record<string, ComponentSchema> {
+  return activeComponents;
+}
+
+export function borealisManifestSource(): string {
+  return activeManifestSource;
+}
+
+export function createComponentFromSchema(kind: string): SceneComponent {
+  const schema = activeComponents[kind];
+  const properties: Record<string, unknown> = {};
+  const component: SceneComponent = {
+    kind,
+    properties,
+  };
+
+  for (const field of schema?.fields ?? []) {
+    if (field.default === undefined) continue;
+    properties[field.key] = field.default;
+    if (field.key === "asset") component.asset = String(field.default);
+    if (field.key === "script") component.script = String(field.default);
+    if (field.key === "profile") component.profile = String(field.default);
+  }
+
+  return component;
+}
+
 export function componentSchema(component: SceneComponent): ComponentSchema {
   return (
-    BOREALIS_COMPONENTS[component.kind] ?? {
+    activeComponents[component.kind] ?? {
       module: "borealis.engine.ecs",
       description: "Custom ECS component payload.",
       fields: [],
     }
   );
+}
+
+function normalizeManifestComponents(
+  components?: Record<string, ComponentSchema>,
+): Record<string, ComponentSchema> {
+  if (!components) return {};
+
+  const normalized: Record<string, ComponentSchema> = {};
+  for (const [kind, schema] of Object.entries(components)) {
+    if (!schema || !schema.module) continue;
+    normalized[kind] = {
+      ...schema,
+      description: schema.description ?? schema.label ?? kind,
+      fields: Array.isArray(schema.fields) ? schema.fields : [],
+    };
+  }
+  return normalized;
 }
 
 export function componentValue(component: SceneComponent, key: string): unknown {

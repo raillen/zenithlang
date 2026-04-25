@@ -1,4 +1,5 @@
 #include "compiler/driver/driver_internal.h"
+#include "compiler/driver/zpm.h"
 
 /* Process-wide compiler memory (declared extern in driver_internal.h) */
 
@@ -3001,6 +3002,10 @@ int main(int argc, char *argv[]) {
     }
 
  
+    if (strcmp(command, "pkg") == 0) {
+        return zt_handle_zpm(&ctx, argc - parse_start, argv + parse_start);
+    }
+
     if (strcmp(command, "create") == 0) {
         const char *target = NULL;
         int create_lib = 0;

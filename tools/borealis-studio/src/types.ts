@@ -6,6 +6,48 @@ export type BottomTab = "assets" | "console" | "problems";
 
 export type ProjectTemplateId = "empty3d" | "topdown2d" | "scripted3d";
 
+export type ComponentFieldKind = "asset" | "number" | "text" | "select" | "boolean" | "color";
+
+export interface ComponentFieldSchema {
+  key: string;
+  label: string;
+  kind: ComponentFieldKind;
+  options?: string[];
+  assetKind?: AssetKind | string;
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: unknown;
+}
+
+export interface ComponentSchema {
+  description: string;
+  fields: ComponentFieldSchema[];
+  module: string;
+  label?: string;
+  category?: string;
+  viewport?: string;
+}
+
+export interface SceneSettingSchema {
+  description?: string;
+  fields: ComponentFieldSchema[];
+  module: string;
+  label?: string;
+  category?: string;
+  viewport?: string;
+}
+
+export interface BorealisEditorManifest {
+  version?: number;
+  source?: string;
+  components?: Record<string, ComponentSchema>;
+  sceneSettings?: Record<string, SceneSettingSchema>;
+  assetKinds?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+  templates?: Record<string, unknown>;
+}
+
 export type PreviewStatus =
   | "idle"
   | "starting"
@@ -115,6 +157,7 @@ export interface StudioHome {
   runtimeStatus: string;
   defaultProjectPath: string;
   defaultProjectsDir: string;
+  editorManifest: BorealisEditorManifest;
   templates: ProjectTemplate[];
   docs: DocumentationLink[];
 }

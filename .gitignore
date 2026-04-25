@@ -1,23 +1,65 @@
-.gemini/
+# Local editor and agent state
 .agents/
-!.github/
-.github/*
-!.github/workflows/
-!.github/workflows/*.yml
+.gemini/
 .idea/
-node_modules/
-dist/
-bin/
-*.log
-.DS_Store
 .vscode/
+
+# Dependency folders
+node_modules/
+
+# Build outputs and compiler artifacts
+bin/
+dist/
+target/
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.pdb
+zt-linux
+*.deb
+*.rpm
+*.pkg.tar.*
+compiler/driver/zt-next-v2.exe
+
+# Python cache only. Do not ignore *.py; Python scripts are source here.
 __pycache__/
 *.pyc
 .venv/
-.rag/
 
-.ztc-tmp/
+# Local/generated work areas
+.artifacts/
+.playwright-mcp/
+.rag/
+.release-install/
+.ruff_cache/
 .selfhost-artifacts/
+.ztc-tmp/
+wiki_repo/
+zenith-website/
+reproduce/
+
+# Logs and temporary files
+*.log
+*.gcov
+.DS_Store
+build_errors.txt
+build_warnings.txt
+doc_check_output.txt
+doc_errors.txt
+lsp.log
+output.txt
+tmp_*.txt
+borealis-studio-*.png
+opencode-session-*.json
+scratch_*.py
+scratch_script.py
+std_fs_basic.emit.c
+test_optional_null.zt
+test_r2m3_simple.zt
+
+# Self-host bootstrap generated files
 .selfhost-bootstrap/*.log
 .selfhost-bootstrap/*.map
 .selfhost-bootstrap/*_strict.lua
@@ -26,45 +68,32 @@ __pycache__/
 .selfhost-bootstrap/selfhost-legacy-audit.txt
 .selfhost-bootstrap/token_progress*.log
 .selfhost-bootstrap/stage2_phase.log
-
 ztc_selfhost.lua
 src/compiler/syntax.lua.map
-# Build artifacts
-*.o
-*.exe
-*.py
-zt-linux
-*.deb
-*.rpm
-*.pkg.tar.*
-.artifacts/
-build_errors.txt
-output.txt
+
+# Generated report artifacts
 reports/perf/*.json
 reports/perf/*.md
 !reports/perf/.gitkeep
 reports/suites/
-reproduce/
 docs/reports/release/artifacts/
-tests/perf/*/build/
+
+# Generated project build folders
+examples/*/.ztc-tmp/
 examples/*/build/
-compiler/driver/zt-next-v2.exe
-std_fs_basic.emit.c
-test_optional_null.zt
-test_r2m3_simple.zt
-doc_errors.txt
+tests/behavior/*/.ztc-tmp/
+tests/behavior/*/build/
+tests/perf/*/.ztc-tmp/
+tests/perf/*/build/
+tools/.ztc-tmp/
+tools/borealis-editor/.ztc-tmp/
+tools/borealis-editor/preview/build/
+tools/borealis-studio/dist/
+tools/borealis-studio/node_modules/
+tools/borealis-studio/src-tauri/gen/
+tools/borealis-studio/src-tauri/target/
 
-# Local/generated docs artifacts
-doc_check_output.txt
-
-
-# Exclude website from language repo
-zenith-website/
-
-# Keep tracked project scripts
-!tools/triage_cycle.py
-!tools/build_lsp.py
-!tools/build_linux_packages.py
-!tools/rag/*.py
-!tests/lsp/
-!tests/lsp/*.py
+# Release/package scratch files
+*.deb
+*.rpm
+*.pkg.tar.*

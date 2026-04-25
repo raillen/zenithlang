@@ -64,17 +64,19 @@ import {
   writeScriptDocument,
 } from "./backend";
 import {
-  BOREALIS_COMPONENTS,
+  borealisComponents,
+  configureBorealisCatalog,
   componentSchema,
   componentSummary,
   componentValue,
+  createComponentFromSchema,
   setComponentValue,
-  type ComponentFieldSchema,
 } from "./borealisCatalog";
 import { createMockHome, createMockSnapshot } from "./mockData";
 import type {
   AssetKind,
   BottomTab,
+  ComponentFieldSchema,
   ConsoleLine,
   DocumentationLink,
   NewProjectRequest,
@@ -164,6 +166,7 @@ const VIEW_ORIENTATIONS: Array<{ id: ViewOrientation; label: string; shortcut: s
 export function BorealisStudioApp() {
   const [snapshot, setSnapshot] = useState<StudioSnapshot>(() => createMockSnapshot());
   const [home, setHome] = useState<StudioHome>(() => createMockHome());
+  const [, setCatalogVersion] = useState(0);
   const [homeVisible, setHomeVisible] = useState(true);
   const [homeBusy, setHomeBusy] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
@@ -193,6 +196,11 @@ export function BorealisStudioApp() {
   });
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [assetDrag, setAssetDrag] = useState<AssetDragState | null>(null);
+
+  useEffect(() => {
+    configureBorealisCatalog(home.editorManifest);
+    setCatalogVersion((version) => version + 1);
+  }, [home.editorManifest]);
 
   useEffect(() => {
     let cancelled = false;
@@ -929,6 +937,7 @@ function StartScreen({
           <span>{home.runtimeStatus}</span>
           {home.sdkRoot ? <small>SDK: {home.sdkRoot}</small> : null}
           {!home.sdkRoot && home.repoRoot ? <small>Repo: {home.repoRoot}</small> : null}
+          {home.editorManifest.source ? <small>Editor manifest: {home.editorManifest.source}</small> : null}
         </div>
       </section>
 
@@ -2441,12 +2450,12 @@ function InspectorPanel({
               onChange={(event) => {
                 if (!event.target.value) return;
                 onEntityChange({
-                  components: [...entity.components, { kind: event.target.value }],
+                  components: [...entity.components, createComponentFromSchema(event.target.value)],
                 });
               }}
             >
               <option value="">+ Add Component</option>
-              {Object.entries(BOREALIS_COMPONENTS)
+              {Object.entries(borealisComponents())
                 .filter(([kind]) => !entity.components.some((c) => c.kind === kind))
                 .map(([kind, schema]) => (
                   <option key={kind} value={kind}>
@@ -2565,9 +2574,24 @@ function ComponentFieldControl({
     return (
       <input
         className="component-input"
+        max={field.max}
+        min={field.min}
         onChange={(event) => onChange(event.target.value === "" ? undefined : Number(event.target.value))}
+        step={field.step ?? "any"}
         type="number"
         value={componentInputValue(value)}
+      />
+    );
+  }
+
+  if (field.kind === "color") {
+    const currentValue = typeof value === "string" && value.startsWith("#") ? value : "#ffffff";
+    return (
+      <input
+        className="component-input component-color-input"
+        onChange={(event) => onChange(event.target.value)}
+        type="color"
+        value={currentValue}
       />
     );
   }
@@ -2635,13 +2659,25 @@ function assetOptionsForComponentField(
   }
 
   let wantedKind: AssetKind | null = null;
-  if (component.kind === "model3d") wantedKind = "model";
+  if (isAssetKind(field.assetKind)) wantedKind = field.assetKind;
+  else if (component.kind === "model3d") wantedKind = "model";
   else if (component.kind === "sprite") wantedKind = "texture";
   else if (component.kind === "audio" || component.kind === "audio3d") wantedKind = "audio";
 
   return assets
     .filter((asset) => asset.kind !== "scene" && (!wantedKind || asset.kind === wantedKind))
     .map((asset) => asset.path);
+}
+
+function isAssetKind(value: unknown): value is AssetKind {
+  return (
+    value === "scene" ||
+    value === "script" ||
+    value === "model" ||
+    value === "texture" ||
+    value === "audio" ||
+    value === "data"
+  );
 }
 
 function BottomDock({

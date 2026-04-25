@@ -1,7 +1,0 @@
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\windows_collections-f3ef9d3229e69797.d: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
-
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\libwindows_collections-f3ef9d3229e69797.rmeta: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
-
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md:

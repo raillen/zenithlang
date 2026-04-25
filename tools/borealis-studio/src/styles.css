@@ -1726,6 +1726,10 @@ select {
   font: 10px/1.4 ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
+.component-color-input {
+  padding: 2px;
+}
+
 .component-check {
   justify-self: start;
   width: 15px;

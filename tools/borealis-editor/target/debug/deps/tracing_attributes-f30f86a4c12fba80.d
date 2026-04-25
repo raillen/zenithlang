@@ -1,7 +1,0 @@
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\tracing_attributes-f30f86a4c12fba80.d: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\attr.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\expand.rs
-
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\tracing_attributes-f30f86a4c12fba80.dll: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\attr.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\expand.rs
-
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\lib.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\attr.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tracing-attributes-0.1.31\src\expand.rs:

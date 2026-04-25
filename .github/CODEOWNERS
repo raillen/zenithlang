@@ -1,0 +1,31 @@
+﻿# Zenith ownership map (R2.M0)
+# Current model: single maintainer.
+
+# Frontend
+/compiler/frontend/** @raillen
+
+# Semantic
+/compiler/semantic/** @raillen
+
+# IR
+/compiler/hir/** @raillen
+/compiler/zir/** @raillen
+
+# Backend and runtime
+/compiler/targets/c/** @raillen
+/runtime/c/** @raillen
+
+# Stdlib and docs
+/stdlib/** @raillen
+/language/spec/** @raillen
+/docs/** @raillen
+
+# Tooling and scripts
+/compiler/tooling/** @raillen
+/compiler/driver/** @raillen
+/compiler/project/** @raillen
+/run_all_tests.py @raillen
+/tools/triage_cycle.py @raillen
+
+# CI and repo policy
+/.github/** @raillen

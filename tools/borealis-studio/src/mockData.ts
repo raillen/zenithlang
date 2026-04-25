@@ -173,6 +173,15 @@ export function createMockHome(): StudioHome {
     sdkRoot: undefined,
     runtimeMode: "missing",
     runtimeStatus: "Runtime desktop indisponivel no modo browser.",
+    editorManifest: {
+      version: 1,
+      source: "fallback:browser-mock",
+      components: {},
+      sceneSettings: {},
+      assetKinds: {},
+      actions: {},
+      templates: {},
+    },
     defaultProjectPath: "packages/borealis/zenith.ztproj",
     defaultProjectsDir: "Borealis Projects",
     templates: [

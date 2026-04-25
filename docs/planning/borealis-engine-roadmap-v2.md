@@ -39,11 +39,61 @@ O ciclo da engine precisa destes arquivos como fonte de verdade:
 | Artefato | Dono | Funcao |
 | --- | --- | --- |
 | `packages/borealis` | runtime | API publica e comportamento real |
+| `packages/borealis/borealis.editor.json` | package | contrato de editor versionado junto da API |
 | `runtime/sdk/borealis.editor.json` | SDK | componentes, campos, assets, actions e panels do editor |
 | `*.ztproj` | projeto | dependencias, cenas, scripts e build settings |
 | `scenes/*.scene.json` | projeto | entidades, componentes e configuracao da cena |
 | `assets/` | projeto | modelos, texturas, audio, shaders e dados |
 | `tools/borealis-studio` | editor | UI, arquivos locais, viewport, preview e build |
+
+## Distribuicao standalone
+
+O Borealis Studio deve ter repositorio proprio e distribuicao propria.
+
+Regra:
+
+- o repositorio `borealis-studio` contem o app, UI, Tauri, viewport, instalador e pipeline de release;
+- o repositorio da linguagem gera um SDK compilado e versionado;
+- a distribuicao final do Studio leva esse SDK dentro do app;
+- o usuario final nao precisa clonar `zenith-lang-v2`;
+- o Studio nunca deve depender do layout interno do repositorio da linguagem em release.
+
+Layout alvo da distribuicao:
+
+```text
+borealis-studio/
+  Borealis Studio.exe
+  runtime/
+    sdk/
+      bin/
+        zt.exe
+        borealis-preview.exe
+      stdlib/
+      packages/
+        borealis/
+      preview/
+        zenith.ztproj
+      templates/
+      borealis.editor.json
+```
+
+Contrato de versao:
+
+- `borealis-studio` tem versao propria;
+- `borealis-sdk` tem versao propria;
+- o Studio declara uma faixa de SDK suportada;
+- o SDK declara a versao da linguagem Zenith e do package Borealis;
+- `BOREALIS_SDK_ROOT` existe para desenvolvimento e diagnostico, nao como requisito para usuario final.
+
+Fluxo de release recomendado:
+
+1. `zenith-lang-v2` compila `zt.exe`.
+2. `zenith-lang-v2` compila ou empacota `borealis-preview.exe`.
+3. `zenith-lang-v2` monta `borealis-sdk-windows-x64.zip`.
+4. o repo `borealis-studio` baixa ou recebe esse SDK no CI.
+5. o build Tauri copia o SDK para `runtime/sdk`.
+6. o instalador entrega Studio + SDK como uma unidade.
+7. o smoke de release cria projeto, abre cena, roda Play e valida que nenhum caminho aponta para `zenith-lang-v2`.
 
 ## Modelo de cena necessario
 
@@ -310,6 +360,7 @@ Aceite:
 Objetivo:
 
 - projeto Borealis vira uma unidade real como em Unity/Godot.
+- Studio standalone funciona sem o repositorio da linguagem.
 
 Entregas:
 
@@ -321,10 +372,37 @@ Entregas:
 - dependency lock;
 - SDK local resolvido por versao;
 - templates vindos do SDK.
+- resolver SDK por `runtime/sdk` no app empacotado;
+- usar `BOREALIS_SDK_ROOT` apenas como override de desenvolvimento;
+- mostrar status de SDK e versao na tela inicial;
+- validar que caminhos de projeto, preview e templates nao dependem de `zenith-lang-v2`.
 
 Aceite:
 
 - Studio empacotado cria, abre, roda e salva projeto fora de `zenith-lang-v2`.
+- build de release falha se `zt.exe`, `borealis-preview.exe`, `borealis.editor.json`, templates ou `packages/borealis` estiverem ausentes no SDK.
+
+## E6.5 - Repositorio e release standalone
+
+Objetivo:
+
+- separar produto Studio do repositorio da linguagem sem quebrar o fluxo de desenvolvimento.
+
+Entregas:
+
+- definir layout do futuro repo `borealis-studio`;
+- criar script de montagem de SDK no repo da linguagem;
+- criar script de consumo de SDK no repo do Studio;
+- documentar variaveis: `BOREALIS_SDK_ROOT`, `BOREALIS_STUDIO_DEV_REPO_ROOT`;
+- remover dependencias de release em `packages/borealis/*` por caminho relativo;
+- manter fallback de desenvolvimento para este monorepo enquanto a separacao nao acontecer;
+- smoke standalone em pasta temporaria sem `zenith-lang-v2` no caminho.
+
+Aceite:
+
+- copiar somente o app empacotado para outra pasta ainda permite criar projeto e dar Play;
+- nenhum erro referencia `tools/borealis-editor`, `packages/borealis` ou `zt.exe` do repo raiz quando o SDK empacotado existe;
+- o repo do Studio consegue atualizar SDK trocando um zip/artefato versionado.
 
 ## E7 - Debug e diagnostics
 
@@ -413,12 +491,15 @@ Implementar nesta ordem:
 5. Criar Scene Settings.
 6. Criar Add Component por manifesto.
 7. Criar pipeline de SDK/release.
+8. Preparar separacao em repo standalone do `borealis-studio`.
+9. Criar smoke standalone sem dependencia de `zenith-lang-v2`.
 
 ## Nao negociar
 
 - O editor deve editar o mesmo contrato que o runtime usa.
 - O Play deve usar runtime real.
 - O SDK deve ser distribuivel sem o repo da linguagem.
+- O Studio standalone deve levar SDK compilado, nao uma copia solta do repositorio da linguagem.
 - O editor deve preservar campos desconhecidos.
 - Funcao nova do Borealis precisa ter caminho claro para editor, preview e build.
 
@@ -440,4 +521,3 @@ Antes de marcar uma fase como pronta:
    - Stop;
    - salvar;
    - reabrir.
-

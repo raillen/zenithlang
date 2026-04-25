@@ -44,6 +44,7 @@ struct StudioHome {
     runtime_status: String,
     default_project_path: String,
     default_projects_dir: String,
+    editor_manifest: Value,
     templates: Vec<ProjectTemplate>,
     docs: Vec<DocumentationLink>,
 }
@@ -219,6 +220,7 @@ fn load_studio_home() -> StudioHome {
         runtime_status,
         default_project_path: normalize_path(&default_project_path(&layout)),
         default_projects_dir: normalize_path(&default_projects_dir(&layout.base_root)),
+        editor_manifest: load_editor_manifest(&layout),
         templates: project_templates(),
         docs: documentation_links(&layout),
     }
@@ -568,6 +570,18 @@ fn preview_command(layout: &StudioLayout) -> Result<(Command, String, PathBuf), 
 
         let zt = repo_root.join(if cfg!(windows) { "zt.exe" } else { "zt-linux" });
         let preview_project = repo_root.join("tools/borealis-editor/preview/zenith.ztproj");
+        if !zt.exists() {
+            return Err(format!(
+                "preview runtime unavailable: missing {}. Configure BOREALIS_SDK_ROOT or bundle runtime/sdk.",
+                normalize_path(&zt)
+            ));
+        }
+        if !preview_project.exists() {
+            return Err(format!(
+                "preview project not found: {}",
+                normalize_path(&preview_project)
+            ));
+        }
         let mut command = Command::new(&zt);
         command.arg("run").arg(&preview_project);
         return Ok((
@@ -918,6 +932,57 @@ fn documentation_links(layout: &StudioLayout) -> Vec<DocumentationLink> {
     ]
 }
 
+fn load_editor_manifest(layout: &StudioLayout) -> Value {
+    for candidate in editor_manifest_candidates(layout) {
+        if !candidate.exists() {
+            continue;
+        }
+
+        match fs::read_to_string(&candidate)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        {
+            Some(Value::Object(manifest)) => {
+                let mut manifest = manifest;
+                manifest.insert(
+                    "source".to_string(),
+                    Value::String(normalize_path(&candidate)),
+                );
+                return Value::Object(manifest);
+            }
+            _ => continue,
+        }
+    }
+
+    json!({
+        "version": 1,
+        "source": "fallback:frontend-catalog",
+        "components": {},
+        "sceneSettings": {},
+        "assetKinds": {},
+        "actions": {},
+        "templates": {}
+    })
+}
+
+fn editor_manifest_candidates(layout: &StudioLayout) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Some(sdk_root) = &layout.sdk_root {
+        candidates.push(sdk_root.join("borealis.editor.json"));
+        candidates.push(sdk_root.join("editor/borealis.editor.json"));
+    }
+
+    if let Some(repo_root) = &layout.repo_root {
+        candidates.push(repo_root.join("packages/borealis/borealis.editor.json"));
+    }
+
+    candidates.push(layout.app_root.join("runtime/sdk/borealis.editor.json"));
+    candidates.push(layout.app_root.join("sdk/borealis.editor.json"));
+
+    candidates
+}
+
 fn default_projects_dir(workspace: &Path) -> PathBuf {
     if let Ok(user_profile) = std::env::var("USERPROFILE") {
         return Path::new(&user_profile)
@@ -1193,9 +1258,7 @@ fn studio_app_root() -> PathBuf {
 
 fn find_repo_root(start: &Path) -> Option<PathBuf> {
     for candidate in start.ancestors() {
-        if candidate.join("zt.exe").exists()
-            && candidate.join("packages/borealis/zenith.ztproj").exists()
-        {
+        if candidate.join("packages/borealis/zenith.ztproj").exists() {
             return Some(
                 candidate
                     .canonicalize()
@@ -1298,7 +1361,6 @@ mod tests {
     #[test]
     fn workspace_root_finds_repo_root() {
         let root = workspace_root();
-        assert!(root.join("zt.exe").exists());
         assert!(root.join("packages/borealis/zenith.ztproj").exists());
     }
 

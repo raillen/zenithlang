@@ -1,8 +1,0 @@
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\icu_normalizer-598463e905cd0e41.d: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\properties.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\provider.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\uts46.rs
-
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\tools\borealis-editor\target\debug\deps\libicu_normalizer-598463e905cd0e41.rmeta: C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\lib.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\properties.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\provider.rs C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\uts46.rs
-
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\lib.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\properties.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\provider.rs:
-C:\Users\raillen.DESKTOP-99RJ5M6\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\icu_normalizer-2.2.0\src\uts46.rs:

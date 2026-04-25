@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "components": {
+    "camera2d": {
+      "module": "borealis.game.camera",
+      "label": "Camera 2D",
+      "category": "View",
+      "viewport": "camera",
+      "description": "Camera plana para jogos 2D.",
+      "fields": [
+        { "key": "zoom", "label": "Zoom", "kind": "number", "min": 0.1, "max": 8, "step": 0.1, "default": 1 }
+      ]
+    },
+    "camera3d": {
+      "module": "borealis.game.camera3d",
+      "label": "Camera 3D",
+      "category": "View",
+      "viewport": "camera",
+      "description": "Camera 3D usada pela viewport e pelo Play mode.",
+      "fields": [
+        { "key": "projection", "label": "Projection", "kind": "select", "options": ["perspective", "orthographic"], "default": "perspective" },
+        { "key": "fov", "label": "FOV", "kind": "number", "min": 1, "max": 179, "step": 1, "default": 60 },
+        { "key": "near", "label": "Near", "kind": "number", "min": 0.01, "max": 100, "step": 0.01, "default": 0.1 },
+        { "key": "far", "label": "Far", "kind": "number", "min": 1, "max": 10000, "step": 1, "default": 1000 }
+      ]
+    },
+    "directional_light": {
+      "module": "borealis.game.render3d",
+      "label": "Directional Light",
+      "category": "Lighting",
+      "viewport": "light",
+      "description": "Luz global direcional, util para sol e iluminacao principal.",
+      "fields": [
+        { "key": "color", "label": "Color", "kind": "color", "default": "#ffffff" },
+        { "key": "intensity", "label": "Intensity", "kind": "number", "min": 0, "max": 20, "step": 0.1, "default": 1 },
+        { "key": "shadow", "label": "Shadow", "kind": "boolean", "default": false }
+      ]
+    },
+    "point_light": {
+      "module": "borealis.game.render3d",
+      "label": "Point Light",
+      "category": "Lighting",
+      "viewport": "light",
+      "description": "Luz local com alcance e intensidade.",
+      "fields": [
+        { "key": "color", "label": "Color", "kind": "color", "default": "#ffffff" },
+        { "key": "intensity", "label": "Intensity", "kind": "number", "min": 0, "max": 20, "step": 0.1, "default": 2 },
+        { "key": "range", "label": "Range", "kind": "number", "min": 0, "max": 1000, "step": 1, "default": 120 }
+      ]
+    },
+    "spot_light": {
+      "module": "borealis.game.render3d",
+      "label": "Spot Light",
+      "category": "Lighting",
+      "viewport": "light",
+      "description": "Luz em cone para lanternas, focos e efeitos dirigidos.",
+      "fields": [
+        { "key": "color", "label": "Color", "kind": "color", "default": "#ffffff" },
+        { "key": "intensity", "label": "Intensity", "kind": "number", "min": 0, "max": 20, "step": 0.1, "default": 3 },
+        { "key": "range", "label": "Range", "kind": "number", "min": 0, "max": 1000, "step": 1, "default": 160 },
+        { "key": "angle", "label": "Angle", "kind": "number", "min": 1, "max": 179, "step": 1, "default": 45 }
+      ]
+    },
+    "model3d": {
+      "module": "borealis.game.assets3d",
+      "label": "Model 3D",
+      "category": "Render",
+      "viewport": "mesh",
+      "description": "Modelo 3D carregado de asset.",
+      "fields": [
+        { "key": "asset", "label": "Asset", "kind": "asset", "assetKind": "model" }
+      ]
+    },
+    "cube3d": {
+      "module": "borealis.game.render3d",
+      "label": "Cube 3D",
+      "category": "Render",
+      "viewport": "mesh",
+      "description": "Primitiva de cubo para prototipagem rapida.",
+      "fields": [
+        { "key": "size", "label": "Size", "kind": "number", "min": 0.01, "max": 1000, "step": 1, "default": 48 }
+      ]
+    },
+    "sprite": {
+      "module": "borealis.game.assets",
+      "label": "Sprite",
+      "category": "Render",
+      "viewport": "sprite",
+      "description": "Sprite 2D baseado em textura.",
+      "fields": [
+        { "key": "asset", "label": "Texture", "kind": "asset", "assetKind": "texture" }
+      ]
+    },
+    "audio": {
+      "module": "borealis.game.audio",
+      "label": "Audio Source",
+      "category": "Audio",
+      "viewport": "audio",
+      "description": "Som ou musica sem espacializacao.",
+      "fields": [
+        { "key": "asset", "label": "Audio Asset", "kind": "asset", "assetKind": "audio" },
+        { "key": "volume", "label": "Volume", "kind": "number", "min": 0, "max": 1, "step": 0.01, "default": 1 },
+        { "key": "loop", "label": "Loop", "kind": "boolean", "default": false },
+        { "key": "playOnStart", "label": "Play On Start", "kind": "boolean", "default": true }
+      ]
+    },
+    "audio3d": {
+      "module": "borealis.game.audio3d",
+      "label": "Spatial Audio",
+      "category": "Audio",
+      "viewport": "audio",
+      "description": "Emissor de som espacial ligado a posicao da entidade.",
+      "fields": [
+        { "key": "asset", "label": "Audio Asset", "kind": "asset", "assetKind": "audio" },
+        { "key": "volume", "label": "Volume", "kind": "number", "min": 0, "max": 1, "step": 0.01, "default": 1 },
+        { "key": "range", "label": "Range", "kind": "number", "min": 0, "max": 1000, "step": 1, "default": 80 },
+        { "key": "loop", "label": "Loop", "kind": "boolean", "default": false },
+        { "key": "playOnStart", "label": "Play On Start", "kind": "boolean", "default": true }
+      ]
+    },
+    "script": {
+      "module": "borealis.game.entities",
+      "label": "Script",
+      "category": "Gameplay",
+      "viewport": "script",
+      "description": "Script Zenith anexado a entidade.",
+      "fields": [
+        { "key": "script", "label": "Script", "kind": "asset", "assetKind": "script" }
+      ]
+    }
+  },
+  "sceneSettings": {
+    "skybox": {
+      "module": "borealis.game.world3d",
+      "label": "Skybox",
+      "category": "Environment",
+      "viewport": "skybox",
+      "description": "Ceu e fundo da cena 3D.",
+      "fields": [
+        { "key": "mode", "label": "Mode", "kind": "select", "options": ["solid", "gradient", "cubemap"], "default": "solid" },
+        { "key": "color", "label": "Color", "kind": "color", "default": "#111827" },
+        { "key": "asset", "label": "Cubemap", "kind": "asset", "assetKind": "cubemap" }
+      ]
+    },
+    "ambient": {
+      "module": "borealis.game.render3d",
+      "label": "Ambient Light",
+      "category": "Environment",
+      "viewport": "light",
+      "description": "Luz ambiente global da cena.",
+      "fields": [
+        { "key": "color", "label": "Color", "kind": "color", "default": "#ffffff" },
+        { "key": "intensity", "label": "Intensity", "kind": "number", "min": 0, "max": 10, "step": 0.1, "default": 0.35 }
+      ]
+    },
+    "fog": {
+      "module": "borealis.game.world3d.atmosphere",
+      "label": "Fog",
+      "category": "Environment",
+      "viewport": "fog",
+      "description": "Neblina simples da cena.",
+      "fields": [
+        { "key": "enabled", "label": "Enabled", "kind": "boolean", "default": false },
+        { "key": "color", "label": "Color", "kind": "color", "default": "#9ca3af" },
+        { "key": "density", "label": "Density", "kind": "number", "min": 0, "max": 1, "step": 0.01, "default": 0.05 }
+      ]
+    },
+    "weather": {
+      "module": "borealis.game.world3d.weather",
+      "label": "Weather",
+      "category": "Environment",
+      "viewport": "weather",
+      "description": "Preset de clima para gameplay e atmosfera.",
+      "fields": [
+        { "key": "preset", "label": "Preset", "kind": "select", "options": ["clear", "rain_light", "rain_heavy", "storm", "snow"], "default": "clear" }
+      ]
+    },
+    "postfx": {
+      "module": "borealis.game.postfx",
+      "label": "Post FX",
+      "category": "Render",
+      "viewport": "postfx",
+      "description": "Efeitos de tela aplicados no final do render.",
+      "fields": [
+        { "key": "fxaa", "label": "FXAA", "kind": "boolean", "default": false },
+        { "key": "bloom", "label": "Bloom", "kind": "number", "min": 0, "max": 5, "step": 0.1, "default": 0 },
+        { "key": "vignette", "label": "Vignette", "kind": "number", "min": 0, "max": 1, "step": 0.01, "default": 0 }
+      ]
+    }
+  },
+  "assetKinds": {
+    "model": { "extensions": ["obj", "glb", "gltf", "fbx", "iqm", "m3d"] },
+    "texture": { "extensions": ["png", "jpg", "jpeg", "webp"] },
+    "audio": { "extensions": ["wav", "ogg", "mp3"] },
+    "shader": { "extensions": ["glsl", "vs", "fs"] },
+    "cubemap": { "extensions": ["hdr", "png", "jpg", "jpeg"] },
+    "script": { "extensions": ["zt"] }
+  },
+  "actions": {
+    "add_camera3d": { "label": "Add Camera 3D", "creates": "camera3d" },
+    "add_point_light": { "label": "Add Point Light", "creates": "point_light" },
+    "add_audio3d": { "label": "Add Spatial Audio", "creates": "audio3d" }
+  },
+  "templates": {}
+}

@@ -1,5 +1,0 @@
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\semantic\types\checker.c:806:12: warning: 'zt_checker_validate_dyn_trait' defined but not used [-Wunused-function]
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\targets\c\emitter.c:10022:109: warning: unused parameter 'result' [-Wunused-parameter]
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\targets\c\emitter.c:10022:54: warning: unused parameter 'emitter' [-Wunused-parameter]
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\targets\c\emitter.c:1018:94: warning: '%s' directive output may be truncated writing up to 127 bytes into a region of size 119 [-Wformat-truncation=]
-C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\targets\c\emitter.c:1049:89: warning: '%s' directive output may be truncated writing up to 127 bytes into a region of size 124 [-Wformat-truncation=]

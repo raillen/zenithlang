@@ -89,6 +89,20 @@ O backend agora resolve tres bases:
 
 Em release, o Studio deve depender do SDK empacotado, nao do repositorio da linguagem.
 
+## Manifesto de editor
+
+O Studio carrega `borealis.editor.json` para descobrir componentes, campos, tipos de asset e acoes do editor.
+
+Ordem de busca:
+
+1. `BOREALIS_SDK_ROOT/borealis.editor.json`;
+2. `BOREALIS_SDK_ROOT/editor/borealis.editor.json`;
+3. `packages/borealis/borealis.editor.json`, quando estiver rodando dentro do repositorio;
+4. `runtime/sdk/borealis.editor.json`, quando estiver empacotado.
+
+Se nenhum manifesto existir, o frontend usa o catalogo interno como fallback.
+Esse fallback e temporario: recursos novos de engine devem entrar primeiro no manifesto do package/SDK.
+
 ## Como rodar
 
 ```powershell
