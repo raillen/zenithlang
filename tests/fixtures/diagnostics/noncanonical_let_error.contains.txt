@@ -1,0 +1,1 @@
+use 'const name: Type = value' or 'var name: Type = value'

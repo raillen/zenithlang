@@ -69,6 +69,14 @@ public func not_empty(value: text) -> bool
 `true` when text length is `> 0`.
 ---
 
+--- @target: not_empty_text
+```zt
+public func not_empty_text(value: text) -> bool
+```
+
+Clear alias for `not_empty` when the value is text.
+---
+
 --- @target: min_length
 ```zt
 public func min_length(value: text, min: int) -> bool
@@ -77,12 +85,28 @@ public func min_length(value: text, min: int) -> bool
 `true` when `len(value) >= min`.
 ---
 
+--- @target: min_len
+```zt
+public func min_len(value: text, min: int) -> bool
+```
+
+Short alias for `min_length`.
+---
+
 --- @target: max_length
 ```zt
 public func max_length(value: text, max: int) -> bool
 ```
 
 `true` when `len(value) <= max`.
+---
+
+--- @target: max_len
+```zt
+public func max_len(value: text, max: int) -> bool
+```
+
+Short alias for `max_length`.
 ---
 
 --- @target: length_between

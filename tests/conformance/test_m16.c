@@ -307,6 +307,7 @@ int main(void) {
         { "tests/behavior/text_utf8_index_slice", "tests\\behavior\\text_utf8_index_slice\\build\\text-utf8-index-slice.exe", "text_utf8_index_slice", 21 },
         { "tests/behavior/std_text_basic", "tests\\behavior\\std_text_basic\\build\\std_text_basic.exe", "std_text_basic", 0 },
         { "tests/behavior/std_concurrent_boundary_copy_basic", "tests\\behavior\\std_concurrent_boundary_copy_basic\\build\\std_concurrent_boundary_copy_basic.exe", "std_concurrent_boundary_copy_basic", 0 },
+        { "tests/behavior/to_text_builtin_basic", "tests\\behavior\\to_text_builtin_basic\\build\\to-text-builtin-basic.exe", "to_text_builtin_basic", 0 },
         { "tests/behavior/map_len_basic", "tests\\behavior\\map_len_basic\\build\\map-len-basic.exe", "map_len_basic", 2 },
         { "tests/behavior/result_question_basic", "tests\\behavior\\result_question_basic\\build\\result-question-basic.exe", "result_question_basic", 0 },
         { "tests/behavior/bytes_hex_literal", "tests\\behavior\\bytes_hex_literal\\build\\bytes-hex-literal.exe", "bytes_hex_literal", 9 },

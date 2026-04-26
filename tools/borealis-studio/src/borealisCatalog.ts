@@ -1,4 +1,4 @@
-import type { BorealisEditorManifest, ComponentSchema, SceneComponent } from "./types";
+import type { BorealisEditorManifest, ComponentSchema, SceneComponent, SceneSettingSchema } from "./types";
 
 export const BOREALIS_COMPONENTS: Record<string, ComponentSchema> = {
   ai: {
@@ -171,14 +171,17 @@ export const BOREALIS_COMPONENTS: Record<string, ComponentSchema> = {
 };
 
 let activeComponents: Record<string, ComponentSchema> = BOREALIS_COMPONENTS;
+let activeSceneSettings: Record<string, SceneSettingSchema> = {};
 let activeManifestSource = "fallback:frontend-catalog";
 
 export function configureBorealisCatalog(manifest?: BorealisEditorManifest): void {
   const manifestComponents = normalizeManifestComponents(manifest?.components);
+  const manifestSceneSettings = normalizeManifestSceneSettings(manifest?.sceneSettings);
   activeComponents =
     Object.keys(manifestComponents).length > 0
       ? { ...BOREALIS_COMPONENTS, ...manifestComponents }
       : BOREALIS_COMPONENTS;
+  activeSceneSettings = manifestSceneSettings;
   activeManifestSource = manifest?.source ?? "fallback:frontend-catalog";
 }
 
@@ -188,6 +191,10 @@ export function borealisComponents(): Record<string, ComponentSchema> {
 
 export function borealisManifestSource(): string {
   return activeManifestSource;
+}
+
+export function borealisSceneSettings(): Record<string, SceneSettingSchema> {
+  return activeSceneSettings;
 }
 
 export function createComponentFromSchema(kind: string): SceneComponent {
@@ -230,6 +237,22 @@ function normalizeManifestComponents(
     normalized[kind] = {
       ...schema,
       description: schema.description ?? schema.label ?? kind,
+      fields: Array.isArray(schema.fields) ? schema.fields : [],
+    };
+  }
+  return normalized;
+}
+
+function normalizeManifestSceneSettings(
+  settings?: Record<string, SceneSettingSchema>,
+): Record<string, SceneSettingSchema> {
+  if (!settings) return {};
+
+  const normalized: Record<string, SceneSettingSchema> = {};
+  for (const [key, schema] of Object.entries(settings)) {
+    if (!schema || !schema.module) continue;
+    normalized[key] = {
+      ...schema,
       fields: Array.isArray(schema.fields) ? schema.fields : [],
     };
   }

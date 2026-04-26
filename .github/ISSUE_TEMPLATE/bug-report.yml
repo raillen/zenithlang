@@ -35,7 +35,7 @@ body:
         - runtime c
         - stdlib
         - tooling/formatter/driver
-        - docs/spec
+        - language/spec or docs/reference
     validations:
       required: true
 

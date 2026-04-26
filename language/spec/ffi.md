@@ -182,8 +182,8 @@ Deferred (FFI 1.x follow-ups):
 - `language/decisions/011-extern-c-and-extern-host.md` (canonical syntax decision)
 - `language/spec/runtime-model.md` (ARC + boundary policy)
 - `language/spec/concurrency.md` (transferable shapes, R3.P1.A integration)
-- `docs/reports/release/R3.M3-ffi-1.0-report.md` (milestone report)
-- `docs/reports/R3-risk-matrix.md` (`R3-RISK-020`, `R3-RISK-021`, `R3-RISK-022`)
+- `docs/internal/reports/release/R3.M3-ffi-1.0-report.md` (milestone report)
+- `docs/internal/reports/R3-risk-matrix.md` (`R3-RISK-020`, `R3-RISK-021`, `R3-RISK-022`)
 
 ## Residual Risk
 

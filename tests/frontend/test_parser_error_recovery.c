@@ -27,6 +27,39 @@ static int tests_passed = 0;
     else { fprintf(stderr, "FAIL: %s: expected non-NULL\n", msg); } \
 } while(0)
 
+static void assert_parse_diag_contains(const char *src, const char *needle, const char *msg) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_parser_result r;
+    int found = 0;
+    size_t i;
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    for (i = 0; i < r.diagnostics.count; i += 1) {
+        if (strstr(r.diagnostics.items[i].message, needle) != NULL) {
+            found = 1;
+            break;
+        }
+    }
+
+    tests_run += 1;
+    if (found) {
+        tests_passed += 1;
+    } else {
+        fprintf(stderr, "FAIL: %s: expected diagnostic containing \"%s\"\n", msg, needle);
+        fprintf(stderr, "  diagnostics=%zu\n", r.diagnostics.count);
+        for (i = 0; i < r.diagnostics.count; i += 1) {
+            fprintf(stderr, "  diag: %s\n", r.diagnostics.items[i].message);
+        }
+    }
+
+    zt_parser_result_dispose(&r);
+    zt_arena_dispose(&test_arena);
+}
+
 /* Test 1: Missing function name */
 static void test_error_missing_func_name(void) {    zt_arena test_arena;
     zt_string_pool test_pool;
@@ -648,6 +681,63 @@ static void test_fmt_interpolation_supported(void) {    zt_arena test_arena;
     zt_arena_dispose(&test_arena);
 }
 
+static void test_error_noncanonical_syntax_suggestions(void) {
+    assert_parse_diag_contains(
+        "namespace app\nfunc main(name: string)\nend",
+        "use 'text'",
+        "noncanonical string suggests text");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main()\n    let name: text = \"Ada\"\nend",
+        "use 'const name: Type = value' or 'var name: Type = value'",
+        "noncanonical let suggests const or var");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main() -> int\n    const ok: bool = true\n    if ok && true\n        return 1\n    end\n    return 0\nend",
+        "use 'and'",
+        "noncanonical && suggests and");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main() -> int\n    const ok: bool = true\n    if ok || false\n        return 1\n    end\n    return 0\nend",
+        "use 'or'",
+        "noncanonical || suggests or");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main() -> int\n    const ok: bool = true\n    if !ok\n        return 1\n    end\n    return 0\nend",
+        "use 'not value'",
+        "noncanonical ! suggests not");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main()\n    const maybe_name: optional<text> = null\nend",
+        "use optional<T> and none",
+        "noncanonical null suggests optional none");
+
+    assert_parse_diag_contains(
+        "namespace app\nfunc main()\n    throw error(\"bad\")\nend",
+        "use result<T,E>, error(...), or panic(...)",
+        "noncanonical throw suggests result or panic");
+
+    assert_parse_diag_contains(
+        "namespace app\nabstract class Scoreable\nend",
+        "use trait",
+        "noncanonical abstract suggests trait");
+
+    assert_parse_diag_contains(
+        "namespace app\nvirtual func area() -> int\n    return 0\nend",
+        "use dyn<Trait>",
+        "noncanonical virtual suggests dyn");
+
+    assert_parse_diag_contains(
+        "namespace app\nunion Shape\nend",
+        "use enum with payload",
+        "noncanonical union suggests enum");
+
+    assert_parse_diag_contains(
+        "namespace app\npartial struct Player\nend",
+        "use apply and namespace/file organization",
+        "noncanonical partial suggests apply");
+}
+
 int main(void) {
     printf("Running parser error recovery tests...\n\n");
 
@@ -697,6 +787,7 @@ int main(void) {
     test_error_recovery_deep_nesting();
     test_error_recovery_empty_block();
     test_fmt_interpolation_supported();
+    test_error_noncanonical_syntax_suggestions();
 
     printf("\nError recovery tests: %d/%d passed\n", tests_passed, tests_run);
     return (tests_passed == tests_run) ? 0 : 1;

@@ -99,9 +99,9 @@ end
 
 Rules:
 
-- ordinary no-return functions omit the return clause
-- `-> void` is not canonical in user-authored source
-- the compiler should diagnose explicit `-> void` and suggest removing it
+- ordinary no-return functions may omit the return clause
+- explicit `-> void` is accepted for API clarity and public signatures
+- omitting the return clause and writing `-> void` both mean no useful return value
 - `return` is explicit when returning a value
 - function parameters use `name: Type`
 - local variable and parameter types are explicit in the MVP
@@ -230,7 +230,7 @@ Rules:
 - plain `uint` is not in the MVP
 - width-specific numeric types are opt-in
 - `bytes` is a fundamental binary type in the surface language
-- `void` is restricted to no-value type positions such as `result<void, E>`
+- `void` is restricted to no-value type positions such as function returns and `result<void, E>`
 - `void` is not valid for locals, fields, parameters, lists, maps or optionals
 - `lazy<T>` is explicit delayed evaluation; R3.M8 executes only `lazy<int>` through `std.lazy`
 - `grid` is not a core MVP type
@@ -239,11 +239,12 @@ Rules:
 
 Numeric conversions are explicit.
 
-Canonical conversion functions:
+Canonical numeric conversion calls use the target numeric type as the callee:
 
 ```zt
-const count: int = to_int(value)
-const ratio: float = to_float(value)
+const count: int = int(value)
+const precise: int64 = int64(value)
+const ratio: float = float(value)
 const label: text = to_text(value)
 ```
 
@@ -252,6 +253,8 @@ Rules:
 - no implicit conversion between numeric types
 - contextual literal fitting is allowed
 - mixed numeric operations require explicit conversion
+- use `int(value)`, `float(value)`, `int64(value)`, etc.; `to_int` and `to_float` are not the current surface syntax
+- `to_text(value)` remains the explicit text conversion for `TextRepresentable<T>` values
 - integer overflow is checked by default
 - division by zero is a runtime numeric error
 - float to int conversion truncates toward zero unless a future explicit rounding API is used
@@ -388,6 +391,13 @@ Rules:
 - `case value name` binds an optional present value
 - `?` is reserved for propagation/early return in functions that return `optional<...>` or `result<...>`
 - `?` is not safe navigation
+- `optional<T>.is_some()` returns `bool`
+- `optional<T>.is_none()` returns `bool`
+- `optional<T>.or(default_value)` returns `T`
+- `result<T,E>.is_success()` returns `bool`
+- `result<T,E>.is_error()` returns `bool`
+- `optional<T>.or_error(message)` is specified as the explicit conversion from absence to `result<T,text>`; it is not part of the first compiler slice
+- `result<T,E>.or_panic(message)` is specified as explicit unwrap-or-panic; it is not part of the first compiler slice
 - panic is not caught by result/optional flow
 
 ## Expressions And Operators
@@ -646,6 +656,25 @@ Recoverable errors use `result<T, E>`.
 
 Future `attempt/rescue/finally` may make result/optional flow more readable, but it does not catch panic.
 
+`todo(message: text)` marks a known incomplete path.
+
+If executed, it fails with `runtime.todo`.
+
+`unreachable(message: text)` marks a path that should be impossible.
+
+If executed, it fails with `runtime.unreachable`.
+
+`check(condition: bool)` validates an internal condition.
+
+`check(condition: bool, message: text)` does the same and uses the message when the condition is false.
+
+Rules:
+
+- `panic`, `todo` and `unreachable` require one `text` message
+- `check` requires a `bool` condition
+- the second `check` argument is optional and must be `text`
+- none of these replace `result<T,E>` for recoverable failures
+
 ## Attributes
 
 Attributes use `attr`.
@@ -680,6 +709,7 @@ Rules:
 - tests take no parameters
 - tests return no value
 - `check(...)` is the canonical assertion helper
+- `check(condition, message)` is preferred when the failure needs domain context
 - ordinary build does not run tests
 - `zt test` discovers and runs tests
 

@@ -93,6 +93,8 @@ static void sb_indent(sb_t *sb) {
 
 static void format_node(sb_t *sb, const zt_ast_node *node);
 
+#define ZT_FORMATTER_TARGET_WIDTH 100u
+
 static void format_comments(sb_t *sb, const zt_ast_node *node) {
     if (!node || node->comment_count == 0) return;
     for (size_t i = 0; i < node->comment_count; i++) {
@@ -130,6 +132,202 @@ static void format_node_list_comma(sb_t *sb, zt_ast_node_list list) {
     }
 }
 
+static void format_node_list_separator(sb_t *sb, zt_ast_node_list list, const char *separator) {
+    for (size_t i = 0; i < list.count; i++) {
+        format_node(sb, list.items[i]);
+        if (i < list.count - 1) sb_append(sb, separator);
+    }
+}
+
+static void format_node_list_and(sb_t *sb, zt_ast_node_list list) {
+    format_node_list_separator(sb, list, " and ");
+}
+
+static char *format_node_to_owned_text(const zt_ast_node *node) {
+    sb_t tmp;
+    sb_init(&tmp);
+    format_node(&tmp, node);
+    return tmp.data;
+}
+
+static size_t formatted_node_length(const zt_ast_node *node) {
+    char *text = format_node_to_owned_text(node);
+    size_t length = text != NULL ? strlen(text) : 0;
+    free(text);
+    return length;
+}
+
+static size_t formatted_node_list_length(zt_ast_node_list list, const char *separator) {
+    size_t length = 0;
+    size_t separator_length = separator != NULL ? strlen(separator) : 0;
+    for (size_t i = 0; i < list.count; i++) {
+        length += formatted_node_length(list.items[i]);
+        if (i < list.count - 1) length += separator_length;
+    }
+    return length;
+}
+
+static size_t formatted_type_params_length(zt_ast_node_list list) {
+    if (list.count == 0) return 0;
+    return 2 + formatted_node_list_length(list, ", ");
+}
+
+static size_t formatted_func_decl_signature_length(const zt_ast_node *node) {
+    size_t length;
+    if (node == NULL || node->kind != ZT_AST_FUNC_DECL) return 0;
+
+    length = node->as.func_decl.is_public ? strlen("public ") : 0;
+    length += strlen("func ");
+    if (node->as.func_decl.is_mutating) length += strlen("mut ");
+    length += node->as.func_decl.name != NULL ? strlen(node->as.func_decl.name) : 0;
+    length += formatted_type_params_length(node->as.func_decl.type_params);
+    length += 2 + formatted_node_list_length(node->as.func_decl.params, ", ");
+    if (node->as.func_decl.return_type != NULL) {
+        length += strlen(" -> ");
+        length += formatted_node_length(node->as.func_decl.return_type);
+    }
+    if (node->as.func_decl.constraints.count > 0) {
+        length += strlen(" where ");
+        length += formatted_node_list_length(node->as.func_decl.constraints, " and ");
+    }
+    return length;
+}
+
+static size_t formatted_trait_method_signature_length(const zt_ast_node *node) {
+    size_t length;
+    if (node == NULL || node->kind != ZT_AST_TRAIT_METHOD) return 0;
+
+    length = strlen("func ");
+    if (node->as.trait_method.is_mutating) length += strlen("mut ");
+    length += node->as.trait_method.name != NULL ? strlen(node->as.trait_method.name) : 0;
+    length += 2 + formatted_node_list_length(node->as.trait_method.params, ", ");
+    if (node->as.trait_method.return_type != NULL) {
+        length += strlen(" -> ");
+        length += formatted_node_length(node->as.trait_method.return_type);
+    }
+    return length;
+}
+
+static size_t param_where_count(zt_ast_node_list params) {
+    size_t count = 0;
+    for (size_t i = 0; i < params.count; i++) {
+        const zt_ast_node *param = params.items[i];
+        if (param != NULL &&
+                param->kind == ZT_AST_PARAM &&
+                param->as.param.where_clause != NULL) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static size_t param_default_count(zt_ast_node_list params) {
+    size_t count = 0;
+    for (size_t i = 0; i < params.count; i++) {
+        const zt_ast_node *param = params.items[i];
+        if (param != NULL &&
+                param->kind == ZT_AST_PARAM &&
+                param->as.param.default_value != NULL) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static int should_format_param_list_multiline(zt_ast_node_list params, size_t inline_length) {
+    size_t where_count;
+    size_t default_count;
+
+    if (params.count == 0) return 0;
+    if (inline_length > ZT_FORMATTER_TARGET_WIDTH) return 1;
+
+    where_count = param_where_count(params);
+    if (params.count > 1 && where_count > 1) return 1;
+    if (params.count > 1 && where_count > 0 && inline_length > 80u) return 1;
+
+    default_count = param_default_count(params);
+    if (params.count > 1 && default_count > 0 && inline_length > 80u) return 1;
+
+    return 0;
+}
+
+static void format_param_list_multiline(sb_t *sb, zt_ast_node_list params) {
+    sb_append(sb, "(\n");
+    sb->indent_level++;
+    for (size_t i = 0; i < params.count; i++) {
+        sb_indent(sb);
+        format_node(sb, params.items[i]);
+        if (i < params.count - 1) sb_append(sb, ",");
+        sb_append(sb, "\n");
+    }
+    sb->indent_level--;
+    sb_indent(sb);
+    sb_append(sb, ")");
+}
+
+static void format_func_decl_signature(sb_t *sb, const zt_ast_node *node, int *out_multiline, int *out_where_multiline) {
+    size_t inline_length = formatted_func_decl_signature_length(node);
+    int params_multiline = should_format_param_list_multiline(node->as.func_decl.params, inline_length);
+    int where_multiline = node->as.func_decl.constraints.count > 0 &&
+        (params_multiline ||
+         node->as.func_decl.constraints.count > 1 ||
+         inline_length > ZT_FORMATTER_TARGET_WIDTH);
+
+    if (out_multiline != NULL) *out_multiline = params_multiline;
+    if (out_where_multiline != NULL) *out_where_multiline = where_multiline;
+
+    if (node->as.func_decl.is_public) sb_append(sb, "public ");
+    sb_append(sb, "func ");
+    if (node->as.func_decl.is_mutating) sb_append(sb, "mut ");
+    sb_append(sb, node->as.func_decl.name);
+    if (node->as.func_decl.type_params.count > 0) {
+        sb_append(sb, "<");
+        format_node_list_comma(sb, node->as.func_decl.type_params);
+        sb_append(sb, ">");
+    }
+    if (params_multiline) {
+        format_param_list_multiline(sb, node->as.func_decl.params);
+    } else {
+        sb_append(sb, "(");
+        format_node_list_comma(sb, node->as.func_decl.params);
+        sb_append(sb, ")");
+    }
+    if (node->as.func_decl.return_type) {
+        sb_append(sb, " -> ");
+        format_node(sb, node->as.func_decl.return_type);
+    }
+    if (node->as.func_decl.constraints.count > 0) {
+        if (where_multiline) {
+            sb_append(sb, "\n");
+            sb_indent(sb);
+            sb_append(sb, "where ");
+        } else {
+            sb_append(sb, " where ");
+        }
+        format_node_list_and(sb, node->as.func_decl.constraints);
+    }
+}
+
+static void format_trait_method_signature(sb_t *sb, const zt_ast_node *node) {
+    size_t inline_length = formatted_trait_method_signature_length(node);
+    int params_multiline = should_format_param_list_multiline(node->as.trait_method.params, inline_length);
+
+    sb_append(sb, "func ");
+    if (node->as.trait_method.is_mutating) sb_append(sb, "mut ");
+    sb_append(sb, node->as.trait_method.name);
+    if (params_multiline) {
+        format_param_list_multiline(sb, node->as.trait_method.params);
+    } else {
+        sb_append(sb, "(");
+        format_node_list_comma(sb, node->as.trait_method.params);
+        sb_append(sb, ")");
+    }
+    if (node->as.trait_method.return_type) {
+        sb_append(sb, " -> ");
+        format_node(sb, node->as.trait_method.return_type);
+    }
+}
+
 static void format_node(sb_t *sb, const zt_ast_node *node) {
     if (!node) return;
     format_comments(sb, node);
@@ -163,31 +361,16 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             break;
         case ZT_AST_FUNC_DECL:
-            if (node->as.func_decl.is_public) sb_append(sb, "public ");
-            sb_append(sb, "func ");
-            if (node->as.func_decl.is_mutating) sb_append(sb, "mut ");
-            sb_append(sb, node->as.func_decl.name);
-            if (node->as.func_decl.type_params.count > 0) {
-                sb_append(sb, "<");
-                format_node_list_comma(sb, node->as.func_decl.type_params);
-                sb_append(sb, ">");
-            }
-            sb_append(sb, "(");
-            format_node_list_comma(sb, node->as.func_decl.params);
-            sb_append(sb, ")");
-            if (node->as.func_decl.return_type) {
-                sb_append(sb, " -> ");
-                format_node(sb, node->as.func_decl.return_type);
-            }
-            if (node->as.func_decl.constraints.count > 0) {
-                sb_append(sb, " where ");
-                format_node_list_comma(sb, node->as.func_decl.constraints);
-            }
+        {
+            int params_multiline = 0;
+            int where_multiline = 0;
+            format_func_decl_signature(sb, node, &params_multiline, &where_multiline);
             if (node->as.func_decl.body) {
-                sb_append(sb, " ");
+                if (!params_multiline && !where_multiline) sb_append(sb, " ");
                 format_node(sb, node->as.func_decl.body);
             }
             break;
+        }
         case ZT_AST_STRUCT_DECL:
             if (node->as.struct_decl.is_public) sb_append(sb, "public ");
             sb_append(sb, "struct ");
@@ -199,7 +382,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             if (node->as.struct_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
-                format_node_list_comma(sb, node->as.struct_decl.constraints);
+                format_node_list_and(sb, node->as.struct_decl.constraints);
             }
             sb_append(sb, "\n");
             sb->indent_level++;
@@ -223,7 +406,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             if (node->as.trait_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
-                format_node_list_comma(sb, node->as.trait_decl.constraints);
+                format_node_list_and(sb, node->as.trait_decl.constraints);
             }
             sb_append(sb, "\n");
             sb->indent_level++;
@@ -253,7 +436,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             if (node->as.apply_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
-                format_node_list_comma(sb, node->as.apply_decl.constraints);
+                format_node_list_and(sb, node->as.apply_decl.constraints);
             }
             sb_append(sb, "\n");
             sb->indent_level++;
@@ -277,7 +460,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             if (node->as.enum_decl.constraints.count > 0) {
                 sb_append(sb, " where ");
-                format_node_list_comma(sb, node->as.enum_decl.constraints);
+                format_node_list_and(sb, node->as.enum_decl.constraints);
             }
             sb_append(sb, "\n");
             sb->indent_level++;
@@ -329,16 +512,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             break;
         case ZT_AST_TRAIT_METHOD:
-            sb_append(sb, "func ");
-            if (node->as.trait_method.is_mutating) sb_append(sb, "mut ");
-            sb_append(sb, node->as.trait_method.name);
-            sb_append(sb, "(");
-            format_node_list_comma(sb, node->as.trait_method.params);
-            sb_append(sb, ")");
-            if (node->as.trait_method.return_type) {
-                sb_append(sb, " -> ");
-                format_node(sb, node->as.trait_method.return_type);
-            }
+            format_trait_method_signature(sb, node);
             break;
         case ZT_AST_ENUM_VARIANT:
             sb_append(sb, node->as.enum_variant.name);
@@ -507,7 +681,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             break;
         case ZT_AST_MATCH_CASE:
             if (node->as.match_case.is_default) {
-                sb_append(sb, "default ->");
+                sb_append(sb, "case default ->");
             } else {
                 sb_append(sb, "case ");
                 format_node_list_comma(sb, node->as.match_case.patterns);

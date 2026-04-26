@@ -1,0 +1,4 @@
+error[name.similar]
+name 'customer_t0tal' is very similar to 'customer_total' in the same scope
+error[name.confusing]
+name 'I1' mixes confusable characters (l, I, 1)

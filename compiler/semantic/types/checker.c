@@ -68,6 +68,7 @@ typedef struct zt_module_catalog {
     zt_apply_list applies;
     zt_decl_index_entry *decl_index;
     size_t decl_index_capacity;
+    size_t value_decl_count;
 } zt_module_catalog;
 
 typedef struct zt_checker {
@@ -486,9 +487,11 @@ static void zt_catalog_build(zt_module_catalog *catalog, const zt_ast_node *root
                 break;
             case ZT_AST_CONST_DECL:
                 zt_decl_list_push(&catalog->decls, decl->as.const_decl.name, decl);
+                catalog->value_decl_count += 1;
                 break;
             case ZT_AST_VAR_DECL:
                 zt_decl_list_push(&catalog->decls, decl->as.var_decl.name, decl);
+                catalog->value_decl_count += 1;
                 break;
             case ZT_AST_EXTERN_DECL: {
                 size_t f;
@@ -617,6 +620,85 @@ static void zt_checker_diag_type(zt_checker *checker, zt_diag_code code, zt_sour
     zt_type_describe(expected, expected_buf, sizeof(expected_buf));
     zt_type_describe(actual, actual_buf, sizeof(actual_buf));
     zt_diag_list_add(&checker->result->diagnostics, code, span, "%s: expected %s but got %s", prefix, expected_buf, actual_buf);
+}
+
+static void zt_checker_append_text(char *buffer, size_t buffer_size, const char *text) {
+    size_t used;
+    size_t remaining;
+    size_t len;
+
+    if (buffer == NULL || buffer_size == 0 || text == NULL) return;
+    used = strlen(buffer);
+    if (used >= buffer_size - 1) return;
+    remaining = buffer_size - 1 - used;
+    len = strlen(text);
+    if (len > remaining) len = remaining;
+    memcpy(buffer + used, text, len);
+    buffer[used + len] = '\0';
+}
+
+static void zt_checker_diag_callable_signature(zt_checker *checker, zt_source_span span, const char *name, const zt_type *expected, const zt_type *received) {
+    char expected_buf[256];
+    char received_buf[256];
+
+    zt_type_describe(expected, expected_buf, sizeof(expected_buf));
+    zt_type_describe(received, received_buf, sizeof(received_buf));
+    zt_diag_list_add(
+        &checker->result->diagnostics,
+        ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH,
+        span,
+        "callable '%s' signature mismatch: expected %s but received %s",
+        name != NULL ? name : "<callable>",
+        expected_buf,
+        received_buf);
+}
+
+static void zt_checker_diag_invalid_callable_ref_expected(zt_checker *checker, zt_source_span span, const char *kind, const char *name, const zt_type *expected) {
+    char expected_buf[256];
+
+    zt_type_describe(expected, expected_buf, sizeof(expected_buf));
+    zt_diag_list_add(
+        &checker->result->diagnostics,
+        ZT_DIAG_CALLABLE_INVALID_FUNC_REF,
+        span,
+        "%s '%s' cannot be used as a callable value; expected %s. Create a non-generic top-level wrapper with this exact signature",
+        kind != NULL ? kind : "function",
+        name != NULL ? name : "<anon>",
+        expected_buf);
+}
+
+static void zt_checker_format_missing_enum_cases(const zt_ast_node *enum_decl, const int *seen_variants, char *buffer, size_t buffer_size) {
+    size_t i;
+    int first = 1;
+
+    if (buffer == NULL || buffer_size == 0) return;
+    buffer[0] = '\0';
+    if (enum_decl == NULL || enum_decl->kind != ZT_AST_ENUM_DECL || seen_variants == NULL) return;
+
+    for (i = 0; i < enum_decl->as.enum_decl.variants.count; i++) {
+        const zt_ast_node *variant = enum_decl->as.enum_decl.variants.items[i];
+        if (variant == NULL || seen_variants[i]) continue;
+        if (!first) {
+            zt_checker_append_text(buffer, buffer_size, ", ");
+        }
+        zt_checker_append_text(buffer, buffer_size, enum_decl->as.enum_decl.name);
+        zt_checker_append_text(buffer, buffer_size, ".");
+        zt_checker_append_text(buffer, buffer_size, variant->as.enum_variant.name);
+        if (variant->as.enum_variant.fields.count > 0) {
+            zt_checker_append_text(buffer, buffer_size, "(...)");
+        }
+        first = 0;
+    }
+}
+
+static void zt_checker_add_dyn_static_dispatch_note(zt_checker *checker, zt_diag_code code, zt_source_span span, const char *trait_name) {
+    zt_diag_list_add_severity(
+        &checker->result->diagnostics,
+        code,
+        ZT_DIAG_SEVERITY_NOTE,
+        span,
+        "if dynamic dispatch is not required, prefer a generic parameter with a where constraint instead of dyn<%s>",
+        trait_name != NULL ? trait_name : "Trait");
 }
 
 static int zt_parse_signed_literal_value(const char *text, long long *out_value) {
@@ -833,16 +915,19 @@ static int zt_checker_validate_dyn_trait(zt_checker *checker, const zt_ast_node 
     /* Rule: no generic traits */
     if (trait_decl_node->as.trait_decl.type_params.count > 0) {
         zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_GENERIC_TRAIT, use_span,
-            "dyn dispatch does not support generic traits in R3.M4 subset: trait '%s' has type parameters",
-            trait_decl_node->as.trait_decl.name);
+            "trait '%s' cannot be used as dyn<%s>: generic traits are not dyn-safe",
+            trait_decl_node->as.trait_decl.name, trait_decl_node->as.trait_decl.name);
+        zt_checker_add_dyn_static_dispatch_note(checker, ZT_DIAG_DYN_GENERIC_TRAIT, use_span, trait_decl_node->as.trait_decl.name);
         return 0;
     }
 
     /* Rule: max 8 methods */
     if (trait_decl_node->as.trait_decl.methods.count > 8) {
         zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_TOO_MANY_METHODS, use_span,
-            "dyn trait '%s' has %zu methods; maximum is 8 for R3.M4 subset",
+            "trait '%s' cannot be used as dyn<%s>: it has %zu methods, but dyn supports at most 8",
+            trait_decl_node->as.trait_decl.name,
             trait_decl_node->as.trait_decl.name, trait_decl_node->as.trait_decl.methods.count);
+        zt_checker_add_dyn_static_dispatch_note(checker, ZT_DIAG_DYN_TOO_MANY_METHODS, use_span, trait_decl_node->as.trait_decl.name);
         return 0;
     }
 
@@ -854,8 +939,11 @@ static int zt_checker_validate_dyn_trait(zt_checker *checker, const zt_ast_node 
         /* Rule: no mut func */
         if (method->as.trait_method.is_mutating) {
             zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_MUT_METHOD, use_span,
-                "dyn dispatch does not support mutating methods in R3.M4 subset: trait '%s' has mut func '%s'",
-                trait_decl_node->as.trait_decl.name, method->as.trait_method.name);
+                "trait '%s' cannot be used as dyn<%s>: mut method '%s' needs a concrete receiver",
+                trait_decl_node->as.trait_decl.name,
+                trait_decl_node->as.trait_decl.name,
+                method->as.trait_method.name);
+            zt_checker_add_dyn_static_dispatch_note(checker, ZT_DIAG_DYN_MUT_METHOD, use_span, trait_decl_node->as.trait_decl.name);
             return 0;
         }
 
@@ -872,14 +960,21 @@ static int zt_checker_validate_dyn_trait(zt_checker *checker, const zt_ast_node 
                                param_type->kind == ZT_TYPE_TEXT ||
                                param_type->kind == ZT_TYPE_BYTES ||
                                param_type->kind == ZT_TYPE_BOOL;
-                    zt_type_dispose(param_type);
                 }
                 if (!copyable) {
+                    char param_type_buf[256];
+                    zt_type_describe(param_type, param_type_buf, sizeof(param_type_buf));
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_UNCOPYABLE, use_span,
-                        "dyn method '%s' has parameter type which is not copyable in R3.M4 subset",
-                        method->as.trait_method.name);
+                        "trait '%s' cannot be used as dyn<%s>: method '%s' has non-copyable parameter type %s",
+                        trait_decl_node->as.trait_decl.name,
+                        trait_decl_node->as.trait_decl.name,
+                        method->as.trait_method.name,
+                        param_type_buf);
+                    zt_checker_add_dyn_static_dispatch_note(checker, ZT_DIAG_DYN_UNCOPYABLE, use_span, trait_decl_node->as.trait_decl.name);
+                    zt_type_dispose(param_type);
                     return 0;
                 }
+                zt_type_dispose(param_type);
             }
         }
 
@@ -895,14 +990,21 @@ static int zt_checker_validate_dyn_trait(zt_checker *checker, const zt_ast_node 
                            ret_type->kind == ZT_TYPE_BYTES ||
                            ret_type->kind == ZT_TYPE_BOOL ||
                            ret_type->kind == ZT_TYPE_VOID;
-                zt_type_dispose(ret_type);
             }
             if (!copyable) {
+                char ret_type_buf[256];
+                zt_type_describe(ret_type, ret_type_buf, sizeof(ret_type_buf));
                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_DYN_UNCOPYABLE, use_span,
-                    "dyn method '%s' has return type which is not copyable in R3.M4 subset",
-                    method->as.trait_method.name);
+                    "trait '%s' cannot be used as dyn<%s>: method '%s' returns non-copyable type %s",
+                    trait_decl_node->as.trait_decl.name,
+                    trait_decl_node->as.trait_decl.name,
+                    method->as.trait_method.name,
+                    ret_type_buf);
+                zt_checker_add_dyn_static_dispatch_note(checker, ZT_DIAG_DYN_UNCOPYABLE, use_span, trait_decl_node->as.trait_decl.name);
+                zt_type_dispose(ret_type);
                 return 0;
             }
+            zt_type_dispose(ret_type);
         }
     }
 
@@ -983,6 +1085,11 @@ static zt_type *zt_checker_resolve_user_type(zt_checker *checker, const char *na
 
     decl = zt_catalog_find_decl(&checker->catalog, name);
     if (decl == NULL) {
+        if (strcmp(name, "string") == 0) {
+            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, span, "unknown type 'string'; use 'text' for text values");
+            zt_type_list_dispose(&args);
+            return zt_type_make(ZT_TYPE_UNKNOWN);
+        }
         zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, span, "unknown type '%s'", name);
         zt_type_list_dispose(&args);
         return zt_type_make(ZT_TYPE_UNKNOWN);
@@ -1046,6 +1153,8 @@ static zt_type *zt_checker_resolve_type(zt_checker *checker, const zt_ast_node *
             const zt_ast_node *inner = node->as.type_dyn.inner_type;
             if (inner != NULL && inner->kind == ZT_AST_TYPE_SIMPLE) {
                 trait_name = inner->as.type_simple.name;
+            } else if (inner != NULL && inner->kind == ZT_AST_TYPE_GENERIC) {
+                trait_name = inner->as.type_generic.name;
             }
             if (trait_name != NULL) {
                 const zt_ast_node *trait_decl = zt_catalog_find_decl(&checker->catalog, trait_name);
@@ -1341,6 +1450,39 @@ static int zt_checker_validate_conversion(zt_checker *checker, const char *targe
     }
     zt_type_dispose(target);
     return ok;
+}
+
+static zt_type *zt_checker_make_std_concurrent_copy_type(const char *member) {
+    zt_type_list args;
+
+    if (member == NULL) return NULL;
+
+    if (strcmp(member, "copy_int") == 0) return zt_type_make(ZT_TYPE_INT);
+    if (strcmp(member, "copy_bool") == 0) return zt_type_make(ZT_TYPE_BOOL);
+    if (strcmp(member, "copy_float") == 0) return zt_type_make(ZT_TYPE_FLOAT);
+    if (strcmp(member, "copy_text") == 0) return zt_type_make(ZT_TYPE_TEXT);
+    if (strcmp(member, "copy_bytes") == 0) return zt_type_make(ZT_TYPE_BYTES);
+
+    if (strcmp(member, "copy_list_int") == 0) {
+        args = zt_type_list_make();
+        zt_type_list_push(&args, zt_type_make(ZT_TYPE_INT));
+        return zt_type_make_with_args(ZT_TYPE_LIST, NULL, args);
+    }
+
+    if (strcmp(member, "copy_list_text") == 0) {
+        args = zt_type_list_make();
+        zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+        return zt_type_make_with_args(ZT_TYPE_LIST, NULL, args);
+    }
+
+    if (strcmp(member, "copy_map_text_text") == 0) {
+        args = zt_type_list_make();
+        zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+        zt_type_list_push(&args, zt_type_make(ZT_TYPE_TEXT));
+        return zt_type_make_with_args(ZT_TYPE_MAP, NULL, args);
+    }
+
+    return NULL;
 }
 
 static void zt_checker_bind_struct_field_type_params(zt_binding_scope *scope, const zt_ast_node *decl, const zt_type *receiver_type) {
@@ -1668,7 +1810,7 @@ static zt_expr_info zt_checker_check_field_expr(zt_checker *checker, const zt_as
         
         if (member_decl != NULL) {
             if (!zt_checker_decl_is_public(member_decl) && 
-                (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                (import_path != NULL && strncmp(import_path, "std.", 4) != 0) &&
                 !zt_checker_is_self_prefix(checker, alias)) {
                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, node->span, "member '%s' is not public", combined_name);
                 zt_expr_info_dispose(&object_info);
@@ -1787,6 +1929,9 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 size_t positional_count = node->as.call_expr.positional_args.count;
                 size_t named_count = node->as.call_expr.named_args.count;
                 size_t ai;
+                int signature_mismatch = 0;
+                zt_type_list actual_params = zt_type_list_make();
+                zt_type *actual_signature = NULL;
 
                 zt_type_dispose(result.type);
                 result.type = zt_type_clone(zt_type_callable_return(callable_type));
@@ -1796,20 +1941,28 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                         "named arguments are not supported when calling through a callable in v1");
                     return result;
                 }
-                if (positional_count != expected_params) {
-                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH, node->span,
-                        "callable '%s' expects %zu argument(s) but got %zu", name, expected_params, positional_count);
-                    return result;
-                }
                 for (ai = 0; ai < positional_count; ai++) {
-                    const zt_type *pt = zt_type_callable_param(callable_type, ai);
+                    const zt_type *pt = ai < expected_params ? zt_type_callable_param(callable_type, ai) : NULL;
                     zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[ai], scope, fn_ctx, pt);
-                    if (!zt_checker_same_or_contextually_assignable(checker, scope, pt, &arg_info, node->as.call_expr.positional_args.items[ai]->span)) {
-                        zt_checker_diag_type(checker, ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH, node->as.call_expr.positional_args.items[ai]->span,
-                            "callable argument type mismatch", (zt_type *)pt, arg_info.type);
+                    zt_type_list_push(&actual_params, arg_info.type != NULL ? zt_type_clone(arg_info.type) : zt_type_make(ZT_TYPE_UNKNOWN));
+                    if (ai < expected_params &&
+                        !zt_checker_same_or_contextually_assignable(checker, scope, pt, &arg_info, node->as.call_expr.positional_args.items[ai]->span)) {
+                        signature_mismatch = 1;
                     }
                     zt_expr_info_dispose(&arg_info);
                 }
+                actual_signature = zt_type_make_callable(zt_type_clone(zt_type_callable_return(callable_type)), actual_params);
+                if (positional_count != expected_params) {
+                    zt_checker_diag_callable_signature(checker, node->span, name, callable_type, actual_signature);
+                    zt_type_dispose(actual_signature);
+                    return result;
+                }
+                if (signature_mismatch) {
+                    zt_checker_diag_callable_signature(checker, node->span, name, callable_type, actual_signature);
+                    zt_type_dispose(actual_signature);
+                    return result;
+                }
+                zt_type_dispose(actual_signature);
                 return result;
             }
         }
@@ -1827,6 +1980,26 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             if (zt_type_is_integral(result.type) && arg_info.has_int_value && zt_int_value_fits_kind(arg_info.int_value, result.type->kind)) {
                 result.has_int_value = 1;
                 result.int_value = arg_info.int_value;
+            }
+            zt_expr_info_dispose(&arg_info);
+            return result;
+        }
+
+        if (name != NULL && strcmp(name, "to_text") == 0) {
+            zt_expr_info arg_info;
+            zt_type_dispose(result.type);
+            result.type = zt_type_make(ZT_TYPE_TEXT);
+            if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "to_text(...) expects exactly one positional argument");
+                return result;
+            }
+
+            arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, NULL);
+            if (arg_info.type == NULL ||
+                !zt_checker_type_implements_trait(checker, scope, arg_info.type, "TextRepresentable")) {
+                char type_buf[256];
+                zt_type_describe(arg_info.type, type_buf, sizeof(type_buf));
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "to_text(...) requires TextRepresentable<T>; got '%s'", type_buf);
             }
             zt_expr_info_dispose(&arg_info);
             return result;
@@ -1855,11 +2028,14 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
 
         if (name != NULL && strcmp(name, "check") == 0) {
             zt_type *expected_bool = zt_type_make(ZT_TYPE_BOOL);
+            zt_type *expected_text = NULL;
             zt_expr_info arg_info;
             zt_type_dispose(result.type);
             result.type = zt_type_make(ZT_TYPE_VOID);
-            if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
-                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "check(...) expects exactly one positional argument");
+            if (node->as.call_expr.named_args.count != 0 ||
+                    node->as.call_expr.positional_args.count < 1 ||
+                    node->as.call_expr.positional_args.count > 2) {
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "check(...) expects condition and optional text message");
                 zt_type_dispose(expected_bool);
                 return result;
             }
@@ -1868,23 +2044,35 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "check(...) requires a bool argument");
             }
             zt_expr_info_dispose(&arg_info);
+            if (node->as.call_expr.positional_args.count == 2) {
+                expected_text = zt_type_make(ZT_TYPE_TEXT);
+                arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[1], scope, fn_ctx, expected_text);
+                if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_TEXT) {
+                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "check(...) optional message must be text");
+                }
+                zt_expr_info_dispose(&arg_info);
+                zt_type_dispose(expected_text);
+            }
             zt_type_dispose(expected_bool);
             return result;
         }
 
-        if (name != NULL && strcmp(name, "panic") == 0) {
+        if (name != NULL &&
+                (strcmp(name, "panic") == 0 ||
+                 strcmp(name, "todo") == 0 ||
+                 strcmp(name, "unreachable") == 0)) {
             zt_type *expected_text = zt_type_make(ZT_TYPE_TEXT);
             zt_expr_info arg_info;
             zt_type_dispose(result.type);
             result.type = zt_type_make(ZT_TYPE_VOID);
             if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
-                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "panic(...) expects exactly one positional argument");
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "%s(...) expects exactly one text message", name);
                 zt_type_dispose(expected_text);
                 return result;
             }
             arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, expected_text);
             if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_TEXT) {
-                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "panic(...) requires a text argument");
+                zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_TYPE, node->span, "%s(...) requires a text message", name);
             }
             zt_expr_info_dispose(&arg_info);
             zt_type_dispose(expected_text);
@@ -2147,7 +2335,7 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
                 size_t p;
 
                 if (!zt_checker_decl_is_public(func_decl) &&
-                    (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                    (import_path != NULL && strncmp(import_path, "std.", 4) != 0) &&
                     !zt_checker_is_self_prefix(checker, alias)) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "member '%s' is not public", combined_name);
                 }
@@ -2288,10 +2476,105 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
 
             snprintf(combined_name, sizeof(combined_name), "%s.%s", alias, member != NULL ? member : "");
             member_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
-            if (member_decl != NULL && !zt_checker_decl_is_public(member_decl) && (import_path == NULL || strncmp(import_path, "std.", 4) != 0)) {
+            if (member_decl != NULL &&
+                !zt_checker_decl_is_public(member_decl) &&
+                (import_path != NULL && strncmp(import_path, "std.", 4) != 0) &&
+                !zt_checker_is_self_prefix(checker, alias)) {
                 zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "member '%s' is not public", combined_name);
                 zt_expr_info_dispose(&object_info);
                 return result;
+            }
+
+            if (import_path != NULL && strcmp(import_path, "std.list") == 0 && member != NULL) {
+                if (strcmp(member, "is_empty") == 0) {
+                    if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "std.list.is_empty(...) expects exactly one positional list argument");
+                    } else {
+                        zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, NULL);
+                        if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_LIST) {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_TYPE_MISMATCH, node->span, "std.list.is_empty(...) requires a list<T> argument");
+                        }
+                        zt_expr_info_dispose(&arg_info);
+                    }
+                    zt_type_dispose(result.type);
+                    result.type = zt_type_make(ZT_TYPE_BOOL);
+                    zt_expr_info_dispose(&object_info);
+                    return result;
+                }
+            }
+
+            if (import_path != NULL && strcmp(import_path, "std.map") == 0 && member != NULL) {
+                if (strcmp(member, "is_empty") == 0) {
+                    if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "std.map.is_empty(...) expects exactly one positional map argument");
+                    } else {
+                        zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, NULL);
+                        if (arg_info.type == NULL || arg_info.type->kind != ZT_TYPE_MAP) {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_TYPE_MISMATCH, node->span, "std.map.is_empty(...) requires a map<K,V> argument");
+                        }
+                        zt_expr_info_dispose(&arg_info);
+                    }
+                    zt_type_dispose(result.type);
+                    result.type = zt_type_make(ZT_TYPE_BOOL);
+                    zt_expr_info_dispose(&object_info);
+                    return result;
+                }
+
+                if (strcmp(member, "has_key") == 0) {
+                    if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 2) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "std.map.has_key(...) expects exactly one map and one key argument");
+                    } else {
+                        zt_expr_info map_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, NULL);
+                        if (map_info.type == NULL || map_info.type->kind != ZT_TYPE_MAP || map_info.type->args.count != 2) {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_TYPE_MISMATCH, node->span, "std.map.has_key(...) requires a map<K,V> first argument");
+                        } else {
+                            zt_expr_info key_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[1], scope, fn_ctx, map_info.type->args.items[0]);
+                            if (!zt_checker_same_or_contextually_assignable(checker, scope, map_info.type->args.items[0], &key_info, node->as.call_expr.positional_args.items[1]->span)) {
+                                zt_checker_diag_type(
+                                    checker,
+                                    ZT_DIAG_TYPE_MISMATCH,
+                                    node->as.call_expr.positional_args.items[1]->span,
+                                    "std.map.has_key key type mismatch",
+                                    map_info.type->args.items[0],
+                                    key_info.type);
+                            }
+                            zt_expr_info_dispose(&key_info);
+                        }
+                        zt_expr_info_dispose(&map_info);
+                    }
+                    zt_type_dispose(result.type);
+                    result.type = zt_type_make(ZT_TYPE_BOOL);
+                    zt_expr_info_dispose(&object_info);
+                    return result;
+                }
+            }
+
+            if (import_path != NULL && strcmp(import_path, "std.concurrent") == 0 && member != NULL) {
+                zt_type *copy_type = zt_checker_make_std_concurrent_copy_type(member);
+                if (copy_type != NULL) {
+                    int valid_copy_call = 1;
+                    if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->span, "std.concurrent.%s(...) expects exactly one positional argument", member);
+                        valid_copy_call = 0;
+                    } else {
+                        zt_expr_info arg_info = zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, copy_type);
+                        if (!zt_checker_same_or_contextually_assignable(checker, scope, copy_type, &arg_info, node->as.call_expr.positional_args.items[0]->span)) {
+                            zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_CALL, node->as.call_expr.positional_args.items[0]->span, "std.concurrent.%s(...) cannot copy a value of this type", member);
+                            valid_copy_call = 0;
+                        }
+                        zt_expr_info_dispose(&arg_info);
+                    }
+
+                    zt_type_dispose(result.type);
+                    if (valid_copy_call) {
+                        result.type = copy_type;
+                    } else {
+                        zt_type_dispose(copy_type);
+                        result.type = zt_type_make(ZT_TYPE_UNKNOWN);
+                    }
+                    zt_expr_info_dispose(&object_info);
+                    return result;
+                }
             }
 
             if (import_path != NULL && strcmp(import_path, "std.text") == 0 && member != NULL) {
@@ -2417,6 +2700,82 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             result.type = expected_type != NULL ? zt_type_clone(expected_type) : zt_type_make(ZT_TYPE_UNKNOWN);
             zt_expr_info_dispose(&object_info);
             return result;
+        }
+
+        if (object_info.type != NULL &&
+            object_info.type->kind == ZT_TYPE_OPTIONAL &&
+            object_info.type->args.count == 1 &&
+            object_info.type->args.items[0] != NULL &&
+            callee->as.field_expr.field_name != NULL) {
+            const char *method_name = callee->as.field_expr.field_name;
+            const zt_type *inner_type = object_info.type->args.items[0];
+
+            if (strcmp(method_name, "is_some") == 0 || strcmp(method_name, "is_none") == 0) {
+                if (node->as.call_expr.positional_args.count != 0 || node->as.call_expr.named_args.count != 0) {
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_INVALID_CALL,
+                        node->span,
+                        "optional.%s() expects no arguments",
+                        method_name);
+                }
+
+                zt_type_dispose(result.type);
+                result.type = zt_type_make(ZT_TYPE_BOOL);
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
+
+            if (strcmp(method_name, "or") == 0) {
+                if (node->as.call_expr.named_args.count != 0 || node->as.call_expr.positional_args.count != 1) {
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_INVALID_CALL,
+                        node->span,
+                        "optional.or(...) expects exactly one positional fallback argument");
+                } else {
+                    zt_expr_info fallback_info =
+                        zt_checker_check_expression(checker, node->as.call_expr.positional_args.items[0], scope, fn_ctx, inner_type);
+                    if (!zt_checker_same_or_contextually_assignable(checker, scope, inner_type, &fallback_info, node->as.call_expr.positional_args.items[0]->span)) {
+                        zt_checker_diag_type(
+                            checker,
+                            ZT_DIAG_TYPE_MISMATCH,
+                            node->as.call_expr.positional_args.items[0]->span,
+                            "optional.or fallback type mismatch",
+                            inner_type,
+                            fallback_info.type);
+                    }
+                    zt_expr_info_dispose(&fallback_info);
+                }
+
+                zt_type_dispose(result.type);
+                result.type = zt_type_clone(inner_type);
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
+        }
+
+        if (object_info.type != NULL &&
+            object_info.type->kind == ZT_TYPE_RESULT &&
+            object_info.type->args.count == 2 &&
+            callee->as.field_expr.field_name != NULL) {
+            const char *method_name = callee->as.field_expr.field_name;
+
+            if (strcmp(method_name, "is_success") == 0 || strcmp(method_name, "is_error") == 0) {
+                if (node->as.call_expr.positional_args.count != 0 || node->as.call_expr.named_args.count != 0) {
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_INVALID_CALL,
+                        node->span,
+                        "result.%s() expects no arguments",
+                        method_name);
+                }
+
+                zt_type_dispose(result.type);
+                result.type = zt_type_make(ZT_TYPE_BOOL);
+                zt_expr_info_dispose(&object_info);
+                return result;
+            }
         }
 
         if (object_info.type != NULL &&
@@ -2703,13 +3062,21 @@ static zt_expr_info zt_checker_check_expression(zt_checker *checker, const zt_as
                 const zt_ast_node *fn_decl = zt_catalog_find_decl(&checker->catalog, node->as.ident_expr.name);
                 if (fn_decl != NULL && fn_decl->kind == ZT_AST_FUNC_DECL) {
                     if (fn_decl->as.func_decl.type_params.count > 0) {
-                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_INVALID_FUNC_REF, node->span,
-                            "generic function '%s' cannot be used as a callable value", node->as.ident_expr.name);
+                        zt_checker_diag_invalid_callable_ref_expected(
+                            checker,
+                            node->span,
+                            "generic function",
+                            node->as.ident_expr.name,
+                            expected_type);
                         return info;
                     }
                     if (fn_decl->as.func_decl.is_mutating) {
-                        zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_CALLABLE_INVALID_FUNC_REF, node->span,
-                            "mutating function '%s' cannot be used as a callable value", node->as.ident_expr.name);
+                        zt_checker_diag_invalid_callable_ref_expected(
+                            checker,
+                            node->span,
+                            "mutating function",
+                            node->as.ident_expr.name,
+                            expected_type);
                         return info;
                     }
                     {
@@ -3225,7 +3592,7 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
 
             if (import_member_decl != NULL) {
                 if (!zt_checker_decl_is_public(import_member_decl) &&
-                    (import_path == NULL || strncmp(import_path, "std.", 4) != 0) &&
+                    (import_path != NULL && strncmp(import_path, "std.", 4) != 0) &&
                     !zt_checker_is_self_prefix(checker, import_alias)) {
                     zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_UNRESOLVED_NAME, stmt->span, "member '%s' is not public", combined_name);
                     import_member_access_error = 1;
@@ -3407,10 +3774,20 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                 zt_binding_scope_init(&case_scope, scope);
 
                 if (case_node->as.match_case.is_default) {
+                    int duplicate_default = has_default;
                     if (has_default) {
                         zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, case_node->span, "duplicate case default in match");
                     }
                     has_default = 1;
+                    if (subject_is_enum && subject_decl != NULL && !duplicate_default) {
+                        zt_diag_list_add_severity(
+                            &checker->result->diagnostics,
+                            ZT_DIAG_ENUM_DEFAULT_CASE,
+                            ZT_DIAG_SEVERITY_WARNING,
+                            case_node->span,
+                            "case default in match on enum '%s' hides explicit variant coverage",
+                            subject_decl->as.enum_decl.name);
+                    }
                     if (c + 1 < stmt->as.match_stmt.cases.count) {
                         zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_INVALID_ARGUMENT, case_node->span, "case default must be the final case in match");
                     }
@@ -3627,8 +4004,21 @@ static void zt_checker_check_statement(zt_checker *checker, const zt_ast_node *s
                     }
                 }
                 if (!all_covered) {
-                    zt_diag_list_add(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, stmt->span, "match on enum '%s' is not exhaustive", subject_decl->as.enum_decl.name);
-                    zt_diag_list_add_severity(&checker->result->diagnostics, ZT_DIAG_NON_EXHAUSTIVE_MATCH, ZT_DIAG_SEVERITY_NOTE, stmt->span, "add missing variants or a 'default' case");
+                    char missing_cases[512];
+                    zt_checker_format_missing_enum_cases(subject_decl, seen_variants, missing_cases, sizeof(missing_cases));
+                    zt_diag_list_add(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_NON_EXHAUSTIVE_MATCH,
+                        stmt->span,
+                        "match on enum '%s' is not exhaustive; missing case(s): %s",
+                        subject_decl->as.enum_decl.name,
+                        missing_cases[0] != '\0' ? missing_cases : "<unknown>");
+                    zt_diag_list_add_severity(
+                        &checker->result->diagnostics,
+                        ZT_DIAG_NON_EXHAUSTIVE_MATCH,
+                        ZT_DIAG_SEVERITY_NOTE,
+                        stmt->span,
+                        "add explicit cases for the missing variants or add 'case default' as the final case");
                 }
             }
 
@@ -3788,6 +4178,7 @@ static void zt_checker_check_func_like(zt_checker *checker, const zt_ast_node *f
 static void zt_checker_seed_module_value_bindings(zt_checker *checker, zt_binding_scope *scope) {
     size_t i;
     if (checker == NULL || scope == NULL) return;
+    if (checker->catalog.value_decl_count == 0) return;
     for (i = 0; i < checker->catalog.decls.count; i++) {
         const zt_ast_node *decl = checker->catalog.decls.items[i].node;
         if (decl == NULL) continue;
@@ -3818,6 +4209,7 @@ static void zt_checker_seed_module_value_aliases(zt_checker *checker, zt_binding
     size_t i;
 
     if (checker == NULL || scope == NULL) return;
+    if (checker->catalog.value_decl_count == 0) return;
     if (!zt_checker_split_prefix(decl_name, prefix, sizeof(prefix))) return;
     prefix_len = strlen(prefix);
 

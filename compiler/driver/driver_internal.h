@@ -86,6 +86,7 @@ typedef struct zt_driver_context {
     int verbose;
     int quiet;
     const char *project_path;
+    char project_root_abs[512];
     zt_path_filter_list since_filter;
 } zt_driver_context;
 
@@ -116,6 +117,7 @@ int zt_path_is_file(const char *path);
 int zt_join_path(char *dest, size_t capacity, const char *left, const char *right);
 int zt_dirname(char *dest, size_t capacity, const char *path);
 int zt_get_current_dir(char *dest, size_t capacity);
+int zt_native_get_home_dir(char *dest, size_t capacity);
 int zt_find_project_root_from_cwd(char *project_root, size_t capacity);
 int zt_replace_extension(char *dest, size_t capacity, const char *path, const char *extension);
 void zt_normalize_path_separators(char *path);

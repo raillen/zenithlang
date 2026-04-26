@@ -46,13 +46,23 @@ Ordem de runner em uma distribuicao independente:
 2. `runtime/sdk/preview/borealis-preview.exe`;
 3. `runtime/sdk/bin/zt.exe run runtime/sdk/preview/zenith.ztproj`.
 
-Ordem de runner no desenvolvimento dentro deste repositorio:
+No desenvolvimento dentro deste repositorio, use `BOREALIS_SDK_ROOT` apontando
+para um SDK local com `bin/zt.exe` e `preview/zenith.ztproj`.
 
-1. `tools/borealis-editor/preview/build/borealis-preview.exe`, se existir;
-2. `zt.exe run tools/borealis-editor/preview/zenith.ztproj`.
+O antigo prototipo de preview nao faz parte da arvore atual.
 
 O Studio tambem aceita `BOREALIS_SDK_ROOT` para apontar para um SDK local.
 Isso permite rodar o app fora do repositorio da linguagem sem copiar o codigo fonte inteiro.
+
+Para montar esse SDK no workspace local:
+
+```powershell
+cd tools/borealis-studio
+npm run sdk:assemble
+```
+
+O comando copia `zt.exe`, `runtime`, `stdlib`, `packages/borealis`, manifesto,
+templates e o projeto `preview/zenith.ztproj` para `runtime/sdk`.
 
 Layout recomendado para release:
 
@@ -84,7 +94,7 @@ Fluxos atuais:
 O backend agora resolve tres bases:
 
 1. `appRoot`: a pasta do Borealis Studio;
-2. `sdkRoot`: `BOREALIS_SDK_ROOT`, `runtime/sdk` ou `sdk`;
+2. `sdkRoot`: `BOREALIS_SDK_ROOT`, pasta runtime SDK ou pasta `sdk`;
 3. `repoRoot`: fallback de desenvolvimento quando o app roda dentro de `zenith-lang-v2`.
 
 Em release, o Studio deve depender do SDK empacotado, nao do repositorio da linguagem.
@@ -124,6 +134,6 @@ npm run tauri dev
 1. adicionar dialog nativo para escolher pasta/arquivo;
 2. persistir projetos recentes;
 3. evoluir o preview de status JSONL para imagem/frame embutido no viewport;
-4. criar pipeline de empacotamento que monta `runtime/sdk`;
+4. evoluir o empacotamento para anexar o SDK montado no instalador final;
 5. adicionar atalhos, command palette e diagnostics;
 6. ampliar testes automatizados do backend Tauri.

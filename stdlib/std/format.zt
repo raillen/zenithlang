@@ -55,8 +55,6 @@ public func bytes(value: int, style: format.BytesStyle = format.BytesStyle.Binar
             return format.zt_format_bytes_binary(value, decimals)
         case format.BytesStyle.Decimal ->
             return format.zt_format_bytes_decimal(value, decimals)
-        case default ->
-            return format.zt_format_bytes_binary(value, decimals)
     end
 end
 

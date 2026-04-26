@@ -1,0 +1,2 @@
+error[runtime.unreachable]
+state machine reached impossible branch

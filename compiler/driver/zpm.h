@@ -6,7 +6,7 @@
 #ifndef ZT_ZPM_H
 #define ZT_ZPM_H
 
-#include "compiler/driver/driver_internal.h"
+typedef struct zt_driver_context zt_driver_context;
 
 /**
  * Main entry point for the "zpm" subcommand.
@@ -23,5 +23,6 @@ int zt_handle_zpm_update(zt_driver_context *ctx, const char *pkg_name);
 int zt_handle_zpm_list(zt_driver_context *ctx, const char *project_path);
 int zt_handle_zpm_find(zt_driver_context *ctx, const char *query, int all);
 int zt_handle_zpm_publish(zt_driver_context *ctx, const char *project_path);
+int zt_handle_zpm_run(zt_driver_context *ctx, const char *script_name);
 
 #endif /* ZT_ZPM_H */

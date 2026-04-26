@@ -51,7 +51,7 @@ Sistema de tipos do Zenith. Responsável por:
 
 - Priority: Critical
 - Source files: 4
-- Extracted symbols: 98
+- Extracted symbols: 132
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -59,10 +59,10 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/semantic/types/checker.c` | 2860 | 77 | 2 |
-| `compiler/semantic/types/checker.h` | 24 | 1 | 2 |
-| `compiler/semantic/types/types.c` | 283 | 19 | 0 |
-| `compiler/semantic/types/types.h` | 88 | 1 | 0 |
+| `compiler/semantic/types/checker.c` | 4437 | 106 | 2 |
+| `compiler/semantic/types/checker.h` | 25 | 1 | 3 |
+| `compiler/semantic/types/types.c` | 359 | 24 | 0 |
+| `compiler/semantic/types/types.h` | 103 | 1 | 0 |
 
 ### Local Dependencies
 
@@ -83,83 +83,112 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 9 | `enum` | `zt_binding_kind` |
-| 14 | `struct` | `zt_binding` |
-| 21 | `struct` | `zt_binding_scope` |
-| 28 | `struct` | `zt_decl_entry` |
-| 33 | `struct` | `zt_import_entry` |
-| 38 | `struct` | `zt_decl_list` |
-| 44 | `struct` | `zt_import_list` |
-| 50 | `struct` | `zt_apply_list` |
-| 56 | `struct` | `zt_module_catalog` |
-| 62 | `struct` | `zt_checker` |
-| 68 | `struct` | `zt_expr_info` |
-| 77 | `struct` | `zt_function_context` |
-| 84 | `func_def` | `zt_checker_strdup` |
-| 96 | `func_def` | `zt_expr_info_dispose` |
-| 107 | `func_def` | `zt_expr_info_make` |
-| 118 | `func_def` | `zt_binding_scope_init` |
-| 126 | `func_def` | `zt_binding_scope_dispose` |
-| 141 | `func_def` | `zt_binding_scope_declare` |
-| 169 | `func_def` | `zt_binding_scope_lookup` |
-| 184 | `func_def` | `zt_decl_list_push` |
-| 200 | `func_def` | `zt_import_list_push` |
-| 216 | `func_def` | `zt_catalog_init` |
-| 221 | `func_def` | `zt_catalog_dispose` |
-| 237 | `func_def` | `zt_catalog_find_decl` |
-| 246 | `func_def` | `zt_catalog_has_import_alias` |
-| 255 | `func_def` | `zt_catalog_import_path_for_alias` |
-| 269 | `func_def` | `zt_apply_list_push` |
-| 284 | `func_def` | `zt_catalog_build` |
-| 341 | `func_def` | `zt_name_has_dot` |
-| 345 | `func_def` | `zt_checker_is_self_prefix` |
-| 359 | `func_def` | `zt_checker_decl_is_public` |
-| 379 | `func_def` | `zt_type_base_name` |
-| 383 | `func_def` | `zt_decl_type_param_count` |
-| 394 | `func_def` | `zt_builtin_type_by_name` |
-| 416 | `func_def` | `zt_type_expected_arity` |
-| 432 | `func_def` | `zt_type_describe` |
-| 436 | `func_def` | `zt_checker_diag_type` |
-| 444 | `func_def` | `zt_parse_signed_literal_value` |
-| 462 | `func_def` | `zt_parse_double_literal_value` |
-| 480 | `func_def` | `zt_int_literal_fits_kind` |
-| 499 | `func_def` | `zt_int_value_fits_kind` |
-| 516 | `func_def` | `zt_expr_matches_integral_type` |
-| 524 | `func_def` | `zt_checker_compute_integral_binary` |
-| 549 | `func_def` | `zt_type_is_core_trait_name` |
-| 556 | `func_def` | `zt_type_param_has_trait` |
-| 569 | `func_decl` | `zt_checker_type_implements_trait` |
-| 570 | `func_decl` | `zt_checker_resolve_type` |
-| 571 | `func_decl` | `zt_checker_check_expression` |
-| 572 | `func_decl` | `zt_checker_check_block` |
-| 574 | `func_def` | `zt_checker_make_core_constraint_type` |
-| 580 | `func_def` | `zt_checker_register_type_params` |
-| 617 | `func_def` | `zt_checker_resolve_user_type` |
-| 663 | `func_def` | `zt_checker_resolve_type` |
-| 740 | `func_def` | `zt_checker_type_implements_trait` |
-| 807 | `func_def` | `zt_checker_same_or_contextually_assignable` |
-| 914 | `func_def` | `zt_checker_is_numeric_conversion_target` |
-| 921 | `func_def` | `zt_checker_validate_conversion` |
-| 957 | `func_def` | `zt_checker_bind_struct_field_type_params` |
-| 969 | `func_def` | `zt_checker_find_struct_field_decl` |
-| 980 | `func_def` | `zt_checker_find_enum_variant_decl` |
-| 997 | `func_def` | `zt_checker_enum_variant_field_type_node` |
-| 1004 | `func_def` | `zt_checker_enum_variant_field_name` |
-| 1016 | `func_def` | `zt_checker_find_apply_method` |
-| 1039 | `func_def` | `zt_checker_build_qualified_name` |
-| 1065 | `func_def` | `zt_checker_check_field_expr` |
-| 1150 | `func_def` | `zt_checker_expression_is_mutable_target` |
-| 1170 | `func_def` | `zt_checker_check_call_expr` |
-| 1829 | `func_def` | `zt_checker_check_expression` |
-| 2257 | `func_def` | `zt_checker_check_statement` |
-| 2614 | `func_def` | `zt_checker_check_block` |
-| 2626 | `func_def` | `zt_checker_check_where_clause` |
-| 2641 | `func_def` | `zt_checker_check_generic_constraints` |
-| 2666 | `func_def` | `zt_checker_check_func_like` |
-| 2706 | `func_def` | `zt_checker_seed_module_const_bindings` |
-| 2721 | `func_def` | `zt_checker_check_decl` |
-| 2834 | `func_def` | `zt_check_file` |
-| 2855 | `func_def` | `zt_check_result_dispose` |
+| 13 | `enum` | `zt_binding_kind` |
+| 18 | `struct` | `zt_binding` |
+| 25 | `struct` | `zt_binding_scope` |
+| 32 | `struct` | `zt_decl_entry` |
+| 37 | `struct` | `zt_decl_index_entry` |
+| 42 | `struct` | `zt_import_entry` |
+| 47 | `struct` | `zt_decl_list` |
+| 53 | `struct` | `zt_import_list` |
+| 59 | `struct` | `zt_apply_list` |
+| 65 | `struct` | `zt_module_catalog` |
+| 74 | `struct` | `zt_checker` |
+| 80 | `struct` | `zt_transfer_stack` |
+| 86 | `struct` | `zt_expr_info` |
+| 95 | `struct` | `zt_function_context` |
+| 103 | `func_def` | `zt_checker_strdup` |
+| 115 | `func_def` | `zt_expr_info_dispose` |
+| 126 | `func_def` | `zt_expr_info_make` |
+| 137 | `func_def` | `zt_binding_scope_init` |
+| 145 | `func_def` | `zt_binding_scope_dispose` |
+| 160 | `func_def` | `zt_binding_scope_declare` |
+| 188 | `func_def` | `zt_binding_scope_lookup` |
+| 203 | `func_def` | `zt_binding_scope_lookup_extended` |
+| 220 | `func_def` | `zt_decl_list_push` |
+| 236 | `func_def` | `zt_import_list_push` |
+| 252 | `func_def` | `zt_catalog_init` |
+| 257 | `func_def` | `zt_catalog_dispose` |
+| 274 | `func_def` | `zt_transfer_stack_init` |
+| 281 | `func_def` | `zt_transfer_stack_dispose` |
+| 294 | `func_def` | `zt_transfer_stack_contains` |
+| 306 | `func_def` | `zt_transfer_stack_push` |
+| 325 | `func_def` | `zt_transfer_stack_pop` |
+| 332 | `func_def` | `zt_catalog_hash_name` |
+| 347 | `func_def` | `zt_catalog_build_decl_index` |
+| 389 | `func_def` | `zt_catalog_find_decl` |
+| 413 | `func_def` | `zt_catalog_has_import_alias` |
+| 422 | `func_def` | `zt_catalog_import_path_for_alias` |
+| 436 | `func_def` | `zt_apply_list_push` |
+| 451 | `func_def` | `zt_catalog_build` |
+| 515 | `func_def` | `zt_name_has_dot` |
+| 519 | `func_def` | `zt_checker_is_self_prefix` |
+| 533 | `func_def` | `zt_checker_decl_is_public` |
+| 555 | `func_def` | `zt_type_base_name` |
+| 559 | `func_def` | `zt_decl_type_param_count` |
+| 570 | `func_def` | `zt_builtin_type_by_name` |
+| 596 | `func_def` | `zt_type_expected_arity` |
+| 613 | `func_def` | `zt_type_describe` |
+| 617 | `func_def` | `zt_checker_diag_type` |
+| 625 | `func_def` | `zt_checker_append_text` |
+| 640 | `func_def` | `zt_checker_diag_callable_signature` |
+| 656 | `func_def` | `zt_checker_diag_invalid_callable_ref_expected` |
+| 670 | `func_def` | `zt_checker_format_missing_enum_cases` |
+| 694 | `func_def` | `zt_checker_add_dyn_static_dispatch_note` |
+| 704 | `func_def` | `zt_parse_signed_literal_value` |
+| 723 | `func_def` | `zt_parse_double_literal_value` |
+| 744 | `func_def` | `zt_int_literal_fits_kind` |
+| 763 | `func_def` | `zt_int_value_fits_kind` |
+| 780 | `func_def` | `zt_expr_matches_integral_type` |
+| 788 | `func_def` | `zt_try_add_i64` |
+| 798 | `func_def` | `zt_try_sub_i64` |
+| 808 | `func_def` | `zt_try_mul_i64` |
+| 841 | `func_def` | `zt_checker_compute_integral_binary` |
+| 865 | `func_def` | `zt_type_is_core_trait_name` |
+| 873 | `func_def` | `zt_checker_split_prefix` |
+| 886 | `func_def` | `zt_type_param_has_trait` |
+| 899 | `func_decl` | `zt_checker_type_implements_trait` |
+| 900 | `func_decl` | `zt_checker_resolve_type` |
+| 901 | `func_decl` | `zt_checker_check_expression` |
+| 902 | `func_decl` | `zt_checker_check_block` |
+| 903 | `func_decl` | `zt_checker_type_is_transferable_inner` |
+| 907 | `func_def` | `zt_checker_validate_dyn_trait` |
+| 1014 | `func_def` | `zt_checker_make_core_constraint_type` |
+| 1020 | `func_def` | `zt_checker_register_type_params` |
+| 1057 | `func_def` | `zt_checker_resolve_user_type` |
+| 1108 | `func_def` | `zt_checker_resolve_type` |
+| 1232 | `func_def` | `zt_checker_type_implements_trait` |
+| 1305 | `func_def` | `zt_checker_same_or_contextually_assignable` |
+| 1412 | `func_def` | `zt_checker_is_numeric_conversion_target` |
+| 1419 | `func_def` | `zt_checker_validate_conversion` |
+| 1455 | `func_def` | `zt_checker_make_std_concurrent_copy_type` |
+| 1488 | `func_def` | `zt_checker_bind_struct_field_type_params` |
+| 1500 | `func_def` | `zt_decl_type_params` |
+| 1509 | `func_def` | `zt_checker_bind_decl_type_params` |
+| 1530 | `func_def` | `zt_checker_find_struct_field_decl` |
+| 1541 | `func_def` | `zt_checker_find_enum_variant_decl` |
+| 1558 | `func_def` | `zt_checker_enum_variant_field_type_node` |
+| 1565 | `func_def` | `zt_checker_enum_variant_field_name` |
+| 1577 | `func_def` | `zt_checker_find_apply_method` |
+| 1600 | `func_def` | `zt_checker_type_is_transferable_user_decl` |
+| 1662 | `func_def` | `zt_checker_type_is_transferable_inner` |
+| 1725 | `func_def` | `zt_checker_build_qualified_name` |
+| 1751 | `func_def` | `zt_checker_lookup_import_member` |
+| 1785 | `func_def` | `zt_checker_check_field_expr` |
+| 1876 | `func_def` | `zt_checker_expression_is_mutable_target` |
+| 1910 | `func_def` | `zt_checker_check_call_expr` |
+| 2943 | `func_def` | `zt_checker_check_expression` |
+| 3510 | `func_def` | `zt_checker_check_statement` |
+| 4085 | `func_def` | `zt_checker_check_block` |
+| 4097 | `func_def` | `zt_checker_check_where_clause` |
+| 4112 | `func_def` | `zt_checker_check_generic_constraints` |
+| 4137 | `func_def` | `zt_checker_check_func_like` |
+| 4178 | `func_def` | `zt_checker_seed_module_value_bindings` |
+| 4206 | `func_def` | `zt_checker_seed_module_value_aliases` |
+| 4252 | `func_def` | `zt_checker_check_decl` |
+| 4387 | `func_def` | `zt_check_file` |
+| 4408 | `func_def` | `zt_checker_type_is_transferable` |
+| 4432 | `func_def` | `zt_check_result_dispose` |
 
 #### `compiler/semantic/types/checker.h`
 
@@ -173,23 +202,28 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | ---: | --- | --- |
 | 7 | `func_def` | `zt_types_strdup` |
 | 19 | `func_def` | `zt_type_kind_name` |
-| 59 | `func_def` | `zt_type_list_make` |
-| 67 | `func_def` | `zt_type_list_push` |
-| 82 | `func_def` | `zt_type_list_dispose` |
-| 95 | `func_def` | `zt_type_make` |
-| 103 | `func_def` | `zt_type_make_named` |
-| 110 | `func_def` | `zt_type_make_with_args` |
-| 120 | `func_def` | `zt_type_clone` |
-| 133 | `func_def` | `zt_type_dispose` |
-| 140 | `func_def` | `zt_type_equals` |
-| 155 | `func_def` | `zt_type_append` |
-| 169 | `func_def` | `zt_type_format_inner` |
-| 216 | `func_def` | `zt_type_format` |
-| 224 | `func_def` | `zt_type_is_integral` |
-| 242 | `func_def` | `zt_type_is_signed_integral` |
-| 256 | `func_def` | `zt_type_is_unsigned_integral` |
-| 269 | `func_def` | `zt_type_is_float` |
-| 276 | `func_def` | `zt_type_is_numeric` |
+| 61 | `func_def` | `zt_type_list_make` |
+| 69 | `func_def` | `zt_type_list_push` |
+| 84 | `func_def` | `zt_type_list_dispose` |
+| 97 | `func_def` | `zt_type_make` |
+| 105 | `func_def` | `zt_type_make_named` |
+| 112 | `func_def` | `zt_type_make_with_args` |
+| 122 | `func_def` | `zt_type_clone` |
+| 135 | `func_def` | `zt_type_dispose` |
+| 142 | `func_def` | `zt_type_equals` |
+| 157 | `func_def` | `zt_type_append` |
+| 171 | `func_def` | `zt_type_format_inner` |
+| 232 | `func_def` | `zt_type_format` |
+| 240 | `func_def` | `zt_type_is_integral` |
+| 258 | `func_def` | `zt_type_is_signed_integral` |
+| 272 | `func_def` | `zt_type_is_unsigned_integral` |
+| 285 | `func_def` | `zt_type_is_float` |
+| 292 | `func_def` | `zt_type_is_numeric` |
+| 296 | `func_def` | `zt_type_make_callable` |
+| 321 | `func_def` | `zt_type_callable_return` |
+| 327 | `func_def` | `zt_type_callable_param_count` |
+| 333 | `func_def` | `zt_type_callable_param` |
+| 339 | `func_def` | `zt_type_callable_signatures_equal` |
 
 #### `compiler/semantic/types/types.h`
 

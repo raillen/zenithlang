@@ -4,100 +4,217 @@
 
 # Zenith Language
 
-Zenith is a reading-first language with explicit semantics and a native compilation pipeline.
+Zenith e uma linguagem **reading-first** com capacidade de sistemas.
 
-## Current state
+Ela e focada em:
 
-- Status: alpha published (v2 compiler track)
-- Current source version: `0.3.0-alpha.3` (2026-04-24)
-- Latest local Windows artifact: `0.3.0-alpha.3` — see `docs/reports/release/0.3.0-alpha.3-release-report.md`
-- Alpha gate milestone: `R2.M12` closed
-- Language update (2026-04-22): `public var` at namespace scope is now implemented with controlled mutation (read public, write only in owner namespace; no `global` syntax)
-- Correctness update (2026-04-23): 10 residual pendings (`PLI-01..PLI-10`) closed; formatter idempotence gate and emitter symbol-collision guard now mandatory in `pr_gate`
+- intencao explicita;
+- comportamento previsivel;
+- design composicional;
+- diagnosticos legiveis;
+- documentacao curta e direta;
+- acessibilidade cognitiva para pessoas com TDAH e dislexia.
 
-## Project origin (AI-assisted)
+> Zenith nao tenta vencer por sintaxe curta.
+> Ela tenta ser clara o suficiente para ser lida, revisada, ensinada e mantida.
 
-Zenith positions itself as one of the early language initiatives intentionally built with strong AI assistance, and as a practical case study in AI-assisted language engineering.
+## Estado atual
 
-- The project is intentionally developed with heavy AI assistance.
-- Primary goals include personal study, technical upskilling, and validation of an AI-assisted workflow.
-- Language decisions, scope cuts, and release gates remain human-owned and explicitly documented.
+Zenith ainda e uma linguagem em evolucao.
 
-What is intentionally deferred to the next cycle:
+- Status publico: alpha.
+- Versao fonte atual: `0.3.0-alpha.3` (2026-04-24).
+- Compilador atual: trilha `v2`, implementada em C.
+- Executavel principal: `zt.exe`.
+- Package manager local: `zpm.exe`.
+- Backend atual: C emitido + compilador nativo.
+- Runtime atual: `runtime/c/`.
+- Stdlib atual: `stdlib/std/`.
 
-- Compass LSP productization
-- public API expansion for `stdlib/platform/` (remains internal)
+O repositorio contem codigo real, testes, stdlib, runtime, docs, exemplos e
+relatorios. Mesmo assim, Zenith deve ser tratada como projeto alpha:
 
-## Runtime model (alpha)
+- APIs ainda podem mudar;
+- algumas features sao experimentais;
+- nem todo roadmap e promessa de implementacao;
+- documentacao publica, referencia, spec e planos internos ficam separados.
 
-- Default runtime paths are single-isolate.
-- Ordinary managed values use non-atomic ARC.
-- Cross-thread sharing of ordinary managed values is not a supported default path.
-- Crossing a boundary should use isolate/message-passing transfer or deep-copy semantics.
-- The first delivered public slice is `std.concurrent`, with explicit typed copy helpers such as `copy_text`, `copy_bytes`, `copy_list_int`, `copy_list_text` and `copy_map_text_text`.
-- Planned user-facing concurrency follows workers/jobs/channels, not raw shared mutable `list/map/text`.
-- The host or engine may use threads internally; the restriction applies to ordinary managed Zenith values, not to the whole process.
-- RC cycle collection is not present in the alpha runtime. Cycles are a known leak risk, not undefined behavior.
-- APIs that naturally create long-lived reference graphs remain deferred or unstable until a dedicated cycle policy exists.
-- Canonical reference: `language/spec/runtime-model.md`
+## O que Zenith e
 
-## Philosophy
+Zenith e um estudo pratico sobre compiladores, runtime, ferramentas e design de
+linguagens.
 
-Zenith follows four practical rules:
+Ela nasceu para investigar ideias sobre:
 
-1. Readability before clever syntax.
-2. Explicit behavior over implicit magic.
-3. Stable formatter and diagnostics as language contracts.
-4. Cognitive accessibility as a first-class requirement.
+- compiladores;
+- sistemas;
+- runtime;
+- stdlib;
+- FFI;
+- ferramentas de projeto;
+- LSP e editor;
+- packages;
+- IA aplicada a engenharia de linguagem.
 
-Core references:
+Zenith tambem e um laboratorio de aprendizado profundo. O objetivo principal e
+aprender com rigor, construir com clareza e registrar as decisoes de forma
+honesta.
 
+## O que Zenith nao e
+
+Zenith nao e uma promessa de produto pronto para producao.
+
+Ela tambem nao tenta substituir Rust, C, C#, Python, JavaScript, Go, Zig, Nim ou
+outra linguagem consolidada.
+
+Comparacoes com outras linguagens existem para orientar decisoes tecnicas, nao
+para declarar superioridade.
+
+## Manifesto curto
+
+Zenith segue quatro regras praticas:
+
+1. Clareza acima de esperteza sintatica.
+2. Explicito antes de magico.
+3. Leitura antes de digitacao curta.
+4. Acessibilidade cognitiva como requisito, nao como enfeite.
+
+Isso afeta a linguagem e o tooling:
+
+- blocos tem forma visual previsivel;
+- mutacao deve ser visivel;
+- ausencia e falha sao conceitos separados;
+- diagnosticos devem dizer o problema e a proxima acao;
+- exemplos devem ser pequenos;
+- docs devem reduzir carga mental;
+- features futuras precisam provar que preservam legibilidade.
+
+Referencias principais:
+
+- `docs/public/history-and-manifesto.md`
+- `language/decisions/033-language-philosophy-and-manifesto.md`
 - `language/spec/surface-syntax.md`
-- `language/spec/cognitive-accessibility.md`
-- `language/spec/formatter-model.md`
 - `language/spec/diagnostics-model.md`
-- `language/spec/diagnostic-code-catalog.md`
-- `language/spec/implementation-status.md`
-- `language/surface-implementation-status.md`
-- `language/MVP_OUT_OF_SCOPE.md` (historical MVP boundary plus still-deferred items)
-- `language/decisions/086-namespace-public-var-and-controlled-mutation.md`
+- `language/spec/formatter-model.md`
+- `language/spec/legibility-evaluation.md`
 
-## What is implemented
+## Documentacao
 
-- Compiler executable: `zt.exe`
-- End-to-end pipeline: lexer -> parser -> AST -> semantic -> HIR -> ZIR -> C emitter -> native binary
-- Project manifest: `zenith.ztproj`
-- Runtime: `runtime/c/`
-- Standard library: `stdlib/std/`
-- Tooling: check, build, run, test, format, docs, summaries, perf gates
+A documentacao foi reorganizada por publico-alvo.
+
+Use esta entrada para navegar:
+
+- `docs/DOCS-STRUCTURE.md`: como a documentacao e organizada.
+- `docs/public/README.md`: guias para usuarios e site.
+- `docs/reference/README.md`: referencias curtas e consultaveis.
+- `docs/internal/README.md`: planejamento, reports e manutencao.
+- `docs/wiki/`: fonte das paginas da GitHub Wiki.
+
+Leitura recomendada para comecar:
+
+- `docs/public/get-started/installation.md`
+- `docs/public/get-started/first-project.md`
+- `docs/public/get-started/daily-workflow.md`
+- `docs/public/learn/README.md`
+- `docs/public/language/core-tour.md`
+- `docs/public/cookbook/README.md`
+
+Referencia rapida:
+
+- `docs/reference/language/syntax.md`
+- `docs/reference/language/types.md`
+- `docs/reference/language/modules-and-visibility.md`
+- `docs/reference/language/errors-and-results.md`
+- `docs/reference/cli/zt.md`
+- `docs/reference/cli/zpm.md`
+- `docs/reference/stdlib/modules.md`
+
+## Projeto com IA
+
+Zenith e desenvolvida com forte assistencia de IA.
+
+Isso faz parte do estudo.
+
+A IA ajuda a:
+
+- revisar documentacao;
+- criar testes;
+- comparar alternativas;
+- encontrar inconsistencias;
+- acelerar implementacao;
+- organizar reports e roadmaps.
+
+Mas decisoes de linguagem, cortes de escopo, gates e direcao do projeto
+continuam sendo responsabilidade humana. Por isso o repositorio preserva
+decisions, specs, checklists e reports.
+
+## O que ja existe
+
+Superficie atual em alto nivel:
+
+- lexer, parser, AST, semantic, HIR, ZIR e emitter C;
+- projeto via `zenith.ztproj`;
+- CLI `zt` para check, build, run, test, fmt, docs, summary e perf;
+- runtime C com valores managed e ARC;
+- stdlib com texto, arquivos, JSON, validacao, math, random, collections,
+  tests, OS/process e outros modulos;
+- `optional<T>` e `result<T,E>`;
+- `trait`, `apply` e `dyn<Trait>`;
+- `public var` de namespace com mutacao controlada;
+- FFI 1.0 documentado para o corte atual;
+- ZPM MVP local;
+- LSP/VSCode beta local;
+- docs publicas, referencias e specs internas.
+
+## Modelo de runtime
+
+O modelo padrao atual usa ARC para valores heap-managed.
+
+Resumo:
+
+- valores managed comuns usam contagem de referencia nao atomica;
+- o caminho padrao e single-isolate;
+- compartilhamento entre threads de valores managed comuns nao e default;
+- fronteiras devem usar copia, transferencia ou contratos explicitos;
+- ciclos de referencia podem vazar memoria no alpha;
+- ponteiros crus e memoria manual ampla seguem como assunto futuro, nao como
+  surface publica atual.
+
+Referencias:
+
+- `runtime/c/README.md`
+- `language/spec/runtime-model.md`
+- `docs/internal/planning/manual-memory-roadmap-v1.md`
 
 ## Quick start
 
-Requirements:
+Requisitos:
 
-- Python 3
-- GCC or Clang in `PATH`
-- PowerShell, bash, or equivalent shell
+- Python 3;
+- GCC ou Clang no `PATH`;
+- PowerShell, bash ou shell equivalente.
 
 Build:
 
 ```bash
 python build.py
-# or
-bash build.sh
-# or (Windows)
+```
+
+Windows:
+
+```bat
 build.bat
 ```
 
-Help:
+Ajuda:
 
 ```bash
 ./zt.exe
 ```
 
-## First app
+## Primeiro app
 
-Project layout:
+Estrutura:
 
 ```text
 my_app/
@@ -140,7 +257,7 @@ func main() -> result<void, core.Error>
 end
 ```
 
-Run:
+Rodar:
 
 ```bash
 ./zt.exe check my_app/zenith.ztproj
@@ -148,9 +265,39 @@ Run:
 ./zt.exe run my_app/zenith.ztproj
 ```
 
-## Example projects (GitHub demo)
+## CLI
 
-Curated runnable examples live in `examples/`:
+Comandos principais:
+
+```bash
+zt check [project|zenith.ztproj]
+zt build [project|zenith.ztproj]
+zt run [project|zenith.ztproj]
+zt test [project|zenith.ztproj]
+zt fmt [project|zenith.ztproj] [--check]
+zt doc check [project|zenith.ztproj]
+zt doc show [symbol]
+zt summary [project|zenith.ztproj]
+zt perf [quick|nightly|scenario]
+```
+
+ZPM:
+
+```bash
+zpm init
+zpm add <package>
+zpm install
+```
+
+Guia:
+
+- `docs/public/tools/zpm-guide.md`
+
+## Exemplos
+
+Projetos executaveis ficam em `examples/`.
+
+Exemplos principais:
 
 - `examples/hello-world`
 - `examples/structs-and-match`
@@ -159,122 +306,107 @@ Curated runnable examples live in `examples/`:
 - `examples/std-json`
 - `examples/extern-c-puts`
 
-Guide:
+Leia tambem:
 
 - `examples/README.md`
+- `docs/public/cookbook/README.md`
 
-## CLI
+## Validacao
 
-- `zt check [project|zenith.ztproj]`
-- `zt build [project|zenith.ztproj] [-o <output>]`
-- `zt run [project|zenith.ztproj] [-o <output>]`
-- `zt create [path|.] [--app|--lib] [--force]`
-- `zt test [project|zenith.ztproj]`
-- `zt fmt [project|zenith.ztproj] [--check]`
-- `zt doc check [project|zenith.ztproj]`
-- `zt doc show [symbol]`
-- `zt summary [project|zenith.ztproj]`
-- `zt resume [project|zenith.ztproj]`
-- `zt perf [quick|nightly|scenario]`
-
-## Quality and performance gates
-
-Main validation:
+Gate amplo:
 
 ```bash
 python run_all_tests.py
 ```
 
-`run_all_tests.py` now includes official tooling gates:
+Gates rapidos usados com frequencia:
 
 ```bash
-./zt.exe fmt tests/behavior/tooling_gate_smoke --check
-./zt.exe doc check tests/behavior/tooling_gate_smoke
+python build.py
+./zt.exe check zenith.ztproj --all --ci
+python run_suite.py smoke --no-perf
 ```
 
-Performance:
+Perf:
 
-- `tests/perf/gate_pr.ps1`
-- `tests/perf/gate_nightly.ps1`
-- `tests/perf/run_perf.py`
+```bash
+tests/perf/gate_pr.ps1
+tests/perf/gate_nightly.ps1
+```
 
-## Distribution model
+## Roadmaps e decisoes
 
-Current local distribution for pre-release `0.3.0-alpha.3` includes a package:
+Roadmaps e checklists ficam em `docs/internal/planning/`.
 
-- Repository release artifacts:
-  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.3-windows-amd64.zip`
-  - `docs/reports/release/artifacts/zenith-0.3.0-alpha.3-windows-amd64.checksums.txt`
+Entradas importantes:
 
-Linux packaging support in-repo:
+- `docs/internal/planning/README.md`
+- `docs/internal/planning/roadmap-v4.md`
+- `docs/internal/planning/checklist-v4.md`
+- `docs/internal/planning/roadmap-v6.md`
+- `docs/internal/planning/checklist-v6.md`
+- `docs/internal/planning/manual-memory-roadmap-v1.md`
+- `docs/internal/planning/manual-memory-checklist-v1.md`
 
-- `python3 tools/build_linux_packages.py --version <x.y.z>`
-- Generates `.deb`, `.rpm`, and `.pkg.tar.zst` artifacts under `dist/linux/`
-- Installs global `ZENITH_HOME` via `/etc/profile.d/zenith.sh`
+Decisoes de linguagem ficam em `language/decisions/`.
 
-Alpha package includes:
+Specs normativas ficam em `language/spec/`.
 
-- `zt.exe`
-- runtime and stdlib required for execution
-- quick-start and compatibility notes
-- complete licensing package
+## Distribuicao
 
-Compatibility policy:
+Release alpha atual:
 
-- before `1.0.0`, breaking changes are allowed between pre-releases
-- deferred items are tracked in `docs/planning/roadmap-v2.md` and `docs/planning/checklist-v2.md`
-- per-milestone compatibility log: `docs/reports/compatibility/`
+- `0.3.0-alpha.3`
 
-## Licensing package
+Artefatos locais de release ficam em:
 
-Zenith source code is dual-licensed:
+- `docs/internal/reports/release/0.3.0-alpha.3-release-report.md`
+- `docs/internal/reports/release/0.3.0-alpha.3-notes.md`
+
+Changelog:
+
+- `CHANGELOG.md`
+
+Antes de `1.0.0`, breaking changes podem acontecer entre pre-releases.
+
+## Licenca
+
+Zenith usa licenca dupla:
 
 - Apache-2.0
 - MIT
 
-You can choose either license (`Apache-2.0 OR MIT`).
+Voce pode escolher qualquer uma das duas: `Apache-2.0 OR MIT`.
 
-License files:
+Arquivos:
 
 - `LICENSE`
 - `LICENSE-APACHE`
 - `LICENSE-MIT`
 
-Governance and contribution:
+Contribuicao, marca e licenciamento:
 
 - `CONTRIBUTING.md`
 - `TRADEMARK_POLICY.md`
-- `docs/licensing/README.md`
+- `docs/public/licensing/README.md`
 
-Notes:
+## Mapa do repositorio
 
-- contribution terms follow the same dual-license model
-- code license does not grant trademark rights automatically
-
-## Repository map
-
-- `compiler/` -> frontend, semantic, IR, backend, driver, tooling
-- `runtime/c/` -> runtime primitives and memory model
-- `stdlib/` -> public standard library and docs
-- `tests/` -> behavior, semantic, runtime, targets, perf
-- `language/spec/` -> canonical language and tooling specs
-- `docs/` -> planning, reports, guides, licensing and standards
-
-## Documentation hub
-
-- `docs/planning/roadmap-v3.md`
-- `docs/planning/checklist-v3.md`
-- `docs/planning/roadmap-v2.md`
-- `docs/planning/checklist-v2.md`
-- `docs/planning/cascade-v2.md`
-- `docs/planning/cascade-v1.md`
+- `compiler/`: frontend, semantic, IR, backend, driver e tooling.
+- `runtime/c/`: runtime C e modelo de memoria.
+- `stdlib/`: stdlib publica e zdocs.
+- `language/spec/`: especificacao normativa.
+- `language/decisions/`: decisoes com contexto.
+- `docs/public/`: guias para usuarios.
+- `docs/reference/`: referencias consultaveis.
+- `docs/internal/`: planos, reports, governance e arquitetura.
+- `docs/wiki/`: fonte da GitHub Wiki.
+- `examples/`: projetos demonstrativos.
+- `tests/`: suites de comportamento, semantic, runtime, formatter, LSP e perf.
+- `tools/`: ferramentas auxiliares.
+- `packages/`: packages oficiais em desenvolvimento, incluindo Borealis.
 
 ## Wiki
 
 - https://github.com/raillen/zenithlang/wiki
-- Source pages: `docs/wiki/`
-
-## Local AI helper
-
-- Local RAG starter: `tools/rag/`
-- Guide: `tools/rag/README.md`
+- Fonte local: `docs/wiki/`

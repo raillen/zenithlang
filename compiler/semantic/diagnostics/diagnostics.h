@@ -40,6 +40,9 @@ typedef enum zt_diag_code {
     ZT_DIAG_SHADOWING,
     ZT_DIAG_UNRESOLVED_NAME,
     ZT_DIAG_CONFUSING_NAME,
+    ZT_DIAG_SIMILAR_NAME,
+    ZT_DIAG_BLOCK_TOO_DEEP,
+    ZT_DIAG_FUNCTION_TOO_LONG,
     ZT_DIAG_INVALID_CONSTRAINT_TARGET,
     ZT_DIAG_INVALID_TYPE,
     ZT_DIAG_TYPE_MISMATCH,
@@ -55,6 +58,7 @@ typedef enum zt_diag_code {
     ZT_DIAG_INVALID_CONVERSION,
     ZT_DIAG_INTEGER_OVERFLOW,
     ZT_DIAG_NON_EXHAUSTIVE_MATCH,
+    ZT_DIAG_ENUM_DEFAULT_CASE,
     ZT_DIAG_TOKEN_TOO_LONG,
     ZT_DIAG_LEXER_UNTERMINATED_STRING,
     ZT_DIAG_PARAM_ORDERING,
@@ -126,6 +130,9 @@ const char *zt_diag_severity_name(zt_diag_severity severity);
 
 zt_diag_list zt_diag_list_make(void);
 void zt_diag_list_dispose(zt_diag_list *list);
+size_t zt_diag_list_error_count(const zt_diag_list *list);
+int zt_diag_list_has_errors(const zt_diag_list *list);
+void zt_diag_list_promote_warnings(zt_diag_list *list);
 void zt_diag_list_add(zt_diag_list *list, zt_diag_code code, zt_source_span span, const char *format, ...);
 void zt_diag_list_add_severity(
     zt_diag_list *list,

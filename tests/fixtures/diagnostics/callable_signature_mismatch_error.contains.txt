@@ -1,2 +1,2 @@
 [callable.signature_mismatch]
-callable 'op' expects 2 argument(s) but got 1
+callable 'op' signature mismatch: expected func(int, int) -> int but received func(int) -> int

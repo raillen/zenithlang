@@ -15,7 +15,7 @@ Suite atual:
 - `tests/runtime/c/test_map_hash_table.c`
 - `tests/runtime/c/test_thread_boundary_copy.c`
 - `tests/runtime/c/test_runtime_error_tls.c`
-- `tests/runtime/c/test_shared_text.c`
+- `tests/runtime/c/test_shared_text.c` - inclui stress test concorrente de `Shared<T>`/texto com refcount atomico.
 
 Comandos uteis de compilacao do runtime test:
 

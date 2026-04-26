@@ -65,6 +65,7 @@ import {
 } from "./backend";
 import {
   borealisComponents,
+  borealisSceneSettings,
   configureBorealisCatalog,
   componentSchema,
   componentSummary,
@@ -88,7 +89,10 @@ import type {
   ProjectAsset,
   SceneComponent,
   SceneDocument,
+  SceneEnvironment,
   SceneEntity,
+  SceneAudioSettings,
+  SceneRenderSettings,
   ScriptDocument,
   StudioHome,
   StudioMode,
@@ -743,6 +747,7 @@ export function BorealisStudioApp() {
             <section className="viewport-wrap">
               <SceneViewport
                 entities={snapshot.scene.entities}
+                scene={snapshot.scene}
                 mode={mode}
                 viewMode={viewMode}
                 selectedEntityId={selectedEntityId}
@@ -768,6 +773,7 @@ export function BorealisStudioApp() {
         <InspectorPanel
           assets={snapshot.assets}
           entity={selectedEntity}
+          scene={snapshot.scene}
           scripts={snapshot.scripts}
           onAttachScript={attachScript}
           onComponentChange={(index, component) => {
@@ -779,6 +785,7 @@ export function BorealisStudioApp() {
             });
           }}
           onEntityChange={updateSelectedEntity}
+          onSceneChange={(patch) => updateScene((scene) => ({ ...scene, ...patch }))}
           onTransformChange={updateSelectedTransform}
         />
 
@@ -899,6 +906,13 @@ function StartScreen({
     setProjectPath(home.defaultProjectPath);
     setParentDir(home.defaultProjectsDir);
   }, [home.defaultProjectPath, home.defaultProjectsDir]);
+
+  useEffect(() => {
+    if (!home.templates.some((template) => template.id === templateId)) {
+      setTemplateId(firstTemplate.id);
+      setProjectName((current) => (current.trim() ? current : firstTemplate.defaultName));
+    }
+  }, [firstTemplate.defaultName, firstTemplate.id, home.templates, templateId]);
 
   function chooseTemplate(template: ProjectTemplate) {
     setTemplateId(template.id);
@@ -1434,6 +1448,7 @@ function StageToolbar({
 
 function SceneViewport({
   entities,
+  scene,
   mode,
   viewMode,
   selectedEntityId,
@@ -1446,6 +1461,7 @@ function SceneViewport({
   onUpdateTransform,
 }: {
   entities: SceneEntity[];
+  scene: SceneDocument;
   mode: StudioMode;
   viewMode: ViewMode;
   selectedEntityId: string;
@@ -1592,7 +1608,7 @@ function SceneViewport({
         } as React.CSSProperties
       }
     >
-      {viewMode === "3d" ? <Viewport3D {...viewportProps} /> : <Viewport2D {...viewportProps} />}
+      {viewMode === "3d" ? <Viewport3D {...viewportProps} scene={scene} /> : <Viewport2D {...viewportProps} />}
     </div>
   );
 }
@@ -1617,12 +1633,13 @@ function Viewport3D({
   entities,
   mode,
   preferences,
+  scene,
   selectedEntityId,
   onClearSelection,
   onResetCamera,
   onSelectEntity,
   onUpdateTransform,
-}: ViewportRendererProps) {
+}: ViewportRendererProps & { scene: SceneDocument }) {
   const orbitRef = useRef<any>(null);
   const [projection, setProjection] = useState<ViewProjection>("perspective");
   const [orientation, setOrientation] = useState<ViewOrientation>("free");
@@ -1636,6 +1653,17 @@ function Viewport3D({
     snapToGrid: preferences.snapMode === "grid" || preferences.snapMode === "grid-object",
     snapToObject: preferences.snapMode === "object" || preferences.snapMode === "grid-object",
   });
+  const sceneBackground = sceneColorValue(scene.environment.skybox, "color", "#1c1f26");
+  const ambientColor = sceneColorValue(scene.environment.ambient, "color", "#ffffff");
+  const ambientIntensity = sceneNumberValue(scene.environment.ambient, "intensity", 0.4);
+  const fogEnabled = sceneBooleanValue(scene.environment.fog, "enabled", false);
+  const fogColor = sceneColorValue(scene.environment.fog, "color", "#9ca3af");
+  const fogDensity = sceneNumberValue(scene.environment.fog, "density", 0.05);
+  const postfx = scene.render.postfx ?? {};
+  const postfxEnabled =
+    sceneBooleanValue(postfx, "fxaa", false) ||
+    sceneNumberValue(postfx, "bloom", 0) > 0 ||
+    sceneNumberValue(postfx, "vignette", 0) > 0;
   const transformMode = mode === "rotate" ? "rotate" : mode === "scale" ? "scale" : "translate";
   const cameraMode = projection === "isometric" ? "isometric" : projection;
 
@@ -1731,10 +1759,12 @@ function Viewport3D({
           <OrthographicCamera makeDefault position={[10, 8, 10]} zoom={58} near={0.1} far={1000} />
         )}
         <ViewportCameraController orientation={orientation} projection={projection} controlsRef={orbitRef} />
-        <color attach="background" args={["#1c1c1c"]} />
-        <ambientLight intensity={0.4} />
+        <color attach="background" args={[sceneBackground]} />
+        {fogEnabled ? <fog attach="fog" args={[fogColor, 4, Math.max(6, 38 - fogDensity * 24)]} /> : null}
+        <ambientLight color={ambientColor} intensity={ambientIntensity} />
         <directionalLight castShadow intensity={0.8} position={[10, 12, 10]} />
         <Environment preset="city" />
+        <ViewportSceneLights entities={entities} />
         <Grid
           args={[30, 30]}
           cellColor="#2c2c2c"
@@ -1805,6 +1835,8 @@ function Viewport3D({
         <StatusPill>{mode === "select" ? "Select" : transformMode}</StatusPill>
         <StatusPill>{cameraMode}</StatusPill>
         <StatusPill>{orientation === "free" ? "Free" : orientation}</StatusPill>
+        {fogEnabled ? <StatusPill>Fog</StatusPill> : null}
+        {postfxEnabled ? <StatusPill>PostFX</StatusPill> : null}
         <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
       </div>
       <div className="viewport-view-controls" aria-label="3D viewport view controls">
@@ -2003,6 +2035,62 @@ function oppositeOrientation(orientation: ViewOrientation): ViewOrientation {
   return "back";
 }
 
+function ViewportSceneLights({ entities }: { entities: SceneEntity[] }) {
+  return (
+    <>
+      {entities.flatMap((entity) =>
+        entity.components
+          .filter((component) => component.kind === "directional_light" || component.kind === "point_light" || component.kind === "spot_light")
+          .map((component, index) => {
+            const position: [number, number, number] = [
+              entity.transform.x * 0.04,
+              entity.transform.z * 0.04 + 0.45,
+              entity.transform.y * 0.04,
+            ];
+            const color = String(componentValue(component, "color") ?? "#ffffff");
+            const intensity = Number(componentValue(component, "intensity") ?? 1);
+
+            if (component.kind === "directional_light") {
+              return (
+                <directionalLight
+                  castShadow={componentValue(component, "shadow") === true}
+                  color={color}
+                  intensity={intensity}
+                  key={`${entity.id}-${component.kind}-${index}`}
+                  position={position}
+                />
+              );
+            }
+
+            if (component.kind === "spot_light") {
+              return (
+                <spotLight
+                  angle={(Number(componentValue(component, "angle") ?? 45) * Math.PI) / 180}
+                  color={color}
+                  distance={Number(componentValue(component, "range") ?? 160) * 0.04}
+                  intensity={intensity}
+                  key={`${entity.id}-${component.kind}-${index}`}
+                  penumbra={0.35}
+                  position={position}
+                />
+              );
+            }
+
+            return (
+              <pointLight
+                color={color}
+                distance={Number(componentValue(component, "range") ?? 120) * 0.04}
+                intensity={intensity}
+                key={`${entity.id}-${component.kind}-${index}`}
+                position={position}
+              />
+            );
+          }),
+      )}
+    </>
+  );
+}
+
 function Viewport3DEntity({
   entities,
   entity,
@@ -2030,9 +2118,16 @@ function Viewport3DEntity({
 }) {
   const groupRef = useRef<Group | null>(null);
   const [controlTarget, setControlTarget] = useState<Group | null>(null);
-  const isCamera = entity.components.some((component) => component.kind === "camera3d");
+  const cameraComponent = entity.components.find((component) => component.kind === "camera3d" || component.kind === "camera2d");
+  const lightComponent = entity.components.find((component) =>
+    component.kind === "directional_light" || component.kind === "point_light" || component.kind === "spot_light",
+  );
+  const audioComponent = entity.components.find((component) => component.kind === "audio" || component.kind === "audio3d");
+  const isCamera = Boolean(cameraComponent);
+  const isLight = Boolean(lightComponent);
+  const isAudio = Boolean(audioComponent);
   const isModel = entity.components.some((component) => component.kind === "mesh3d" || component.kind === "model3d");
-  const color = selected ? "#68a4ff" : isCamera ? "#72c08b" : isModel ? "#d9a05c" : "#9aa4b5";
+  const color = selected ? "#68a4ff" : isLight ? "#f5d36b" : isAudio ? "#b48cff" : isCamera ? "#72c08b" : isModel ? "#d9a05c" : "#9aa4b5";
   const position: [number, number, number] = [
     entity.transform.x * 0.04,
     entity.transform.z * 0.04 + 0.45,
@@ -2106,23 +2201,17 @@ function Viewport3DEntity({
       (entity.transform.rotationY * Math.PI) / 180,
       (entity.transform.rotationZ * Math.PI) / 180,
     ]} scale={scale}>
-      <mesh
-        castShadow
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect(entity);
-        }}
-      >
-        {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
-        <ViewportEntityMaterial color={color} renderMode={renderMode} />
-      </mesh>
+      <ViewportEntityGizmo
+        audioComponent={audioComponent}
+        cameraComponent={cameraComponent}
+        color={color}
+        entity={entity}
+        lightComponent={lightComponent}
+        renderMode={renderMode}
+        onSelect={onSelect}
+      />
       {selected ? (
-        <group>
-          <mesh scale={[1.05, 1.05, 1.05]}>
-            {isCamera ? <coneGeometry args={[0.45, 0.9, 4]} /> : <boxGeometry args={[0.9, 0.9, 0.9]} />}
-            <meshBasicMaterial color="#68a4ff" wireframe />
-          </mesh>
-        </group>
+        <ViewportSelectionOutline audioComponent={audioComponent} cameraComponent={cameraComponent} lightComponent={lightComponent} />
       ) : null}
     </group>
   );
@@ -2361,25 +2450,32 @@ function CodePanel({
 function InspectorPanel({
   assets,
   entity,
+  scene,
   scripts,
   onAttachScript,
   onComponentChange,
   onEntityChange,
+  onSceneChange,
   onTransformChange,
 }: {
   assets: ProjectAsset[];
   entity: SceneEntity | null;
+  scene: SceneDocument;
   scripts: ScriptDocument[];
   onAttachScript: (path: string) => void;
   onComponentChange: (index: number, component: SceneComponent) => void;
   onEntityChange: (patch: Partial<SceneEntity>) => void;
+  onSceneChange: (patch: Partial<SceneDocument>) => void;
   onTransformChange: (patch: Partial<Transform3D>) => void;
 }) {
   if (!entity) {
     return (
       <aside className="side-panel inspector-panel">
         <PanelHeader icon={<Settings2 size={15} strokeWidth={ICON_STROKE} />} title="Inspector" meta="Properties" />
-        <div className="empty-state">No object selected.</div>
+        <div className="inspector-scroll">
+          <div className="empty-state">No object selected.</div>
+          <SceneSettingsPanel assets={assets} scene={scene} scripts={scripts} onSceneChange={onSceneChange} />
+        </div>
       </aside>
     );
   }
@@ -2479,8 +2575,227 @@ function InspectorPanel({
             ))}
           </select>
         </InspectorGroup>
+
+        <SceneSettingsPanel assets={assets} scene={scene} scripts={scripts} onSceneChange={onSceneChange} />
       </div>
     </aside>
+  );
+}
+
+function ViewportEntityGizmo({
+  audioComponent,
+  cameraComponent,
+  color,
+  entity,
+  lightComponent,
+  renderMode,
+  onSelect,
+}: {
+  audioComponent?: SceneComponent;
+  cameraComponent?: SceneComponent;
+  color: string;
+  entity: SceneEntity;
+  lightComponent?: SceneComponent;
+  renderMode: RenderMode;
+  onSelect: (entity: SceneEntity) => void;
+}) {
+  const clickProps = {
+    onClick: (event: any) => {
+      event.stopPropagation();
+      onSelect(entity);
+    },
+  };
+
+  if (cameraComponent) {
+    const fov = Number(componentValue(cameraComponent, "fov") ?? 60);
+    const length = clamp(fov / 90, 0.45, 1.4);
+    return (
+      <group>
+        <mesh {...clickProps} rotation={[Math.PI / 2, 0, Math.PI / 4]}>
+          <coneGeometry args={[0.42, 0.78, 4]} />
+          <meshBasicMaterial color={color} wireframe />
+        </mesh>
+        <mesh {...clickProps} position={[0, 0, -length * 0.56]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[length * 0.52, length, 4, 1, true]} />
+          <meshBasicMaterial color={color} transparent opacity={0.18} wireframe />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (lightComponent) {
+    const lightColor = String(componentValue(lightComponent, "color") ?? color);
+    const range = Number(componentValue(lightComponent, "range") ?? 120) * 0.04;
+    if (lightComponent.kind === "directional_light") {
+      return (
+        <group>
+          <mesh {...clickProps}>
+            <sphereGeometry args={[0.28, 18, 12]} />
+            <meshBasicMaterial color={lightColor} />
+          </mesh>
+          <mesh {...clickProps} position={[0, 0, -0.55]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.22, 0.65, 16]} />
+            <meshBasicMaterial color={lightColor} wireframe />
+          </mesh>
+        </group>
+      );
+    }
+
+    if (lightComponent.kind === "spot_light") {
+      const angle = Number(componentValue(lightComponent, "angle") ?? 45);
+      const coneRadius = clamp((angle / 90) * range * 0.35, 0.18, 2.4);
+      return (
+        <group>
+          <mesh {...clickProps}>
+            <sphereGeometry args={[0.22, 18, 12]} />
+            <meshBasicMaterial color={lightColor} />
+          </mesh>
+          <mesh {...clickProps} position={[0, 0, -range * 0.45]} rotation={[Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[coneRadius, Math.max(0.4, range), 24, 1, true]} />
+            <meshBasicMaterial color={lightColor} transparent opacity={0.28} wireframe />
+          </mesh>
+        </group>
+      );
+    }
+
+    return (
+      <group>
+        <mesh {...clickProps}>
+          <sphereGeometry args={[0.24, 18, 12]} />
+          <meshBasicMaterial color={lightColor} />
+        </mesh>
+        <mesh {...clickProps}>
+          <sphereGeometry args={[Math.max(0.35, range), 24, 16]} />
+          <meshBasicMaterial color={lightColor} transparent opacity={0.18} wireframe />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (audioComponent) {
+    const range = Number(componentValue(audioComponent, "range") ?? 80) * 0.04;
+    return (
+      <group>
+        <mesh {...clickProps}>
+          <sphereGeometry args={[0.22, 18, 12]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+        <mesh {...clickProps}>
+          <sphereGeometry args={[Math.max(0.35, range), 24, 16]} />
+          <meshBasicMaterial color={color} transparent opacity={0.16} wireframe />
+        </mesh>
+        <mesh {...clickProps} position={[0, 0.38, 0]}>
+          <torusGeometry args={[0.24, 0.025, 8, 24]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
+      </group>
+    );
+  }
+
+  return (
+    <mesh
+      castShadow
+      {...clickProps}
+    >
+      <boxGeometry args={[0.9, 0.9, 0.9]} />
+      <ViewportEntityMaterial color={color} renderMode={renderMode} />
+    </mesh>
+  );
+}
+
+function ViewportSelectionOutline({
+  audioComponent,
+  cameraComponent,
+  lightComponent,
+}: {
+  audioComponent?: SceneComponent;
+  cameraComponent?: SceneComponent;
+  lightComponent?: SceneComponent;
+}) {
+  if (cameraComponent) {
+    return (
+      <mesh rotation={[Math.PI / 2, 0, Math.PI / 4]} scale={[1.08, 1.08, 1.08]}>
+        <coneGeometry args={[0.42, 0.78, 4]} />
+        <meshBasicMaterial color="#68a4ff" wireframe />
+      </mesh>
+    );
+  }
+
+  if (lightComponent || audioComponent) {
+    return (
+      <mesh>
+        <sphereGeometry args={[0.38, 18, 12]} />
+        <meshBasicMaterial color="#68a4ff" wireframe />
+      </mesh>
+    );
+  }
+
+  return (
+    <mesh scale={[1.05, 1.05, 1.05]}>
+      <boxGeometry args={[0.9, 0.9, 0.9]} />
+      <meshBasicMaterial color="#68a4ff" wireframe />
+    </mesh>
+  );
+}
+
+function SceneSettingsPanel({
+  assets,
+  scene,
+  scripts,
+  onSceneChange,
+}: {
+  assets: ProjectAsset[];
+  scene: SceneDocument;
+  scripts: ScriptDocument[];
+  onSceneChange: (patch: Partial<SceneDocument>) => void;
+}) {
+  const settings = borealisSceneSettings();
+  const entries = Object.entries(settings);
+  if (entries.length === 0) return null;
+
+  return (
+    <InspectorGroup title="Scene Settings" noPadding>
+      {entries.map(([key, schema]) => {
+        const section = sceneSettingSection(key);
+        const values = sceneSettingValues(scene, key);
+        const pseudoComponent: SceneComponent = { kind: key, properties: values };
+
+        return (
+          <div className="component-card" key={key}>
+            <div className="component-card-header">
+              <Settings2 size={15} strokeWidth={ICON_STROKE} />
+              <strong>{schema.label ?? key}</strong>
+            </div>
+            <div className="component-card-body">
+              <div className="component-fields">
+                {schema.fields.map((field) => (
+                  <div className="component-field" key={field.key}>
+                    <span>{field.label}</span>
+                    <ComponentFieldControl
+                      assets={assets}
+                      component={pseudoComponent}
+                      field={field}
+                      scripts={scripts}
+                      onChange={(value) => {
+                        const nextComponent = setComponentValue(pseudoComponent, field.key, value);
+                        const nextValues = nextComponent.properties ?? {};
+                        if (section === "environment") {
+                          onSceneChange({ environment: { ...scene.environment, [key]: nextValues } });
+                        } else if (section === "render") {
+                          onSceneChange({ render: { ...scene.render, [key]: nextValues } });
+                        } else {
+                          onSceneChange({ audio: { ...scene.audio, [key]: nextValues } });
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </InspectorGroup>
   );
 }
 
@@ -2676,6 +2991,8 @@ function isAssetKind(value: unknown): value is AssetKind {
     value === "model" ||
     value === "texture" ||
     value === "audio" ||
+    value === "shader" ||
+    value === "cubemap" ||
     value === "data"
   );
 }
@@ -3076,11 +3393,12 @@ function previewEventToConsoleLine(event: PreviewEvent, runner?: string): Omit<C
     message = `Preview connected through ${runner}`;
   } else if (event.status) {
     message = `Preview status: ${event.status}`;
-    if (typeof event.entityCount === "number") {
-      message += ` (${event.entityCount} entities)`;
-    }
+    const counts = previewEventCounts(event);
+    if (counts) message += ` (${counts})`;
   } else if (event.message) {
     message = event.message;
+    const counts = previewEventCounts(event);
+    if (counts) message += ` (${counts})`;
   } else if (event.kind) {
     message = `Preview event: ${event.kind}`;
   }
@@ -3100,6 +3418,62 @@ function formatComponentValue(value: unknown): string {
   if (value === undefined || value === null || value === "") return "none";
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
+}
+
+function sceneColorValue(value: Record<string, unknown>, key: string, fallback: string): string {
+  const item = value[key];
+  return typeof item === "string" && item.startsWith("#") ? item : fallback;
+}
+
+function sceneNumberValue(value: Record<string, unknown>, key: string, fallback: number): number {
+  const item = value[key];
+  return typeof item === "number" && Number.isFinite(item) ? item : fallback;
+}
+
+function sceneBooleanValue(value: Record<string, unknown>, key: string, fallback: boolean): boolean {
+  const item = value[key];
+  return typeof item === "boolean" ? item : fallback;
+}
+
+function sceneSettingSection(key: string): "environment" | "render" | "audio" {
+  if (key in defaultSceneEnvironment()) return "environment";
+  if (key in defaultSceneRender()) return "render";
+  return "audio";
+}
+
+function sceneSettingValues(scene: SceneDocument, key: string): Record<string, unknown> {
+  const section = sceneSettingSection(key);
+  const value =
+    section === "environment" ? scene.environment[key as keyof SceneEnvironment] :
+    section === "render" ? scene.render[key as keyof SceneRenderSettings] :
+    scene.audio[key as keyof SceneAudioSettings];
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function defaultSceneEnvironment(): SceneEnvironment {
+  return {
+    skybox: {},
+    ambient: {},
+    fog: {},
+    weather: {},
+  };
+}
+
+function previewEventCounts(event: PreviewEvent): string {
+  const parts: string[] = [];
+  if (typeof event.entityCount === "number") parts.push(`${event.entityCount} entities`);
+  if (typeof event.cameraCount === "number") parts.push(`${event.cameraCount} cameras`);
+  if (typeof event.lightCount === "number") parts.push(`${event.lightCount} lights`);
+  if (typeof event.audioCount === "number") parts.push(`${event.audioCount} audio`);
+  return parts.join(", ");
+}
+
+function defaultSceneRender(): SceneRenderSettings {
+  return {
+    quality: {},
+    postfx: {},
+    camera: {},
+  };
 }
 
 function entityClass(entity: SceneEntity): string {
@@ -3153,6 +3527,7 @@ function assetKindIcon(kind: AssetKind, size = 15) {
   if (kind === "scene") return <Layers3 {...props} />;
   if (kind === "texture") return <WandSparkles {...props} />;
   if (kind === "audio") return <Activity {...props} />;
+  if (kind === "shader" || kind === "cubemap") return <WandSparkles {...props} />;
   return <Database {...props} />;
 }
 

@@ -1,0 +1,395 @@
+﻿gcc : C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\driver\pipeline.c:1914:5: warning: no previous prototype for 'zt_decode_process_exit' [-Wmissing-prototypes]
+No linha:1 caractere:161
++ ... FullName }; gcc -O0 -Wall -Wextra -Wpedantic -Wshadow -Wstrict-protot ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\raille...ing-prototypes]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ 1914 | int zt_decode_process_exit(int status) {
+      |     ^~~~~~~~~~~~~~~~~~~~~~
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\driver\zpm.c: In function 'zt_handle_zpm_install':
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\driver\zpm.c:582:21: warning: use of NULL 'p' where non-null expected [CWE-476] [-Wanalyzer-null-argument]
+  582 |                 p = strchr(p, '"');
+      |                     ^~~~~~~~~~~~~~
+  'zt_handle_zpm_install': events 1-3
+    Ôöé
+    Ôöé  544 | int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
+    Ôöé      |     ^~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |     |
+    Ôöé      |     (1) entry to 'zt_handle_zpm_install'
+    Ôöé......
+    Ôöé  552 |     if (!zt_zpm_resolve_project(ctx, project_path, project_root, sizeof(project_root), manifest_path, sizeof(manifest_path))) {
+    Ôöé      |        ~
+    Ôöé      |        |
+    Ôöé      |        (2) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  556 |Ôöé    if (!zt_project_load_file(manifest_path, &project)) {
+    Ôöé      |Ôöé         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé         |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(3) ...to here
+    Ôöé
+  'zt_handle_zpm_install': events 4-5
+    Ôöé
+    Ôöé  556 |     if (!zt_project_load_file(manifest_path, &project)) {
+    Ôöé      |        ^
+    Ôöé      |        |
+    Ôöé      |        (4) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  561 |Ôöé    if (!zt_join_path(lock_path, sizeof(lock_path), project_root, "zenith.lock")) {
+    Ôöé      |Ôöé         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé         |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(5) ...to here
+    Ôöé
+  'zt_handle_zpm_install': events 6-10
+    Ôöé
+    Ôöé  561 |     if (!zt_join_path(lock_path, sizeof(lock_path), project_root, "zenith.lock")) {
+    Ôöé      |        ^
+    Ôöé      |        |
+    Ôöé      |        (6) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  565 |Ôöé    zt_lockfile_init(&lock);
+    Ôöé      |Ôöé    ~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé    |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇ>(7) ...to here
+    Ôöé......
+    Ôöé  568 |     for (i = 0; i < project.manifest.dependency_count; i += 1) {
+    Ôöé      |                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                   |
+    Ôöé      |                   (8) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                                     Ôöé
+    Ôöé      |                                                     Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  569 |Ôöé        zt_lock_package *pkg = &lock.packages[lock.package_count++];
+    Ôöé      |Ôöé                                              ~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                                                  |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(9) ...to here
+    Ôöé......
+    Ôöé  574 |         const char *known_url = zt_zpm_get_package_url(project.manifest.dependencies[i].name);
+    Ôöé      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (10) calling 'zt_zpm_get_package_url' from 'zt_handle_zpm_install'
+    Ôöé
+    ÔööÔöÇÔöÇ> 'zt_zpm_get_package_url': events 11-12
+           Ôöé
+           Ôöé  226 | static const char *zt_zpm_get_package_url(const char *name) {
+           Ôöé      |                    ^~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                    |
+           Ôöé      |                    (11) entry to 'zt_zpm_get_package_url'
+           Ôöé  227 |     const char *cached = zt_zpm_load_url_from_cache(name);
+           Ôöé      |                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                          |
+           Ôöé      |                          (12) calling 'zt_zpm_load_url_from_cache' from 'zt_zpm_get_package_url'
+           Ôöé
+           ÔööÔöÇÔöÇ> 'zt_zpm_load_url_from_cache': event 13
+                  Ôöé
+                  Ôöé  184 | static const char *zt_zpm_load_url_from_cache(const char *name) {
+                  Ôöé      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~
+                  Ôöé      |                    |
+                  Ôöé      |                    (13) entry to 'zt_zpm_load_url_from_cache'
+                  Ôöé
+                'zt_zpm_load_url_from_cache': event 14
+                  Ôöé
+                  Ôöé  195 |     if (!content) return NULL;
+                  Ôöé      |                          ^~~~
+                  Ôöé      |                          |
+                  Ôöé      |                          (14) '0' is NULL
+                  Ôöé
+           <ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé
+         'zt_zpm_get_package_url': events 15-18
+           Ôöé
+           Ôöé  227 |     const char *cached = zt_zpm_load_url_from_cache(name);
+           Ôöé      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                          |
+           Ôöé      |                          (15) returning to 'zt_zpm_get_package_url' from 'zt_zpm_load_url_from_cache'
+           Ôöé  228 |     if (cached) return cached;
+           Ôöé      |        ~                  
+           Ôöé      |        |
+           Ôöé      |        (16) following 'false' branch (when 'cached' is NULL)... ÔöÇ>ÔöÇÔöÉ
+           Ôöé      |                                                                    Ôöé
+           Ôöé......
+           Ôöé      |                                                                    Ôöé
+           Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé  231 |Ôöé    if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |Ôöé        ~~~~~~~~~~~~~~~~~~~
+           Ôöé      |Ôöé        |
+           Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(17) ...to here
+           Ôöé      |         (18) when 'strstr' returns non-NULL
+           Ôöé
+         'zt_zpm_get_package_url': event 19
+           Ôöé
+           Ôöé  231 |     if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |        ^
+           Ôöé      |        |
+           Ôöé      |        (19) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+           Ôöé      |                                           Ôöé
+           Ôöé
+         'zt_zpm_get_package_url': event 20
+           Ôöé
+           Ôöé      |                                           Ôöé
+           Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé  231 |Ôöé    if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |Ôöé                                                            ^~~~
+           Ôöé      |Ôöé                                                            |
+           Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(20) ...to here
+           Ôöé
+    <ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé
+  'zt_handle_zpm_install': events 21-24
+    Ôöé
+    Ôöé  574 |         const char *known_url = zt_zpm_get_package_url(project.manifest.dependencies[i].name);
+    Ôöé      |                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (21) returning to 'zt_handle_zpm_install' from 'zt_zpm_get_package_url'
+    Ôöé  575 | 
+    Ôöé  576 |         if (spec[0] == '{') {
+    Ôöé      |            ~                     
+    Ôöé      |            |
+    Ôöé      |            (22) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                               Ôöé
+    Ôöé      |                                               Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  577 |Ôöé            /* inline table, check for 'path' or 'git' */
+    Ôöé  578 |Ôöé            if (strstr(spec, "path =")) {
+    Ôöé      |Ôöé                ~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(23) ...to here
+    Ôöé      |                 (24) when 'strstr' returns non-NULL
+    Ôöé
+  'zt_handle_zpm_install': events 25-28
+    Ôöé
+    Ôöé  578 |             if (strstr(spec, "path =")) {
+    Ôöé      |                ^
+    Ôöé      |                |
+    Ôöé      |                (25) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                                   Ôöé
+    Ôöé      |                                                   Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  579 |Ôöé                pkg->source = ZT_LOCK_SOURCE_PATH;
+    Ôöé      |Ôöé                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                            |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(26) ...to here
+    Ôöé  580 |                 /* hacky parse for local MVP */
+    Ôöé  581 |                 const char *p = strstr(spec, "path =");
+    Ôöé      |                                 ~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (27) when 'strstr' returns NULL
+    Ôöé  582 |                 p = strchr(p, '"');
+    Ôöé      |                     ~~~~~~~~~~~~~~
+    Ôöé      |                     |
+    Ôöé      |                     (28) ÔÜá´©Å  argument 1 ('p') NULL where non-null expected
+    Ôöé
+<built-in>: note: argument 1 of '__builtin_strchr' must be non-null
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\driver\zpm.c:596:21: warning: use of NULL 'p' where non-null expected [CWE-476] [-Wanalyzer-null-argument]
+  596 |                 p = strchr(p, '"');
+      |                     ^~~~~~~~~~~~~~
+  'zt_handle_zpm_install': events 1-3
+    Ôöé
+    Ôöé  544 | int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
+    Ôöé      |     ^~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |     |
+    Ôöé      |     (1) entry to 'zt_handle_zpm_install'
+    Ôöé......
+    Ôöé  552 |     if (!zt_zpm_resolve_project(ctx, project_path, project_root, sizeof(project_root), manifest_path, sizeof(manifest_path))) {
+    Ôöé      |        ~
+    Ôöé      |        |
+    Ôöé      |        (2) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  556 |Ôöé    if (!zt_project_load_file(manifest_path, &project)) {
+    Ôöé      |Ôöé         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé         |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(3) ...to here
+    Ôöé
+  'zt_handle_zpm_install': events 4-5
+    Ôöé
+    Ôöé  556 |     if (!zt_project_load_file(manifest_path, &project)) {
+    Ôöé      |        ^
+    Ôöé      |        |
+    Ôöé      |        (4) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  561 |Ôöé    if (!zt_join_path(lock_path, sizeof(lock_path), project_root, "zenith.lock")) {
+    Ôöé      |Ôöé         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé         |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(5) ...to here
+    Ôöé
+  'zt_handle_zpm_install': events 6-10
+    Ôöé
+    Ôöé  561 |     if (!zt_join_path(lock_path, sizeof(lock_path), project_root, "zenith.lock")) {
+    Ôöé      |        ^
+    Ôöé      |        |
+    Ôöé      |        (6) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                           Ôöé
+    Ôöé......
+    Ôöé      |                                           Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  565 |Ôöé    zt_lockfile_init(&lock);
+    Ôöé      |Ôöé    ~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé    |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇ>(7) ...to here
+    Ôöé......
+    Ôöé  568 |     for (i = 0; i < project.manifest.dependency_count; i += 1) {
+    Ôöé      |                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                   |
+    Ôöé      |                   (8) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                                     Ôöé
+    Ôöé      |                                                     Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  569 |Ôöé        zt_lock_package *pkg = &lock.packages[lock.package_count++];
+    Ôöé      |Ôöé                                              ~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                                                  |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(9) ...to here
+    Ôöé......
+    Ôöé  574 |         const char *known_url = zt_zpm_get_package_url(project.manifest.dependencies[i].name);
+    Ôöé      |                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (10) calling 'zt_zpm_get_package_url' from 'zt_handle_zpm_install'
+    Ôöé
+    ÔööÔöÇÔöÇ> 'zt_zpm_get_package_url': events 11-12
+           Ôöé
+           Ôöé  226 | static const char *zt_zpm_get_package_url(const char *name) {
+           Ôöé      |                    ^~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                    |
+           Ôöé      |                    (11) entry to 'zt_zpm_get_package_url'
+           Ôöé  227 |     const char *cached = zt_zpm_load_url_from_cache(name);
+           Ôöé      |                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                          |
+           Ôöé      |                          (12) calling 'zt_zpm_load_url_from_cache' from 'zt_zpm_get_package_url'
+           Ôöé
+           ÔööÔöÇÔöÇ> 'zt_zpm_load_url_from_cache': event 13
+                  Ôöé
+                  Ôöé  184 | static const char *zt_zpm_load_url_from_cache(const char *name) {
+                  Ôöé      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~
+                  Ôöé      |                    |
+                  Ôöé      |                    (13) entry to 'zt_zpm_load_url_from_cache'
+                  Ôöé
+                'zt_zpm_load_url_from_cache': event 14
+                  Ôöé
+                  Ôöé  195 |     if (!content) return NULL;
+                  Ôöé      |                          ^~~~
+                  Ôöé      |                          |
+                  Ôöé      |                          (14) '0' is NULL
+                  Ôöé
+           <ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé
+         'zt_zpm_get_package_url': events 15-18
+           Ôöé
+           Ôöé  227 |     const char *cached = zt_zpm_load_url_from_cache(name);
+           Ôöé      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           Ôöé      |                          |
+           Ôöé      |                          (15) returning to 'zt_zpm_get_package_url' from 'zt_zpm_load_url_from_cache'
+           Ôöé  228 |     if (cached) return cached;
+           Ôöé      |        ~                  
+           Ôöé      |        |
+           Ôöé      |        (16) following 'false' branch (when 'cached' is NULL)... ÔöÇ>ÔöÇÔöÉ
+           Ôöé      |                                                                    Ôöé
+           Ôöé......
+           Ôöé      |                                                                    Ôöé
+           Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé  231 |Ôöé    if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |Ôöé        ~~~~~~~~~~~~~~~~~~~
+           Ôöé      |Ôöé        |
+           Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(17) ...to here
+           Ôöé      |         (18) when 'strstr' returns non-NULL
+           Ôöé
+         'zt_zpm_get_package_url': event 19
+           Ôöé
+           Ôöé  231 |     if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |        ^
+           Ôöé      |        |
+           Ôöé      |        (19) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+           Ôöé      |                                           Ôöé
+           Ôöé
+         'zt_zpm_get_package_url': event 20
+           Ôöé
+           Ôöé      |                                           Ôöé
+           Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+           Ôöé  231 |Ôöé    if (strstr(name, "://") || strstr(name, "git@")) return name;
+           Ôöé      |Ôöé                                                            ^~~~
+           Ôöé      |Ôöé                                                            |
+           Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(20) ...to here
+           Ôöé
+    <ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé
+  'zt_handle_zpm_install': events 21-24
+    Ôöé
+    Ôöé  574 |         const char *known_url = zt_zpm_get_package_url(project.manifest.dependencies[i].name);
+    Ôöé      |                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (21) returning to 'zt_handle_zpm_install' from 'zt_zpm_get_package_url'
+    Ôöé  575 | 
+    Ôöé  576 |         if (spec[0] == '{') {
+    Ôöé      |            ~                     
+    Ôöé      |            |
+    Ôöé      |            (22) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                               Ôöé
+    Ôöé      |                                               Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  577 |Ôöé            /* inline table, check for 'path' or 'git' */
+    Ôöé  578 |Ôöé            if (strstr(spec, "path =")) {
+    Ôöé      |Ôöé                ~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(23) ...to here
+    Ôöé      |                 (24) when 'strstr' returns NULL
+    Ôöé
+  'zt_handle_zpm_install': events 25-27
+    Ôöé
+    Ôöé  578 |             if (strstr(spec, "path =")) {
+    Ôöé      |                ^
+    Ôöé      |                |
+    Ôöé      |                (25) following 'false' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                                    Ôöé
+    Ôöé......
+    Ôöé      |                                                    Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  592 |Ôöé            } else if (strstr(spec, "git =")) {
+    Ôöé      |Ôöé                       ~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                       |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(26) ...to here
+    Ôöé      |                        (27) when 'strstr' returns non-NULL
+    Ôöé
+  'zt_handle_zpm_install': events 28-31
+    Ôöé
+    Ôöé  592 |             } else if (strstr(spec, "git =")) {
+    Ôöé      |                       ^
+    Ôöé      |                       |
+    Ôöé      |                       (28) following 'true' branch... ÔöÇ>ÔöÇÔöÉ
+    Ôöé      |                                                          Ôöé
+    Ôöé      |                                                          Ôöé
+    Ôöé      |ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+    Ôöé  593 |Ôöé                pkg->source = ZT_LOCK_SOURCE_GIT;
+    Ôöé      |Ôöé                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |Ôöé                            |
+    Ôöé      |ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ>(29) ...to here
+    Ôöé  594 |                 /* hacky parse for local MVP */
+    Ôöé  595 |                 const char *p = strstr(spec, "git =");
+    Ôöé      |                                 ~~~~~~~~~~~~~~~~~~~~~
+    Ôöé      |                                 |
+    Ôöé      |                                 (30) when 'strstr' returns NULL
+    Ôöé  596 |                 p = strchr(p, '"');
+    Ôöé      |                     ~~~~~~~~~~~~~~
+    Ôöé      |                     |
+    Ôöé      |                     (31) ÔÜá´©Å  argument 1 ('p') NULL where non-null expected
+    Ôöé
+<built-in>: note: argument 1 of '__builtin_strchr' must be non-null
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\semantic\types\checker.c: In function 'zt_checker_check_call_expr':
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\semantic\types\checker.c:2687:22: warning: declaration of 'combined_name' shadows a previous local [-Wshadow]
+ 2687 |                 char combined_name[512];
+      |                      ^~~~~~~~~~~~~
+C:\Users\raillen.DESKTOP-99RJ5M6\Documents\Projetos\zenith-lang-v2\compiler\semantic\types\checker.c:2474:18: note: shadowed declaration is here
+ 2474 |             char combined_name[512];
+      |                  ^~~~~~~~~~~~~

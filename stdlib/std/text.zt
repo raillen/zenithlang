@@ -233,6 +233,10 @@ public func is_empty(value: text) -> bool
     return len(value) == 0
 end
 
+public func is_blank(value: text) -> bool
+    return len(text.trim(value)) == 0
+end
+
 public func is_digits(value: text) -> bool
     var index: int = 0
 

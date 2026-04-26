@@ -1640,6 +1640,10 @@ static const char *c_extern_call_return_type(const char *callee) {
         return "text";
     }
 
+    if (strncmp(callee, "c.zt_map_", 9) == 0 && strstr(callee, "_contains") != NULL) {
+        return "bool";
+    }
+
     return NULL;
 }
 
@@ -4987,7 +4991,9 @@ static int c_emit_zir_ffi_call_arg(
         }
     }
 
-    if (strcmp(callee, "c.zt_check") == 0 && index == 1) {
+    if ((strcmp(callee, "c.zt_check") == 0 && index == 1) ||
+            ((strcmp(callee, "c.zt_todo") == 0 ||
+              strcmp(callee, "c.zt_unreachable") == 0) && index == 0)) {
         if (override_name != NULL && c_type_is(override_type_name, "text")) {
             return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
                    c_buffer_append(&emitter->buffer, override_name) &&
@@ -5042,7 +5048,9 @@ static int c_emit_legacy_ffi_call_arg(
         }
     }
 
-    if (strcmp(callee, "c.zt_check") == 0 && index == 1) {
+    if ((strcmp(callee, "c.zt_check") == 0 && index == 1) ||
+            ((strcmp(callee, "c.zt_todo") == 0 ||
+              strcmp(callee, "c.zt_unreachable") == 0) && index == 0)) {
         if (override_name != NULL && c_type_is(override_type_name, "text")) {
             return c_buffer_append(&emitter->buffer, "zt_text_data(") &&
                    c_buffer_append(&emitter->buffer, override_name) &&

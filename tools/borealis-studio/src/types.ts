@@ -1,10 +1,10 @@
 export type StudioMode = "select" | "move" | "rotate" | "scale";
 
-export type AssetKind = "scene" | "script" | "model" | "texture" | "audio" | "data";
+export type AssetKind = "scene" | "script" | "model" | "texture" | "audio" | "shader" | "cubemap" | "data";
 
 export type BottomTab = "assets" | "console" | "problems";
 
-export type ProjectTemplateId = "empty3d" | "topdown2d" | "scripted3d";
+export type ProjectTemplateId = string;
 
 export type ComponentFieldKind = "asset" | "number" | "text" | "select" | "boolean" | "color";
 
@@ -90,10 +90,31 @@ export interface SceneEntity {
   transform: Transform3D;
 }
 
+export interface SceneEnvironment {
+  skybox: Record<string, unknown>;
+  ambient: Record<string, unknown>;
+  fog: Record<string, unknown>;
+  weather: Record<string, unknown>;
+}
+
+export interface SceneRenderSettings {
+  quality: Record<string, unknown>;
+  postfx: Record<string, unknown>;
+  camera: Record<string, unknown>;
+}
+
+export interface SceneAudioSettings {
+  listener: Record<string, unknown>;
+  mix: Record<string, unknown>;
+}
+
 export interface SceneDocument {
   name: string;
   path: string;
   documentId: string;
+  environment: SceneEnvironment;
+  render: SceneRenderSettings;
+  audio: SceneAudioSettings;
   entities: SceneEntity[];
 }
 
@@ -126,6 +147,9 @@ export interface PreviewEvent {
   message?: string;
   loaded?: boolean;
   entityCount?: number;
+  cameraCount?: number;
+  lightCount?: number;
+  audioCount?: number;
 }
 
 export interface PreviewCommandResult {
@@ -140,6 +164,9 @@ export interface ProjectTemplate {
   summary: string;
   defaultName: string;
   tags: string[];
+  scene?: string;
+  mainScript?: string;
+  source?: string;
 }
 
 export interface DocumentationLink {

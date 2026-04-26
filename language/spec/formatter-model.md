@@ -152,4 +152,4 @@ Idempotence is enforced by an automated gate, not only by review:
 - property: `fmt(fmt(x)) == fmt(x)` for every case under `tests/formatter/cases/`
 - integrated into `run_suite.py` as part of the `pr_gate` tooling suite
 - failure mode: non-zero exit with a unified diff of `fmt^1` vs `fmt^2`
-- status (2026-04-23): all 9 canonical cases converge; no `XFAIL` bucket remains
+- status (2026-04-26): all 10 canonical cases converge; no `XFAIL` bucket remains

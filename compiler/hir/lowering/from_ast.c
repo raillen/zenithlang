@@ -1000,6 +1000,32 @@ static zt_hir_expr *zt_make_fmt_to_text_expr(
     value_kind = value_expr->type->kind;
     if (value_kind == ZT_TYPE_DYN) {
         boxed_expr = value_expr;
+    } else if (value_kind == ZT_TYPE_USER) {
+        const zt_method_meta *method = zt_find_method_meta(
+            ctx,
+            value_expr->type->name,
+            "to_text");
+        if (method != NULL) {
+            to_text_call = zt_make_expr(ZT_HIR_METHOD_CALL_EXPR, span, zt_type_make(ZT_TYPE_TEXT));
+            if (to_text_call == NULL) {
+                zt_hir_expr_dispose(value_expr);
+                return zt_make_text_literal_expr(span, "");
+            }
+            to_text_call->as.method_call_expr.receiver = value_expr;
+            to_text_call->as.method_call_expr.method_name = zt_lower_strdup(method->lowered_name);
+            to_text_call->as.method_call_expr.args = zt_hir_expr_list_make();
+            return to_text_call;
+        }
+
+        {
+            char type_name[256];
+            char message[384];
+            zt_type_format(value_expr->type, type_name, sizeof(type_name));
+            snprintf(message, sizeof(message), "to_text builtin could not find TextRepresentable.to_text for type '%s'", type_name);
+            zt_add_diag(ctx, span, message);
+            zt_hir_expr_dispose(value_expr);
+            return zt_make_text_literal_expr(span, "");
+        }
     } else {
         if (value_kind == ZT_TYPE_BOOL) {
             box_callee = "core.fmt_box_bool";
@@ -1351,6 +1377,90 @@ static zt_hir_expr *zt_lower_call_expr(
         zt_hir_expr *receiver = zt_lower_expr(ctx, scope, callee->as.field_expr.object, NULL);
         const zt_type *receiver_type = receiver != NULL ? receiver->type : NULL;
         if (receiver_type != NULL &&
+            receiver_type->kind == ZT_TYPE_OPTIONAL &&
+            receiver_type->args.count == 1 &&
+            receiver_type->args.items[0] != NULL &&
+            callee->as.field_expr.field_name != NULL) {
+            const char *method_name = callee->as.field_expr.field_name;
+
+            if (strcmp(method_name, "is_some") == 0 || strcmp(method_name, "is_none") == 0) {
+                zt_hir_expr_list args = zt_hir_expr_list_make();
+                const char *callee_name = strcmp(method_name, "is_some") == 0
+                    ? "core.optional_is_some"
+                    : "core.optional_is_none";
+
+                if (expr->as.call_expr.named_args.count != 0 || expr->as.call_expr.positional_args.count != 0) {
+                    zt_add_diag(ctx, expr->span, "optional presence helper lowering expects no arguments");
+                }
+
+                zt_hir_expr_list_push(&args, receiver);
+                result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_BOOL));
+                if (result == NULL) {
+                    zt_hir_expr_list_dispose(&args);
+                    return NULL;
+                }
+                result->as.call_expr.callee_name = zt_lower_strdup(callee_name);
+                result->as.call_expr.args = args;
+                return result;
+            }
+
+            if (strcmp(method_name, "or") == 0) {
+                zt_hir_expr_list args = zt_hir_expr_list_make();
+                zt_hir_expr *fallback_expr = NULL;
+
+                if (expr->as.call_expr.named_args.count != 0 || expr->as.call_expr.positional_args.count != 1) {
+                    zt_add_diag(ctx, expr->span, "optional.or lowering expects exactly one positional fallback argument");
+                }
+
+                zt_hir_expr_list_push(&args, receiver);
+                if (expr->as.call_expr.positional_args.count > 0) {
+                    fallback_expr = zt_lower_expr(ctx, scope, expr->as.call_expr.positional_args.items[0], receiver_type->args.items[0]);
+                } else {
+                    fallback_expr = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, zt_unknown_type());
+                    if (fallback_expr != NULL) fallback_expr->as.ident_expr.name = zt_lower_strdup("<missing_fallback>");
+                }
+                zt_hir_expr_list_push(&args, fallback_expr);
+
+                result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_clone(receiver_type->args.items[0]));
+                if (result == NULL) {
+                    zt_hir_expr_list_dispose(&args);
+                    return NULL;
+                }
+                result->as.call_expr.callee_name = zt_lower_strdup("core.optional_or");
+                result->as.call_expr.args = args;
+                return result;
+            }
+        }
+
+        if (receiver_type != NULL &&
+            receiver_type->kind == ZT_TYPE_RESULT &&
+            receiver_type->args.count == 2 &&
+            callee->as.field_expr.field_name != NULL) {
+            const char *method_name = callee->as.field_expr.field_name;
+
+            if (strcmp(method_name, "is_success") == 0 || strcmp(method_name, "is_error") == 0) {
+                zt_hir_expr_list args = zt_hir_expr_list_make();
+                const char *callee_name = strcmp(method_name, "is_success") == 0
+                    ? "core.result_is_success"
+                    : "core.result_is_error";
+
+                if (expr->as.call_expr.named_args.count != 0 || expr->as.call_expr.positional_args.count != 0) {
+                    zt_add_diag(ctx, expr->span, "result status helper lowering expects no arguments");
+                }
+
+                zt_hir_expr_list_push(&args, receiver);
+                result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_BOOL));
+                if (result == NULL) {
+                    zt_hir_expr_list_dispose(&args);
+                    return NULL;
+                }
+                result->as.call_expr.callee_name = zt_lower_strdup(callee_name);
+                result->as.call_expr.args = args;
+                return result;
+            }
+        }
+
+        if (receiver_type != NULL &&
             receiver_type->kind == ZT_TYPE_LIST &&
             receiver_type->args.count == 1 &&
             receiver_type->args.items[0] != NULL &&
@@ -1542,6 +1652,16 @@ static zt_hir_expr *zt_lower_call_expr(
             return zt_lower_struct_constructor(ctx, scope, expr, callee_path, struct_meta);
         }
 
+        if (zt_text_eq(callee_path, "to_text")) {
+            if (expr->as.call_expr.named_args.count != 0 || expr->as.call_expr.positional_args.count != 1) {
+                zt_add_diag(ctx, expr->span, "to_text lowering expects exactly one positional argument");
+                result = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, zt_unknown_type());
+                if (result != NULL) result->as.ident_expr.name = zt_lower_strdup("<invalid_to_text>");
+                return result;
+            }
+            return zt_make_fmt_to_text_expr(ctx, scope, expr->as.call_expr.positional_args.items[0]);
+        }
+
         /* R3.M5 Phase 2b: Check if callee is a callable variable (indirect call) */
         {
             const zt_type *callee_type = zt_scope_get(scope, callee->as.ident_expr.name);
@@ -1565,14 +1685,63 @@ static zt_hir_expr *zt_lower_call_expr(
         }
     }
 
+    if (zt_text_eq(callee_path, "list.is_empty")) {
+        zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, NULL);
+        result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_BOOL));
+        if (result == NULL) {
+            zt_hir_expr_list_dispose(&args);
+            return NULL;
+        }
+        result->as.call_expr.callee_name = zt_lower_strdup("core.list_is_empty");
+        result->as.call_expr.args = args;
+        return result;
+    }
+
+    if (zt_text_eq(callee_path, "map.is_empty")) {
+        zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, NULL);
+        result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_BOOL));
+        if (result == NULL) {
+            zt_hir_expr_list_dispose(&args);
+            return NULL;
+        }
+        result->as.call_expr.callee_name = zt_lower_strdup("core.map_is_empty");
+        result->as.call_expr.args = args;
+        return result;
+    }
+
+    if (zt_text_eq(callee_path, "map.has_key")) {
+        zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, NULL);
+        result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, zt_type_make(ZT_TYPE_BOOL));
+        if (result == NULL) {
+            zt_hir_expr_list_dispose(&args);
+            return NULL;
+        }
+        result->as.call_expr.callee_name = zt_lower_strdup("core.map_has_key");
+        result->as.call_expr.args = args;
+        return result;
+    }
+
     func_meta = zt_find_func_meta(ctx, callee_path);
     {
         zt_hir_expr_list args = zt_lower_call_args(ctx, scope, expr, func_meta);
         char *callee_name = NULL;
-        zt_type *return_type = expected != NULL
-            ? zt_type_clone(expected)
-            : (func_meta != NULL ? zt_type_clone(func_meta->return_type) :
-               (zt_text_eq(callee_path, "len") ? zt_type_make(ZT_TYPE_INT) : zt_unknown_type()));
+        zt_type *return_type = NULL;
+
+        if (expected != NULL) {
+            return_type = zt_type_clone(expected);
+        } else if (func_meta != NULL) {
+            return_type = zt_type_clone(func_meta->return_type);
+        } else if (zt_text_eq(callee_path, "len")) {
+            return_type = zt_type_make(ZT_TYPE_INT);
+        } else if (zt_text_eq(callee_path, "check") ||
+                zt_text_eq(callee_path, "panic") ||
+                zt_text_eq(callee_path, "todo") ||
+                zt_text_eq(callee_path, "unreachable")) {
+            return_type = zt_type_make(ZT_TYPE_VOID);
+        } else {
+            return_type = zt_unknown_type();
+        }
+
         result = zt_make_expr(ZT_HIR_CALL_EXPR, expr->span, return_type);
         if (result == NULL) {
             zt_hir_expr_list_dispose(&args);
@@ -2637,5 +2806,3 @@ void zt_hir_lower_result_dispose(zt_hir_lower_result *result) {
     result->module = NULL;
     zt_diag_list_dispose(&result->diagnostics);
 }
-
-

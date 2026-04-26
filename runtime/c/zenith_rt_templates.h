@@ -681,6 +681,24 @@ OPTIONAL_VALUE_TYPE zt_map_##SUFFIX##_get_optional(                             
     return OPTIONAL_PRESENT_FN(map->values[index]);                             \
 }                                                                               \
                                                                                 \
+zt_bool zt_map_##SUFFIX##_contains(                                             \
+        const zt_map_##SUFFIX *map,                                             \
+        const KEY_TYPE key) {                                                   \
+    zt_bool found;                                                              \
+    if (map == NULL) {                                                          \
+        zt_runtime_error(ZT_ERR_PANIC,                                          \
+            "zt_map_" #SUFFIX "_contains requires map");                        \
+    }                                                                           \
+    ZT_TEMPLATE_IF(KEY_IS_PTR,                                                  \
+        if ((const void *)key == NULL) {                                        \
+            zt_runtime_error(ZT_ERR_PANIC,                                      \
+                "zt_map_" #SUFFIX "_contains requires key");                    \
+        }                                                                       \
+    )                                                                           \
+    (void)zt_map_##SUFFIX##_find_index(map, key, &found);                       \
+    return found;                                                               \
+}                                                                               \
+                                                                                \
 KEY_TYPE zt_map_##SUFFIX##_key_at(                                              \
         const zt_map_##SUFFIX *map,                                             \
         zt_int index_0) {                                                       \

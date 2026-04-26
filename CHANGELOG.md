@@ -8,10 +8,10 @@ Release final do ciclo R3 com artefatos verificaveis locais.
 
 Notas e evidencias:
 
-- `docs/reports/release/0.3.0-alpha.3-notes.md`
-- `docs/reports/release/0.3.0-alpha.3-release-report.md`
-- `docs/reports/compatibility/0.3.0-alpha.3-compatibility.md`
-- `docs/governance/perf-overrides/R3.M9-release-baseline-acceptance.md`
+- `docs/internal/reports/release/0.3.0-alpha.3-notes.md`
+- `docs/internal/reports/release/0.3.0-alpha.3-release-report.md`
+- `docs/internal/reports/compatibility/0.3.0-alpha.3-compatibility.md`
+- `docs/internal/governance/perf-overrides/R3.M9-release-baseline-acceptance.md`
 
 ### Adicionado
 
@@ -47,11 +47,11 @@ Motivo: artefato e install limpo passaram, mas os gates de release ainda estao v
 
 Notas e evidencias:
 
-- `docs/reports/release/0.3.0-alpha.3-rc.1-notes.md`
-- `docs/reports/release/0.3.0-alpha.3-rc.1-release-report.md`
-- `docs/reports/compatibility/0.3.0-alpha.3-rc.1-compatibility.md`
-- `docs/reports/release/R3.M9-known-limits-and-risk.md`
-- `docs/reports/R3.M9-borealis-final-alignment.md`
+- `docs/internal/reports/release/0.3.0-alpha.3-rc.1-notes.md`
+- `docs/internal/reports/release/0.3.0-alpha.3-rc.1-release-report.md`
+- `docs/internal/reports/compatibility/0.3.0-alpha.3-rc.1-compatibility.md`
+- `docs/internal/reports/release/R3.M9-known-limits-and-risk.md`
+- `docs/internal/reports/R3.M9-borealis-final-alignment.md`
 
 ### Adicionado
 
@@ -85,9 +85,9 @@ Ciclo de fechamento das 10 pendências corretivas residuais (`PLI-01` a `PLI-10`
 
 Notas e evidências:
 
-- `docs/reports/release/0.3.0-alpha.2-notes.md`
-- `docs/reports/release/0.3.0-alpha.2-release-report.md`
-- `docs/reports/compatibility/0.3.0-alpha.2-compatibility.md`
+- `docs/internal/reports/release/0.3.0-alpha.2-notes.md`
+- `docs/internal/reports/release/0.3.0-alpha.2-release-report.md`
+- `docs/internal/reports/compatibility/0.3.0-alpha.2-compatibility.md`
 
 ### Adicionado
 
@@ -133,10 +133,10 @@ Notas e evidências:
   - published as GitHub Release asset (outside source repository)
   - file names: `zenith-0.3.0-alpha.1-windows-amd64.zip` and `zenith-0.3.0-alpha.1-windows-amd64.checksums.txt`
 - alpha release notes and gate evidence:
-  - `docs/reports/release/0.3.0-alpha.1-notes.md`
-  - `docs/reports/release/R2.M12-alpha-release-report.md`
+  - `docs/internal/reports/release/0.3.0-alpha.1-notes.md`
+  - `docs/internal/reports/release/R2.M12-alpha-release-report.md`
 - compatibility record for alpha cut:
-  - `docs/reports/compatibility/R2.M12-alpha-compatibility.md`
+  - `docs/internal/reports/compatibility/R2.M12-alpha-compatibility.md`
 
 ### Quality And Validation
 - PR gate green:

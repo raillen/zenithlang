@@ -72,6 +72,23 @@ Two callable types `C1` and `C2` are compatible iff:
 No variance. No implicit conversion. A signature mismatch emits
 `callable.signature_mismatch`.
 
+The diagnostic must show both shapes:
+
+- expected callable signature;
+- received callable or call signature.
+
+Example:
+
+```text
+callable 'op' signature mismatch:
+expected func(int, int) -> int
+received func(int) -> int
+```
+
+When a generic function is used where a callable value is expected, the
+diagnostic must include the expected callable signature and ask for a small
+non-generic wrapper with that exact signature.
+
 ## Escape Rules (v1)
 
 Callable values are managed closure fat pointers after R3.M6.
@@ -224,12 +241,11 @@ end
 ## Tests (authoritative fixtures)
 
 - `tests/behavior/callable_basic` - positive, local var + indirect call
-- `tests/behavior/callable_higher_order` - positive, HOF pattern
 - `tests/behavior/callable_signature_mismatch_error` - negative
 - `tests/behavior/callable_escape_public_var_error` - negative
 - `tests/behavior/callable_escape_struct_field_error` - negative
-- `tests/behavior/callable_extern_c_basic` - positive FFI
-- `tests/behavior/callable_extern_c_signature_error` - negative FFI
+- `tests/behavior/callable_invalid_func_ref_error` - negative
+- `tests/behavior/callable_escape_container_error` - negative
 
 ## Non-Goals For v1
 

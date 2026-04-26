@@ -904,7 +904,33 @@ static zir_expr *zir_lower_call_expr(
         } else {
             zir_expr_call_add_arg(call, zir_expr_make_bool(0));
         }
-        zir_expr_call_add_arg(call, zir_expr_make_string("check failed"));
+        if (expr->as.call_expr.args.count > 1) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[1],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_string("check failed"));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "todo") || zir_text_eq(callee_name, "unreachable")) {
+        call = zir_expr_make_call_extern(zir_text_eq(callee_name, "todo") ? "c.zt_todo" : "c.zt_unreachable");
+        if (expr->as.call_expr.args.count > 0) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_string(callee_name));
+        }
         return call;
     }
 
@@ -935,6 +961,121 @@ static zir_expr *zir_lower_call_expr(
         }
 
         zir_expr_call_add_arg(call, zir_expr_make_optional_empty("text"));
+        return call;
+    }
+
+    if (zir_name_matches(callee_name, "core.optional_is_some")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(0);
+        return zir_expr_make_optional_is_present(
+            zir_lower_hir_expr(
+                env,
+                expr->as.call_expr.args.items[0],
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to));
+    }
+    if (zir_name_matches(callee_name, "core.optional_is_none")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
+        return zir_expr_make_binary(
+            "eq",
+            zir_expr_make_optional_is_present(
+                zir_lower_hir_expr(
+                    env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to)),
+            zir_expr_make_bool(0));
+    }
+    if (zir_name_matches(callee_name, "core.optional_or")) {
+        zir_expr *value_expr;
+        zir_expr *fallback_expr;
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_name("<invalid_optional_or>");
+        value_expr = zir_lower_hir_expr(
+            env,
+            expr->as.call_expr.args.items[0],
+            replace_ident_from,
+            replace_ident_to,
+            replace_it_to);
+        fallback_expr = zir_lower_hir_expr(
+            env,
+            expr->as.call_expr.args.items[1],
+            replace_ident_from,
+            replace_ident_to,
+            replace_it_to);
+        return zir_expr_make_coalesce(value_expr, fallback_expr);
+    }
+    if (zir_name_matches(callee_name, "core.result_is_success")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(0);
+        return zir_expr_make_outcome_is_success(
+            zir_lower_hir_expr(
+                env,
+                expr->as.call_expr.args.items[0],
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to));
+    }
+    if (zir_name_matches(callee_name, "core.result_is_error")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
+        return zir_expr_make_binary(
+            "eq",
+            zir_expr_make_outcome_is_success(
+                zir_lower_hir_expr(
+                    env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to)),
+            zir_expr_make_bool(0));
+    }
+
+    if (zir_name_matches(callee_name, "core.list_is_empty")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
+        return zir_expr_make_binary(
+            "eq",
+            zir_expr_make_list_len(
+                zir_lower_hir_expr(
+                    env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to)),
+            zir_expr_make_int("0"));
+    }
+    if (zir_name_matches(callee_name, "core.map_is_empty")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
+        return zir_expr_make_binary(
+            "eq",
+            zir_expr_make_map_len(
+                zir_lower_hir_expr(
+                    env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to)),
+            zir_expr_make_int("0"));
+    }
+    if (zir_name_matches(callee_name, "core.map_has_key")) {
+        char runtime_name[224];
+        char callee_buffer[256];
+        const zt_type *map_type = NULL;
+
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_bool(0);
+        if (expr->as.call_expr.args.items[0] != NULL) {
+            map_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (!zir_build_map_runtime_name_from_type(
+                map_type,
+                "contains",
+                runtime_name,
+                sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_map_text_text_contains");
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
 

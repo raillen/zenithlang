@@ -265,6 +265,8 @@ static const char *zt_runtime_stable_code(zt_error_kind kind) {
     switch (kind) {
         case ZT_ERR_ASSERT: return "runtime.assert";
         case ZT_ERR_CHECK: return "runtime.check";
+        case ZT_ERR_TODO: return "runtime.todo";
+        case ZT_ERR_UNREACHABLE: return "runtime.unreachable";
         case ZT_ERR_PANIC: return "runtime.panic";
         case ZT_ERR_UNWRAP: return "runtime.unwrap";
         case ZT_ERR_IO: return "runtime.io";
@@ -284,6 +286,10 @@ static const char *zt_runtime_default_help(zt_error_kind kind) {
             return "Ensure assert conditions are true before runtime.";
         case ZT_ERR_CHECK:
             return "Handle check failures explicitly or validate inputs first.";
+        case ZT_ERR_TODO:
+            return "Finish the missing branch or keep it behind a clear development-only path.";
+        case ZT_ERR_UNREACHABLE:
+            return "Check the control flow; this path was expected to be impossible.";
         case ZT_ERR_PANIC:
             return "Avoid panic as control flow; handle recoverable failures with result/optional.";
         case ZT_ERR_UNWRAP:
@@ -806,6 +812,10 @@ const char *zt_error_kind_name(zt_error_kind kind) {
             return "assert";
         case ZT_ERR_CHECK:
             return "check";
+        case ZT_ERR_TODO:
+            return "todo";
+        case ZT_ERR_UNREACHABLE:
+            return "unreachable";
         case ZT_ERR_INDEX:
             return "index";
         case ZT_ERR_UNWRAP:
@@ -2049,6 +2059,16 @@ void zt_check(zt_bool condition, const char *message) {
     if (!condition) {
         zt_runtime_error(ZT_ERR_CHECK, message);
     }
+}
+
+ZT_NORETURN void zt_todo(const char *message) {
+    const char *safe = zt_safe_message(message);
+    zt_runtime_error(ZT_ERR_TODO, safe[0] != '\0' ? safe : "todo");
+}
+
+ZT_NORETURN void zt_unreachable(const char *message) {
+    const char *safe = zt_safe_message(message);
+    zt_runtime_error(ZT_ERR_UNREACHABLE, safe[0] != '\0' ? safe : "unreachable");
 }
 
 ZT_NORETURN void zt_panic(const char *message) {

@@ -1,0 +1,2 @@
+error[runtime.check]
+score must be positive

@@ -479,6 +479,7 @@ def run_hardening_section(suite, results, artifacts_dir):
     section(f"Hardening Tests [{suite}]")
 
     tasks = [
+        ("driver/explain_cli", ROOT / "tests" / "driver" / "test_explain_cli.py", LAYER_TOOLING, 60, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("hardening/determinism", ROOT / "tests" / "hardening" / "test_determinism.py", LAYER_TOOLING, 120, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("hardening/roundtrip_emit_c", ROOT / "tests" / "hardening" / "test_roundtrip_emit_c.py", LAYER_BACKEND, 180, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("hardening/differential_validate_between", ROOT / "tests" / "hardening" / "test_differential_validate_between.py", LAYER_RUNTIME, 240, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),

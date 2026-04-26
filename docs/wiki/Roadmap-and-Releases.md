@@ -1,14 +1,20 @@
-# Roadmap and Releases
+﻿# Roadmap and Releases
 
-Current release target:
+Current source version:
 
-- 0.3.0-alpha.1
+- `0.3.0-alpha.3`
 
-Roadmap references:
+Current planning cycle:
 
-- Roadmap 2.0: https://github.com/raillen/zenithlang/blob/master/docs/planning/roadmap-v2.md
-- Checklist 2.0: https://github.com/raillen/zenithlang/blob/master/docs/planning/checklist-v2.md
-- Cascade 2.0: https://github.com/raillen/zenithlang/blob/master/docs/planning/cascade-v2.md
+- Roadmap v4: https://github.com/raillen/zenithlang/blob/master/docs/internal/planning/roadmap-v4.md
+- Checklist v4: https://github.com/raillen/zenithlang/blob/master/docs/internal/planning/checklist-v4.md
+
+Recent release reports:
+
+- 0.3.0-alpha.3: https://github.com/raillen/zenithlang/blob/master/docs/internal/reports/release/0.3.0-alpha.3-release-report.md
+- R4.M0 stability: https://github.com/raillen/zenithlang/blob/master/docs/internal/reports/release/R4.M0-stability-report.md
+- R4.M1 LSP/VSCode: https://github.com/raillen/zenithlang/blob/master/docs/internal/reports/release/R4.M1-lsp-vscode-report.md
+- R4.M2 ZPM: https://github.com/raillen/zenithlang/blob/master/docs/internal/reports/release/R4.M2-zpm-report.md
 
 Quality gates:
 
@@ -18,4 +24,4 @@ Quality gates:
 
 Policy note:
 
-- Before 1.0.0, breaking changes are allowed between pre-releases.
+- Before `1.0.0`, breaking changes are allowed between pre-releases.

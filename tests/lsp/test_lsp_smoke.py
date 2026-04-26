@@ -55,6 +55,147 @@ def expect(messages, errors, label):
         raise AssertionError(f"timeout waiting for {label}; reader_error={reader_error}") from exc
 
 
+def run_stdlib_cwd_smoke():
+    proc = subprocess.Popen(
+        [str(EXE)],
+        cwd=ROOT / "tools" / "vscode-zenith",
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    messages = queue.Queue()
+    errors = queue.Queue()
+    start_reader(proc, messages, errors)
+    try:
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 100,
+                "method": "initialize",
+                "params": {"locale": "pt-BR", "rootUri": ROOT.as_uri()},
+            },
+        )
+        expect(messages, errors, "cwd initialize")
+        uri = "file:///C:/tmp/cwd-main.zt"
+        text = (
+            "namespace app.main\n\n"
+            "import std.io as io\n\n"
+            "func main() -> int\n"
+            "    io.\n"
+            "    return 0\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "zenith",
+                        "version": 1,
+                        "text": text,
+                    }
+                },
+            },
+        )
+        expect(messages, errors, "cwd diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 101,
+                "method": "textDocument/completion",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 5, "character": 7}},
+            },
+        )
+        completion = expect(messages, errors, "cwd stdlib completion")
+        labels = {item["label"] for item in completion["result"]}
+        assert "print" in labels
+        assert "read_line" in labels
+        send(proc, {"jsonrpc": "2.0", "id": 102, "method": "shutdown", "params": None})
+        expect(messages, errors, "cwd shutdown")
+        send(proc, {"jsonrpc": "2.0", "method": "exit", "params": None})
+        proc.wait(timeout=5)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+def run_english_zdoc_smoke():
+    proc = subprocess.Popen(
+        [str(EXE)],
+        cwd=ROOT,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    messages = queue.Queue()
+    errors = queue.Queue()
+    start_reader(proc, messages, errors)
+    try:
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 200,
+                "method": "initialize",
+                "params": {"locale": "en-US", "rootUri": ROOT.as_uri()},
+            },
+        )
+        expect(messages, errors, "en initialize")
+        uri = "file:///C:/tmp/en-main.zt"
+        text = (
+            "namespace app.main\n\n"
+            "import std.text as text\n\n"
+            "func main() -> int\n"
+            "    text.\n"
+            "    return 0\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "zenith",
+                        "version": 1,
+                        "text": text,
+                    }
+                },
+            },
+        )
+        expect(messages, errors, "en diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 201,
+                "method": "textDocument/completion",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 5, "character": 9}},
+            },
+        )
+        completion = expect(messages, errors, "en std.text completion")
+        items = {item["label"]: item for item in completion["result"]}
+        assert "trim" in items
+        assert "Removes whitespace from both ends." in items["trim"]["documentation"]
+        assert "**Documentation**" in items["trim"]["documentation"]
+        assert "text.trim(value)" in items["trim"]["documentation"]
+        send(proc, {"jsonrpc": "2.0", "id": 202, "method": "shutdown", "params": None})
+        shutdown = expect(messages, errors, "en shutdown")
+        assert shutdown["result"] is None
+        send(proc, {"jsonrpc": "2.0", "method": "exit", "params": None})
+        proc.wait(timeout=5)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
 def main():
     build = subprocess.run([sys.executable, str(ROOT / "tools" / "build_lsp.py")], cwd=ROOT)
     if build.returncode != 0:
@@ -72,11 +213,25 @@ def main():
     start_reader(proc, messages, errors)
 
     try:
-        send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"locale": "pt-BR", "rootUri": ROOT.as_uri()},
+            },
+        )
         init = expect(messages, errors, "initialize")
         assert init["result"]["capabilities"]["hoverProvider"] is True
         assert init["result"]["capabilities"]["definitionProvider"] is True
+        assert init["result"]["capabilities"]["referencesProvider"] is True
+        assert init["result"]["capabilities"]["renameProvider"]["prepareProvider"] is True
+        assert "signatureHelpProvider" in init["result"]["capabilities"]
         assert init["result"]["capabilities"]["documentFormattingProvider"] is True
+        assert init["result"]["capabilities"]["documentSymbolProvider"] is True
+        assert init["result"]["capabilities"]["workspaceSymbolProvider"] is True
+        assert "semanticTokensProvider" in init["result"]["capabilities"]
         assert "completionProvider" in init["result"]["capabilities"]
 
         dep_text = (
@@ -86,6 +241,19 @@ def main():
             "end\n\n"
             "func private_helper() -> int\n"
             "    return 0\n"
+            "end\n\n"
+            "public struct HelperBox\n"
+            "    value: int\n"
+            "    label: text\n"
+            "end\n\n"
+            "apply HelperBox\n"
+            "    -- Descreve a caixa para exibicao.\n"
+            "    public func describe() -> text\n"
+            "        return \"box\"\n"
+            "    end\n\n"
+            "    func hidden() -> int\n"
+            "        return 0\n"
+            "    end\n"
             "end\n"
         )
         dep_uri = "file:///C:/tmp/util.zt"
@@ -167,6 +335,22 @@ def main():
             proc,
             {
                 "jsonrpc": "2.0",
+                "id": 62,
+                "method": "textDocument/signatureHelp",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 9, "character": 16}},
+            },
+        )
+        signature_help = expect(messages, errors, "signature help")
+        assert signature_help["result"]["signatures"][0]["label"] == "func add(a: int, b: int) -> int"
+        assert signature_help["result"]["signatures"][0]["parameters"][0]["label"] == "a: int"
+        assert "documentation" in signature_help["result"]["signatures"][0]
+        assert "Assinatura" in signature_help["result"]["signatures"][0]["documentation"]
+        assert signature_help["result"]["activeParameter"] == 0
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
                 "id": 4,
                 "method": "textDocument/formatting",
                 "params": {"textDocument": {"uri": uri}, "options": {"tabSize": 4, "insertSpaces": True}},
@@ -179,18 +363,44 @@ def main():
             proc,
             {
                 "jsonrpc": "2.0",
+                "id": 66,
+                "method": "textDocument/semanticTokens/full",
+                "params": {"textDocument": {"uri": uri}},
+            },
+        )
+        semantic_tokens = expect(messages, errors, "semantic tokens")
+        assert isinstance(semantic_tokens["result"]["data"], list)
+        assert len(semantic_tokens["result"]["data"]) > 0
+        assert len(semantic_tokens["result"]["data"]) % 5 == 0
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
                 "id": 5,
                 "method": "textDocument/completion",
                 "params": {"textDocument": {"uri": uri}, "position": {"line": 8, "character": 0}},
             },
         )
         completion = expect(messages, errors, "completion")
-        labels = {item["label"] for item in completion["result"]}
+        items_by_label = {item["label"]: item for item in completion["result"]}
+        labels = set(items_by_label)
         assert "func" in labels
         assert "result" in labels
         assert "add" in labels
         assert "util" in labels
         assert "helper" not in labels
+        assert "fmt" in labels
+        assert "int()" in labels
+        assert "float()" in labels
+        assert "len()" in labels
+        assert "to_text()" in labels
+        assert items_by_label["fmt"]["insertText"] == 'fmt "${1:texto {valor}}"'
+        assert items_by_label["int()"]["insertText"] == "int(${1:value})"
+        assert items_by_label["to_text()"]["detail"] == "to_text(value) -> text"
+        assert "TextRepresentable<T>" in items_by_label["to_text()"]["documentation"]
+        assert "exibicao, logs e mensagens" in items_by_label["to_text()"]["documentation"]
+        assert "Assinatura" in items_by_label["fmt"]["documentation"]
 
         send(
             proc,
@@ -239,6 +449,107 @@ def main():
         assert cross_definition["result"]["uri"] == dep_uri
         assert cross_definition["result"]["range"]["start"]["line"] == 2
 
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 60,
+                "method": "textDocument/references",
+                "params": {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": 5, "character": 19},
+                    "context": {"includeDeclaration": True},
+                },
+            },
+        )
+        references = expect(messages, errors, "cross-file references")
+        reference_locations = {(item["uri"], item["range"]["start"]["line"]) for item in references["result"]}
+        assert (dep_uri, 2) in reference_locations
+        assert (uri, 5) in reference_locations
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 61,
+                "method": "textDocument/references",
+                "params": {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": 5, "character": 19},
+                    "context": {"includeDeclaration": False},
+                },
+            },
+        )
+        references_without_decl = expect(messages, errors, "references without declaration")
+        reference_without_decl_locations = {
+            (item["uri"], item["range"]["start"]["line"]) for item in references_without_decl["result"]
+        }
+        assert (dep_uri, 2) not in reference_without_decl_locations
+        assert (uri, 5) in reference_without_decl_locations
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 64,
+                "method": "textDocument/prepareRename",
+                "params": {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": 5, "character": 19},
+                },
+            },
+        )
+        prepare_rename = expect(messages, errors, "prepare rename")
+        assert prepare_rename["result"]["placeholder"] == "helper"
+        assert prepare_rename["result"]["range"]["start"]["line"] == 5
+        assert prepare_rename["result"]["range"]["start"]["character"] == 16
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 65,
+                "method": "textDocument/prepareRename",
+                "params": {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": 5, "character": 12},
+                },
+            },
+        )
+        prepare_alias_rename = expect(messages, errors, "prepare alias rename")
+        assert prepare_alias_rename["result"] is None
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 63,
+                "method": "textDocument/rename",
+                "params": {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": 5, "character": 19},
+                    "newName": "assist",
+                },
+            },
+        )
+        rename = expect(messages, errors, "rename")
+        assert dep_uri in rename["result"]["changes"]
+        assert uri in rename["result"]["changes"]
+        dep_edits = rename["result"]["changes"][dep_uri]
+        main_edits = rename["result"]["changes"][uri]
+        assert any(
+            edit["range"]["start"]["line"] == 2
+            and edit["range"]["start"]["character"] == 12
+            and edit["newText"] == "assist"
+            for edit in dep_edits
+        )
+        assert any(
+            edit["range"]["start"]["line"] == 5
+            and edit["range"]["start"]["character"] == 16
+            and edit["newText"] == "assist"
+            for edit in main_edits
+        )
+
         imported_member_text = (
             "namespace app.main\n\n"
             "import app.util as util\n\n"
@@ -268,9 +579,90 @@ def main():
             },
         )
         imported_member_completion = expect(messages, errors, "imported member completion")
-        imported_member_labels = {item["label"] for item in imported_member_completion["result"]}
+        imported_member_items = {item["label"]: item for item in imported_member_completion["result"]}
+        imported_member_labels = set(imported_member_items)
         assert "helper" in imported_member_labels
         assert "private_helper" not in imported_member_labels
+        assert imported_member_items["helper"]["detail"] == "app.util.helper() -> int"
+        assert "Sem documentacao local" in imported_member_items["helper"]["documentation"]
+
+        stdlib_member_text = (
+            "namespace app.main\n\n"
+            "import std.io as io\n\n"
+            "func main() -> int\n"
+            "    io.\n"
+            "    return 0\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {"uri": uri, "version": 4},
+                    "contentChanges": [{"text": stdlib_member_text}],
+                },
+            },
+        )
+        expect(messages, errors, "stdlib member diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 70,
+                "method": "textDocument/completion",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 5, "character": 7}},
+            },
+        )
+        stdlib_member_completion = expect(messages, errors, "stdlib member completion")
+        stdlib_member_items = {item["label"]: item for item in stdlib_member_completion["result"]}
+        stdlib_member_labels = set(stdlib_member_items)
+        assert "print" in stdlib_member_labels
+        assert "read_line" in stdlib_member_labels
+        assert "read_all" in stdlib_member_labels
+        assert "input" in stdlib_member_labels
+        assert "zt_host_write_stdout" not in stdlib_member_labels
+        assert "@param value" in stdlib_member_items["print"]["documentation"]
+        assert "write" in stdlib_member_items["print"]["documentation"]
+        assert "io.print(value)" in stdlib_member_items["print"]["documentation"]
+
+        stdlib_shortcut_text = (
+            "namespace app.main\n\n"
+            "import std.io as io\n\n"
+            "func main() -> int\n"
+            "    pri\n"
+            "    return 0\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {"uri": uri, "version": 5},
+                    "contentChanges": [{"text": stdlib_shortcut_text}],
+                },
+            },
+        )
+        expect(messages, errors, "stdlib shortcut diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 71,
+                "method": "textDocument/completion",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 5, "character": 7}},
+            },
+        )
+        stdlib_shortcut_completion = expect(messages, errors, "stdlib shortcut completion")
+        stdlib_items_by_label = {item["label"]: item for item in stdlib_shortcut_completion["result"]}
+        assert "print()" in stdlib_items_by_label
+        assert "read_line()" in stdlib_items_by_label
+        assert stdlib_items_by_label["print()"]["insertText"] == "io.print(${1:value})"
+        assert "std.io.print" in stdlib_items_by_label["print()"]["detail"]
+        assert "@param value" in stdlib_items_by_label["print()"]["documentation"]
 
         member_text = (
             "namespace app.main\n\n"
@@ -285,7 +677,7 @@ def main():
                 "jsonrpc": "2.0",
                 "method": "textDocument/didChange",
                 "params": {
-                    "textDocument": {"uri": uri, "version": 4},
+                    "textDocument": {"uri": uri, "version": 6},
                     "contentChanges": [{"text": member_text}],
                 },
             },
@@ -316,7 +708,7 @@ def main():
                 "jsonrpc": "2.0",
                 "method": "textDocument/didChange",
                 "params": {
-                    "textDocument": {"uri": uri, "version": 5},
+                    "textDocument": {"uri": uri, "version": 7},
                     "contentChanges": [{"text": list_member_text}],
                 },
             },
@@ -349,7 +741,7 @@ def main():
                 "jsonrpc": "2.0",
                 "method": "textDocument/didChange",
                 "params": {
-                    "textDocument": {"uri": uri, "version": 6},
+                    "textDocument": {"uri": uri, "version": 8},
                     "contentChanges": [{"text": list_partial_text}],
                 },
             },
@@ -382,7 +774,7 @@ def main():
                 "jsonrpc": "2.0",
                 "method": "textDocument/didChange",
                 "params": {
-                    "textDocument": {"uri": uri, "version": 7},
+                    "textDocument": {"uri": uri, "version": 9},
                     "contentChanges": [{"text": map_member_text}],
                 },
             },
@@ -419,7 +811,7 @@ def main():
                 "jsonrpc": "2.0",
                 "method": "textDocument/didChange",
                 "params": {
-                    "textDocument": {"uri": uri, "version": 8},
+                    "textDocument": {"uri": uri, "version": 10},
                     "contentChanges": [{"text": struct_member_text}],
                 },
             },
@@ -440,11 +832,130 @@ def main():
         assert "hp" in struct_member_labels
         assert "func" not in struct_member_labels
 
-        send(proc, {"jsonrpc": "2.0", "id": 13, "method": "shutdown", "params": None})
+        imported_struct_member_text = (
+            "namespace app.main\n\n"
+            "import app.util as util\n\n"
+            "func teste() -> void\n"
+            "    var box: util.HelperBox = util.HelperBox(value: 1, label: \"Ada\")\n"
+            "    box.\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {"uri": uri, "version": 11},
+                    "contentChanges": [{"text": imported_struct_member_text}],
+                },
+            },
+        )
+        expect(messages, errors, "imported struct member diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 72,
+                "method": "textDocument/completion",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 6, "character": 8}},
+            },
+        )
+        imported_struct_completion = expect(messages, errors, "imported struct member completion")
+        imported_struct_labels = {item["label"] for item in imported_struct_completion["result"]}
+        assert "value" in imported_struct_labels
+        assert "label" in imported_struct_labels
+        assert "describe" in imported_struct_labels
+        assert "hidden" not in imported_struct_labels
+        describe_item = next(item for item in imported_struct_completion["result"] if item["label"] == "describe")
+        assert "describe() -> text" in describe_item["detail"]
+        assert "Descreve a caixa" in describe_item["documentation"]
+
+        imported_method_signature_text = (
+            "namespace app.main\n\n"
+            "import app.util as util\n\n"
+            "func teste() -> void\n"
+            "    var box: util.HelperBox = util.HelperBox(value: 1, label: \"Ada\")\n"
+            "    box.describe(\n"
+            "end\n"
+        )
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {"uri": uri, "version": 12},
+                    "contentChanges": [{"text": imported_method_signature_text}],
+                },
+            },
+        )
+        expect(messages, errors, "imported method signature diagnostics")
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 73,
+                "method": "textDocument/signatureHelp",
+                "params": {"textDocument": {"uri": uri}, "position": {"line": 6, "character": 17}},
+            },
+        )
+        imported_method_signature = expect(messages, errors, "imported method signature")
+        assert imported_method_signature["result"]["signatures"][0]["label"] == "func describe() -> text"
+        assert "Descreve a caixa" in imported_method_signature["result"]["signatures"][0]["documentation"]
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": {"uri": uri, "version": 13},
+                    "contentChanges": [{"text": struct_member_text}],
+                },
+            },
+        )
+        expect(messages, errors, "struct member restore diagnostics")
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 13,
+                "method": "textDocument/documentSymbol",
+                "params": {"textDocument": {"uri": uri}},
+            },
+        )
+        document_symbols = expect(messages, errors, "document symbols")
+        symbol_names = {item["name"] for item in document_symbols["result"]}
+        assert "Player" in symbol_names
+        assert "teste" in symbol_names
+        player_symbol = next(item for item in document_symbols["result"] if item["name"] == "Player")
+        player_children = {item["name"] for item in player_symbol.get("children", [])}
+        assert "name" in player_children
+        assert "hp" in player_children
+
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 14,
+                "method": "workspace/symbol",
+                "params": {"query": "helper"},
+            },
+        )
+        workspace_symbols = expect(messages, errors, "workspace symbols")
+        workspace_names = {item["name"] for item in workspace_symbols["result"]}
+        assert "helper" in workspace_names
+        assert any(item["containerName"] == "app.util" for item in workspace_symbols["result"] if item["name"] == "helper")
+
+        send(proc, {"jsonrpc": "2.0", "id": 15, "method": "shutdown", "params": None})
         shutdown = expect(messages, errors, "shutdown")
         assert shutdown["result"] is None
         send(proc, {"jsonrpc": "2.0", "method": "exit", "params": None})
         proc.wait(timeout=5)
+        run_stdlib_cwd_smoke()
+        run_english_zdoc_smoke()
         print("lsp smoke ok")
         return 0
     finally:

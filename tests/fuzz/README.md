@@ -1,7 +1,7 @@
 # R2.M2 - Frontend Fuzzing Infrastructure
 
 Infra de fuzzing leve para lexer e parser do Zenith. Cobre os itens de R2.M2
-em `docs/planning/checklist-v2.md`:
+em `docs/internal/planning/checklist-v2.md`:
 
 - Harness de fuzz para lexer (`fuzz_lexer.py`)
 - Harness de fuzz para parser (`fuzz_parser.py`)

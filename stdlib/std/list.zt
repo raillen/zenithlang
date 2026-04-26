@@ -1,0 +1,4 @@
+-- Zenith Standard Library - std.list
+namespace std.list
+
+-- Helpers in this module are compiler-known because `list<T>` is a built-in generic.

@@ -387,7 +387,7 @@ Exemplos importantes já não abertos:
 
 O que este arquivo agora também absorve:
 
-- o que ainda restava de útil no antigo `reports/full-audit-report.md`;
+- o que ainda restava de util no antigo relatorio completo de auditoria;
 - o que ainda restava de útil nos relatórios legados de 2026-04-22 já removidos.
 
 ---

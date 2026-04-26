@@ -225,6 +225,38 @@ static void test_explicit_conversion_rules(void) {
     zt_parser_result_dispose(&parsed_bad);
 }
 
+static void test_to_text_builtin_rules(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src_ok =
+        "namespace app\n"
+        "func ok() -> text\n"
+        "    return to_text(42)\n"
+        "end";
+    const char *src_bad =
+        "namespace app\n"
+        "func bad() -> text\n"
+        "    const data: bytes = hex bytes \"DE AD\"\n"
+        "    return to_text(data)\n"
+        "end";
+    zt_parser_result parsed_ok = zt_parse(&test_arena, &test_pool, "test", src_ok, strlen(src_ok));
+    zt_parser_result parsed_bad = zt_parse(&test_arena, &test_pool, "test", src_bad, strlen(src_bad));
+    ASSERT_NO_PARSE_ERRORS(parsed_ok, "to_text_builtin_rules ok parse");
+    ASSERT_NO_PARSE_ERRORS(parsed_bad, "to_text_builtin_rules bad parse");
+    zt_check_result checked_ok = zt_check_file(parsed_ok.root);
+    zt_check_result checked_bad = zt_check_file(parsed_bad.root);
+    ASSERT_NO_TYPE_ERRORS(checked_ok, "to_text_builtin_rules ok type");
+    ASSERT_EQ((int)checked_bad.diagnostics.count, 1, "to_text_builtin_rules bad diag count");
+    ASSERT_EQ((int)checked_bad.diagnostics.items[0].code, ZT_DIAG_INVALID_TYPE, "to_text_builtin_rules bad diag code");
+    zt_check_result_dispose(&checked_ok);
+    zt_check_result_dispose(&checked_bad);
+    zt_parser_result_dispose(&parsed_ok);
+    zt_parser_result_dispose(&parsed_bad);
+}
+
 static void test_non_mutating_self_assignment_rejected(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -572,6 +604,37 @@ static void test_enum_match_default_must_be_last_rejected(void) {
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_enum_match_default_warning(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "enum Status\n"
+        "    Ok\n"
+        "    Error\n"
+        "end\n"
+        "func demo(status: Status) -> int\n"
+        "    match status\n"
+        "        case Status.Ok ->\n"
+        "            return 1\n"
+        "        case default ->\n"
+        "            return 2\n"
+        "    end\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "enum_match_default_warning parse");
+    zt_check_result checked = zt_check_file(parsed.root);
+    ASSERT_EQ((int)checked.diagnostics.count, 1, "enum_match_default_warning diag count");
+    ASSERT_EQ(checked.diagnostics.items[0].code, ZT_DIAG_ENUM_DEFAULT_CASE, "enum_match_default_warning code");
+    ASSERT_EQ(checked.diagnostics.items[0].severity, ZT_DIAG_SEVERITY_WARNING, "enum_match_default_warning severity");
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
 static void test_enum_match_non_exhaustive_rejected(void) {
     zt_arena test_arena;
     zt_string_pool test_pool;
@@ -801,6 +864,56 @@ static void test_boundary_copy_rejects_unsupported_transferable_shape(void) {
     zt_parser_result_dispose(&parsed);
 }
 
+/* **Validates: Requirements 1.1, 1.2**
+ * Bug Condition Exploration Test - Stdlib Function Type Mismatch Not Detected
+ *
+ * CRITICAL: This test MUST FAIL on unfixed code - failure confirms the bug exists.
+ *
+ * Property: When concurrent.copy_text(value) is called where value is of type Snapshot (struct),
+ * the type checker MUST generate a diagnostic error (ZT_DIAG_INVALID_CALL or ZT_DIAG_TYPE_MISMATCH).
+ *
+ * Expected outcome on UNFIXED code: Test FAILS (0 diagnostics generated instead of 1)
+ * This failure proves the bug exists: stdlib function type validation is not working.
+ */
+static void test_bug_condition_stdlib_type_mismatch_not_detected(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    const char *src =
+        "namespace app\n"
+        "import std.concurrent as concurrent\n"
+        "struct Snapshot\n"
+        "    title: text\n"
+        "end\n"
+        "func demo() -> text\n"
+        "    const value: Snapshot = Snapshot(title: \"test\")\n"
+        "    return concurrent.copy_text(value)\n"
+        "end";
+    zt_parser_result parsed;
+    zt_check_result checked;
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "bug_condition_stdlib_type_mismatch parse");
+    checked = zt_check_file(parsed.root);
+
+    /* This assertion SHOULD FAIL on unfixed code (actual=0, expected=1)
+     * When it fails, it proves the bug exists: type checker is not validating
+     * stdlib function parameter types correctly. */
+    ASSERT_EQ((int)checked.diagnostics.count, 1, "bug_condition_stdlib_type_mismatch diag count");
+
+    /* If we get here (test passed), verify it's the right diagnostic */
+    if (checked.diagnostics.count > 0) {
+        int has_type_error = (checked.diagnostics.items[0].code == ZT_DIAG_INVALID_CALL ||
+                              checked.diagnostics.items[0].code == ZT_DIAG_TYPE_MISMATCH);
+        ASSERT_EQ(has_type_error, 1, "bug_condition_stdlib_type_mismatch diag code");
+    }
+
+    zt_check_result_dispose(&checked);
+    zt_parser_result_dispose(&parsed);
+}
+
 int main(void) {
     test_const_reassignment_rejected();
     test_optional_none_return_ok();
@@ -811,6 +924,7 @@ int main(void) {
     test_high_arity_missing_argument_rejected();
     test_invalid_map_key_type_rejected();
     test_explicit_conversion_rules();
+    test_to_text_builtin_rules();
     test_non_mutating_self_assignment_rejected();
     test_integer_overflow_rejected();
     test_contextual_integer_literal_arithmetic_ok();
@@ -823,11 +937,13 @@ int main(void) {
     test_enum_constructor_and_match_binding_ok();
     test_enum_match_duplicate_default_rejected();
     test_enum_match_default_must_be_last_rejected();
+    test_enum_match_default_warning();
     test_enum_match_non_exhaustive_rejected();
     test_transferable_builtin_shapes();
     test_transferable_user_types();
     test_boundary_copy_alpha_subset_ok();
     test_boundary_copy_rejects_unsupported_transferable_shape();
+    test_bug_condition_stdlib_type_mismatch_not_detected();
 
     printf("Type tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

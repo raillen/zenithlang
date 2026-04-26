@@ -226,8 +226,8 @@ def build_markdown(report: dict) -> str:
         "",
         "## Artifacts",
         "",
-        f"- latest_md: `docs/reports/triage/latest.md`",
-        f"- latest_json: `docs/reports/triage/latest.json`",
+        f"- latest_md: `docs/internal/reports/triage/latest.md`",
+        f"- latest_json: `docs/internal/reports/triage/latest.json`",
         f"- quality_baseline: `{QUALITY_BASELINE_PATH.as_posix()}`",
         "",
     ])

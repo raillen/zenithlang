@@ -8,9 +8,6 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Programming Languages"],
-  "activationEvents": [
-    "onLanguage:zenith"
-  ],
   "main": "./extension.js",
   "contributes": {
     "languages": [
@@ -29,6 +26,7 @@
       }
     ],
     "commands": [
+      { "command": "zenith.newFile", "title": "Zenith: New File" },
       { "command": "zenith.check", "title": "Zenith: Check Project" },
       { "command": "zenith.build", "title": "Zenith: Build Project" },
       { "command": "zenith.run", "title": "Zenith: Run Project" }
@@ -45,6 +43,11 @@
           "type": "string",
           "default": "",
           "description": "Path to zt CLI. Empty means use the repository binary or PATH."
+        },
+        "zenith.files.autoNamespaceOnCreate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically insert a namespace in empty .zt files created under source.root."
         }
       }
     }

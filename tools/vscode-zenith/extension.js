@@ -4,6 +4,10 @@ const path = require('path');
 const vscode = require('vscode');
 
 const LANGUAGE = 'zenith';
+const semanticTokenLegend = new vscode.SemanticTokensLegend(
+  ['namespace', 'type', 'function', 'variable', 'property', 'keyword', 'modifier', 'string', 'number'],
+  ['declaration', 'readonly', 'public'],
+);
 
 class CompassClient {
   constructor(context, diagnostics) {
@@ -14,21 +18,40 @@ class CompassClient {
     this.nextId = 1;
     this.pending = new Map();
     this.started = false;
+    this.workspaceIndexed = false;
+  }
+
+  repoRoot() {
+    return path.resolve(this.context.extensionPath, '..', '..');
   }
 
   resolveLspPath() {
     const configured = vscode.workspace.getConfiguration('zenith').get('lsp.path');
     if (configured && configured.trim().length > 0) return configured;
-    const repoRoot = path.resolve(this.context.extensionPath, '..', '..');
+    const repoRoot = this.repoRoot();
     const local = path.join(repoRoot, process.platform === 'win32' ? 'zt-lsp.exe' : 'zt-lsp');
     if (fs.existsSync(local)) return local;
     return process.platform === 'win32' ? 'zt-lsp.exe' : 'zt-lsp';
   }
 
+  resolveLspCwd(exe) {
+    const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+    const candidates = [
+      this.repoRoot(),
+      folder ? folder.uri.fsPath : undefined,
+      path.dirname(exe),
+      process.cwd(),
+    ].filter(Boolean);
+    for (const candidate of candidates) {
+      if (fs.existsSync(path.join(candidate, 'stdlib', 'std', 'io.zt'))) return candidate;
+    }
+    return path.dirname(exe);
+  }
+
   async ensureStarted() {
     if (this.started && this.proc && !this.proc.killed) return;
     const exe = this.resolveLspPath();
-    this.proc = cp.spawn(exe, [], { cwd: path.dirname(exe), stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc = cp.spawn(exe, [], { cwd: this.resolveLspCwd(exe), stdio: ['pipe', 'pipe', 'pipe'] });
     this.started = true;
     this.proc.stdout.on('data', (chunk) => this.onData(chunk));
     this.proc.stderr.on('data', (chunk) => console.error(`[zenith-lsp] ${chunk.toString()}`));
@@ -40,6 +63,7 @@ class CompassClient {
     const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
     await this.request('initialize', {
       capabilities: {},
+      locale: vscode.env.language || 'en',
       processId: process.pid,
       rootUri: folder ? folder.uri.toString() : null,
     });
@@ -159,6 +183,7 @@ class CompassClient {
   }
 
   async indexWorkspaceDocuments() {
+    if (this.workspaceIndexed) return;
     await this.ensureStarted();
     const files = await vscode.workspace.findFiles(
       '**/*.zt',
@@ -168,6 +193,7 @@ class CompassClient {
     for (const uri of files) {
       await this.syncUri(uri);
     }
+    this.workspaceIndexed = true;
   }
 }
 
@@ -202,6 +228,311 @@ function runTerminalCommand(context, command) {
   terminal.sendText(`"${cli}" ${command} "${projectTarget()}"`);
 }
 
+function autoNamespaceOnCreateEnabled() {
+  return vscode.workspace.getConfiguration('zenith').get('files.autoNamespaceOnCreate') !== false;
+}
+
+function pathIsDirectory(filePath) {
+  try {
+    return fs.statSync(filePath).isDirectory();
+  } catch (_) {
+    return false;
+  }
+}
+
+function fileExists(filePath) {
+  try {
+    return fs.existsSync(filePath);
+  } catch (_) {
+    return false;
+  }
+}
+
+function isPathInside(basePath, candidatePath) {
+  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function parseSourceRoot(manifestText) {
+  let section = '';
+  for (const rawLine of manifestText.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#') || line.startsWith('--')) continue;
+
+    const sectionMatch = /^\[([^\]]+)\]$/.exec(line);
+    if (sectionMatch) {
+      section = sectionMatch[1].trim();
+      continue;
+    }
+
+    if (section !== 'source') continue;
+    const rootMatch = /^root\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s#;]+))/.exec(line);
+    if (rootMatch) return rootMatch[1] || rootMatch[2] || rootMatch[3] || 'src';
+  }
+  return 'src';
+}
+
+async function findProjectInfo(startPath) {
+  let current = pathIsDirectory(startPath) ? startPath : path.dirname(startPath);
+  while (current && current !== path.dirname(current)) {
+    const manifestPath = path.join(current, 'zenith.ztproj');
+    if (fileExists(manifestPath)) {
+      const manifestText = await fs.promises.readFile(manifestPath, 'utf8');
+      return {
+        manifestPath,
+        projectRoot: current,
+        sourceRoot: parseSourceRoot(manifestText),
+      };
+    }
+    current = path.dirname(current);
+  }
+
+  const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(startPath));
+  if (folder) {
+    return {
+      manifestPath: null,
+      projectRoot: folder.uri.fsPath,
+      sourceRoot: 'src',
+    };
+  }
+
+  return null;
+}
+
+function normalizeInputPath(input) {
+  return input
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/[\\/]+/g, path.sep);
+}
+
+function namespaceFromFilePath(filePath, projectInfo) {
+  if (!projectInfo || path.extname(filePath).toLowerCase() !== '.zt') return null;
+
+  const sourceDir = path.resolve(projectInfo.projectRoot, projectInfo.sourceRoot || 'src');
+  if (!isPathInside(sourceDir, filePath)) return null;
+
+  const relativePath = path.relative(sourceDir, filePath);
+  const withoutExtension = relativePath.slice(0, -'.zt'.length);
+  const parts = withoutExtension.split(/[\\/]+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  for (const part of parts) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(part)) return null;
+  }
+
+  return parts.join('.');
+}
+
+function sourceRootLabel(projectInfo) {
+  const sourceDir = path.resolve(projectInfo.projectRoot, projectInfo.sourceRoot || 'src');
+  return path.relative(projectInfo.projectRoot, sourceDir) || '.';
+}
+
+function resolveNewZenithFilePath(projectInfo, rawInput) {
+  const sourceDir = path.resolve(projectInfo.projectRoot, projectInfo.sourceRoot || 'src');
+  const sourceRootInput = normalizeInputPath(projectInfo.sourceRoot || 'src');
+  const input = normalizeInputPath(rawInput);
+  if (!input) return null;
+
+  let filePath;
+  if (path.isAbsolute(input)) {
+    filePath = input;
+  } else if (input === sourceRootInput || input.startsWith(`${sourceRootInput}${path.sep}`)) {
+    filePath = path.resolve(projectInfo.projectRoot, input);
+  } else {
+    filePath = path.resolve(sourceDir, input);
+  }
+
+  if (path.extname(filePath).toLowerCase() !== '.zt') {
+    filePath = `${filePath}.zt`;
+  }
+
+  if (!isPathInside(sourceDir, filePath)) return null;
+  return filePath;
+}
+
+async function readUriText(uri) {
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  return Buffer.from(bytes).toString('utf8');
+}
+
+function syncUriBestEffort(client, uri) {
+  if (!client) return;
+  client.syncUri(uri).catch((err) => {
+    console.error(`[zenith] failed to sync ${uri.fsPath}: ${err.message || err}`);
+  });
+}
+
+async function writeNamespaceTemplate(uri, namespaceName, client) {
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(`namespace ${namespaceName}\n\n`, 'utf8'));
+  syncUriBestEffort(client, uri);
+}
+
+async function fillNamespaceIfEmpty(uri, client, showFeedback) {
+  if (!uri || uri.scheme !== 'file' || path.extname(uri.fsPath).toLowerCase() !== '.zt') return false;
+
+  const text = await readUriText(uri);
+  if (text.trim().length > 0) return false;
+
+  const projectInfo = await findProjectInfo(uri.fsPath);
+  const namespaceName = namespaceFromFilePath(uri.fsPath, projectInfo);
+  if (!namespaceName) {
+    if (showFeedback) {
+      vscode.window.showWarningMessage('Nao consegui calcular o namespace. Crie o arquivo dentro de source.root usando nomes validos.');
+    }
+    return false;
+  }
+
+  await writeNamespaceTemplate(uri, namespaceName, client);
+  return true;
+}
+
+async function selectProjectInfo() {
+  const editor = vscode.window.activeTextEditor;
+  if (editor && editor.document.uri.scheme === 'file') {
+    const projectInfo = await findProjectInfo(editor.document.uri.fsPath);
+    if (projectInfo) return projectInfo;
+  }
+
+  const folders = vscode.workspace.workspaceFolders || [];
+  if (folders.length === 0) return null;
+
+  let folder = folders[0];
+  if (folders.length > 1) {
+    folder = await vscode.window.showWorkspaceFolderPick({
+      placeHolder: 'Escolha o workspace do projeto Zenith',
+    });
+    if (!folder) return null;
+  }
+
+  return findProjectInfo(folder.uri.fsPath);
+}
+
+async function createZenithFile(client) {
+  const projectInfo = await selectProjectInfo();
+  if (!projectInfo) {
+    vscode.window.showErrorMessage('Abra uma pasta de projeto para criar um arquivo Zenith.');
+    return;
+  }
+
+  const relativePath = await vscode.window.showInputBox({
+    prompt: `Caminho do arquivo .zt relativo a ${sourceRootLabel(projectInfo)}`,
+    placeHolder: 'app/main.zt',
+    value: 'app/main.zt',
+    validateInput: (value) => {
+      if (!value || !value.trim()) return 'Informe um caminho de arquivo.';
+      const filePath = resolveNewZenithFilePath(projectInfo, value);
+      if (!filePath) return 'O arquivo precisa ficar dentro de source.root.';
+      if (!namespaceFromFilePath(filePath, projectInfo)) return 'Use nomes validos para namespace, como app/main.zt.';
+      return null;
+    },
+  });
+  if (relativePath === undefined) return;
+
+  const filePath = resolveNewZenithFilePath(projectInfo, relativePath);
+  const namespaceName = filePath ? namespaceFromFilePath(filePath, projectInfo) : null;
+  if (!filePath || !namespaceName) {
+    vscode.window.showErrorMessage('Nao consegui criar esse arquivo com namespace valido.');
+    return;
+  }
+
+  const uri = vscode.Uri.file(filePath);
+  if (!fileExists(filePath)) {
+    await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(filePath)));
+    await writeNamespaceTemplate(uri, namespaceName, client);
+  } else {
+    await fillNamespaceIfEmpty(uri, client, true);
+  }
+
+  const document = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(document);
+}
+
+function toRange(range) {
+  if (!range) return new vscode.Range(0, 0, 0, 1);
+  return new vscode.Range(
+    range.start.line,
+    range.start.character,
+    range.end.line,
+    range.end.character,
+  );
+}
+
+function toSymbolKind(kind) {
+  return kind ? Math.max(0, kind - 1) : vscode.SymbolKind.Variable;
+}
+
+function toDocumentSymbol(item) {
+  const symbol = new vscode.DocumentSymbol(
+    item.name,
+    item.detail || '',
+    toSymbolKind(item.kind),
+    toRange(item.range),
+    toRange(item.selectionRange || item.range),
+  );
+  for (const child of item.children || []) {
+    symbol.children.push(toDocumentSymbol(child));
+  }
+  return symbol;
+}
+
+function toSymbolInformation(item) {
+  return new vscode.SymbolInformation(
+    item.name,
+    toSymbolKind(item.kind),
+    item.containerName || '',
+    new vscode.Location(vscode.Uri.parse(item.location.uri), toRange(item.location.range)),
+  );
+}
+
+function toLocation(item) {
+  if (!item || !item.uri || !item.range) return undefined;
+  return new vscode.Location(vscode.Uri.parse(item.uri), toRange(item.range));
+}
+
+function toDocumentation(value) {
+  if (!value) return undefined;
+  const text = typeof value === 'string' ? value : value.value;
+  if (!text) return undefined;
+  const markdown = new vscode.MarkdownString(text);
+  markdown.isTrusted = false;
+  markdown.supportHtml = false;
+  return markdown;
+}
+
+function toSignatureHelp(result) {
+  if (!result || !Array.isArray(result.signatures) || result.signatures.length === 0) return undefined;
+  const help = new vscode.SignatureHelp();
+  help.activeSignature = result.activeSignature || 0;
+  help.activeParameter = result.activeParameter || 0;
+  help.signatures = result.signatures.map((item) => {
+    const signature = new vscode.SignatureInformation(item.label || '');
+    signature.documentation = toDocumentation(item.documentation);
+    signature.parameters = (item.parameters || []).map(
+      (param) => {
+        const parameter = new vscode.ParameterInformation(param.label || '');
+        parameter.documentation = toDocumentation(param.documentation);
+        return parameter;
+      },
+    );
+    return signature;
+  });
+  return help;
+}
+
+function toWorkspaceEdit(result) {
+  if (!result || !result.changes) return undefined;
+  const workspaceEdit = new vscode.WorkspaceEdit();
+  for (const [uriText, edits] of Object.entries(result.changes)) {
+    const uri = vscode.Uri.parse(uriText);
+    for (const edit of edits || []) {
+      workspaceEdit.replace(uri, toRange(edit.range), edit.newText || '');
+    }
+  }
+  return workspaceEdit;
+}
+
 function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection('zenith');
   const client = new CompassClient(context, diagnostics);
@@ -221,7 +552,20 @@ function activate(context) {
 
   const watcher = vscode.workspace.createFileSystemWatcher('**/*.zt');
   context.subscriptions.push(watcher);
-  context.subscriptions.push(watcher.onDidCreate((uri) => client.syncUri(uri)));
+  context.subscriptions.push(watcher.onDidCreate((uri) => {
+    if (autoNamespaceOnCreateEnabled()) {
+      fillNamespaceIfEmpty(uri, client, false)
+        .then((filled) => {
+          if (!filled) syncUriBestEffort(client, uri);
+        })
+        .catch((err) => {
+          console.error(`[zenith] failed to initialize namespace for ${uri.fsPath}: ${err.message || err}`);
+          syncUriBestEffort(client, uri);
+        });
+      return;
+    }
+    syncUriBestEffort(client, uri);
+  }));
   context.subscriptions.push(watcher.onDidChange((uri) => client.syncUri(uri)));
   context.subscriptions.push(watcher.onDidDelete((uri) => {
     client.notify('textDocument/didClose', { textDocument: { uri: uri.toString() } });
@@ -261,6 +605,82 @@ function activate(context) {
     },
   }));
 
+  context.subscriptions.push(vscode.languages.registerReferenceProvider(documentSelector(), {
+    async provideReferences(document, position, context) {
+      await client.indexWorkspaceDocuments();
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/references', {
+        textDocument: { uri: document.uri.toString() },
+        position,
+        context: { includeDeclaration: Boolean(context && context.includeDeclaration) },
+      });
+      return (result || []).map(toLocation).filter(Boolean);
+    },
+  }));
+
+  context.subscriptions.push(vscode.languages.registerSignatureHelpProvider(documentSelector(), {
+    async provideSignatureHelp(document, position) {
+      await client.indexWorkspaceDocuments();
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/signatureHelp', {
+        textDocument: { uri: document.uri.toString() },
+        position,
+      });
+      return toSignatureHelp(result);
+    },
+  }, '(', ','));
+
+  context.subscriptions.push(vscode.languages.registerRenameProvider(documentSelector(), {
+    async prepareRename(document, position) {
+      await client.indexWorkspaceDocuments();
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/prepareRename', {
+        textDocument: { uri: document.uri.toString() },
+        position,
+      });
+      if (!result || !result.range) return undefined;
+      return { range: toRange(result.range), placeholder: result.placeholder || document.getText(toRange(result.range)) };
+    },
+    async provideRenameEdits(document, position, newName) {
+      await client.indexWorkspaceDocuments();
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/rename', {
+        textDocument: { uri: document.uri.toString() },
+        position,
+        newName,
+      });
+      return toWorkspaceEdit(result);
+    },
+  }));
+
+  context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider(documentSelector(), {
+    async provideDocumentSymbols(document) {
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/documentSymbol', {
+        textDocument: { uri: document.uri.toString() },
+      });
+      return (result || []).map(toDocumentSymbol);
+    },
+  }));
+
+  context.subscriptions.push(vscode.languages.registerDocumentSemanticTokensProvider(documentSelector(), {
+    async provideDocumentSemanticTokens(document) {
+      await client.syncDocument(document);
+      const result = await client.request('textDocument/semanticTokens/full', {
+        textDocument: { uri: document.uri.toString() },
+      });
+      return new vscode.SemanticTokens(new Uint32Array((result && result.data) || []));
+    },
+  }, semanticTokenLegend));
+
+  context.subscriptions.push(vscode.languages.registerWorkspaceSymbolProvider({
+    async provideWorkspaceSymbols(query) {
+      await client.indexWorkspaceDocuments();
+      const result = await client.request('workspace/symbol', { query });
+      return (result || []).map(toSymbolInformation);
+    },
+  }));
+
   context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(documentSelector(), {
     async provideDocumentFormattingEdits(document, options) {
       await client.syncDocument(document);
@@ -282,6 +702,7 @@ function activate(context) {
 
   context.subscriptions.push(vscode.languages.registerCompletionItemProvider(documentSelector(), {
     async provideCompletionItems(document, position) {
+      await client.indexWorkspaceDocuments();
       await client.syncDocument(document);
       const result = await client.request('textDocument/completion', {
         textDocument: { uri: document.uri.toString() },
@@ -293,7 +714,7 @@ function activate(context) {
           item.kind ? item.kind - 1 : vscode.CompletionItemKind.Text,
         );
         if (item.detail) completion.detail = item.detail;
-        if (item.documentation) completion.documentation = item.documentation;
+        if (item.documentation) completion.documentation = toDocumentation(item.documentation);
         if (item.insertText) {
           completion.insertText = item.insertTextFormat === 2
             ? new vscode.SnippetString(item.insertText)
@@ -307,6 +728,7 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('zenith.check', () => runTerminalCommand(context, 'check')));
   context.subscriptions.push(vscode.commands.registerCommand('zenith.build', () => runTerminalCommand(context, 'build')));
   context.subscriptions.push(vscode.commands.registerCommand('zenith.run', () => runTerminalCommand(context, 'run')));
+  context.subscriptions.push(vscode.commands.registerCommand('zenith.newFile', () => createZenithFile(client)));
 }
 
 function deactivate() {}

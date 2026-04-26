@@ -1,0 +1,13 @@
+{
+  "suite": "curated",
+  "generated_at_utc": "20260425T205206Z",
+  "results": [
+    {
+      "task_id": "heavy/semantic_curated",
+      "passed": true,
+      "duration_ms": 164.14117813110352,
+      "note": "Replay curado sobre fixtures pesados modernizados.",
+      "output": "heavy semantic curated replay ok\n"
+    }
+  ]
+}

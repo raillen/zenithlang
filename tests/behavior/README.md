@@ -18,9 +18,9 @@ O teste de conformance normaliza `CRLF` e `LF` antes de comparar, para manter o 
 
 Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignoradas por `.gitignore`.
 
-- `control_flow_while/`: projeto valido. Exercita `while` no pipeline real at?? o execut??vel.
-- `control_flow_repeat/`: projeto valido. Exercita `repeat N times` no pipeline real at?? o execut??vel.
-- `control_flow_match/`: projeto valido. Exercita `match case/default` no pipeline real at?? o execut??vel.
+- `control_flow_while/`: projeto valido. Exercita `while` no pipeline real ate o executavel.
+- `control_flow_repeat/`: projeto valido. Exercita `repeat N times` no pipeline real ate o executavel.
+- `control_flow_match/`: projeto valido. Exercita `match case/default` no pipeline real ate o executavel.
 - `control_flow_break_continue/`: projeto valido. Exercita `break` e `continue` dentro de `while`.
 
 - `functions_calls/`: projeto valido. Exercita chamadas diretas, recursao simples e retornos `bool`/`float`/`text`/`void`/`int`.
@@ -50,6 +50,7 @@ Pastas `build/` dentro dos projetos de behavior sao saida de teste e ficam ignor
 - `list_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<int>`.
 - `list_text_basic/`: projeto valido. Exercita literal, indexacao 0-based e atualizacao de `list<text>`.
 - `list_dyn_trait_basic/`: projeto valido. Exercita `list<dyn<TextRepresentable>>` heterogenea com iteracao e `item.to_text()`.
+- `dyn_generic_trait_error/`: projeto invalido. Garante que `dyn<GenericTrait<T>>` explica por que a trait nao e dinamica e sugere generics com `where`.
 - `map_basic/`: projeto valido. Exercita literal, indexacao por chave e atualizacao de `map<text,text>`.
 - `map_empty_expected_type/`: projeto valido. Exercita mapa vazio `{}` com tipo esperado `map<int,bool>` em atribuicao e chamada de funcao, cobrindo o caminho `make_map<...>` do emitter C.
 - `map_int_text_basic/`: projeto valido. Exercita literal, indexacao por chave `int`, `map_len` e atualizacao de `map<int,text>`.
@@ -61,6 +62,14 @@ one`, `success` e `error`.
 - `public_const_module/`: projeto valido. Exercita `public const` em nivel de modulo com import alias (`mod.CONST`).
 - `public_var_module/`: projeto valido. Exercita leitura de `public var` em nivel de modulo via import alias (`mod.VAR`).
 - `public_var_module_state/`: projeto valido. Exercita persistencia de estado de `public var` entre funcoes do modulo.
+- `readability_block_depth_pass/`: projeto valido. Garante que `warning[style.block_too_deep]` nao bloqueia build em modo normal.
+- `readability_block_depth_strict_error/`: projeto invalido em check. Garante que `[diagnostics] profile = "strict"` promove warning de profundidade de bloco para erro.
+- `readability_enum_default_pass/`: projeto valido. Garante que `warning[control_flow.enum_default_case]` nao bloqueia build em modo normal.
+- `readability_enum_default_strict_error/`: projeto invalido em check. Garante que `[diagnostics] profile = "strict"` promove warning de `case default` em enum conhecido para erro.
+- `readability_function_length_pass/`: projeto valido. Garante que `warning[style.function_too_long]` nao bloqueia build em modo normal.
+- `readability_function_length_strict_error/`: projeto invalido em check. Garante que `[diagnostics] profile = "strict"` promove warning de funcao longa para erro.
+- `readability_warnings_pass/`: projeto valido. Garante que `warning[name.similar]` e `warning[name.confusing]` nao bloqueiam build em modo normal.
+- `readability_warnings_strict_error/`: projeto invalido em check. Garante que `[diagnostics] profile = "strict"` promove warnings de legibilidade de nomes para erro.
 - `optional_struct_qualified_managed/`: projeto valido. Exercita `optional<mod.Struct>` com nome qualificado entre modulos, retorno direto de `struct`, atribuicao/call-site com wrap implicito, campo opcional dentro de outra `struct` e isolamento de `list<text>` no payload.
 - `public_var_cross_namespace_write_error/`: projeto invalido. Garante que `public var` nao pode ser mutado fora do namespace de origem.
 - `closure_capture_basic/`: projeto valido. Exercita closure anonima com captura imutavel por valor.
@@ -72,6 +81,12 @@ one`, `success` e `error`.
 - `std_random_basic/`: projeto valido. Exercita `std.random` baseline (`seed`, `next`, `between`) e valida o estado publico (`seeded`, `last_seed`, `draw_count`).
 - `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
 - `std_random_between_branches/`: projeto valido. Exercita ramos de `std.random.between` (`min == max` e `max < min`) sem consumo indevido de draw.
+- `std_small_helpers/`: projeto valido. Exercita helpers pequenos de `std.validate`, `std.text`, `std.list` e `std.map`.
+- `to_text_builtin_basic/`: projeto valido. Exercita `to_text(value)` como builtin core para valores `TextRepresentable`.
+- `todo_builtin_fail/`: projeto invalido em runtime. Garante que `todo(message)` falha com mensagem clara.
+- `unreachable_builtin_fail/`: projeto invalido em runtime. Garante que `unreachable(message)` falha com mensagem clara.
+- `check_intrinsic_message_fail/`: projeto invalido em runtime. Garante que `check(condition, message)` preserva a mensagem recebida.
+- `noncanonical_*_error/`: projetos invalidos. Exercitam sugestoes action-first para sintaxe comum de outras linguagens (`string`, `let`, `&&`, `||`, `!`, `null`, `throw`, `abstract`, `virtual`, `union`, `partial`).
 - `std_random_cross_namespace_write_error/`: projeto invalido. Garante que `std.random.draw_count` nao pode ser mutado fora do namespace `std.random`.
 - `borealis_backend_fallback_stub/`: projeto valido em `run-pass`. Solicita backend desktop (`backend_id=1`) e valida fallback seguro para stub (janela + draw + leitura de input) quando adapter nao esta disponivel no ambiente.
 - `borealis_raylib_binding_stub/`: projeto valido em `run-pass`. Exercita o modulo `borealis.raylib` no caminho real do compilador, cobrindo shapes, texto, input, `measure_text`, helpers de `raymath`/`reasings`, `require_available()`, validacao clara para caminho vazio de textura/som e comportamento stub-safe para draw de textura sem DLL nativa.
@@ -96,6 +111,10 @@ amespace` nao corresponde ao caminho do arquivo.
 - `std_test_basic/`: projeto valido. Exercita `std.test` diretamente via `main`, validando os desfechos de `skip(...)` e `fail(...)` no comando `zt test`.
 - `std_test_attr_pass_skip/`: projeto valido. Exercita o harness real de `zt test` com funcoes marcadas por `attr test`, cobrindo 1 caso pass e 1 caso skip.
 - `std_test_attr_fail/`: projeto invalido para o runner. Exercita o harness real de `zt test` com funcoes marcadas por `attr test`, cobrindo 1 caso pass, 1 caso skip e 1 caso fail.
+- `std_test_helpers_pass/`: projeto valido. Exercita `is_true`, `is_false`, `equal_int`, `equal_text`, `not_equal_int` e `not_equal_text` no caminho feliz.
+- `std_test_helpers_bool_fail/`: projeto invalido em runtime. Congela a mensagem de falha de `is_true(false)`.
+- `std_test_helpers_equal_fail/`: projeto invalido em runtime. Congela a mensagem esperado/recebido de `equal_int(actual, expected)`.
+- `std_test_helpers_not_equal_fail/`: projeto invalido em runtime. Congela a mensagem de `not_equal_text` quando os textos sao iguais.
 
 - `enum_match/`: fixture de comportamento para enum com payload + match com binding de payload (check semantico OK; build E2E bloqueado pelo stub de lowering HIR->ZIR no source atual).
 - `enum_match_non_exhaustive_error/`: fixture invalida para diagnostico de match nao exaustivo em enum conhecido.

@@ -59,6 +59,8 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_INT_LITERAL: return "int_literal";
         case ZT_TOKEN_FLOAT_LITERAL: return "float_literal";
         case ZT_TOKEN_STRING_LITERAL: return "string_literal";
+        case ZT_TOKEN_STRING_PART: return "string_part";
+        case ZT_TOKEN_STRING_END: return "string_end";
         case ZT_TOKEN_TRIPLE_QUOTED_TEXT: return "triple_quoted_text";
         case ZT_TOKEN_PLUS: return "+";
         case ZT_TOKEN_MINUS: return "-";

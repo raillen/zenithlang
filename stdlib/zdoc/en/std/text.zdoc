@@ -119,6 +119,14 @@ public func is_empty(value: text) -> bool
 Returns `true` when the text is empty.
 ---
 
+--- @target: is_blank
+```zt
+public func is_blank(value: text) -> bool
+```
+
+Returns `true` when text is empty or contains only spaces.
+---
+
 --- @target: is_digits
 ```zt
 public func is_digits(value: text) -> bool

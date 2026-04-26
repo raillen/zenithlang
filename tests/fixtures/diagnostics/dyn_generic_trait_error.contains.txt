@@ -1,0 +1,3 @@
+[dyn.generic_trait]
+trait 'Renderer' cannot be used as dyn<Renderer>: generic traits are not dyn-safe
+prefer a generic parameter with a where constraint instead of dyn<Renderer>

@@ -48,6 +48,12 @@ CASES = [
         "target_file": Path("src") / "app" / "main.zt",
     },
     {
+        "id": "case_reading_first",
+        "input_project": ROOT / "tests" / "formatter" / "cases" / "case_reading_first" / "input",
+        "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_reading_first" / "expected" / "src" / "app" / "main.zt",
+        "target_file": Path("src") / "app" / "main.zt",
+    },
+    {
         "id": "case_triple_quoted",
         "input_project": ROOT / "tests" / "formatter" / "cases" / "case_triple_quoted" / "input",
         "expected_file": ROOT / "tests" / "formatter" / "cases" / "case_triple_quoted" / "expected" / "src" / "app" / "main.zt",

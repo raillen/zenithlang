@@ -1,78 +1,81 @@
 # Documentacao Zenith
 
-Este diretorio e o mapa principal da documentacao do projeto.
+> Mapa principal da documentacao do projeto.
+> Status: atual.
+> Superficie: indice.
 
-Objetivo:
+## Objetivo
 
-- deixar claro onde cada tipo de informacao vive;
-- reduzir duplicidade entre roadmap, checklist, specs e relatorios;
-- manter leitura de baixa friccao para pessoas com TDAH e dislexia.
+Separar documentacao por publico-alvo.
+
+Isso evita que usuarios leiam checklists internos como se fossem guia da linguagem,
+e evita que contribuidores usem tutoriais como fonte normativa de implementacao.
+
+## Pastas principais
+
+| Pasta | Publico | Uso |
+| --- | --- | --- |
+| `docs/public/` | usuarios | site, guias, tutoriais e primeiros passos |
+| `docs/reference/` | usuarios avancados e autores de packages | regras consultaveis, KB e referencias estaveis |
+| `docs/internal/` | mantenedores e contribuidores | roadmaps, checklists, reports, governance e arquitetura interna |
+| `docs/wiki/` | publico | fonte sincronizada para GitHub Wiki |
+| `language/spec/` | mantenedores e implementacao | especificacao normativa bruta da linguagem |
+| `language/decisions/` | mantenedores e implementacao | decisoes de linguagem com contexto historico |
 
 ## Fontes atuais
 
 | Necessidade | Fonte atual |
 | --- | --- |
-| Roadmap ativo | `docs/planning/roadmap-v4.md` |
-| Checklist ativo | `docs/planning/checklist-v4.md` |
-| Especificacao da linguagem | `language/spec/README.md` |
+| Aprender a usar | `docs/public/` |
+| Consultar regra curta | `docs/reference/` |
+| Roadmap ativo | `docs/internal/planning/roadmap-v4.md` |
+| Checklist ativo | `docs/internal/planning/checklist-v4.md` |
+| Especificacao normativa | `language/spec/README.md` |
 | Decisoes de linguagem | `language/decisions/README.md` |
-| Wiki publicavel | `docs/wiki/` |
-| Pendencias corretivas atuais | `reports/pending-language-issues-current.md` |
-| Guia de extensao VS Code | `docs/guides/editor-vscode.md` |
+| Relatorios e evidencia | `docs/internal/reports/` |
+| Saidas locais de teste/build | `reports/` |
+| Mapas tecnicos colocalizados | `docs/internal/architecture/codebase-map.md` |
+| Plano de melhoria da documentacao | `docs/internal/planning/documentation-roadmap-v1.md` |
 
-Regra simples:
+## Regra simples
 
-- Se o documento define comportamento da linguagem, use `language/`.
-- Se o documento define plano de execucao, use `docs/planning/`.
-- Se o documento registra evidencia ou fechamento, use `docs/reports/`.
-- Se o arquivo e saida gerada por teste, build ou benchmark, use `reports/`.
+- Se ensina usuario a usar Zenith, coloque em `docs/public/`.
+- Se define uma regra consultavel, coloque em `docs/reference/`.
+- Se planeja, registra risco, evidencia ou implementacao, coloque em `docs/internal/`.
+- Se define comportamento normativo do compilador, mantenha em `language/spec/`.
+- Se registra motivo e contexto de decisao, mantenha em `language/decisions/`.
+- Se documenta manutencao direta de um subsistema, pode ficar perto do codigo e ser indexado em `docs/internal/architecture/codebase-map.md`.
 
-## Estrutura
-
-- `docs/governance/`
-  Politicas de qualidade, baseline e aceite.
-- `docs/guides/`
-  Guias praticos e material de onboarding.
-- `docs/licensing/`
-  Licenciamento, contribuicao e marca.
-- `docs/planning/`
-  Roadmaps, checklists e planos por ciclo.
-- `docs/reports/`
-  Relatorios curados, auditorias e evidencia de release.
-- `docs/standards/`
-  Padroes editoriais e regras de documentacao.
-- `docs/tools/`
-  Guias de ferramentas do ecossistema.
-- `docs/wiki/`
-  Conteudo fonte para publicar na wiki.
-- `docs/zenith-kb/`
-  Base curta de conhecimento por area.
-
-## Ordem de leitura recomendada
+## Ordem de leitura para mantenedores
 
 1. `README.md` na raiz.
-2. `docs/planning/roadmap-v4.md`.
-3. `docs/planning/checklist-v4.md`.
-4. `language/spec/README.md`.
-5. `language/decisions/README.md`.
-6. `compiler/CODE_MAP.md`.
-7. `docs/reports/README.md`.
-
-## Regra para evitar bagunca
-
-- Nao crie novo roadmap se o ciclo ativo ainda e o mesmo.
-- Nao duplique pendencias em varios relatorios.
-- Nao versione cache, build, log, screenshot temporario ou pacote instalado.
-- Nao use `wiki_repo/` na raiz. O workflow cria esse diretorio temporariamente; a fonte real e `docs/wiki/`.
+2. `docs/DOCS-STRUCTURE.md`.
+3. `docs/internal/planning/roadmap-v4.md`.
+4. `docs/internal/planning/checklist-v4.md`.
+5. `language/spec/README.md`.
+6. `language/decisions/README.md`.
+7. `docs/internal/architecture/codebase-map.md`.
+8. `compiler/CODE_MAP.md`.
+9. `docs/internal/reports/README.md`.
 
 ## Padrao editorial
 
-Use `docs/standards/documentation-style-guide.md`.
+Use `docs/internal/standards/documentation-style-guide.md`.
+Para paginas de usuario, use tambem `docs/internal/standards/user-doc-template.md`.
 
 Resumo:
 
 - frases curtas;
 - titulos previsiveis;
 - exemplos pequenos;
-- uma decisao por secao;
-- status explicito: atual, historico, gerado ou proposta.
+- status explicito;
+- atual, historico e futuro sempre separados.
+
+## Validacao
+
+Antes de fechar uma reorganizacao documental, rode:
+
+```powershell
+python tools/check_docs_paths.py
+git diff --check
+```

@@ -33,7 +33,8 @@ Adopt this Studio stack:
    - the preview process stays separate from the editor UI.
    - communication uses the JSONL stdio protocol from Decision 014.
 5. Legacy prototype:
-   - `tools/borealis-editor` remains useful as reference code and preview harness material.
+   - the old editor prototype is historical reference only.
+   - it is not required in the current repository tree.
    - it is not the active product stack unless a future decision revives it.
 
 ## Why

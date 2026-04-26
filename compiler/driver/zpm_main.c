@@ -1,7 +1,15 @@
-#include "compiler/driver/driver_internal.h"
-
-zt_arena global_arena;
-zt_string_pool global_pool;
+/* Reuse the bootstrap driver implementation so zpm.exe stays independent
+ * without duplicating project loading, diagnostics, and command helpers.
+ */
+#define ZT_DRIVER_NO_MAIN
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+#include "compiler/driver/main.c"
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 int main(int argc, char *argv[]) {
     zt_driver_context ctx;
@@ -40,7 +48,6 @@ int main(int argc, char *argv[]) {
 
     free(filtered_argv);
     zt_driver_context_dispose(&ctx);
-    zt_string_pool_dispose(&global_pool);
     zt_arena_dispose(&global_arena);
 
     return status;

@@ -64,12 +64,17 @@ one`, `success(...)` and `error(...)` | `0` |
 | `std_bytes_utf8` | `std.bytes.empty`, `std.text.to_utf8`, `std.text.from_utf8` and UTF-8 failure path | `14` |
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, `one_of_text`, text length checks) | `42` |
+| `std_small_helpers` | R6 small helper set for `std.validate`, `std.text`, `std.list` and `std.map` | `0` |
 | `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
 | `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) plus `public var` state tracking | `0` |
 | `std_random_state_observability` | `std.random` public state observability (`seeded`, `last_seed`, `draw_count`, `stats`) | `0` |
 | `std_random_between_branches` | `std.random.between` branch behavior (`min == max`, `max < min`) with draw count invariants | `0` |
 | `std_format_basic` | `std.format` com `BytesStyle` tipado (`hex`, `bin`, `bytes(style: ...)`, `bytes_binary`, `bytes_decimal`) | `0` |
 | `fmt_interpolation_basic` | `fmt "..."` end-to-end com expressao, chamada, bool e escape de chaves | `0` |
+| `to_text_builtin_basic` | Builtin `to_text(value)` via `TextRepresentable` para `int` e `bool` | `0` |
+| `todo_builtin_fail` | Builtin `todo(message)` fatal path | `runtime.todo` |
+| `unreachable_builtin_fail` | Builtin `unreachable(message)` fatal path | `runtime.unreachable` |
+| `check_intrinsic_message_fail` | Builtin `check(condition, message)` fatal path with custom message | `runtime.check` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
 | `std_fs_ops_basic` | `std.fs` create/list/metadata/copy/move/remove com caminhos reais | `0` |
 | `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, 
@@ -79,6 +84,7 @@ ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-pro
 | `std_test_basic` | `std.test` helper direto em `main` (`skip` => skipped outcome, `fail` => failed outcome) | `test-skip` |
 | `std_test_attr_pass_skip` | `zt test` com `attr test` exercitando 1 pass e 1 skip | `test ok (pass=1 skip=1)` |
 | `std_test_attr_fail` | `zt test` com `attr test` exercitando 1 pass, 1 skip e 1 fail | `test failed (pass=1 skip=1 fail=1)` |
+| `std_test_helpers_pass` | `std.test` helper assertions no caminho feliz (`is_true`, `is_false`, `equal_*`, `not_equal_*`) | `0` |
 | `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, 
 ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `std_os_basic` | `std.os` tipado (`Platform`, `Arch`, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
@@ -89,6 +95,10 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `public_const_module` | Top-level `public const` imported via alias (`module.CONST`) | `42` |
 | `public_var_module` | Top-level `public var` imported via alias (`module.VAR`) | `42` |
 | `public_var_module_state` | `public var` shares state across functions in the owning module | `4` |
+| `readability_block_depth_pass` | Readability warning (`style.block_too_deep`) is reported but does not block normal run | `0` |
+| `readability_enum_default_pass` | Readability warning (`control_flow.enum_default_case`) is reported but does not block normal run | `0` |
+| `readability_function_length_pass` | Readability warning (`style.function_too_long`) is reported but does not block normal run | `0` |
+| `readability_warnings_pass` | Readability warnings (`name.similar`, `name.confusing`) are reported but do not block normal run | `0` |
 | `closure_capture_basic` | Anonymous closure with immutable by-value capture | `0` |
 | `lambda_hof_basic` | Lambda sugar `func(...) => expr` with `map_int`, `filter_int`, `reduce_int` and immutable capture | `0` |
 | `lazy_explicit_order_basic` | Explicit `lazy<int>` runs the thunk only on `force_int` | `0` |
@@ -106,6 +116,7 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | --- | --- |
 | `error_syntax` | Parser span and expectation text |
 | `error_type_mismatch` | Semantic type mismatch span |
+| `check_intrinsic_message_fail` | Runtime check failure preserves caller message |
 | `functions_main_signature_error` | C entrypoint signature restriction |
 | `functions_invalid_call_error` | Missing argument diagnostic with source span |
 | `multifile_missing_import` | Missing import rejection |
@@ -114,7 +125,12 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `multifile_import_cycle` | Import cycle rejection |
 | `multifile_private_access` | Access to non-public symbol via import alias is rejected |
 | `public_var_cross_namespace_write_error` | Cross-namespace mutation of `public var` via import alias is rejected |
+| `readability_block_depth_strict_error` | Strict diagnostics profile promotes block-depth warning to error |
+| `readability_enum_default_strict_error` | Strict diagnostics profile promotes enum-default warning to error |
+| `readability_function_length_strict_error` | Strict diagnostics profile promotes function-length warning to error |
+| `readability_warnings_strict_error` | Strict diagnostics profile promotes name readability warnings to error |
 | `closure_mut_capture_error` | Mutation of a captured closure variable is rejected |
+| `dyn_generic_trait_error` | Generic trait rejected as `dyn<Trait>` with generic/where guidance |
 | `lambda_return_mismatch_error` | Lambda return must match the expected `func(...) -> ...` type |
 | `lazy_reuse_error` | Runtime contract rejects forcing the same one-shot `lazy<int>` twice |
 | `std_concurrent_boundary_copy_unsupported_error` | `std.concurrent.copy_text(...)` rejects values outside the accepted payload type |
@@ -123,9 +139,25 @@ ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
 | `fmt_interpolation_type_error` | `fmt` rejeita tipo sem `TextRepresentable<T>` |
 | `monomorphization_limit_error` | Monomorphization gate diagnostic when generic instantiations exceed `build.monomorphization_limit` |
 | `mutability_const_reassign_error` | Const reassignment mutability diagnostic |
+| `noncanonical_string_error` | Suggests `text` instead of `string` |
+| `noncanonical_let_error` | Suggests `const` or `var` instead of `let` |
+| `noncanonical_and_error` | Suggests `and` instead of `&&` |
+| `noncanonical_or_error` | Suggests `or` instead of `||` |
+| `noncanonical_not_error` | Suggests `not value` instead of `!value` |
+| `noncanonical_null_error` | Suggests `optional<T>` and `none` instead of `null` |
+| `noncanonical_throw_error` | Suggests `result<T,E>`, `error(...)`, or `panic(...)` instead of `throw` |
+| `noncanonical_abstract_error` | Suggests `trait` instead of `abstract` |
+| `noncanonical_virtual_error` | Suggests `dyn<Trait>` instead of `virtual` |
+| `noncanonical_union_error` | Suggests `enum` with payload instead of `union` |
+| `noncanonical_partial_error` | Suggests `apply` and namespace/file organization instead of `partial` |
 | `optional_question_outside_optional_error` | `optional<T>?` rejected outside `optional<U>` return context |
 | `result_optional_propagation_error` | `?` propagation rejected outside `result<T,E>` return context |
 | `runtime_index_error` | Runtime index diagnostic from C runtime guard |
+| `std_test_helpers_bool_fail` | Runtime test diagnostic from `test.is_true(false)` |
+| `std_test_helpers_equal_fail` | Runtime test diagnostic with expected/received values from `test.equal_int(...)` |
+| `std_test_helpers_not_equal_fail` | Runtime test diagnostic from `test.not_equal_text(...)` |
+| `todo_builtin_fail` | Runtime todo diagnostic from `todo(message)` |
+| `unreachable_builtin_fail` | Runtime unreachable diagnostic from `unreachable(message)` |
 | `where_contract_param_error` | Runtime contract violation on parameter `where` |
 | `where_contract_construct_error` | Runtime contract violation on struct construction `where` |
 | `where_contract_field_assign_error` | Runtime contract violation on field assignment `where` |

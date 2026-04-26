@@ -51,6 +51,7 @@ IDEMPOTENT_CASES = [
     _case("case_match", "src/app/main.zt"),
     _case("case_generics", "src/app/main.zt"),
     _case("case_comments", "src/app/main.zt"),
+    _case("case_reading_first", "src/app/main.zt"),
 ]
 
 

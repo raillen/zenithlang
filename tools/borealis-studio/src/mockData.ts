@@ -21,6 +21,21 @@ export function createMockSnapshot(): StudioSnapshot {
       name: "sample_3d",
       path: "packages/borealis/scenes/sample_3d.scene.json",
       documentId: "scene:sample_3d",
+      environment: {
+        skybox: { mode: "solid", color: "#1c1f26" },
+        ambient: { color: "#ffffff", intensity: 0.4 },
+        fog: { enabled: false, color: "#9ca3af", density: 0.05 },
+        weather: { preset: "clear" },
+      },
+      render: {
+        quality: { profile: "medium" },
+        postfx: { fxaa: false, bloom: 0, vignette: 0 },
+        camera: {},
+      },
+      audio: {
+        listener: {},
+        mix: { master: 1, music: 0.8, sfx: 1 },
+      },
       entities: [
         {
           id: "camera-3d",

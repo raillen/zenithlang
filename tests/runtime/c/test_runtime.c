@@ -893,6 +893,8 @@ static void test_host_override_dispatch(void) {
 static void test_error_kind_names(void) {
     assert_true("error_kind_assert", strcmp(zt_error_kind_name(ZT_ERR_ASSERT), "assert") == 0);
     assert_true("error_kind_check", strcmp(zt_error_kind_name(ZT_ERR_CHECK), "check") == 0);
+    assert_true("error_kind_todo", strcmp(zt_error_kind_name(ZT_ERR_TODO), "todo") == 0);
+    assert_true("error_kind_unreachable", strcmp(zt_error_kind_name(ZT_ERR_UNREACHABLE), "unreachable") == 0);
     assert_true("error_kind_panic", strcmp(zt_error_kind_name(ZT_ERR_PANIC), "panic") == 0);
     assert_true("error_kind_unwrap", strcmp(zt_error_kind_name(ZT_ERR_UNWRAP), "unwrap") == 0);
 }

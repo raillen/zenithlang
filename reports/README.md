@@ -3,7 +3,7 @@
 Este diretorio guarda saidas operacionais.
 
 Ele nao e a area principal de documentacao.
-Use `docs/reports/` para relatorios curados e leitura futura.
+Use `docs/internal/reports/` para relatorios curados e leitura futura.
 
 ## O que fica aqui
 
@@ -27,4 +27,4 @@ Use `docs/reports/` para relatorios curados e leitura futura.
 - pacotes instalados;
 - resultados repetiveis de suites locais.
 
-Se um resultado precisa virar referencia do projeto, mova ou resuma em `docs/reports/`.
+Se um resultado precisa virar referencia do projeto, mova ou resuma em `docs/internal/reports/`.

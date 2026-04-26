@@ -91,6 +91,7 @@ Initial categories:
 - `optional.*`
 - `control_flow.*`
 - `format.*`
+- `style.*`
 - `runtime.*`
 - `internal.*`
 
@@ -106,6 +107,8 @@ Current alpha runtime codes are:
 - `runtime.math`
 - `runtime.panic`
 - `runtime.platform`
+- `runtime.todo`
+- `runtime.unreachable`
 - `runtime.unwrap`
 
 Notes:
@@ -121,13 +124,21 @@ Warnings must be sparse and actionable.
 
 Allowed initial warnings:
 
-- unused local binding
-- unreachable code
+- visually confusing identifier names
+- very similar local names in the same scope
+- deeply nested blocks that are hard to scan
+- functions with too many statements to scan quickly
+- `case default` on a known enum when explicit variants are possible
 - missing public ZDoc
 - unresolved ZDoc link
 - deprecated symbol in future
 
-Style-only preferences do not belong in compiler-core warnings.
+Formatting-only preferences do not belong in compiler-core warnings.
+Readability warnings must point to a concrete risk and a clear next action.
+
+Normal mode reports warnings without failing the build.
+
+Strict diagnostics mode may promote selected warnings to errors.
 
 ## Renderer Requirement
 

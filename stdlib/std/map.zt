@@ -1,0 +1,4 @@
+-- Zenith Standard Library - std.map
+namespace std.map
+
+-- Helpers in this module are compiler-known because `map<K,V>` is a built-in generic.

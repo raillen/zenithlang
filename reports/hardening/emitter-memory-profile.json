@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-23T16:07:33.696405+00:00",
+  "generated_at_utc": "2026-04-25T20:50:14.970229+00:00",
   "kind": "emitter-memory-profile",
   "function_count": 7000,
   "project": ".ztc-tmp/emitter-memory-profile/synthetic_app/zenith.ztproj",
@@ -9,26 +9,26 @@
       "mode": "buffered",
       "spill_threshold_bytes": 268435456,
       "output": ".ztc-tmp/emitter-memory-profile/emit-buffered.c",
-      "sha256": "861f5c6fe938e32d58f07125daf4204c62d6fe3a74bcbe46af419b3ebe169ce9",
-      "output_bytes": 2075669,
-      "elapsed_ms": 2046,
-      "peak_working_set_bytes": 66576384,
+      "sha256": "be90c9ae84e01b4170eafe46e6a930fe8a1236af8cddf2f414c12ba7b4428173",
+      "output_bytes": 2852832,
+      "elapsed_ms": 1391,
+      "peak_working_set_bytes": 71663616,
       "stderr_tail": ""
     },
     {
       "mode": "streamed",
       "spill_threshold_bytes": 512,
       "output": ".ztc-tmp/emitter-memory-profile/emit-streamed.c",
-      "sha256": "861f5c6fe938e32d58f07125daf4204c62d6fe3a74bcbe46af419b3ebe169ce9",
-      "output_bytes": 2075669,
-      "elapsed_ms": 2296,
-      "peak_working_set_bytes": 66416640,
+      "sha256": "be90c9ae84e01b4170eafe46e6a930fe8a1236af8cddf2f414c12ba7b4428173",
+      "output_bytes": 2852832,
+      "elapsed_ms": 1375,
+      "peak_working_set_bytes": 71630848,
       "stderr_tail": ""
     }
   ],
   "delta": {
-    "peak_working_set_bytes": -159744,
-    "peak_working_set_mib": -0.15,
-    "elapsed_ms": 250
+    "peak_working_set_bytes": -32768,
+    "peak_working_set_mib": -0.03,
+    "elapsed_ms": -16
   }
 }

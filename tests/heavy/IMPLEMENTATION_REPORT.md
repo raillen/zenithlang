@@ -135,7 +135,7 @@ python tests/heavy/fuzz/semantic/fuzz_semantic.py --timeout 30.0
 ### Output
 
 - **Crashes:** Salvos em `tests/heavy/fuzz/semantic/crashes/`
-- **Hangs:** Salvos em `tests/heavy/fuzz/semantic/hangs/`
+- **Hangs:** salvos na pasta de hangs do fuzzer, quando houver casos gerados.
 - **Report:** JSON + Markdown em `tests/heavy/reports/`
 
 ---

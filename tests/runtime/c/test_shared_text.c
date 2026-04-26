@@ -1,8 +1,17 @@
 ﻿#include "runtime/c/zenith_rt.h"
 
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <process.h>
+#include <windows.h>
+#else
+#include <pthread.h>
+#include <unistd.h>
+#endif
 
 static void assert_true(const char *name, int condition) {
     if (!condition) {
@@ -41,6 +50,62 @@ static void assert_bytes_equals(
     }
 }
 
+typedef struct shared_stress_args {
+    zt_shared_text *shared;
+    atomic_int *ready_count;
+    atomic_int *start_flag;
+    atomic_int *failure_count;
+    int iterations;
+} shared_stress_args;
+
+static void wait_for_shared_stress_start(atomic_int *start_flag) {
+    while (atomic_load_explicit(start_flag, memory_order_acquire) == 0) {
+#ifdef _WIN32
+        Sleep(1);
+#else
+        usleep(1000);
+#endif
+    }
+}
+
+static void run_shared_stress_worker(shared_stress_args *args) {
+    int i;
+
+    atomic_fetch_add_explicit(args->ready_count, 1, memory_order_acq_rel);
+    wait_for_shared_stress_start(args->start_flag);
+
+    for (i = 0; i < args->iterations; i += 1) {
+        zt_shared_text *alias = zt_shared_text_retain(args->shared);
+        const zt_text *borrowed = zt_shared_text_borrow(alias);
+
+        if (strcmp(zt_text_data(borrowed), "atomic") != 0) {
+            atomic_fetch_add_explicit(args->failure_count, 1, memory_order_acq_rel);
+        }
+
+        if ((i % 257) == 0) {
+            zt_text *snapshot = zt_shared_text_snapshot(alias);
+            if (strcmp(zt_text_data(snapshot), "atomic") != 0) {
+                atomic_fetch_add_explicit(args->failure_count, 1, memory_order_acq_rel);
+            }
+            zt_release(snapshot);
+        }
+
+        zt_shared_text_release(alias);
+    }
+}
+
+#ifdef _WIN32
+static unsigned __stdcall shared_stress_worker_entry(void *opaque) {
+    run_shared_stress_worker((shared_stress_args *)opaque);
+    return 0;
+}
+#else
+static void *shared_stress_worker_entry(void *opaque) {
+    run_shared_stress_worker((shared_stress_args *)opaque);
+    return NULL;
+}
+#endif
+
 static void test_shared_text_runtime(void) {
     zt_text *value = zt_text_from_utf8_literal("shared");
     zt_shared_text *shared = zt_shared_text_new(value);
@@ -68,6 +133,63 @@ static void test_shared_text_runtime(void) {
     zt_release(snapshot);
     zt_shared_text_release(alias);
     assert_true("shared_text_release_ref_count", zt_shared_text_ref_count(shared) == 1);
+    zt_shared_text_release(shared);
+}
+
+static void test_shared_text_atomic_refcount_stress(void) {
+    enum { worker_count = 8, iterations = 12000 };
+
+    zt_text *value = zt_text_from_utf8_literal("atomic");
+    zt_shared_text *shared = zt_shared_text_new(value);
+    atomic_int ready_count = 0;
+    atomic_int start_flag = 0;
+    atomic_int failure_count = 0;
+    shared_stress_args args[worker_count];
+    int i;
+#ifdef _WIN32
+    HANDLE threads[worker_count];
+    unsigned thread_ids[worker_count];
+#else
+    pthread_t threads[worker_count];
+#endif
+
+    for (i = 0; i < worker_count; i += 1) {
+        args[i].shared = shared;
+        args[i].ready_count = &ready_count;
+        args[i].start_flag = &start_flag;
+        args[i].failure_count = &failure_count;
+        args[i].iterations = iterations;
+#ifdef _WIN32
+        threads[i] = (HANDLE)_beginthreadex(NULL, 0, shared_stress_worker_entry, &args[i], 0, &thread_ids[i]);
+        assert_true("shared_stress_thread_created", threads[i] != 0);
+#else
+        assert_true("shared_stress_thread_created", pthread_create(&threads[i], NULL, shared_stress_worker_entry, &args[i]) == 0);
+#endif
+    }
+
+    while (atomic_load_explicit(&ready_count, memory_order_acquire) < worker_count) {
+#ifdef _WIN32
+        Sleep(1);
+#else
+        usleep(1000);
+#endif
+    }
+
+    atomic_store_explicit(&start_flag, 1, memory_order_release);
+
+    for (i = 0; i < worker_count; i += 1) {
+#ifdef _WIN32
+        WaitForSingleObject(threads[i], INFINITE);
+        CloseHandle(threads[i]);
+#else
+        assert_true("shared_stress_thread_join", pthread_join(threads[i], NULL) == 0);
+#endif
+    }
+
+    assert_true("shared_stress_no_failures", atomic_load_explicit(&failure_count, memory_order_acquire) == 0);
+    assert_true("shared_stress_ref_count_restored", zt_shared_text_ref_count(shared) == 1);
+
+    zt_release(value);
     zt_shared_text_release(shared);
 }
 
@@ -219,6 +341,7 @@ static void test_dyn_text_repr_runtime(void) {
 
 int main(void) {
     test_shared_text_runtime();
+    test_shared_text_atomic_refcount_stress();
     test_shared_bytes_runtime();
     test_thread_boundary_deep_copy_runtime();
     test_dyn_text_repr_runtime();

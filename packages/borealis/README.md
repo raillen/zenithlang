@@ -37,8 +37,8 @@ Projeto atual: `Borealis` (nome fechado).
 - guia de migracao: `packages/borealis/migration-guide-v1.md`
 - preparo para ZPM: `packages/borealis/zpm-prep-v1.md`
 - riscos ativos: `packages/borealis/risks.md`
-- roadmap: `docs/planning/borealis-roadmap-v1.md`
-- checklist: `docs/planning/borealis-checklist-v1.md`
+- roadmap: `docs/internal/planning/borealis-roadmap-v1.md`
+- checklist: `docs/internal/planning/borealis-checklist-v1.md`
 
 ## Exemplo rapido (camada facil)
 
@@ -68,7 +68,7 @@ O primeiro contrato JSON de cena esta em `packages/borealis/scenes/sample.scene.
 
 Ele e pequeno de proposito: `name`, `document_id` e uma lista de `entities` com
 `stable_id`, `name`, `layer`, `parent`, `tags`, `transform` e `components`.
-Esse arquivo serve como fixture compartilhada entre Borealis e `tools/borealis-editor`.
+Esse arquivo serve como fixture compartilhada entre Borealis e `tools/borealis-studio`.
 O preview runner do editor ja usa esse contrato em `open_scene` e emite
 diagnostico com a contagem de entidades carregadas.
 

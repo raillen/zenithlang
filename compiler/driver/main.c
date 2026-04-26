@@ -201,7 +201,7 @@ static void zt_print_help_overview(FILE *out, const char *program) {
     fprintf(out, "zt <command> [input] [options]\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_main());
-    fprintf(out, "  check | build | run | create | test | fmt | doc check | doc show | summary | resume | perf\n");
+    fprintf(out, "  check | build | run | create | test | fmt | explain | doc check | doc show | summary | resume | perf\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_compat());
     fprintf(out, "  project-info | verify | emit-c | build <file.zir> | doc-check | parse\n");
@@ -239,6 +239,12 @@ static int zt_print_help_topic(FILE *out, const char *program, const char *topic
 
     if (strcmp(topic, "fmt") == 0) {
         fprintf(out, "zt fmt [project|zenith.ztproj] [--check]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "explain") == 0) {
+        fprintf(out, "zt explain <diagnostic-code>\n");
+        fprintf(out, "example: zt explain type.mismatch\n");
         return 0;
     }
 
@@ -833,7 +839,7 @@ static int zt_collect_test_projects(const char *directory, zt_string_set *projec
 #endif
 }
 
-static int zt_handle_project_command(
+int zt_handle_project_command(
         zt_driver_context *ctx,
         const char *command,
         const char *input_path,
@@ -2405,6 +2411,153 @@ static int zt_handle_perf(zt_driver_context *ctx, const char *target) {
     return status;
 }
 
+typedef struct zt_explain_entry {
+    const char *code;
+    const char *meaning;
+    const char *invalid_example;
+    const char *fixed_example;
+    const char *next_action;
+    const char *doc_link;
+} zt_explain_entry;
+
+static const zt_explain_entry ZT_EXPLAIN_CATALOG[] = {
+    {
+        "type.mismatch",
+        "A value has a different type than the place receiving it.",
+        "const count: int = \"five\"",
+        "const count: int = 5",
+        "Change the value, change the expected type, or add an explicit conversion when the conversion is supported.",
+        "language/spec/diagnostic-code-catalog.md"
+    },
+    {
+        "name.unresolved",
+        "The compiler could not find a declaration for the name you used.",
+        "return total",
+        "const total: int = 1\nreturn total",
+        "Declare the name before using it, import the namespace that defines it, or fix a typo.",
+        "language/spec/surface-syntax.md"
+    },
+    {
+        "name.duplicate",
+        "Two declarations in the same scope use the same name.",
+        "const value: int = 1\nconst value: int = 2",
+        "const first_value: int = 1\nconst second_value: int = 2",
+        "Rename one declaration so each name has one clear meaning in that scope.",
+        "language/spec/diagnostic-code-catalog.md"
+    },
+    {
+        "name.shadowing",
+        "A local name hides an outer name. Zenith treats this as an error to keep code easier to read.",
+        "func total(value: int) -> int\n    const value: int = 2\n    return value\nend",
+        "func total(value: int) -> int\n    const adjusted_value: int = 2\n    return adjusted_value\nend",
+        "Use a different local name, preferably one that explains the new meaning.",
+        "language/spec/diagnostic-code-catalog.md"
+    },
+    {
+        "type.invalid_call",
+        "A function call does not match what the callable accepts.",
+        "func add(a: int, b: int) -> int\n    return a + b\nend\n\nconst result: int = add(1)",
+        "func add(a: int, b: int) -> int\n    return a + b\nend\n\nconst result: int = add(1, 2)",
+        "Check argument count, argument names, and the expected parameter types.",
+        "language/spec/callables.md"
+    },
+    {
+        "syntax.unexpected_token",
+        "The parser found a token that does not fit the current syntax shape.",
+        "func main( -> int\n    return 0\nend",
+        "func main() -> int\n    return 0\nend",
+        "Check the token shown by the diagnostic, then fix missing delimiters, separators, or keywords nearby.",
+        "language/spec/surface-syntax.md"
+    },
+    {
+        "project.unknown_key",
+        "The project manifest contains a key that Zenith does not understand.",
+        "[build]\noutput_dir = \"build\"",
+        "[build]\noutput = \"build\"",
+        "Use the supported manifest key for that section, or remove the unknown key.",
+        "docs/reference/zenith-kb/project-model.md"
+    },
+    {
+        "control_flow.enum_default_case",
+        "A match over a known enum uses case default. That is allowed, but explicit variants are clearer.",
+        "match result\n    case default ->\n        return 0\nend",
+        "match result\n    case Result.Ok ->\n        return 1\n    case Result.Err ->\n        return 0\nend",
+        "Prefer explicit enum cases so future variants are easier to audit.",
+        "language/spec/formatter-model.md"
+    },
+    {
+        "runtime.index",
+        "Runtime code tried to read a list, text, bytes, or map position outside the valid range.",
+        "const value: int = items[10]",
+        "if len(items) > 10\n    const value: int = items[10]\nend",
+        "Check the collection length before indexing, or use a safe helper when one exists.",
+        "language/spec/diagnostic-code-catalog.md"
+    },
+    {
+        "doc.unresolved_target",
+        "A ZDoc @target points to a symbol that the doc checker cannot find.",
+        "--- @target: old_name\nDoc text\n---",
+        "--- @target: current_name\nDoc text\n---",
+        "Update the @target to an existing public symbol, or move the doc block to the right paired file.",
+        "language/spec/diagnostic-code-catalog.md"
+    }
+};
+
+static const zt_explain_entry *zt_find_explain_entry(const char *code) {
+    size_t i;
+    if (code == NULL) return NULL;
+    for (i = 0; i < sizeof(ZT_EXPLAIN_CATALOG) / sizeof(ZT_EXPLAIN_CATALOG[0]); i += 1) {
+        if (strcmp(code, ZT_EXPLAIN_CATALOG[i].code) == 0) {
+            return &ZT_EXPLAIN_CATALOG[i];
+        }
+    }
+    return NULL;
+}
+
+static void zt_print_explain_known_examples(FILE *out) {
+    size_t i;
+    size_t count = sizeof(ZT_EXPLAIN_CATALOG) / sizeof(ZT_EXPLAIN_CATALOG[0]);
+    size_t limit = count < 8 ? count : 8;
+    fprintf(out, "known examples:\n");
+    for (i = 0; i < limit; i += 1) {
+        fprintf(out, "  %s\n", ZT_EXPLAIN_CATALOG[i].code);
+    }
+}
+
+static int zt_handle_explain(const char *code) {
+    const zt_explain_entry *entry = zt_find_explain_entry(code);
+
+    if (entry == NULL) {
+        fprintf(stderr, "error: unknown diagnostic code: %s\n", code != NULL ? code : "");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "next:\n");
+        fprintf(stderr, "  Run `zt explain type.mismatch` for an example, or check language/spec/diagnostic-code-catalog.md.\n");
+        fprintf(stderr, "\n");
+        zt_print_explain_known_examples(stderr);
+        return 1;
+    }
+
+    printf("code: %s\n", entry->code);
+    printf("\n");
+    printf("meaning:\n");
+    printf("  %s\n", entry->meaning);
+    printf("\n");
+    printf("invalid:\n");
+    printf("```zt\n%s\n```\n", entry->invalid_example);
+    printf("\n");
+    printf("fixed:\n");
+    printf("```zt\n%s\n```\n", entry->fixed_example);
+    printf("\n");
+    printf("next:\n");
+    printf("  %s\n", entry->next_action);
+    if (entry->doc_link != NULL && entry->doc_link[0] != '\0') {
+        printf("\n");
+        printf("doc:\n");
+        printf("  %s\n", entry->doc_link);
+    }
+    return 0;
+}
+
 static int zt_dir_is_empty(const char *directory) {
 #ifdef _WIN32
     WIN32_FIND_DATAA data;
@@ -2894,6 +3047,7 @@ static int zt_handle_create(zt_driver_context *ctx, const char *target_path, int
     return 0;
 }
 
+#ifndef ZT_DRIVER_NO_MAIN
 int main(int argc, char *argv[]) {
     zt_cli_init_terminal();
     zt_arena_init(&global_arena, 1048576);
@@ -3002,7 +3156,7 @@ int main(int argc, char *argv[]) {
     }
 
  
-    if (strcmp(command, "pkg") == 0) {
+    if (strcmp(command, "pkg") == 0 || strcmp(command, "zpm") == 0) {
         return zt_handle_zpm(&ctx, argc - parse_start, argv + parse_start);
     }
 
@@ -3055,6 +3209,7 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(effective_command, "test") == 0 ||
             strcmp(effective_command, "fmt") == 0 ||
             strcmp(effective_command, "project-info") == 0 ||
+            strcmp(effective_command, "explain") == 0 ||
             strcmp(effective_command, "doc-check") == 0 ||
             strcmp(effective_command, "doc-show") == 0 ||
             strcmp(effective_command, "summary") == 0 ||
@@ -3152,7 +3307,9 @@ int main(int argc, char *argv[]) {
     }
 
     /* Apply manifest diagnostic profile if --profile not set via CLI */
-    if (!ctx.profile_locked && strcmp(effective_command, "perf") != 0) {
+    if (!ctx.profile_locked &&
+            strcmp(effective_command, "perf") != 0 &&
+            strcmp(effective_command, "explain") != 0) {
         zt_project_parse_result proj_result;
         char proj_root[512];
         char proj_manifest[512];
@@ -3205,6 +3362,13 @@ int main(int argc, char *argv[]) {
 
     if (strcmp(effective_command, "project-info") == 0) {
         return zt_handle_project_info(&ctx, input_path);
+    }
+
+    if (strcmp(effective_command, "explain") == 0) {
+        if (input_path == NULL || input_path[0] == '\0') {
+            return zt_cli_fail(argv[0], "explain requires a diagnostic code", "use: zt explain type.mismatch", 0);
+        }
+        return zt_handle_explain(input_path);
     }
 
     if (strcmp(effective_command, "summary") == 0) {
@@ -3264,10 +3428,7 @@ int main(int argc, char *argv[]) {
         return zt_cli_fail(argv[0], message, "run: zt help", 1);
     }
 }
-
-
-
-
+#endif
 
 
 

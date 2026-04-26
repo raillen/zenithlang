@@ -4,7 +4,7 @@
 - Date: 2026-04-23
 - Scope: isolate model, transfer boundaries, determinism rule, namespace state under concurrency
 - Upstream: `language/decisions/087-concurrency-workers-and-transfer-boundaries.md`
-- Cross-reference: `language/spec/runtime-model.md` (sections `Concurrency Direction`, `Transferable Values`, `Implementation Phases`), `docs/reports/R3.P1.A-namespace-shared-state-analysis.md`
+- Cross-reference: `language/spec/runtime-model.md` (sections `Concurrency Direction`, `Transferable Values`, `Implementation Phases`), `docs/internal/reports/R3.P1.A-namespace-shared-state-analysis.md`
 
 ## Purpose
 
@@ -138,7 +138,7 @@ Explicitly **not** part of any planned surface:
 | 4 | Move-based transfer + `channels` surface | deferred |
 | 5 | Explicit shared wrappers (`Shared<T>`, `atomic<T>`) | deferred |
 
-Deferral is tracked in `docs/reports/R3-risk-matrix.md` as `R3-RISK-010`, `R3-RISK-011`, `R3-RISK-012`.
+Deferral is tracked in `docs/internal/reports/R3-risk-matrix.md` as `R3-RISK-010`, `R3-RISK-011`, `R3-RISK-012`.
 
 ## Tests
 

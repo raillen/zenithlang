@@ -1,12 +1,12 @@
-# Zenith Wiki
+﻿# Zenith Wiki
 
 Zenith is a reading-first language with explicit semantics and a native compilation pipeline.
 
 Current state:
 
-- Status: active development (v2 compiler track)
-- Baseline: 0.2.x
-- Pre-release target: 0.3.0-alpha.1
+- Status: active development, v2 compiler track.
+- Current source version: `0.3.0-alpha.3`.
+- Latest local Windows artifact: `0.3.0-alpha.3`.
 
 Quick links:
 
@@ -21,7 +21,8 @@ Source of truth:
 
 - Main repo: https://github.com/raillen/zenithlang
 - Language spec: https://github.com/raillen/zenithlang/blob/master/language/spec/README.md
-- Planning docs: https://github.com/raillen/zenithlang/blob/master/docs/planning/README.md
+- Docs hub: https://github.com/raillen/zenithlang/blob/master/docs/README.md
+- Planning docs: https://github.com/raillen/zenithlang/blob/master/docs/internal/planning/README.md
 
 Maintenance rule:
 

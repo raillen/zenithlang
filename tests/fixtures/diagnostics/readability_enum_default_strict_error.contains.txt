@@ -1,0 +1,2 @@
+error[control_flow.enum_default_case]
+case default in match on enum 'Mode' hides explicit variant coverage

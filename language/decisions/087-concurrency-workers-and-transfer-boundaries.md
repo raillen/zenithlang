@@ -180,7 +180,7 @@ Status in tree:
 
 This section integrates the `R3.P1.A` future analysis into the concurrency model.
 
-Reference: `docs/reports/R3.P1.A-namespace-shared-state-analysis.md`.
+Reference: `docs/internal/reports/R3.P1.A-namespace-shared-state-analysis.md`.
 
 Normative rules under this decision:
 

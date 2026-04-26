@@ -57,6 +57,17 @@ struct ProjectTemplate {
     summary: String,
     default_name: String,
     tags: Vec<String>,
+    scene: Option<String>,
+    main_script: Option<String>,
+    assets: Vec<ProjectTemplateAsset>,
+    source: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ProjectTemplateAsset {
+    source: String,
+    target: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -73,6 +84,9 @@ struct SceneDocument {
     name: String,
     path: String,
     document_id: String,
+    environment: Value,
+    render: Value,
+    audio: Value,
     entities: Vec<SceneEntity>,
 }
 
@@ -157,6 +171,9 @@ struct PreviewEvent {
     message: Option<String>,
     loaded: Option<bool>,
     entity_count: Option<i64>,
+    camera_count: Option<i64>,
+    light_count: Option<i64>,
+    audio_count: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -221,7 +238,7 @@ fn load_studio_home() -> StudioHome {
         default_project_path: normalize_path(&default_project_path(&layout)),
         default_projects_dir: normalize_path(&default_projects_dir(&layout.base_root)),
         editor_manifest: load_editor_manifest(&layout),
-        templates: project_templates(),
+        templates: project_templates(&layout),
         docs: documentation_links(&layout),
     }
 }
@@ -294,18 +311,22 @@ fn create_borealis_project(
 
     let project_file = project_dir.join("zenith.ztproj");
     write_text_at_path(&project_file, project_manifest(&slug))?;
+    let template = resolve_project_template(&layout, &template_id);
     write_text_at_path(
         &project_dir.join("scenes/main.scene.json"),
-        template_scene_json(&clean_name, &template_id),
+        project_scene_json(&layout, &template, &clean_name, &template_id),
     )?;
     write_text_at_path(
         &project_dir.join("src/app/main.zt"),
-        template_main_script(&slug, &template_id),
+        project_main_script(&layout, &template, &slug, &template_id),
     )?;
-    write_text_at_path(
-        &project_dir.join("assets/triangle.obj"),
-        template_triangle_obj(),
-    )?;
+    copy_template_assets(&layout, &template, &project_dir)?;
+    if !project_dir.join("assets/triangle.obj").exists() {
+        write_text_at_path(
+            &project_dir.join("assets/triangle.obj"),
+            template_triangle_obj(),
+        )?;
+    }
 
     let mut snapshot = load_studio_snapshot(Some(normalize_path(&project_file)))?;
     snapshot.console.push(ConsoleLine {
@@ -333,9 +354,7 @@ fn start_preview(
     scene_json: String,
 ) -> Result<PreviewCommandResult, String> {
     let layout = studio_layout();
-    let preview_scene_path = std::env::temp_dir()
-        .join("borealis-studio")
-        .join("preview.scene.json");
+    let (preview_scene_path, preview_scene_for_ipc) = preview_scene_target(&layout);
     if let Some(parent) = preview_scene_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|error| format!("failed to create {}: {error}", normalize_path(parent)))?;
@@ -347,11 +366,6 @@ fn start_preview(
         )
     })?;
 
-    let preview_scene_for_ipc = normalize_path(
-        preview_scene_path
-            .strip_prefix(&layout.base_root)
-            .unwrap_or(&preview_scene_path),
-    );
     let resolved_project_path = resolve_studio_path(&project_path);
     let project_for_ipc = normalize_path(
         resolved_project_path
@@ -405,6 +419,21 @@ fn start_preview(
 
     let events = collect_preview_events(session, Duration::from_millis(600));
     Ok(preview_result(session, events))
+}
+
+fn preview_scene_target(layout: &StudioLayout) -> (PathBuf, String) {
+    if let Some(sdk_root) = &layout.sdk_root {
+        let relative = PathBuf::from(".ztc-tmp")
+            .join("borealis-studio")
+            .join("preview.scene.json");
+        return (sdk_root.join(&relative), normalize_path(&relative));
+    }
+
+    let path = std::env::temp_dir()
+        .join("borealis-studio")
+        .join("preview.scene.json");
+    let ipc_path = normalize_path(path.strip_prefix(&layout.base_root).unwrap_or(&path));
+    (path, ipc_path)
 }
 
 #[tauri::command]
@@ -532,17 +561,16 @@ fn preview_command(layout: &StudioLayout) -> Result<(Command, String, PathBuf), 
             }),
         ] {
             if candidate.exists() {
-                return Ok((
-                    Command::new(&candidate),
-                    normalize_path(&candidate),
-                    sdk_root.clone(),
-                ));
+                let mut command = Command::new(&candidate);
+                command.env("ZENITH_HOME", sdk_root);
+                return Ok((command, normalize_path(&candidate), sdk_root.clone()));
             }
         }
 
         if let (Some(zt), Some(project)) = (sdk_zt_path(sdk_root), sdk_preview_project(sdk_root)) {
             let mut command = Command::new(&zt);
             command.arg("run").arg(&project);
+            command.env("ZENITH_HOME", sdk_root);
             return Ok((
                 command,
                 format!("{} run {}", normalize_path(&zt), normalize_path(&project)),
@@ -552,46 +580,9 @@ fn preview_command(layout: &StudioLayout) -> Result<(Command, String, PathBuf), 
     }
 
     if let Some(repo_root) = &layout.repo_root {
-        let compiled =
-            repo_root
-                .join("tools/borealis-editor/preview/build")
-                .join(if cfg!(windows) {
-                    "borealis-preview.exe"
-                } else {
-                    "borealis-preview"
-                });
-        if compiled.exists() {
-            return Ok((
-                Command::new(&compiled),
-                normalize_path(&compiled),
-                repo_root.clone(),
-            ));
-        }
-
-        let zt = repo_root.join(if cfg!(windows) { "zt.exe" } else { "zt-linux" });
-        let preview_project = repo_root.join("tools/borealis-editor/preview/zenith.ztproj");
-        if !zt.exists() {
-            return Err(format!(
-                "preview runtime unavailable: missing {}. Configure BOREALIS_SDK_ROOT or bundle runtime/sdk.",
-                normalize_path(&zt)
-            ));
-        }
-        if !preview_project.exists() {
-            return Err(format!(
-                "preview project not found: {}",
-                normalize_path(&preview_project)
-            ));
-        }
-        let mut command = Command::new(&zt);
-        command.arg("run").arg(&preview_project);
-        return Ok((
-            command,
-            format!(
-                "{} run {}",
-                normalize_path(&zt),
-                normalize_path(&preview_project)
-            ),
-            repo_root.clone(),
+        return Err(format!(
+            "preview runtime unavailable: no repo-local preview harness is bundled under {}. Configure BOREALIS_SDK_ROOT or bundle runtime/sdk.",
+            normalize_path(repo_root)
         ));
     }
 
@@ -683,6 +674,15 @@ fn parse_preview_event(raw: String) -> PreviewEvent {
         entity_count: payload
             .and_then(|value| value.get("entity_count"))
             .and_then(Value::as_i64),
+        camera_count: payload
+            .and_then(|value| value.get("camera_count"))
+            .and_then(Value::as_i64),
+        light_count: payload
+            .and_then(|value| value.get("light_count"))
+            .and_then(Value::as_i64),
+        audio_count: payload
+            .and_then(|value| value.get("audio_count"))
+            .and_then(Value::as_i64),
         raw,
     }
 }
@@ -730,8 +730,39 @@ fn read_scene_document(project_root: &Path, path: &Path) -> Result<SceneDocument
         name,
         path: normalize_path(path.strip_prefix(project_root).unwrap_or(path)),
         document_id,
+        environment: scene_object_or_default(
+            value.get("environment"),
+            json!({
+                "skybox": { "mode": "solid", "color": "#1c1f26" },
+                "ambient": { "color": "#ffffff", "intensity": 0.4 },
+                "fog": { "enabled": false, "color": "#9ca3af", "density": 0.05 },
+                "weather": { "preset": "clear" }
+            }),
+        ),
+        render: scene_object_or_default(
+            value.get("render"),
+            json!({
+                "quality": { "profile": "medium" },
+                "postfx": { "fxaa": false, "bloom": 0.0, "vignette": 0.0 },
+                "camera": {}
+            }),
+        ),
+        audio: scene_object_or_default(
+            value.get("audio"),
+            json!({
+                "listener": {},
+                "mix": { "master": 1.0, "music": 0.8, "sfx": 1.0 }
+            }),
+        ),
         entities,
     })
+}
+
+fn scene_object_or_default(value: Option<&Value>, fallback: Value) -> Value {
+    match value {
+        Some(Value::Object(_)) => value.cloned().unwrap_or(fallback),
+        _ => fallback,
+    }
 }
 
 fn read_entity(value: &Value, index: usize) -> SceneEntity {
@@ -878,7 +909,17 @@ fn collect_files(
     Ok(())
 }
 
-fn project_templates() -> Vec<ProjectTemplate> {
+fn project_templates(layout: &StudioLayout) -> Vec<ProjectTemplate> {
+    if let Some(sdk_templates) = load_sdk_templates(layout) {
+        if !sdk_templates.is_empty() {
+            return sdk_templates;
+        }
+    }
+
+    fallback_project_templates()
+}
+
+fn fallback_project_templates() -> Vec<ProjectTemplate> {
     vec![
         ProjectTemplate {
             id: "empty3d".to_string(),
@@ -887,6 +928,10 @@ fn project_templates() -> Vec<ProjectTemplate> {
                 .to_string(),
             default_name: "Projeto Borealis 3D".to_string(),
             tags: vec!["3D".to_string(), "starter".to_string()],
+            scene: None,
+            main_script: None,
+            assets: Vec::new(),
+            source: Some("fallback".to_string()),
         },
         ProjectTemplate {
             id: "topdown2d".to_string(),
@@ -895,6 +940,10 @@ fn project_templates() -> Vec<ProjectTemplate> {
                 .to_string(),
             default_name: "Projeto Borealis 2D".to_string(),
             tags: vec!["2D".to_string(), "gameplay".to_string()],
+            scene: None,
+            main_script: None,
+            assets: Vec::new(),
+            source: Some("fallback".to_string()),
         },
         ProjectTemplate {
             id: "scripted3d".to_string(),
@@ -902,8 +951,108 @@ fn project_templates() -> Vec<ProjectTemplate> {
             summary: "Amostra 3D com script anexado para iterar no preview.".to_string(),
             default_name: "Projeto Borealis Scripted".to_string(),
             tags: vec!["3D".to_string(), "scripts".to_string()],
+            scene: None,
+            main_script: None,
+            assets: Vec::new(),
+            source: Some("fallback".to_string()),
         },
     ]
+}
+
+fn load_sdk_templates(layout: &StudioLayout) -> Option<Vec<ProjectTemplate>> {
+    let sdk_root = layout.sdk_root.as_ref()?;
+    let templates_file = sdk_root.join("templates/templates.json");
+    let raw = fs::read_to_string(&templates_file).ok()?;
+    let value = serde_json::from_str::<Value>(&raw).ok()?;
+    let items = value.as_array()?;
+    let mut templates = Vec::new();
+
+    for item in items {
+        let Some(id) = item.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let name = item
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or(id)
+            .to_string();
+        let summary = item
+            .get("summary")
+            .and_then(Value::as_str)
+            .unwrap_or("Template do SDK Borealis.")
+            .to_string();
+        let default_name = item
+            .get("defaultName")
+            .or_else(|| item.get("default_name"))
+            .and_then(Value::as_str)
+            .unwrap_or(&name)
+            .to_string();
+        let tags = item
+            .get("tags")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
+            })
+            .filter(|items| !items.is_empty())
+            .unwrap_or_else(|| vec!["SDK".to_string()]);
+        let assets = item
+            .get("assets")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|asset| {
+                        let source = asset.get("source").and_then(Value::as_str)?;
+                        let target = asset
+                            .get("target")
+                            .and_then(Value::as_str)
+                            .unwrap_or(source);
+                        Some(ProjectTemplateAsset {
+                            source: source.to_string(),
+                            target: target.to_string(),
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        templates.push(ProjectTemplate {
+            id: id.to_string(),
+            name,
+            summary,
+            default_name,
+            tags,
+            scene: item
+                .get("scene")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            main_script: item
+                .get("mainScript")
+                .or_else(|| item.get("main_script"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            assets,
+            source: Some(normalize_path(&templates_file)),
+        });
+    }
+
+    Some(templates)
+}
+
+fn resolve_project_template(layout: &StudioLayout, template_id: &str) -> ProjectTemplate {
+    project_templates(layout)
+        .into_iter()
+        .find(|template| template.id == template_id)
+        .unwrap_or_else(|| {
+            fallback_project_templates()
+                .into_iter()
+                .next()
+                .expect("fallback project templates must not be empty")
+        })
 }
 
 fn documentation_links(layout: &StudioLayout) -> Vec<DocumentationLink> {
@@ -1060,6 +1209,27 @@ fn project_manifest(slug: &str) -> String {
     )
 }
 
+fn project_scene_json(
+    layout: &StudioLayout,
+    template: &ProjectTemplate,
+    project_name: &str,
+    template_id: &str,
+) -> String {
+    if let Some(scene_path) = &template.scene {
+        if let Some(mut value) = read_template_json(layout, scene_path) {
+            if let Some(object) = value.as_object_mut() {
+                object.insert("name".to_string(), Value::String(project_name.to_string()));
+            }
+            return format!(
+                "{}\n",
+                serde_json::to_string_pretty(&value).unwrap_or_else(|_| "{}".to_string())
+            );
+        }
+    }
+
+    template_scene_json(project_name, template_id)
+}
+
 fn template_scene_json(project_name: &str, template_id: &str) -> String {
     let (document_id, entities) = match template_id {
         "topdown2d" => (
@@ -1131,9 +1301,24 @@ fn template_scene_json(project_name: &str, template_id: &str) -> String {
     };
 
     let scene = json!({
-        "version": 1,
+        "version": 2,
         "name": project_name,
         "document_id": document_id,
+        "environment": {
+            "skybox": { "mode": "solid", "color": "#1c1f26" },
+            "ambient": { "color": "#ffffff", "intensity": 0.4 },
+            "fog": { "enabled": false, "color": "#9ca3af", "density": 0.05 },
+            "weather": { "preset": "clear" }
+        },
+        "render": {
+            "quality": { "profile": "medium" },
+            "postfx": { "fxaa": false, "bloom": 0.0, "vignette": 0.0 },
+            "camera": {}
+        },
+        "audio": {
+            "listener": {},
+            "mix": { "master": 1.0, "music": 0.8, "sfx": 1.0 }
+        },
         "entities": entities,
     });
 
@@ -1141,6 +1326,21 @@ fn template_scene_json(project_name: &str, template_id: &str) -> String {
         "{}\n",
         serde_json::to_string_pretty(&scene).unwrap_or_else(|_| "{}".to_string())
     )
+}
+
+fn project_main_script(
+    layout: &StudioLayout,
+    template: &ProjectTemplate,
+    slug: &str,
+    template_id: &str,
+) -> String {
+    if let Some(script_path) = &template.main_script {
+        if let Some(content) = read_template_text(layout, script_path) {
+            return content;
+        }
+    }
+
+    template_main_script(slug, template_id)
 }
 
 fn template_main_script(slug: &str, template_id: &str) -> String {
@@ -1161,6 +1361,61 @@ fn template_triangle_obj() -> String {
     "o Triangle\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n".to_string()
 }
 
+fn copy_template_assets(
+    layout: &StudioLayout,
+    template: &ProjectTemplate,
+    project_dir: &Path,
+) -> Result<(), String> {
+    for asset in &template.assets {
+        let Some(source) = template_path(layout, &asset.source) else {
+            continue;
+        };
+        if !source.exists() || !source.is_file() {
+            continue;
+        }
+        let target = resolve_project_path(project_dir, &asset.target);
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                format!(
+                    "failed to create template asset folder {}: {error}",
+                    normalize_path(parent)
+                )
+            })?;
+        }
+        fs::copy(&source, &target).map_err(|error| {
+            format!(
+                "failed to copy template asset {} to {}: {error}",
+                normalize_path(&source),
+                normalize_path(&target)
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+fn read_template_json(layout: &StudioLayout, path: &str) -> Option<Value> {
+    read_template_text(layout, path).and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+}
+
+fn read_template_text(layout: &StudioLayout, path: &str) -> Option<String> {
+    let template_path = template_path(layout, path)?;
+    fs::read_to_string(template_path).ok()
+}
+
+fn template_path(layout: &StudioLayout, path: &str) -> Option<PathBuf> {
+    let raw = PathBuf::from(path);
+    if raw.is_absolute() {
+        return Some(raw);
+    }
+
+    if let Some(sdk_root) = &layout.sdk_root {
+        return Some(sdk_root.join(path));
+    }
+
+    Some(layout.app_root.join(path))
+}
+
 fn asset_kind(path: &Path) -> Option<String> {
     match path
         .extension()
@@ -1174,6 +1429,8 @@ fn asset_kind(path: &Path) -> Option<String> {
         "obj" | "glb" | "gltf" | "fbx" | "iqm" | "m3d" => Some("model".to_string()),
         "png" | "jpg" | "jpeg" | "webp" => Some("texture".to_string()),
         "wav" | "ogg" | "mp3" => Some("audio".to_string()),
+        "glsl" | "vs" | "fs" => Some("shader".to_string()),
+        "hdr" if path.to_string_lossy().contains("sky") => Some("cubemap".to_string()),
         _ => None,
     }
 }
@@ -1315,10 +1572,7 @@ fn sdk_zt_path(sdk_root: &Path) -> Option<PathBuf> {
 }
 
 fn sdk_preview_project(sdk_root: &Path) -> Option<PathBuf> {
-    for candidate in [
-        sdk_root.join("preview/zenith.ztproj"),
-        sdk_root.join("tools/borealis-editor/preview/zenith.ztproj"),
-    ] {
+    for candidate in [sdk_root.join("preview/zenith.ztproj")] {
         if candidate.exists() {
             return Some(candidate);
         }
@@ -1378,7 +1632,32 @@ mod tests {
     fn generated_template_scene_is_valid_json() {
         let scene = template_scene_json("Projeto Teste", "scripted3d");
         let parsed: Value = serde_json::from_str(&scene).unwrap();
-        assert_eq!(parsed.get("version").and_then(Value::as_i64), Some(1));
+        assert_eq!(parsed.get("version").and_then(Value::as_i64), Some(2));
+        assert!(parsed
+            .get("environment")
+            .and_then(Value::as_object)
+            .is_some());
+        assert!(parsed.get("render").and_then(Value::as_object).is_some());
+        assert!(parsed.get("audio").and_then(Value::as_object).is_some());
         assert!(parsed.get("entities").and_then(Value::as_array).is_some());
+    }
+
+    #[test]
+    fn preview_scene_target_uses_sdk_relative_path() {
+        let root = workspace_root();
+        let sdk_root = root.join("tools/borealis-studio/runtime/sdk");
+        let layout = StudioLayout {
+            app_root: root.join("tools/borealis-studio"),
+            base_root: root,
+            repo_root: None,
+            sdk_root: Some(sdk_root.clone()),
+        };
+
+        let (path, ipc_path) = preview_scene_target(&layout);
+        assert!(path.starts_with(&sdk_root));
+        assert_eq!(
+            ipc_path,
+            ".ztc-tmp/borealis-studio/preview.scene.json".to_string()
+        );
     }
 }

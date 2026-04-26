@@ -7,9 +7,12 @@ export function serializeSceneDocument(scene: SceneDocument): string {
 
 function toBorealisScene(scene: SceneDocument) {
   return {
-    version: 1,
+    version: 2,
     name: scene.name,
     document_id: scene.documentId,
+    environment: scene.environment,
+    render: scene.render,
+    audio: scene.audio,
     entities: scene.entities.map(toBorealisEntity),
   };
 }

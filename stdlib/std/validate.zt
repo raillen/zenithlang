@@ -44,12 +44,24 @@ public func not_empty(value: text) -> bool
     return len(value) > 0
 end
 
+public func not_empty_text(value: text) -> bool
+    return validate.not_empty(value)
+end
+
 public func min_length(value: text, min: int) -> bool
     return len(value) >= min
 end
 
+public func min_len(value: text, min: int) -> bool
+    return validate.min_length(value, min)
+end
+
 public func max_length(value: text, max: int) -> bool
     return len(value) <= max
+end
+
+public func max_len(value: text, max: int) -> bool
+    return validate.max_length(value, max)
 end
 
 public func length_between(value: text, min: int, max: int) -> bool

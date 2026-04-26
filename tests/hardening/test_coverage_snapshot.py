@@ -41,7 +41,7 @@ def compiler_sources() -> list[Path]:
     return sorted(files)
 
 
-COMPILER_SOURCES = compiler_sources()
+COMPILER_SOURCES = compiler_sources() + [ROOT / "compiler" / "driver" / "paths.c"]
 COMPILER_SOURCES_NO_ZIR_PARSER = [
     path for path in COMPILER_SOURCES
     if normalize_path_text(path) != normalize_path_text(ROOT / "compiler" / "zir" / "parser.c")

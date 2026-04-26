@@ -547,6 +547,32 @@ zt_token zt_lexer_next_token(zt_lexer *lexer) {
         case ',': return zt_lexer_make_token(lexer, ZT_TOKEN_COMMA, 0, start_line, start_column, ",", 1);
         case '?': return zt_lexer_make_token(lexer, ZT_TOKEN_QUESTION, 0, start_line, start_column, "?", 1);
 
+        case '&':
+            if (next == '&') {
+                zt_lexer_advance(lexer);
+                zt_lexer_emit_diag(
+                    lexer,
+                    ZT_DIAG_SYNTAX_ERROR,
+                    start_line,
+                    start_column,
+                    "use 'and' for boolean conjunction; Zenith does not use '&&'");
+                return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, 0, start_line, start_column, "&&", 2);
+            }
+            return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, 0, start_line, start_column, "&", 1);
+
+        case '|':
+            if (next == '|') {
+                zt_lexer_advance(lexer);
+                zt_lexer_emit_diag(
+                    lexer,
+                    ZT_DIAG_SYNTAX_ERROR,
+                    start_line,
+                    start_column,
+                    "use 'or' for boolean disjunction; Zenith does not use '||'");
+                return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, 0, start_line, start_column, "||", 2);
+            }
+            return zt_lexer_make_token(lexer, ZT_TOKEN_LEX_ERROR, 0, start_line, start_column, "|", 1);
+
         case '-':
             if (next == '>') {
                 zt_lexer_advance(lexer);

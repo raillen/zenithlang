@@ -1,0 +1,2 @@
+error[style.block_too_deep]
+block nesting depth 7 is hard to scan; limit is 6

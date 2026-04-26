@@ -12,29 +12,36 @@
   "repository": {
     "comments": {
       "patterns": [
+        { "name": "comment.block.triple-dash.zenith", "begin": "---", "end": "---" },
         { "name": "comment.line.double-dash.zenith", "match": "--.*$" }
       ]
     },
     "strings": {
       "patterns": [
+        { "name": "string.quoted.triple.zenith", "begin": "\"\"\"", "end": "\"\"\"" },
         { "name": "string.quoted.double.zenith", "begin": "\"", "end": "\"", "patterns": [{ "name": "constant.character.escape.zenith", "match": "\\\\." }] }
       ]
     },
     "keywords": {
       "patterns": [
-        { "name": "keyword.control.zenith", "match": "\\b(namespace|import|as|func|return|end|if|else|while|for|in|repeat|times|match|case|default|break|continue|apply|where|public|mut|extern|host|c)\\b" },
-        { "name": "storage.type.zenith", "match": "\\b(var|const|struct|trait|enum|dyn|callable)\\b" },
-        { "name": "constant.language.zenith", "match": "\\b(true|false|none|success|error)\\b" }
+        { "name": "keyword.other.bytes-prefix.zenith", "match": "\\bhex\\s+bytes\\b" },
+        { "name": "keyword.other.extern-binding.zenith", "match": "\\bextern\\s+(c|host)\\b" },
+        { "name": "keyword.control.zenith", "match": "\\b(namespace|import|as|func|return|end|if|else|while|for|in|repeat|times|match|case|default|break|continue|apply|to|where|is|and|or|not|public|mut|extern|attr|self)\\b" },
+        { "name": "storage.type.zenith", "match": "\\b(var|const|struct|trait|enum|dyn)\\b" },
+        { "name": "constant.language.zenith", "match": "\\b(true|false|none|success|error)\\b" },
+        { "name": "support.function.builtin.zenith", "match": "\\b(fmt|len|to_text|check|todo|unreachable|panic)\\b" }
       ]
     },
     "numbers": {
       "patterns": [
-        { "name": "constant.numeric.zenith", "match": "\\b[0-9]+(\\.[0-9]+)?\\b" }
+        { "name": "constant.numeric.zenith", "match": "\\b0x[0-9A-Fa-f_]+\\b" },
+        { "name": "constant.numeric.zenith", "match": "\\b0b[01_]+\\b" },
+        { "name": "constant.numeric.zenith", "match": "\\b[0-9][0-9_]*(\\.[0-9_]+)?([eE][+-]?[0-9_]+)?\\b" }
       ]
     },
     "types": {
       "patterns": [
-        { "name": "support.type.zenith", "match": "\\b(int|float|bool|text|bytes|void|optional|result|list|map|core\\.Error)\\b" }
+        { "name": "support.type.zenith", "match": "\\b(int|int8|int16|int32|int64|u8|u16|u32|u64|uint8|uint16|uint32|uint64|float|float32|float64|bool|text|bytes|void|optional|result|list|map|lazy|grid2d|pqueue|circbuf|btreemap|btreeset|grid3d|core\\.Error)\\b" }
       ]
     }
   }

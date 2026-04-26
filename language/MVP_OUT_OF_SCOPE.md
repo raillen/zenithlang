@@ -46,9 +46,9 @@ This file now has a narrower job:
 
 - public API expansion for `std.fs`
 - public API expansion for networking and pipes
-- `stdlib/math` - `math.pow`, `math.sin`, etc (use `extern c` for now)
-- `stdlib/time` - dates, timestamps
-- `stdlib/regex` - pattern matching on text
+- `std.math` expansion - `math.pow`, `math.sin`, etc (use `extern c` for now)
+- `std.time` expansion - dates, timestamps
+- `std.regex` - pattern matching on text
 
 ## Compiler features deferred post-MVP
 

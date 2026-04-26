@@ -135,9 +135,9 @@ ZDoc will later define:
 Possible future organization examples:
 
 ```text
-docs/api/app.users.zdoc
-docs/api/app.users.User.zdoc
-docs/api/app.users.load_user.zdoc
+docs/reference/api/app.users.zdoc
+docs/reference/api/app.users.User.zdoc
+docs/reference/api/app.users.load_user.zdoc
 ```
 
 or another structure defined by the future ZDoc decision.

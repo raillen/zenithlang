@@ -1,6 +1,7 @@
 #include "compiler/zir/verifier.h"
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,9 @@ typedef struct zir_symbol_table {
     const char **names;
     size_t count;
     size_t capacity;
+    size_t *slots;
+    size_t slot_capacity;
+    const struct zir_symbol_table *parent;
 } zir_symbol_table;
 
 static int zir_span_ptr_is_known(const zir_span *span) {
@@ -248,10 +252,116 @@ static int zir_verify_type_name(const char *type_name, const char *context, cons
     return 1;
 }
 
-static int zir_symbol_table_contains(const zir_symbol_table *table, const char *name) {
+static size_t zir_symbol_hash_name(const char *name) {
+    const unsigned char *cursor = (const unsigned char *)name;
+    size_t hash = (size_t)1469598103934665603ull;
+
+    if (name == NULL) {
+        return 0;
+    }
+
+    while (*cursor != '\0') {
+        hash ^= (size_t)(*cursor);
+        hash *= (size_t)1099511628211ull;
+        cursor += 1;
+    }
+
+    return hash;
+}
+
+static size_t zir_symbol_slot_capacity_for(size_t capacity) {
+    size_t slot_capacity = 8;
+    size_t target;
+
+    if (capacity == 0) {
+        return 0;
+    }
+
+    target = capacity > SIZE_MAX / 2 ? capacity : capacity * 2;
+    while (slot_capacity < target) {
+        if (slot_capacity > SIZE_MAX / 2) {
+            return 0;
+        }
+        slot_capacity *= 2;
+    }
+
+    return slot_capacity;
+}
+
+static int zir_symbol_table_init(zir_symbol_table *table, size_t capacity, const zir_symbol_table *parent) {
+    if (table == NULL) {
+        return 0;
+    }
+
+    table->names = NULL;
+    table->count = 0;
+    table->capacity = capacity;
+    table->slots = NULL;
+    table->slot_capacity = 0;
+    table->parent = parent;
+
+    table->names = (const char **)calloc(capacity > 0 ? capacity : 1, sizeof(const char *));
+    if (table->names == NULL) {
+        return 0;
+    }
+
+    if (capacity > 0) {
+        table->slot_capacity = zir_symbol_slot_capacity_for(capacity);
+        if (table->slot_capacity == 0) {
+            free(table->names);
+            table->names = NULL;
+            return 0;
+        }
+
+        table->slots = (size_t *)calloc(table->slot_capacity, sizeof(size_t));
+        if (table->slots == NULL) {
+            free(table->names);
+            table->names = NULL;
+            table->slot_capacity = 0;
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static void zir_symbol_table_dispose(zir_symbol_table *table) {
+    if (table == NULL) {
+        return;
+    }
+
+    free(table->names);
+    free(table->slots);
+    table->names = NULL;
+    table->count = 0;
+    table->capacity = 0;
+    table->slots = NULL;
+    table->slot_capacity = 0;
+    table->parent = NULL;
+}
+
+static int zir_symbol_table_contains_current(const zir_symbol_table *table, const char *name) {
     size_t index;
 
     if (table == NULL || name == NULL) {
+        return 0;
+    }
+
+    if (table->slots != NULL && table->slot_capacity > 0) {
+        size_t slot = zir_symbol_hash_name(name) & (table->slot_capacity - 1);
+        size_t start = slot;
+
+        while (table->slots[slot] != 0) {
+            size_t name_index = table->slots[slot] - 1;
+            if (name_index < table->count && strcmp(table->names[name_index], name) == 0) {
+                return 1;
+            }
+            slot = (slot + 1) & (table->slot_capacity - 1);
+            if (slot == start) {
+                break;
+            }
+        }
+
         return 0;
     }
 
@@ -264,6 +374,19 @@ static int zir_symbol_table_contains(const zir_symbol_table *table, const char *
     return 0;
 }
 
+static int zir_symbol_table_contains(const zir_symbol_table *table, const char *name) {
+    const zir_symbol_table *cursor = table;
+
+    while (cursor != NULL) {
+        if (zir_symbol_table_contains_current(cursor, name)) {
+            return 1;
+        }
+        cursor = cursor->parent;
+    }
+
+    return 0;
+}
+
 static int zir_symbol_table_add(zir_symbol_table *table, const char *name) {
     if (table == NULL || name == NULL || table->count >= table->capacity) {
         return 0;
@@ -271,6 +394,15 @@ static int zir_symbol_table_add(zir_symbol_table *table, const char *name) {
 
     table->names[table->count] = name;
     table->count += 1;
+
+    if (table->slots != NULL && table->slot_capacity > 0) {
+        size_t slot = zir_symbol_hash_name(name) & (table->slot_capacity - 1);
+        while (table->slots[slot] != 0) {
+            slot = (slot + 1) & (table->slot_capacity - 1);
+        }
+        table->slots[slot] = table->count;
+    }
+
     return 1;
 }
 
@@ -983,12 +1115,13 @@ static int zir_verify_terminator(
     }
 }
 
-static int zir_verify_function(const zir_module *module_decl, const zir_function *function_decl, zir_verifier_result *result) {
+static int zir_verify_function(
+        const zir_function *function_decl,
+        const zir_symbol_table *module_symbols,
+        zir_verifier_result *result) {
     size_t param_index;
     size_t block_index;
-    const char **block_labels = NULL;
     zir_symbol_table labels;
-    const char **defined_names = NULL;
     zir_symbol_table defined;
     size_t definition_capacity;
 
@@ -996,15 +1129,10 @@ static int zir_verify_function(const zir_module *module_decl, const zir_function
         return 0;
     }
 
-    block_labels = (const char **)calloc(function_decl->block_count > 0 ? function_decl->block_count : 1, sizeof(const char *));
-    if (block_labels == NULL) {
+    if (!zir_symbol_table_init(&labels, function_decl->block_count, NULL)) {
         zir_verifier_set_result(result, ZIR_VERIFIER_INVALID_INPUT, "unable to allocate verifier state");
         return 0;
     }
-
-    labels.names = block_labels;
-    labels.count = 0;
-    labels.capacity = function_decl->block_count;
 
     for (param_index = 0; param_index < function_decl->param_count; param_index += 1) {
         char context[128];
@@ -1012,7 +1140,7 @@ static int zir_verify_function(const zir_module *module_decl, const zir_function
 
         snprintf(context, sizeof(context), "func %s param %s", function_decl->name, function_decl->params[param_index].name);
         if (!zir_verify_type_name(function_decl->params[param_index].type_name, context, span, result)) {
-            free(block_labels);
+            zir_symbol_table_dispose(&labels);
             return 0;
         }
     }
@@ -1030,35 +1158,30 @@ static int zir_verify_function(const zir_module *module_decl, const zir_function
                 block->label,
                 function_decl->name
             );
-            free(block_labels);
+            zir_symbol_table_dispose(&labels);
             return 0;
         }
         if (!zir_symbol_table_add(&labels, block->label)) {
             zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register block label");
-            free(block_labels);
+            zir_symbol_table_dispose(&labels);
             return 0;
         }
     }
 
-    definition_capacity = zir_count_function_definitions(module_decl, function_decl);
+    definition_capacity = zir_count_function_definitions(NULL, function_decl);
     if (definition_capacity == 0) {
         definition_capacity = 1;
     }
 
-    defined_names = (const char **)calloc(definition_capacity, sizeof(const char *));
-    if (defined_names == NULL) {
+    if (!zir_symbol_table_init(&defined, definition_capacity, module_symbols)) {
         zir_verifier_set_result(result, ZIR_VERIFIER_INVALID_INPUT, "unable to allocate verifier state");
-        free(block_labels);
+        zir_symbol_table_dispose(&labels);
         return 0;
     }
 
-    defined.names = defined_names;
-    defined.count = 0;
-    defined.capacity = definition_capacity;
-
-    if (!zir_collect_function_definitions(module_decl, function_decl, &defined, &function_decl->span, result)) {
-        free(defined_names);
-        free(block_labels);
+    if (!zir_collect_function_definitions(NULL, function_decl, &defined, &function_decl->span, result)) {
+        zir_symbol_table_dispose(&defined);
+        zir_symbol_table_dispose(&labels);
         return 0;
     }
 
@@ -1076,21 +1199,21 @@ static int zir_verify_function(const zir_module *module_decl, const zir_function
                     instruction_index,
                     block_span,
                     result)) {
-                free(defined_names);
-                free(block_labels);
+                zir_symbol_table_dispose(&defined);
+                zir_symbol_table_dispose(&labels);
                 return 0;
             }
         }
 
         if (!zir_verify_terminator(function_decl, block, &defined, result)) {
-            free(defined_names);
-            free(block_labels);
+            zir_symbol_table_dispose(&defined);
+            zir_symbol_table_dispose(&labels);
             return 0;
         }
     }
 
-    free(defined_names);
-    free(block_labels);
+    zir_symbol_table_dispose(&defined);
+    zir_symbol_table_dispose(&labels);
     return 1;
 }
 
@@ -1099,6 +1222,8 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
     size_t struct_index;
     size_t enum_index;
     size_t function_index;
+    zir_symbol_table module_symbols;
+    int module_symbols_ready = 0;
 
     zir_verifier_result_init(result);
 
@@ -1149,19 +1274,12 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
     }
 
     if (module_decl->module_var_count > 0) {
-        const char **module_var_names = (const char **)calloc(
-            module_decl->module_var_count,
-            sizeof(const char *));
         zir_symbol_table module_var_defined;
 
-        if (module_var_names == NULL) {
+        if (!zir_symbol_table_init(&module_var_defined, module_decl->module_var_count, NULL)) {
             zir_verifier_set_result(result, ZIR_VERIFIER_INVALID_INPUT, "unable to allocate verifier state");
             return 0;
         }
-
-        module_var_defined.names = module_var_names;
-        module_var_defined.count = 0;
-        module_var_defined.capacity = module_decl->module_var_count;
 
         for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
             const zir_module_var *module_var = &module_decl->module_vars[module_var_index];
@@ -1170,13 +1288,13 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
 
             snprintf(context, sizeof(context), "module var %s", zir_safe_text(module_var->name));
             if (!zir_verify_type_name(module_var->type_name, context, span, result)) {
-                free(module_var_names);
+                zir_symbol_table_dispose(&module_var_defined);
                 return 0;
             }
 
             if (!zir_symbol_table_add_unique(&module_var_defined, module_var->name)) {
                 zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register module variable");
-                free(module_var_names);
+                zir_symbol_table_dispose(&module_var_defined);
                 return 0;
             }
         }
@@ -1189,24 +1307,55 @@ int zir_verify_module(const zir_module *module_decl, zir_verifier_result *result
             snprintf(context, sizeof(context), "module var %s init", zir_safe_text(module_var->name));
             if (module_var->init_expr != NULL) {
                 if (!zir_verify_expr(module_var->init_expr, &module_var_defined, context, span, result)) {
-                    free(module_var_names);
+                    zir_symbol_table_dispose(&module_var_defined);
                     return 0;
                 }
             } else if (!zir_verify_identifier_usage(module_var->init_expr_text, &module_var_defined, context, span, result)) {
-                free(module_var_names);
+                zir_symbol_table_dispose(&module_var_defined);
                 return 0;
             }
         }
 
-        free(module_var_names);
+        zir_symbol_table_dispose(&module_var_defined);
     }
 
-    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
-        if (!zir_verify_function(module_decl, &module_decl->functions[function_index], result)) {
+    if (!zir_symbol_table_init(&module_symbols, module_decl->module_var_count + module_decl->function_count, NULL)) {
+        zir_verifier_set_result(result, ZIR_VERIFIER_INVALID_INPUT, "unable to allocate verifier state");
+        return 0;
+    }
+    module_symbols_ready = 1;
+
+    for (module_var_index = 0; module_var_index < module_decl->module_var_count; module_var_index += 1) {
+        const zir_module_var *module_var = &module_decl->module_vars[module_var_index];
+        const zir_span *span = zir_prefer_span(&module_var->span, &module_decl->span);
+        if (!zir_symbol_table_add_unique(&module_symbols, module_var->name)) {
+            zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, span, "unable to register module variable");
+            zir_symbol_table_dispose(&module_symbols);
             return 0;
         }
     }
 
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        const zir_function *function_decl = &module_decl->functions[function_index];
+        if (!zir_symbol_table_add_unique(&module_symbols, function_decl->name)) {
+            zir_verifier_set_result_at(result, ZIR_VERIFIER_INVALID_INPUT, &function_decl->span, "unable to register function");
+            zir_symbol_table_dispose(&module_symbols);
+            return 0;
+        }
+    }
+
+    for (function_index = 0; function_index < module_decl->function_count; function_index += 1) {
+        if (!zir_verify_function(&module_decl->functions[function_index], &module_symbols, result)) {
+            if (module_symbols_ready) {
+                zir_symbol_table_dispose(&module_symbols);
+            }
+            return 0;
+        }
+    }
+
+    if (module_symbols_ready) {
+        zir_symbol_table_dispose(&module_symbols);
+    }
     zir_verifier_result_init(result);
     return 1;
 }

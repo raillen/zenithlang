@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-23T16:07:29.140532+00:00",
+  "generated_at_utc": "2026-04-25T20:50:11.157052+00:00",
   "kind": "focused-coverage-snapshot",
   "note": "Scenario coverage only; this is not whole-project union coverage.",
   "skipped_reason": null,
@@ -9,16 +9,16 @@
       "source": "compiler/frontend/parser/parser.c",
       "note": "Guarda de profundidade do parser.",
       "lines": {
-        "percent": 22.93,
-        "count": 1378
+        "percent": 22.9,
+        "count": 1476
       },
       "branches": {
-        "percent": 31.47,
-        "count": 804
+        "percent": 31.32,
+        "count": 846
       },
       "calls": {
-        "percent": 18.74,
-        "count": 619
+        "percent": 18.79,
+        "count": 660
       }
     },
     {
@@ -26,16 +26,16 @@
       "source": "compiler/semantic/types/checker.c",
       "note": "Overflow inteiro e faixa de float no checker.",
       "lines": {
-        "percent": 13.52,
-        "count": 2256
+        "percent": 11.5,
+        "count": 2591
       },
       "branches": {
-        "percent": 15.16,
-        "count": 2295
+        "percent": 12.69,
+        "count": 2639
       },
       "calls": {
-        "percent": 6.96,
-        "count": 963
+        "percent": 6.19,
+        "count": 1067
       }
     },
     {
@@ -43,16 +43,16 @@
       "source": "compiler/zir/lowering/from_hir.c",
       "note": "Guarda estrutural do lowering HIR -> ZIR.",
       "lines": {
-        "percent": 4.21,
-        "count": 1926
+        "percent": 4.69,
+        "count": 2070
       },
       "branches": {
-        "percent": 5.97,
-        "count": 1408
+        "percent": 5.95,
+        "count": 1461
       },
       "calls": {
-        "percent": 1.36,
-        "count": 1322
+        "percent": 1.37,
+        "count": 1382
       }
     },
     {
@@ -60,16 +60,16 @@
       "source": "compiler/targets/c/emitter.c",
       "note": "Caminho spill + stream do emitter C.",
       "lines": {
-        "percent": 13.91,
-        "count": 4643
+        "percent": 13.56,
+        "count": 5458
       },
       "branches": {
-        "percent": 14.04,
-        "count": 5299
+        "percent": 13.55,
+        "count": 6110
       },
       "calls": {
-        "percent": 7.87,
-        "count": 2275
+        "percent": 7.79,
+        "count": 2580
       }
     },
     {
@@ -77,16 +77,16 @@
       "source": "runtime/c/zenith_rt.c",
       "note": "Execucao de processo segura, cwd e overflows fatais.",
       "lines": {
-        "percent": 12.28,
-        "count": 4838
+        "percent": 10.67,
+        "count": 5566
       },
       "branches": {
-        "percent": 12.67,
-        "count": 3472
+        "percent": 11.07,
+        "count": 3994
       },
       "calls": {
-        "percent": 8.14,
-        "count": 2323
+        "percent": 7.3,
+        "count": 2575
       }
     },
     {
@@ -94,16 +94,16 @@
       "source": "runtime/c/zenith_rt.c",
       "note": "Construtor UTF-8 validado e falha em entrada invalida.",
       "lines": {
-        "percent": 7.94,
-        "count": 4838
+        "percent": 6.9,
+        "count": 5566
       },
       "branches": {
-        "percent": 9.16,
-        "count": 3472
+        "percent": 8.01,
+        "count": 3994
       },
       "calls": {
-        "percent": 3.31,
-        "count": 2323
+        "percent": 2.95,
+        "count": 2575
       }
     }
   ]

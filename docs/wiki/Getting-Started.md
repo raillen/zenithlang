@@ -1,35 +1,43 @@
-# Getting Started
+﻿# Getting Started
 
 Requirements:
 
-- Python 3
-- GCC or Clang in PATH
-- PowerShell, bash, or equivalent shell
+- Python 3.
+- GCC or Clang in `PATH`.
+- PowerShell, bash, or equivalent shell.
 
 Build the compiler:
 
 ```bash
 python build.py
-# or
-bash build.sh
-# or (Windows)
-build.bat
 ```
 
 Run help:
 
 ```bash
-./zt.exe
+./zt.exe help
 ```
 
-First checks:
+Create a project:
 
 ```bash
-./zt.exe check my_app/zenith.ztproj
-./zt.exe build my_app/zenith.ztproj
-./zt.exe run my_app/zenith.ztproj
+./zt.exe create examples/hello --app
 ```
 
-Reference:
+Check a project:
 
-- https://github.com/raillen/zenithlang/blob/master/README.md
+```bash
+./zt.exe check examples/hello/zenith.ztproj --all
+```
+
+Run a project:
+
+```bash
+./zt.exe run examples/hello/zenith.ztproj
+```
+
+More detail:
+
+- Public docs: https://github.com/raillen/zenithlang/blob/master/docs/public/README.md
+- CLI reference: https://github.com/raillen/zenithlang/blob/master/docs/reference/cli/README.md
+- Language reference: https://github.com/raillen/zenithlang/blob/master/docs/reference/language/README.md

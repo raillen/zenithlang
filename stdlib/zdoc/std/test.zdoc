@@ -1,9 +1,10 @@
 --- @target: namespace
-# std.test — Helpers de Teste
+# std.test - Helpers de Teste
 
-Módulo complementar para testes.
-Testes são declarados com `attr test`. Asserções usam `check(...)`.
-`std.test` fornece `fail` e `skip` para casos que `check` não cobre.
+Modulo complementar para testes.
+Testes sao declarados com `attr test`.
+Use `check(...)` para condicoes simples.
+Use `std.test` quando quiser falhar, pular ou comparar valores com mensagem mais clara.
 ---
 
 --- @target: fail
@@ -12,9 +13,9 @@ public func fail(message: text = "test failed") -> void
 ```
 
 Marca o teste atual como falho imediatamente.
-Útil em branches de controle de fluxo (ex: `match` sobre `result`).
+Util em branches de controle de fluxo, por exemplo depois de um `match` sobre `result`.
 
-@param message — Mensagem de falha.
+@param message - Mensagem de falha.
 ---
 
 --- @target: skip
@@ -22,9 +23,62 @@ Marca o teste atual como falho imediatamente.
 public func skip(reason: text = "") -> void
 ```
 
-Marca o teste atual como pulado (skipped).
-Skip é um resultado distinto — não é passing nem failing.
-O runner deve exibir testes skipped separadamente.
+Marca o teste atual como pulado.
+Skip e um resultado distinto: nao e pass nem fail.
 
-@param reason — Motivo do skip.
+@param reason - Motivo do skip.
+---
+
+--- @target: is_true
+```zt
+public func is_true(value: bool) -> void
+```
+
+Falha se `value` for `false`.
+A mensagem mostra `expected true` e `received false`.
+---
+
+--- @target: is_false
+```zt
+public func is_false(value: bool) -> void
+```
+
+Falha se `value` for `true`.
+A mensagem mostra `expected false` e `received true`.
+---
+
+--- @target: equal_int
+```zt
+public func equal_int(actual: int, expected: int) -> void
+```
+
+Falha se `actual != expected`.
+A mensagem mostra esperado e recebido.
+---
+
+--- @target: equal_text
+```zt
+public func equal_text(actual: text, expected: text) -> void
+```
+
+Falha se `actual != expected`.
+A mensagem mostra esperado e recebido.
+---
+
+--- @target: not_equal_int
+```zt
+public func not_equal_int(actual: int, expected: int) -> void
+```
+
+Falha se `actual == expected`.
+A mensagem mostra que o valor deveria ser diferente.
+---
+
+--- @target: not_equal_text
+```zt
+public func not_equal_text(actual: text, expected: text) -> void
+```
+
+Falha se `actual == expected`.
+A mensagem mostra que o valor deveria ser diferente.
 ---

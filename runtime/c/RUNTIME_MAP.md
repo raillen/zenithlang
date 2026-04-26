@@ -73,7 +73,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 - `tests/behavior/where_contract_field_assign_error/src/app/main.zt`
 - `tests/behavior/where_contract_param_error/src/app/main.zt`
 - `tests/behavior/where_contract_param_where_invalid_error/src/app/main.zt`
-- `tests/behavior/where_contract_param_where_invalid_error/src/main.zt`
+- `tests/behavior/where_contract_param_where_invalid_error/src/app/main.zt`
 - `tests/behavior/where_contract_param_where_non_bool_error/src/app/main.zt`
 - `tests/behavior/where_contracts_ok/src/app/main.zt`
 - `tests/runtime/c/README.md`

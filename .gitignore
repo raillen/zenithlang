@@ -76,7 +76,7 @@ reports/perf/*.json
 reports/perf/*.md
 !reports/perf/.gitkeep
 reports/suites/
-docs/reports/release/artifacts/
+docs/internal/reports/release/artifacts/
 
 # Generated project build folders
 examples/*/.ztc-tmp/
@@ -86,8 +86,7 @@ tests/behavior/*/build/
 tests/perf/*/.ztc-tmp/
 tests/perf/*/build/
 tools/.ztc-tmp/
-tools/borealis-editor/.ztc-tmp/
-tools/borealis-editor/preview/build/
+tools/borealis-studio/.ztc-tmp/
 tools/borealis-studio/dist/
 tools/borealis-studio/node_modules/
 tools/borealis-studio/src-tauri/gen/

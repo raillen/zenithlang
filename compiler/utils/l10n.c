@@ -1,4 +1,5 @@
 ﻿#include "compiler/utils/l10n.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,11 +14,16 @@ int zt_l10n_is_explicitly_set(void) {
 }
 
 zt_lang zt_l10n_from_str(const char *str) {
+    char first;
+    char second;
     if (str == NULL) return ZT_LANG_UNSPECIFIED;
-    if (strcmp(str, "en") == 0) return ZT_LANG_EN;
-    if (strcmp(str, "pt") == 0 || strcmp(str, "pt_BR") == 0) return ZT_LANG_PT;
-    if (strcmp(str, "es") == 0) return ZT_LANG_ES;
-    if (strcmp(str, "ja") == 0 || strcmp(str, "jp") == 0) return ZT_LANG_JA;
+    while (*str != '\0' && isspace((unsigned char)*str)) str += 1;
+    first = (char)tolower((unsigned char)str[0]);
+    second = (char)tolower((unsigned char)str[1]);
+    if (first == 'e' && second == 'n') return ZT_LANG_EN;
+    if (first == 'p' && second == 't') return ZT_LANG_PT;
+    if (first == 'e' && second == 's') return ZT_LANG_ES;
+    if (first == 'j' && (second == 'a' || second == 'p')) return ZT_LANG_JA;
     return ZT_LANG_UNSPECIFIED;
 }
 
@@ -106,6 +112,10 @@ const char *zt_l10n_default_help(zt_diag_code code) {
             if (lang == ZT_LANG_ES) return "AÃ±ade las variantes que faltan o un caso 'default ->'.";
             if (lang == ZT_LANG_JA) return "ä¸è¶³ã—ã¦ã„ã‚‹ãƒãƒªã‚¢ãƒ³ãƒˆã‚’è¿½åŠ ã™ã‚‹ã‹ã€'default ->' ã‚±ãƒ¼ã‚¹ã‚’è¿½åŠ ã—ã¦ãã ã•ã„ã€‚";
             return "Add missing variants or a 'default ->' case.";
+        case ZT_DIAG_ENUM_DEFAULT_CASE:
+            if (lang == ZT_LANG_PT) return "Liste as variantes do enum de forma explicita.";
+            if (lang == ZT_LANG_ES) return "Lista las variantes del enum de forma explicita.";
+            return "List enum variants explicitly.";
         case ZT_DIAG_UNRESOLVED_NAME:
             if (lang == ZT_LANG_PT) return "Declare ou importe este nome antes de usÃ¡-lo.";
             if (lang == ZT_LANG_ES) return "Declara o importa este nombre antes de usarlo.";
@@ -116,6 +126,18 @@ const char *zt_l10n_default_help(zt_diag_code code) {
             if (lang == ZT_LANG_ES) return "Renombra identificadores que mezclan caracteres confundibles como l/I/1 u O/0.";
             if (lang == ZT_LANG_JA) return "l/I/1 や O/0 のような紛らわしい文字を混在させる名前は避けてください。";
             return "Rename identifiers that mix confusable characters like l/I/1 or O/0.";
+        case ZT_DIAG_SIMILAR_NAME:
+            if (lang == ZT_LANG_PT) return "Renomeie um dos nomes parecidos para facilitar a leitura.";
+            if (lang == ZT_LANG_ES) return "Renombra uno de los nombres parecidos para facilitar la lectura.";
+            return "Rename one similar name so the code is easier to scan.";
+        case ZT_DIAG_BLOCK_TOO_DEEP:
+            if (lang == ZT_LANG_PT) return "Divida a logica aninhada em passos menores.";
+            if (lang == ZT_LANG_ES) return "Divide la logica anidada en pasos mas pequenos.";
+            return "Split nested logic into smaller steps.";
+        case ZT_DIAG_FUNCTION_TOO_LONG:
+            if (lang == ZT_LANG_PT) return "Divida a funcao em funcoes auxiliares menores.";
+            if (lang == ZT_LANG_ES) return "Divide la funcion en funciones auxiliares mas pequenas.";
+            return "Split the function into smaller helper functions.";
         case ZT_DIAG_SYNTAX_ERROR:
             if (lang == ZT_LANG_PT) return "Revise a sintaxe prÃ³ximo ao erro.";
             if (lang == ZT_LANG_ES) return "Revisa la sintaxis cerca del error.";

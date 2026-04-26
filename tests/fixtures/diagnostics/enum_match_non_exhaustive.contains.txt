@@ -1,3 +1,4 @@
 error[control_flow.non_exhaustive_match]
-match on enum 'Shape' is not exhaustive
+match on enum 'Shape' is not exhaustive; missing case(s): Shape.Rectangle(...)
+add explicit cases for the missing variants or add 'case default' as the final case
 stage: type

@@ -1,4 +1,4 @@
-#include "compiler/driver/zpm.h"
+#include "compiler/driver/driver_internal.h"
 #include "compiler/project/lockfile.h"
 
 static void zt_zpm_print_help(FILE *out) {
@@ -88,6 +88,8 @@ static int zt_zpm_resolve_remote_version(zt_driver_context *ctx, const char *url
     int found = 0;
     int spawn_failed = 0;
 
+    (void)ctx;
+
     if (!zt_semver_range_parse(range_text, &range)) {
         /* If not a valid range, just return it as a literal ref (branch/tag) */
         zt_copy_text(out_version, out_cap, range_text);
@@ -148,11 +150,14 @@ static int zt_zpm_resolve_remote_version(zt_driver_context *ctx, const char *url
 }
 
 #define ZT_ZPM_REGISTRY_URL "https://raw.githubusercontent.com/zenith-lang/registry/main/index.ztproj"
+#define ZT_ZPM_BASE_PATH_CAP 1024
+#define ZT_ZPM_PATH_CAP 2048
+#define ZT_ZPM_LONG_PATH_CAP 4096
 
 static int zt_zpm_sync_registry(zt_driver_context *ctx) {
-    char cache_dir[512];
-    char cache_file[512];
-    char home[512];
+    char cache_dir[ZT_ZPM_PATH_CAP];
+    char cache_file[ZT_ZPM_LONG_PATH_CAP];
+    char home[ZT_ZPM_BASE_PATH_CAP];
     
     if (!zt_native_get_home_dir(home, sizeof(home))) {
         zt_copy_text(home, sizeof(home), ".");
@@ -178,8 +183,8 @@ static int zt_zpm_sync_registry(zt_driver_context *ctx) {
 
 static const char *zt_zpm_load_url_from_cache(const char *name) {
     static char url_buffer[512];
-    char cache_file[512];
-    char home[512];
+    char cache_file[ZT_ZPM_PATH_CAP];
+    char home[ZT_ZPM_BASE_PATH_CAP];
     char *content;
     const char *line;
 
@@ -231,6 +236,50 @@ static const char *zt_zpm_get_package_url(const char *name) {
 static int zt_zpm_resolve_project(zt_driver_context *ctx, const char *arg_path, char *root_out, size_t root_cap, char *manifest_out, size_t manifest_cap) {
     const char *effective_path = ctx->project_path ? ctx->project_path : arg_path;
     return zt_resolve_project_paths(effective_path, root_out, root_cap, manifest_out, manifest_cap);
+}
+
+static void zt_zpm_unquote_spec_value(const char *spec, char *out, size_t out_cap) {
+    size_t len;
+    size_t copy_len;
+
+    if (out == NULL || out_cap == 0) return;
+    out[0] = '\0';
+    if (spec == NULL) return;
+
+    len = strlen(spec);
+    if (len >= 2 && spec[0] == '"' && spec[len - 1] == '"') {
+        copy_len = len - 2;
+        if (copy_len >= out_cap) copy_len = out_cap - 1;
+        memcpy(out, spec + 1, copy_len);
+        out[copy_len] = '\0';
+        return;
+    }
+
+    zt_copy_text(out, out_cap, spec);
+}
+
+static void zt_zpm_lock_version_or_git(zt_driver_context *ctx, zt_lock_package *pkg, const char *known_url, const char *spec) {
+    char raw_version[64];
+    char resolved_version[64];
+
+    if (pkg == NULL) return;
+    zt_zpm_unquote_spec_value(spec, raw_version, sizeof(raw_version));
+
+    if (known_url != NULL && known_url[0] != '\0') {
+        pkg->source = ZT_LOCK_SOURCE_GIT;
+        zt_copy_text(pkg->git_url, sizeof(pkg->git_url), known_url);
+        if (raw_version[0] == '\0') {
+            zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), "main");
+        } else if (zt_zpm_resolve_remote_version(ctx, known_url, raw_version, resolved_version, sizeof(resolved_version))) {
+            zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), resolved_version);
+        } else {
+            zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), raw_version);
+        }
+        return;
+    }
+
+    pkg->source = ZT_LOCK_SOURCE_VERSION;
+    zt_copy_text(pkg->version, sizeof(pkg->version), raw_version);
 }
 
 int zt_handle_zpm(zt_driver_context *ctx, int argc, char **argv) {
@@ -388,8 +437,8 @@ int zt_handle_zpm_init(zt_driver_context *ctx, const char *path) {
 
 int zt_handle_zpm_add(zt_driver_context *ctx, const char *pkg_spec) {
     zt_project_parse_result project;
-    char project_root[512];
-    char manifest_path[512];
+    char project_root[ZT_ZPM_BASE_PATH_CAP];
+    char manifest_path[ZT_ZPM_BASE_PATH_CAP];
     char pkg_name[64];
     char pkg_version[64];
     const char *at;
@@ -408,8 +457,8 @@ int zt_handle_zpm_add(zt_driver_context *ctx, const char *pkg_spec) {
 
     /* If not found and not a URL, try syncing registry once */
     if (!url && !strstr(pkg_spec, "://") && !strstr(pkg_spec, "git@")) {
-        char home[512];
-        char cache_file[512];
+        char home[ZT_ZPM_BASE_PATH_CAP];
+        char cache_file[ZT_ZPM_PATH_CAP];
         if (!zt_native_get_home_dir(home, sizeof(home))) zt_copy_text(home, sizeof(home), ".");
         snprintf(cache_file, sizeof(cache_file), "%s/.zenith/registry.ztproj", home);
         
@@ -433,6 +482,8 @@ int zt_handle_zpm_add(zt_driver_context *ctx, const char *pkg_spec) {
         zt_copy_text(clean_name, sizeof(clean_name), name);
         char *dot_git = strstr(clean_name, ".git");
         if (dot_git) *dot_git = '\0';
+        zt_copy_text(pkg_name, sizeof(pkg_name), clean_name);
+        zt_copy_text(pkg_version, sizeof(pkg_version), "git:main");
         
         zt_copy_text(project.manifest.dependencies[project.manifest.dependency_count].name, 64, clean_name);
         snprintf(project.manifest.dependencies[project.manifest.dependency_count].spec, 256, "{ git = \"%s\", rev = \"main\" }", url);
@@ -492,9 +543,9 @@ write_back:
 
 int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
     zt_project_parse_result project;
-    char project_root[512];
-    char manifest_path[512];
-    char lock_path[512];
+    char project_root[ZT_ZPM_BASE_PATH_CAP];
+    char manifest_path[ZT_ZPM_BASE_PATH_CAP];
+    char lock_path[ZT_ZPM_PATH_CAP];
     zt_lockfile lock;
     size_t i;
 
@@ -522,43 +573,7 @@ int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
         const char *spec = project.manifest.dependencies[i].spec;
         const char *known_url = zt_zpm_get_package_url(project.manifest.dependencies[i].name);
 
-        if (spec[0] == '"') {
-            /* it's a version string usually */
-            if (known_url) {
-                pkg->source = ZT_LOCK_SOURCE_GIT;
-                zt_copy_text(pkg->git_url, sizeof(pkg->git_url), known_url);
-                
-                /* Try to resolve version spec using SemVer */
-                char resolved_v[64];
-                char raw_v[64];
-                size_t slen = strlen(spec);
-                if (slen > 2) {
-                    size_t scpy = slen - 2;
-                    if (scpy >= sizeof(raw_v)) scpy = sizeof(raw_v) - 1;
-                    memcpy(raw_v, spec + 1, scpy);
-                    raw_v[scpy] = '\0';
-
-                    if (zt_zpm_resolve_remote_version(ctx, known_url, raw_v, resolved_v, sizeof(resolved_v))) {
-                        zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), resolved_v);
-                    } else {
-                        /* Fallback to whatever was in the spec (main, master, version) */
-                        zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), raw_v);
-                    }
-                } else {
-                    zt_copy_text(pkg->git_rev, sizeof(pkg->git_rev), "main");
-                }
-            } else {
-                pkg->source = ZT_LOCK_SOURCE_VERSION;
-            }
-            /* strip quotes */
-            size_t len = strlen(spec);
-            if (len > 2) {
-                size_t cpy = len - 2;
-                if (cpy >= sizeof(pkg->version)) cpy = sizeof(pkg->version) - 1;
-                memcpy(pkg->version, spec + 1, cpy);
-                pkg->version[cpy] = '\0';
-            }
-        } else if (spec[0] == '{') {
+        if (spec[0] == '{') {
             /* inline table, check for 'path' or 'git' */
             if (strstr(spec, "path =")) {
                 pkg->source = ZT_LOCK_SOURCE_PATH;
@@ -603,6 +618,8 @@ int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
                     }
                 }
             }
+        } else {
+            zt_zpm_lock_version_or_git(ctx, pkg, known_url, spec);
         }
     }
 
@@ -616,9 +633,9 @@ int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
         zt_lock_package *pkg = &lock.packages[i];
         
         if (pkg->source == ZT_LOCK_SOURCE_GIT) {
-            char pkg_dir[512];
-            char git_dir[512];
-            char pkg_manifest[512];
+            char pkg_dir[ZT_ZPM_PATH_CAP];
+            char git_dir[ZT_ZPM_PATH_CAP];
+            char pkg_manifest[ZT_ZPM_LONG_PATH_CAP];
             snprintf(pkg_dir, sizeof(pkg_dir), "%s/.zenith/packages/%s", project_root, pkg->name);
             snprintf(git_dir, sizeof(git_dir), "%s/.zenith/packages/%s/.git", project_root, pkg->name);
             snprintf(pkg_manifest, sizeof(pkg_manifest), "%s/zenith.ztproj", pkg_dir);
@@ -646,7 +663,7 @@ int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
             if (zt_path_is_file(pkg_manifest) && zt_project_load_file(pkg_manifest, &sub_project)) {
                 size_t j;
                 for (j = 0; j < sub_project.manifest.dependency_count; j += 1) {
-                    zt_project_dependency *dep = &sub_project.manifest.dependencies[j];
+                    zt_project_dependency_entry *dep = &sub_project.manifest.dependencies[j];
                     /* Check if already in lockfile */
                     size_t k;
                     int kfound = 0;
@@ -664,25 +681,11 @@ int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path) {
                         const char *known = zt_zpm_get_package_url(dep->name);
                         const char *d_spec = dep->spec;
 
-                        if (d_spec[0] == '"') {
-                            if (known) {
-                                new_pkg->source = ZT_LOCK_SOURCE_GIT;
-                                zt_copy_text(new_pkg->git_url, sizeof(new_pkg->git_url), known);
-                                zt_copy_text(new_pkg->git_rev, sizeof(new_pkg->git_rev), "main");
-                            } else {
-                                new_pkg->source = ZT_LOCK_SOURCE_VERSION;
-                            }
-                            /* strip quotes */
-                            size_t dlen = strlen(d_spec);
-                            if (dlen > 2) {
-                                size_t dcpy = dlen - 2;
-                                if (dcpy >= sizeof(new_pkg->version)) dcpy = sizeof(new_pkg->version) - 1;
-                                memcpy(new_pkg->version, d_spec + 1, dcpy);
-                                new_pkg->version[dcpy] = '\0';
-                            }
-                        } else if (d_spec[0] == '{') {
+                        if (d_spec[0] == '{') {
                              /* Parse git/path as before... (omitted for brevity in this MVP step, 
                               * but in a real PM we'd extract the URL/rev/path here too) */
+                        } else {
+                            zt_zpm_lock_version_or_git(ctx, new_pkg, known, d_spec);
                         }
                     }
                 }
@@ -719,7 +722,7 @@ int zt_handle_zpm_remove(zt_driver_context *ctx, const char *pkg_name) {
         if (strcmp(project.manifest.dependencies[i].name, pkg_name) == 0) {
             /* Shift remaining dependencies */
             if (i + 1 < project.manifest.dependency_count) {
-                memmove(&project.manifest.dependencies[i], &project.manifest.dependencies[i+1], (project.manifest.dependency_count - i - 1) * sizeof(zt_project_dependency));
+                memmove(&project.manifest.dependencies[i], &project.manifest.dependencies[i+1], (project.manifest.dependency_count - i - 1) * sizeof(zt_project_dependency_entry));
             }
             project.manifest.dependency_count -= 1;
             found = 1;
@@ -774,7 +777,7 @@ int zt_handle_zpm_list(zt_driver_context *ctx, const char *project_path) {
         return 1;
     }
 
-    printf("dependencies for %s:\n", project.manifest.name);
+    printf("dependencies for %s:\n", project.manifest.project_name);
     if (project.manifest.dependency_count == 0) {
         printf("  (none)\n");
     } else {

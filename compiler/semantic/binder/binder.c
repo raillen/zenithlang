@@ -1,10 +1,15 @@
 ﻿#include "compiler/semantic/binder/binder.h"
 
 #include "compiler/semantic/parameter_validation.h"
+#include <ctype.h>
 #include <string.h>
+
+#define ZT_BIND_MAX_READABLE_BLOCK_DEPTH 6u
+#define ZT_BIND_MAX_READABLE_FUNCTION_STATEMENTS 80u
 
 typedef struct zt_binder {
     zt_bind_result *result;
+    size_t block_depth;
 } zt_binder;
 
 static size_t zt_scope_collect_names(const zt_scope *scope, const char **out, size_t capacity) {
@@ -81,6 +86,113 @@ static void zt_bind_warn_confusing_name(zt_binder *binder, const char *name, zt_
             name);
     }
 }
+
+static size_t zt_bind_normalize_name(const char *name, char *out, size_t capacity) {
+    size_t count = 0;
+    const unsigned char *cursor;
+
+    if (out == NULL || capacity == 0) return 0;
+    out[0] = '\0';
+    if (name == NULL) return 0;
+
+    for (cursor = (const unsigned char *)name; *cursor != '\0' && count + 1 < capacity; cursor += 1) {
+        if (*cursor == '_') continue;
+        out[count] = (char)tolower(*cursor);
+        count += 1;
+    }
+    out[count] = '\0';
+    return count;
+}
+
+static int zt_bind_is_prefix_pair(const char *left, const char *right) {
+    size_t left_len;
+    size_t right_len;
+
+    if (left == NULL || right == NULL) return 0;
+    left_len = strlen(left);
+    right_len = strlen(right);
+    if (left_len == 0 || right_len == 0 || left_len == right_len) return 0;
+
+    if (left_len < right_len) {
+        return strncmp(left, right, left_len) == 0;
+    }
+    return strncmp(left, right, right_len) == 0;
+}
+
+static int zt_bind_edit_distance_at_most_one(const char *left, const char *right) {
+    size_t left_len;
+    size_t right_len;
+    size_t i = 0;
+    size_t j = 0;
+    int edits = 0;
+
+    if (left == NULL || right == NULL) return 0;
+    left_len = strlen(left);
+    right_len = strlen(right);
+    if (left_len > right_len + 1 || right_len > left_len + 1) return 0;
+
+    while (i < left_len && j < right_len) {
+        if (left[i] == right[j]) {
+            i += 1;
+            j += 1;
+            continue;
+        }
+
+        edits += 1;
+        if (edits > 1) return 0;
+
+        if (left_len == right_len) {
+            i += 1;
+            j += 1;
+        } else if (left_len > right_len) {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+
+    if (i < left_len || j < right_len) edits += 1;
+    return edits <= 1;
+}
+
+static int zt_bind_names_are_too_similar(const char *left, const char *right) {
+    char left_norm[128];
+    char right_norm[128];
+    size_t left_len;
+    size_t right_len;
+
+    left_len = zt_bind_normalize_name(left, left_norm, sizeof(left_norm));
+    right_len = zt_bind_normalize_name(right, right_norm, sizeof(right_norm));
+    if (left_len < 6 || right_len < 6) return 0;
+    if (strcmp(left_norm, right_norm) == 0) return strcmp(left, right) != 0;
+    if (zt_bind_is_prefix_pair(left_norm, right_norm)) return 0;
+    return zt_bind_edit_distance_at_most_one(left_norm, right_norm);
+}
+
+static void zt_bind_warn_similar_name(zt_binder *binder, zt_scope *scope, const char *name, zt_source_span span, int is_implicit) {
+    size_t i;
+
+    if (binder == NULL || binder->result == NULL || scope == NULL || name == NULL || is_implicit) return;
+    if (strchr(name, '.') != NULL) return;
+
+    for (i = 0; i < scope->count; i += 1) {
+        const zt_symbol *existing = &scope->symbols[i];
+        if (existing->is_implicit || existing->name == NULL) continue;
+        if (strchr(existing->name, '.') != NULL) continue;
+        if (!zt_bind_names_are_too_similar(existing->name, name)) continue;
+
+        zt_diag_list_add_severity(
+            &binder->result->diagnostics,
+            ZT_DIAG_SIMILAR_NAME,
+            ZT_DIAG_SEVERITY_WARNING,
+            span,
+            "name '%s' is very similar to '%s' in the same scope",
+            name,
+            existing->name);
+        return;
+    }
+}
+
 static int zt_is_builtin_type_name(const char *name) {
     static const char *builtin_names[] = {
         "bool",
@@ -103,6 +215,7 @@ static int zt_is_builtin_type_name(const char *name) {
         "optional",
         "result",
         "dyn",
+        "lazy",
         NULL
     };
     size_t i;
@@ -117,7 +230,10 @@ static int zt_is_builtin_type_name(const char *name) {
 static int zt_is_intrinsic_name(const char *name) {
     return name != NULL &&
            (strcmp(name, "len") == 0 ||
+            strcmp(name, "to_text") == 0 ||
             strcmp(name, "check") == 0 ||
+            strcmp(name, "todo") == 0 ||
+            strcmp(name, "unreachable") == 0 ||
             strcmp(name, "panic") == 0);
 }
 
@@ -137,6 +253,8 @@ static void zt_bind_declare_name(zt_binder *binder, zt_scope *scope, zt_symbol_k
         zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_DUPLICATE_NAME, span, "duplicate name '%s'", name);
         return;
     }
+
+    zt_bind_warn_similar_name(binder, scope, name, span, is_implicit);
 
     if (zt_scope_lookup_parent_chain(scope, name) != NULL) {
         zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_SHADOWING, span, "name '%s' shadows an outer declaration", name);
@@ -531,11 +649,24 @@ static void zt_bind_block(zt_binder *binder, const zt_ast_node *block, zt_scope 
 
     if (block == NULL || block->kind != ZT_AST_BLOCK) return;
 
+    binder->block_depth += 1;
+    if (binder->block_depth == (size_t)ZT_BIND_MAX_READABLE_BLOCK_DEPTH + 1u) {
+        zt_diag_list_add_severity(
+            &binder->result->diagnostics,
+            ZT_DIAG_BLOCK_TOO_DEEP,
+            ZT_DIAG_SEVERITY_WARNING,
+            block->span,
+            "block nesting depth %zu is hard to scan; limit is %u",
+            binder->block_depth,
+            ZT_BIND_MAX_READABLE_BLOCK_DEPTH);
+    }
+
     zt_scope_init(&block_scope, parent_scope);
     for (i = 0; i < block->as.block.statements.count; i++) {
         zt_bind_statement(binder, block->as.block.statements.items[i], &block_scope);
     }
     zt_scope_dispose(&block_scope);
+    binder->block_depth -= 1;
 }
 
 static void zt_bind_type_param_defs(zt_binder *binder, const zt_ast_node_list *type_params, zt_scope *scope) {
@@ -575,6 +706,79 @@ static void zt_bind_where_clause(zt_binder *binder, const zt_ast_node *where_cla
     zt_scope_dispose(&where_scope);
 }
 
+static size_t zt_bind_statement_count(const zt_ast_node *node);
+
+static size_t zt_bind_block_statement_count(const zt_ast_node *block) {
+    size_t count = 0;
+    size_t i;
+
+    if (block == NULL) return 0;
+    if (block->kind != ZT_AST_BLOCK) return zt_bind_statement_count(block);
+
+    for (i = 0; i < block->as.block.statements.count; i += 1) {
+        count += zt_bind_statement_count(block->as.block.statements.items[i]);
+    }
+    return count;
+}
+
+static size_t zt_bind_statement_count(const zt_ast_node *node) {
+    size_t count = 1;
+    size_t i;
+
+    if (node == NULL) return 0;
+
+    switch (node->kind) {
+        case ZT_AST_BLOCK:
+            return zt_bind_block_statement_count(node);
+        case ZT_AST_IF_STMT:
+            count += zt_bind_block_statement_count(node->as.if_stmt.then_block);
+            if (node->as.if_stmt.else_block != NULL) {
+                count += node->as.if_stmt.else_block->kind == ZT_AST_IF_STMT
+                    ? zt_bind_statement_count(node->as.if_stmt.else_block)
+                    : zt_bind_block_statement_count(node->as.if_stmt.else_block);
+            }
+            return count;
+        case ZT_AST_WHILE_STMT:
+            return count + zt_bind_block_statement_count(node->as.while_stmt.body);
+        case ZT_AST_FOR_STMT:
+            return count + zt_bind_block_statement_count(node->as.for_stmt.body);
+        case ZT_AST_REPEAT_STMT:
+            return count + zt_bind_block_statement_count(node->as.repeat_stmt.body);
+        case ZT_AST_MATCH_STMT:
+            for (i = 0; i < node->as.match_stmt.cases.count; i += 1) {
+                const zt_ast_node *case_node = node->as.match_stmt.cases.items[i];
+                if (case_node != NULL && case_node->kind == ZT_AST_MATCH_CASE) {
+                    count += zt_bind_block_statement_count(case_node->as.match_case.body);
+                }
+            }
+            return count;
+        default:
+            return 1;
+    }
+}
+
+static void zt_bind_warn_function_too_long(zt_binder *binder, const zt_ast_node *decl) {
+    size_t statement_count;
+    const char *name;
+
+    if (binder == NULL || binder->result == NULL || decl == NULL || decl->kind != ZT_AST_FUNC_DECL) return;
+    if (decl->as.func_decl.body == NULL) return;
+
+    statement_count = zt_bind_block_statement_count(decl->as.func_decl.body);
+    if (statement_count <= ZT_BIND_MAX_READABLE_FUNCTION_STATEMENTS) return;
+
+    name = decl->as.func_decl.name != NULL ? decl->as.func_decl.name : "<anonymous>";
+    zt_diag_list_add_severity(
+        &binder->result->diagnostics,
+        ZT_DIAG_FUNCTION_TOO_LONG,
+        ZT_DIAG_SEVERITY_WARNING,
+        decl->span,
+        "function '%s' has %zu statements; limit is %u",
+        name,
+        statement_count,
+        ZT_BIND_MAX_READABLE_FUNCTION_STATEMENTS);
+}
+
 static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *module_scope) {
     zt_scope decl_scope;
     size_t i;
@@ -590,6 +794,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
             zt_bind_generic_constraints(binder, &decl->as.func_decl.constraints, &decl_scope);
             zt_bind_type_node(binder, decl->as.func_decl.return_type, &decl_scope);
             zt_bind_seed_module_value_aliases(module_scope, &decl_scope, decl->as.func_decl.name);
+            zt_bind_warn_function_too_long(binder, decl);
             zt_bind_block(binder, decl->as.func_decl.body, &decl_scope);
             zt_scope_dispose(&decl_scope);
             break;
@@ -670,6 +875,7 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 zt_validate_parameter_ordering(method->as.func_decl.params, &binder->result->diagnostics);
                 zt_bind_param_list(binder, &method->as.func_decl.params, &method_scope);
                 zt_bind_type_node(binder, method->as.func_decl.return_type, &method_scope);
+                zt_bind_warn_function_too_long(binder, method);
                 zt_bind_block(binder, method->as.func_decl.body, &method_scope);
                 zt_scope_dispose(&method_scope);
             }
@@ -751,6 +957,7 @@ zt_bind_result zt_bind_file(const zt_ast_node *root) {
     zt_scope_init(&result.module_scope, NULL);
     result.diagnostics = zt_diag_list_make();
     binder.result = &result;
+    binder.block_depth = 0;
 
     for (i = 0; core_traits[i] != NULL; i++) {
         zt_scope_declare(&result.module_scope, ZT_SYMBOL_CORE_TRAIT, core_traits[i], zt_source_span_unknown(), 1, NULL);

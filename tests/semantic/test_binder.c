@@ -265,6 +265,100 @@ static void test_confusing_name_warning(void) {
     zt_parser_result_dispose(&parsed);
 }
 
+static void test_similar_name_warning(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "func demo() -> int\n"
+        "    const customer_total: int = 1\n"
+        "    const customer_t0tal: int = 2\n"
+        "    return customer_total + customer_t0tal\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "similar_name_warning parse");
+
+    zt_bind_result bound = zt_bind_file(parsed.root);
+    ASSERT_EQ((int)bound.diagnostics.count, 1, "similar_name_warning diag count");
+    ASSERT_EQ(bound.diagnostics.items[0].code, ZT_DIAG_SIMILAR_NAME, "similar_name_warning code");
+    ASSERT_EQ(bound.diagnostics.items[0].severity, ZT_DIAG_SEVERITY_WARNING, "similar_name_warning severity");
+
+    zt_bind_result_dispose(&bound);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_block_too_deep_warning(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    const char *src =
+        "namespace app\n"
+        "func demo(flag: bool) -> int\n"
+        "    if flag\n"
+        "        if flag\n"
+        "            if flag\n"
+        "                if flag\n"
+        "                    if flag\n"
+        "                        if flag\n"
+        "                            return 1\n"
+        "                        end\n"
+        "                    end\n"
+        "                end\n"
+        "            end\n"
+        "        end\n"
+        "    end\n"
+        "    return 0\n"
+        "end";
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "block_too_deep_warning parse");
+
+    zt_bind_result bound = zt_bind_file(parsed.root);
+    ASSERT_EQ((int)bound.diagnostics.count, 1, "block_too_deep_warning diag count");
+    ASSERT_EQ(bound.diagnostics.items[0].code, ZT_DIAG_BLOCK_TOO_DEEP, "block_too_deep_warning code");
+    ASSERT_EQ(bound.diagnostics.items[0].severity, ZT_DIAG_SEVERITY_WARNING, "block_too_deep_warning severity");
+
+    zt_bind_result_dispose(&bound);
+    zt_parser_result_dispose(&parsed);
+}
+
+static void test_function_too_long_warning(void) {
+    zt_arena test_arena;
+    zt_string_pool test_pool;
+    char src[4096];
+    size_t i;
+
+    zt_arena_init(&test_arena, 65536);
+    zt_string_pool_init(&test_pool, &test_arena);
+
+    strcpy(src,
+        "namespace app\n"
+        "func demo() -> int\n");
+    for (i = 0; i < 81; i += 1) {
+        strcat(src, "    check(true)\n");
+    }
+    strcat(src,
+        "    return 0\n"
+        "end");
+
+    zt_parser_result parsed = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
+    ASSERT_NO_PARSE_ERRORS(parsed, "function_too_long_warning parse");
+
+    zt_bind_result bound = zt_bind_file(parsed.root);
+    ASSERT_EQ((int)bound.diagnostics.count, 1, "function_too_long_warning diag count");
+    ASSERT_EQ(bound.diagnostics.items[0].code, ZT_DIAG_FUNCTION_TOO_LONG, "function_too_long_warning code");
+    ASSERT_EQ(bound.diagnostics.items[0].severity, ZT_DIAG_SEVERITY_WARNING, "function_too_long_warning severity");
+
+    zt_bind_result_dispose(&bound);
+    zt_parser_result_dispose(&parsed);
+}
+
 int main(void) {
     test_simple_bind_ok();
     test_duplicate_top_level();
@@ -277,6 +371,9 @@ int main(void) {
     test_unresolved_qualified_type_prefix();
     test_match_payload_bindings_resolved();
     test_confusing_name_warning();
+    test_similar_name_warning();
+    test_block_too_deep_warning();
+    test_function_too_long_warning();
 
     printf("Binder tests: %d/%d passed\n", tests_passed, tests_run);
     return tests_passed == tests_run ? 0 : 1;

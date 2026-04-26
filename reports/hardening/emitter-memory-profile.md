@@ -1,6 +1,6 @@
 # Emitter Memory Profile
 
-Gerado em: `2026-04-23T16:07:33.696405+00:00`
+Gerado em: `2026-04-25T20:50:14.970229+00:00`
 
 Escopo:
 - mede o pico de working set do processo `zt.exe` no caminho `emit-c`;
@@ -12,11 +12,11 @@ Funcoes geradas: `7000`
 
 | Modo | Spill threshold | Saida | Tempo | Pico de memoria | SHA256 |
 |---|---:|---:|---:|---:|---|
-| `buffered` | `268435456` | `2075669` bytes | `2046` ms | `63.49` MiB | `861f5c6fe938e32d` |
-| `streamed` | `512` | `2075669` bytes | `2296` ms | `63.34` MiB | `861f5c6fe938e32d` |
+| `buffered` | `268435456` | `2852832` bytes | `1391` ms | `68.34` MiB | `be90c9ae84e01b41` |
+| `streamed` | `512` | `2852832` bytes | `1375` ms | `68.31` MiB | `be90c9ae84e01b41` |
 
-Delta de pico (`streamed - buffered`): `-0.15` MiB
-Delta de tempo (`streamed - buffered`): `250` ms
+Delta de pico (`streamed - buffered`): `-0.03` MiB
+Delta de tempo (`streamed - buffered`): `-16` ms
 
 Leitura:
 - este teste nao falha por um threshold arbitrario de memoria;

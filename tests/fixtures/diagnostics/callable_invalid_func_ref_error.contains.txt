@@ -1,2 +1,3 @@
 [callable.invalid_func_ref]
-generic function 'identity' cannot be used as a callable value
+generic function 'identity' cannot be used as a callable value; expected func(int) -> int
+Create a non-generic top-level wrapper with this exact signature

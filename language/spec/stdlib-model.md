@@ -21,6 +21,8 @@ The current MVP stdlib module set is:
 - `std.json`
 - `std.math`
 - `std.text`
+- `std.list`
+- `std.map`
 - `std.random`
 - `std.validate`
 - `std.time`
@@ -125,6 +127,21 @@ Current first-slice adoption:
   - `draw_count`
   - `stats()`
 
+## Test Helper Policy
+
+`std.test` is a small helper module for tests.
+
+It complements `attr test` and core `check(...)`.
+It must not replace test discovery.
+
+Public helper categories:
+
+- explicit outcomes: `fail(...)`, `skip(...)`
+- bool checks: `is_true(...)`, `is_false(...)`
+- simple comparisons: `equal_int(...)`, `equal_text(...)`, `not_equal_int(...)`, `not_equal_text(...)`
+
+Comparison failures should include expected and received values when that helps the user fix the test.
+
 ## Safe Collections API
 
 Direct access remains strict:
@@ -138,11 +155,19 @@ If the key is missing, this is a runtime map-key panic.
 Safe access must exist early:
 
 ```zt
-const maybe_score: optional<int> = scores.get("Julia")
+const score_key: text = "Julia"
+const maybe_score: optional<int> = scores.get(score_key)
 const maybe_item: optional<int> = values.get(3)
+const has_julia: bool = map.has_key(scores, score_key)
 ```
 
-The exact namespace may be finalized during stdlib implementation, but the semantic rule is fixed: expected absence must not require panic.
+`std.list` and `std.map` also expose small compiler-known helpers:
+
+- `list.is_empty(items)`
+- `map.is_empty(values)`
+- `map.has_key(values, key)`
+
+The semantic rule is fixed: expected absence checks must not require panic.
 
 ## Higher-Order Collection Helpers
 

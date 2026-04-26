@@ -1,7 +1,7 @@
 # Zenith Surface Implementation Status
 
 - Status: current compiler cut snapshot
-- Date: 2026-04-24
+- Date: 2026-04-26
 - Labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`, `Executable`, `Conformant`, `Deferred`, `Risk`, `Rejected`
 
 ## Language Surface
@@ -12,10 +12,10 @@
 | Functions/control flow (`if/while/for/repeat/match`) | `Conformant` | covered in `control_flow_*` |
 | Structs/traits/apply/methods | `Conformant` | covered in `structs_*` and `methods_*` |
 | Collections (`list`, `map`, index/slice/len/get`) | `Conformant` | covered in `list_*` and `map_*` |
-| `optional<T>` / `result<T,E>` | `Conformant` | includes `optional_match_value` and `result_question_basic` |
+| `optional<T>` / `result<T,E>` | `Conformant` | includes `optional_match_value`, `result_question_basic`, `optional_result_helpers_pass` and `optional_result_helpers_absence_error` |
 | `?` propagation (`result` + `optional`) | `Conformant` | covered in `result_question_basic` and `optional_question_basic` |
 | `fmt "..."` interpolation | `Conformant` | covered in `fmt_interpolation_basic` + type error case |
-| `panic(...)` and `check(...)` | `Conformant` | covered in `panic_*` and `check_intrinsic_*` |
+| `panic(...)`, `todo(...)`, `unreachable(...)` and `check(...)` | `Conformant` | covered in `panic_*`, `todo_builtin_fail`, `unreachable_builtin_fail` and `check_intrinsic_*` |
 | `core.Error(...)` qualified | `Conformant` | covered in `core_error_construction` |
 | Unsigned aliases (`u8/u16/u32/u64`) | `Conformant` | covered in `u_alias_basic` |
 | Namespace `public var` (read public, write owner namespace) | `Conformant` | covered in `public_var_module`, `public_var_module_state`, `public_var_cross_namespace_write_error` |

@@ -486,6 +486,8 @@ struct zt_net_connection {
 typedef enum zt_error_kind {
     ZT_ERR_ASSERT,
     ZT_ERR_CHECK,
+    ZT_ERR_TODO,
+    ZT_ERR_UNREACHABLE,
     ZT_ERR_INDEX,
     ZT_ERR_UNWRAP,
     ZT_ERR_PANIC,
@@ -562,6 +564,8 @@ ZT_NORETURN void zt_runtime_error_ex(zt_error_kind kind, const char *message, co
 ZT_NORETURN void zt_runtime_error_with_span(zt_error_kind kind, const char *message, zt_runtime_span span);
 void zt_assert(zt_bool condition, const char *message);
 void zt_check(zt_bool condition, const char *message);
+ZT_NORETURN void zt_todo(const char *message);
+ZT_NORETURN void zt_unreachable(const char *message);
 ZT_NORETURN void zt_panic(const char *message);
 ZT_NORETURN void zt_test_fail(zt_text *message);
 ZT_NORETURN void zt_test_skip(zt_text *reason);
@@ -687,6 +691,7 @@ void zt_map_text_text_set(zt_map_text_text *map, zt_text *key, zt_text *value);
 zt_map_text_text *zt_map_text_text_set_owned(zt_map_text_text *map, zt_text *key, zt_text *value);
 zt_text *zt_map_text_text_get(const zt_map_text_text *map, const zt_text *key);
 zt_optional_text zt_map_text_text_get_optional(const zt_map_text_text *map, const zt_text *key);
+zt_bool zt_map_text_text_contains(const zt_map_text_text *map, const zt_text *key);
 zt_text *zt_map_text_text_key_at(const zt_map_text_text *map, zt_int index_0);
 zt_text *zt_map_text_text_value_at(const zt_map_text_text *map, zt_int index_0);
 zt_int zt_map_text_text_len(const zt_map_text_text *map);

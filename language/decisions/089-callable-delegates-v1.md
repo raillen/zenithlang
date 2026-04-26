@@ -187,4 +187,4 @@ pointer type in emitted C).
 - `language/decisions/087-concurrency-workers-and-transfer-boundaries.md`
   (Phase 3 consumer)
 - `language/spec/callables.md` (authoritative surface + phases)
-- `docs/planning/checklist-v3.md` (`R3.M5`)
+- `docs/internal/planning/checklist-v3.md` (`R3.M5`)

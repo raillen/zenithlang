@@ -206,6 +206,29 @@ int zt_get_current_dir(char *dest, size_t capacity) {
     return 1;
 }
 
+int zt_native_get_home_dir(char *dest, size_t capacity) {
+    const char *home = NULL;
+
+    if (dest == NULL || capacity == 0) return 0;
+
+#ifdef _WIN32
+    home = getenv("USERPROFILE");
+    if (home == NULL || home[0] == '\0') {
+        const char *drive = getenv("HOMEDRIVE");
+        const char *path = getenv("HOMEPATH");
+        if (drive != NULL && path != NULL && drive[0] != '\0' && path[0] != '\0') {
+            if (snprintf(dest, capacity, "%s%s", drive, path) >= (int)capacity) return 0;
+            return 1;
+        }
+    }
+#else
+    home = getenv("HOME");
+#endif
+
+    if (home == NULL || home[0] == '\0') return 0;
+    return zt_copy_text(dest, capacity, home);
+}
+
 /*
  * Upper bound on how many parent-directory steps the manifest search
  * will climb before giving up. Picked deliberately high so that any

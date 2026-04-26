@@ -85,6 +85,17 @@ The compiler:
 | No `apply` found for concrete type | `dyn.no_apply` |
 | `dyn<T>` in `extern c` signature | `dyn.ffi_unsafe` |
 
+Diagnostics for dyn-safety failures should explain the failing trait rule and,
+when static dispatch is enough, suggest a generic parameter with a `where`
+constraint instead of `dyn<Trait>`.
+
+Example shape:
+
+```zt
+func render_one<T>(item: T) -> text
+where T is Drawable
+```
+
 ## Copyable Types
 
 A type is copyable for dyn purposes if it is:

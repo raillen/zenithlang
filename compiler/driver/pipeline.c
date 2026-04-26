@@ -15,6 +15,25 @@
 static void zt_runtime_root(char *buffer, size_t capacity);
 static int zt_home_has_stdlib(const char *home_root);
 
+static int zt_diagnostics_profile_is_strict(const zt_project_manifest *manifest) {
+    return manifest != NULL && strcmp(manifest->diag_profile, "strict") == 0;
+}
+
+static int zt_handle_stage_diagnostics(
+        zt_driver_context *ctx,
+        const zt_project_manifest *manifest,
+        const char *stage,
+        zt_diag_list *diagnostics) {
+    if (diagnostics == NULL || diagnostics->count == 0) return 1;
+
+    if (zt_diagnostics_profile_is_strict(manifest)) {
+        zt_diag_list_promote_warnings(diagnostics);
+    }
+
+    zt_print_diagnostics(ctx, stage, diagnostics);
+    return !zt_diag_list_has_errors(diagnostics);
+}
+
 /*  String set (local utility for generic instance tracking)  */
 
 typedef struct zt_string_set {
@@ -96,6 +115,12 @@ static int zt_native_token_text_equals(zt_token token, const char *text) {
     return token.length == text_len && strncmp(token.text, text, text_len) == 0;
 }
 
+static int zt_native_token_is_import_part(zt_token token) {
+    return token.kind == ZT_TOKEN_IDENTIFIER ||
+           token.kind == ZT_TOKEN_LIST ||
+           token.kind == ZT_TOKEN_MAP;
+}
+
 static zt_token zt_native_next_non_comment_token(zt_lexer *lexer) {
     zt_token token;
 
@@ -156,7 +181,7 @@ static int zt_native_collect_std_imports_from_source(
                 }
 
                 part = zt_native_next_non_comment_token(lexer);
-                if (part.kind != ZT_TOKEN_IDENTIFIER ||
+                if (!zt_native_token_is_import_part(part) ||
                     import_len + part.length + 2 > sizeof(import_buf)) {
                     pending = part;
                     has_pending = 1;
@@ -728,29 +753,25 @@ int zt_compile_project(
 
     bound = zt_bind_file(program_root);
     bound_ready = 1;
-    if (bound.diagnostics.count != 0) {
-        zt_print_diagnostics(ctx, "binding", &bound.diagnostics);
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "binding", &bound.diagnostics)) {
         goto fail;
     }
 
     checked = zt_check_file(program_root);
     checked_ready = 1;
-    if (checked.diagnostics.count != 0) {
-        zt_print_diagnostics(ctx, "type", &checked.diagnostics);
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "type", &checked.diagnostics)) {
         goto fail;
     }
 
     hir = zt_lower_ast_to_hir(program_root);
     hir_ready = 1;
-    if (hir.diagnostics.count != 0 || hir.module == NULL) {
-        zt_print_diagnostics(ctx, "hir", &hir.diagnostics);
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "hir", &hir.diagnostics) || hir.module == NULL) {
         goto fail;
     }
 
     zir = zir_lower_hir_to_zir(hir.module);
     zir_ready = 1;
-    if (zir.diagnostics.count != 0) {
-        zt_print_diagnostics(ctx, "zir", &zir.diagnostics);
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "zir", &zir.diagnostics)) {
         goto fail;
     }
 

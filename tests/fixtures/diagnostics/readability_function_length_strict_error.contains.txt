@@ -1,0 +1,2 @@
+error[style.function_too_long]
+function 'main' has 82 statements; limit is 80

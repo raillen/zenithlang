@@ -1,12 +1,40 @@
 # Zenith Diagnostic Code Catalog
 
 - Status: canonical catalog for current alpha implementation
-- Date: 2026-04-23
+- Date: 2026-04-26
 - Source of truth: compiler diagnostics come from `compiler/semantic/diagnostics/diagnostics.h` and `compiler/semantic/diagnostics/diagnostics.c`; runtime codes come from `runtime/c/zenith_rt.h` and `runtime/c/zenith_rt.c`
 
 ## Purpose
 
 Define stable diagnostic codes rendered by the detailed terminal diagnostics format.
+
+## `zt explain` Format
+
+`zt explain <code>` prints offline help for one stable diagnostic code.
+
+Output sections:
+
+- `code`: stable diagnostic code.
+- `meaning`: short explanation.
+- `invalid`: small invalid example.
+- `fixed`: small corrected example.
+- `next`: next action for the user.
+- `doc`: local documentation path when one exists.
+
+Unknown codes return non-zero and print known examples plus the local catalog path.
+
+Initial implemented catalog:
+
+- `type.mismatch`
+- `name.unresolved`
+- `name.duplicate`
+- `name.shadowing`
+- `type.invalid_call`
+- `syntax.unexpected_token`
+- `project.unknown_key`
+- `control_flow.enum_default_case`
+- `runtime.index`
+- `doc.unresolved_target`
 
 ## Project/Manifest Codes
 
@@ -53,6 +81,10 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_DUPLICATE_NAME` | `name.duplicate` | Rename one declaration |
 | `ZT_DIAG_SHADOWING` | `name.shadowing` | Avoid hiding outer names |
 | `ZT_DIAG_UNRESOLVED_NAME` | `name.unresolved` | Declare/import before use |
+| `ZT_DIAG_CONFUSING_NAME` | `name.confusing` | Rename visually confusing identifiers |
+| `ZT_DIAG_SIMILAR_NAME` | `name.similar` | Rename very similar local names in the same scope |
+| `ZT_DIAG_BLOCK_TOO_DEEP` | `style.block_too_deep` | Split nested logic into smaller steps |
+| `ZT_DIAG_FUNCTION_TOO_LONG` | `style.function_too_long` | Split long functions into smaller helpers |
 | `ZT_DIAG_INVALID_CONSTRAINT_TARGET` | `generic.constraint_target` | Constrain only generic parameters |
 | `ZT_DIAG_INVALID_TYPE` | `type.invalid` | Check type name and generic arguments |
 | `ZT_DIAG_TYPE_MISMATCH` | `type.mismatch` | Convert value or change expected type |
@@ -60,9 +92,21 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_CONST_REASSIGNMENT` | `mutability.const_update` | Use `var` when reassignment is required |
 | `ZT_DIAG_INVALID_RETURN` | `control_flow.invalid_return` | Match function return contract |
 | `ZT_DIAG_INVALID_CONDITION_TYPE` | `control_flow.invalid_condition` | Conditions must be `bool` |
+| `ZT_DIAG_NON_EXHAUSTIVE_MATCH` | `control_flow.non_exhaustive_match` | Add the listed missing enum cases |
 | `ZT_DIAG_INVALID_CALL` | `type.invalid_call` | Call function values with valid arity |
-| `ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH` | `callable.signature_mismatch` | Match callable parameter and return types |
+| `ZT_DIAG_CALLABLE_SIGNATURE_MISMATCH` | `callable.signature_mismatch` | Compare expected and received callable signatures |
+| `ZT_DIAG_CALLABLE_INVALID_FUNC_REF` | `callable.invalid_func_ref` | Use a non-generic top-level wrapper with the expected signature |
+| `ZT_DIAG_CALLABLE_ESCAPE_PUBLIC_VAR` | `callable.escape_public_var` | Keep callable values in local bindings or parameters |
+| `ZT_DIAG_CALLABLE_ESCAPE_STRUCT_FIELD` | `callable.escape_struct_field` | Do not store callable values as struct fields in v1 |
+| `ZT_DIAG_CALLABLE_ESCAPE_CONTAINER` | `callable.escape_container` | Do not store callable values in containers in v1 |
+| `ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE` | `callable.extern_c_signature` | Keep extern C callable shapes boundary-safe |
 | `ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED` | `callable.extern_c_closure_unsupported` | Do not pass capturing closures through raw C function pointers |
+| `ZT_DIAG_DYN_MUT_METHOD` | `dyn.mut_method` | Use generics/where or remove mut from the dyn trait |
+| `ZT_DIAG_DYN_GENERIC_TRAIT` | `dyn.generic_trait` | Use generics/where instead of dyn for generic traits |
+| `ZT_DIAG_DYN_TOO_MANY_METHODS` | `dyn.too_many_methods` | Split the trait or use generics/where |
+| `ZT_DIAG_DYN_UNCOPYABLE` | `dyn.uncopyable` | Use copyable method types or keep the concrete type through generics |
+| `ZT_DIAG_DYN_NO_APPLY` | `dyn.no_apply` | Add an `apply Trait to Type` block |
+| `ZT_DIAG_DYN_FFI_UNSAFE` | `dyn.ffi_unsafe` | Do not cross extern C with dyn values |
 | `ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED` | `closure.mut_capture_unsupported` | Do not assign to captured outer variables in closures v1 |
 | `ZT_DIAG_INVALID_ARGUMENT` | `type.invalid_argument` | Check argument names/order/arity |
 | `ZT_DIAG_INVALID_OPERATOR` | `type.invalid_operator` | Use operator-compatible operands |
@@ -70,6 +114,7 @@ Define stable diagnostic codes rendered by the detailed terminal diagnostics for
 | `ZT_DIAG_INVALID_MUTATION` | `mutability.invalid_update` | Mutate only mutable targets/receivers or owner-namespace `public var` |
 | `ZT_DIAG_INVALID_CONVERSION` | `type.invalid_conversion` | Use supported explicit conversion |
 | `ZT_DIAG_INTEGER_OVERFLOW` | `type.integer_overflow` | Use wider type or smaller range |
+| `ZT_DIAG_ENUM_DEFAULT_CASE` | `control_flow.enum_default_case` | Prefer explicit variants for known enum matches |
 
 ## ZIR/Backend Codes
 
@@ -107,6 +152,8 @@ Runtime errors emit the same detailed shape (`error[...]`, `where`, `code`, `hel
 | `ZT_ERR_MATH` | `runtime.math` |
 | `ZT_ERR_PANIC` | `runtime.panic` |
 | `ZT_ERR_PLATFORM` | `runtime.platform` |
+| `ZT_ERR_TODO` | `runtime.todo` |
+| `ZT_ERR_UNREACHABLE` | `runtime.unreachable` |
 | `ZT_ERR_UNWRAP` | `runtime.unwrap` |
 
 Historical note:

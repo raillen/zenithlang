@@ -48,7 +48,7 @@ Formatador de código Zenith. Responsável por:
 
 - Priority: Low
 - Source files: 2
-- Extracted symbols: 13
+- Extracted symbols: 29
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -56,7 +56,7 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | File | Lines | Symbols | Local deps |
 | --- | ---: | ---: | ---: |
-| `compiler/tooling/formatter.c` | 589 | 12 | 1 |
+| `compiler/tooling/formatter.c` | 888 | 28 | 1 |
 | `compiler/tooling/formatter.h` | 17 | 1 | 1 |
 
 ### Local Dependencies
@@ -68,7 +68,26 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 - `tests/formatter/cases/case_all/expected/src/app/main.zt`
 - `tests/formatter/cases/case_all/input/src/app/main.zt`
+- `tests/formatter/cases/case_comments/expected/src/app/main.zt`
+- `tests/formatter/cases/case_comments/input/src/app/main.zt`
+- `tests/formatter/cases/case_generics/expected/src/app/main.zt`
+- `tests/formatter/cases/case_generics/input/src/app/main.zt`
+- `tests/formatter/cases/case_imports/expected/src/app/main.zt`
+- `tests/formatter/cases/case_imports/input/src/app/main.zt`
+- `tests/formatter/cases/case_manifest/expected/src/app/main.zt`
+- `tests/formatter/cases/case_manifest/input/src/app/main.zt`
+- `tests/formatter/cases/case_match/expected/src/app/main.zt`
+- `tests/formatter/cases/case_match/input/src/app/main.zt`
+- `tests/formatter/cases/case_reading_first/expected/src/app/main.zt`
+- `tests/formatter/cases/case_reading_first/input/src/app/main.zt`
+- `tests/formatter/cases/case_structs/expected/src/app/main.zt`
+- `tests/formatter/cases/case_structs/input/src/app/main.zt`
+- `tests/formatter/cases/case_trailing_commas/expected/src/app/main.zt`
+- `tests/formatter/cases/case_trailing_commas/input/src/app/main.zt`
+- `tests/formatter/cases/case_triple_quoted/expected/src/app/main.zt`
+- `tests/formatter/cases/case_triple_quoted/input/src/app/main.zt`
 - `tests/formatter/run_formatter_golden.py`
+- `tests/formatter/run_formatter_idempotence.py`
 
 ### Symbol Index
 
@@ -78,16 +97,32 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | ---: | --- | --- |
 | 7 | `struct` | `sb_t` |
 | 14 | `func_def` | `sb_init` |
-| 22 | `func_def` | `sb_free` |
-| 26 | `func_def` | `sb_append_len` |
-| 41 | `func_def` | `sb_append` |
-| 45 | `func_def` | `sb_indent` |
-| 51 | `func_decl` | `format_node` |
-| 53 | `func_def` | `format_comments` |
-| 62 | `func_def` | `op_to_str` |
-| 83 | `func_def` | `format_node_list_comma` |
-| 90 | `func_def` | `format_node` |
-| 583 | `func_def` | `zt_format_node_to_string` |
+| 22 | `func_def` | `sb_append_len` |
+| 37 | `func_def` | `sb_append` |
+| 41 | `func_def` | `sb_append_string_value` |
+| 68 | `func_def` | `sb_append_fmt_literal_value` |
+| 88 | `func_def` | `sb_indent` |
+| 94 | `func_decl` | `format_node` |
+| 96 | `macro` | `ZT_FORMATTER_TARGET_WIDTH` |
+| 98 | `func_def` | `format_comments` |
+| 107 | `func_def` | `op_to_str` |
+| 128 | `func_def` | `format_node_list_comma` |
+| 135 | `func_def` | `format_node_list_separator` |
+| 142 | `func_def` | `format_node_list_and` |
+| 146 | `func_def` | `format_node_to_owned_text` |
+| 153 | `func_def` | `formatted_node_length` |
+| 160 | `func_def` | `formatted_node_list_length` |
+| 170 | `func_def` | `formatted_type_params_length` |
+| 175 | `func_def` | `formatted_func_decl_signature_length` |
+| 196 | `func_def` | `formatted_trait_method_signature_length` |
+| 211 | `func_def` | `param_where_count` |
+| 224 | `func_def` | `param_default_count` |
+| 237 | `func_def` | `should_format_param_list_multiline` |
+| 254 | `func_def` | `format_param_list_multiline` |
+| 268 | `func_def` | `format_func_decl_signature` |
+| 311 | `func_def` | `format_trait_method_signature` |
+| 331 | `func_def` | `format_node` |
+| 882 | `func_def` | `zt_format_node_to_string` |
 
 #### `compiler/tooling/formatter.h`
 

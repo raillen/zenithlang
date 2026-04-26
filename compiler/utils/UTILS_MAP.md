@@ -67,7 +67,7 @@ Utilitários fundamentais. Responsável por:
 
 - Priority: Low
 - Source files: 7
-- Extracted symbols: 36
+- Extracted symbols: 35
 
 Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
@@ -77,15 +77,15 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | --- | ---: | ---: | ---: |
 | `compiler/utils/arena.c` | 85 | 5 | 1 |
 | `compiler/utils/arena.h` | 58 | 1 | 0 |
-| `compiler/utils/diagnostics.h` | 154 | 1 | 1 |
-| `compiler/utils/l10n.c` | 133 | 10 | 0 |
+| `compiler/utils/diagnostics.h` | 17 | 0 | 1 |
+| `compiler/utils/l10n.c` | 155 | 10 | 0 |
 | `compiler/utils/l10n.h` | 26 | 12 | 1 |
 | `compiler/utils/string_pool.c` | 99 | 6 | 1 |
 | `compiler/utils/string_pool.h` | 54 | 1 | 1 |
 
 ### Local Dependencies
 
-- `compiler/frontend/lexer/token.h`
+- `compiler/semantic/diagnostics/diagnostics.h`
 - `compiler/utils/arena.h`
 - `compiler/utils/diagnostics.h`
 - `compiler/utils/string_pool.h`
@@ -95,30 +95,40 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 - `tests/frontend/README.md`
 - `tests/frontend/test_lexer.c`
 - `tests/frontend/test_parser.c`
+- `tests/frontend/test_parser_depth_guard.c`
 - `tests/frontend/test_parser_error_recovery.c`
 - `tests/semantic/README.md`
 - `tests/semantic/mini_destruct.zt`
 - `tests/semantic/mini_test.zt`
+- `tests/semantic/r2m3_optional_result_tests.zt`
+- `tests/semantic/run_r2m3_tests.ps1`
 - `tests/semantic/test_alias_unions.zt`
 - `tests/semantic/test_async_full.zt`
 - `tests/semantic/test_async_v1.zt`
 - `tests/semantic/test_binder.c`
+- `tests/semantic/test_catalog_lookup_scale.c`
 - `tests/semantic/test_constraints.c`
+- `tests/semantic/test_conversion_overflow_properties.c`
 - `tests/semantic/test_enums_sum_types.zt`
 - `tests/semantic/test_errors_lambdas.zt`
 - `tests/semantic/test_fase1.zt`
 - `tests/semantic/test_fase11_indexing.zt`
 - `tests/semantic/test_generics_hardening.zt`
+- `tests/semantic/test_high_arity_calls.c`
 - `tests/semantic/test_hir_lowering.c`
 - `tests/semantic/test_match_hardening.zt`
+- `tests/semantic/test_numeric_literal_guardrails.c`
+- `tests/semantic/test_optional_result_properties.c`
 - `tests/semantic/test_simple.zt`
 - `tests/semantic/test_stabilization_final.zt`
 - `tests/semantic/test_try_operator.zt`
 - `tests/semantic/test_types.c`
 - `tests/semantic/test_ufcs_hardening.zt`
+- `tests/semantic/test_where_contract_properties.c`
 - `tests/zir/README.md`
 - `tests/zir/test_enum_lowering.c`
 - `tests/zir/test_lowering.c`
+- `tests/zir/test_lowering_depth_guard.c`
 - `tests/zir/test_printer.c`
 - `tests/zir/test_verifier.c`
 
@@ -144,22 +154,22 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 2 | `macro` | `ZENITH_NEXT_COMPILER_SEMANTIC_DIAGNOSTICS_H` |
+| - | - | No symbols extracted |
 
 #### `compiler/utils/l10n.c`
 
 | Line | Kind | Symbol |
 | ---: | --- | --- |
-| 7 | `func_def` | `zt_l10n_set_lang` |
-| 11 | `func_def` | `zt_l10n_is_explicitly_set` |
-| 15 | `func_def` | `zt_l10n_from_str` |
-| 24 | `func_def` | `zt_l10n_current_lang` |
-| 37 | `func_def` | `zt_l10n_label_where` |
-| 45 | `func_def` | `zt_l10n_label_code` |
-| 53 | `func_def` | `zt_l10n_label_note` |
-| 61 | `func_def` | `zt_l10n_label_help` |
-| 69 | `func_def` | `zt_l10n_severity_name` |
-| 96 | `func_def` | `zt_l10n_default_help` |
+| 8 | `func_def` | `zt_l10n_set_lang` |
+| 12 | `func_def` | `zt_l10n_is_explicitly_set` |
+| 16 | `func_def` | `zt_l10n_from_str` |
+| 30 | `func_def` | `zt_l10n_current_lang` |
+| 43 | `func_def` | `zt_l10n_label_where` |
+| 51 | `func_def` | `zt_l10n_label_code` |
+| 59 | `func_def` | `zt_l10n_label_note` |
+| 67 | `func_def` | `zt_l10n_label_help` |
+| 75 | `func_def` | `zt_l10n_severity_name` |
+| 102 | `func_def` | `zt_l10n_default_help` |
 
 #### `compiler/utils/l10n.h`
 
