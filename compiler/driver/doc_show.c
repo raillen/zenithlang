@@ -285,10 +285,14 @@ static int doc_find_zdoc_path(
 {
     char locale_dir[64];
     char locale_base[64];
-    char zdoc_file[256];
+    char zdoc_file[512];
     char candidate[768];
+    int written;
 
-    snprintf(zdoc_file, sizeof(zdoc_file), "%s.zdoc", ns_path);
+    written = snprintf(zdoc_file, sizeof(zdoc_file), "%s.zdoc", ns_path);
+    if (written < 0 || (size_t)written >= sizeof(zdoc_file)) {
+        return 0;
+    }
 
     if (lang_override != NULL && lang_override[0] != '\0') {
         doc_locale_dir(lang_override, locale_dir, sizeof(locale_dir));

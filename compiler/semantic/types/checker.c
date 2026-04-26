@@ -2684,10 +2684,10 @@ static zt_expr_info zt_checker_check_call_expr(zt_checker *checker, const zt_ast
             }
             /* Generic catalog lookup for module-prefixed functions (e.g. io.print_line) */
             {
-                char combined_name[512];
+                char generic_combined_name[512];
                 const zt_ast_node *func_decl;
-                snprintf(combined_name, sizeof(combined_name), "%s.%s", alias, member);
-                func_decl = zt_catalog_find_decl(&checker->catalog, combined_name);
+                snprintf(generic_combined_name, sizeof(generic_combined_name), "%s.%s", alias, member);
+                func_decl = zt_catalog_find_decl(&checker->catalog, generic_combined_name);
                 if (func_decl != NULL && func_decl->kind == ZT_AST_FUNC_DECL) {
                     zt_type_dispose(result.type);
                     result.type = zt_checker_resolve_type(checker, func_decl->as.func_decl.return_type, scope);

@@ -5,6 +5,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * Maximum size for any individual type-name fragment built during legalization
+ * (key, value, sequence, runtime helper symbol, etc.). Must match the symbol
+ * part size used by the C emitter (C_EMIT_SYMBOL_PART_MAX in targets/c/emitter.c)
+ * so that map<K,V>/optional<T> names never collide silently because of buffer
+ * truncation. See deep-analysis BUG-A / PLI-09.
+ */
+#define C_LEGALIZE_TYPE_NAME_MAX 256
+#define C_LEGALIZE_RUNTIME_NAME_MAX (C_LEGALIZE_TYPE_NAME_MAX + 128)
+
 static const char *c_legalize_safe_text(const char *text) {
     return text != NULL ? text : "";
 }
@@ -259,8 +269,8 @@ static void c_legalize_canonicalize_type(char *dest, size_t capacity, const char
 }
 
 static void c_legalize_build_generated_map_symbol(const char *canonical_name, char *dest, size_t capacity) {
-    char normalized[192];
-    char sanitized[192];
+    char normalized[C_LEGALIZE_TYPE_NAME_MAX];
+    char sanitized[C_LEGALIZE_TYPE_NAME_MAX];
 
     c_legalize_canonicalize_type(normalized, sizeof(normalized), canonical_name);
     c_legalize_copy_sanitized(sanitized, sizeof(sanitized), normalized);
@@ -272,8 +282,8 @@ static int c_legalize_build_map_runtime_name(
         const char *suffix,
         char *dest,
         size_t capacity) {
-    char canonical_map_type[192];
-    char symbol_name[192];
+    char canonical_map_type[C_LEGALIZE_TYPE_NAME_MAX];
+    char symbol_name[C_LEGALIZE_TYPE_NAME_MAX];
 
     if (dest == NULL || capacity == 0 || c_legalize_is_blank(map_type_name) || c_legalize_is_blank(suffix)) {
         return 0;
@@ -332,7 +342,11 @@ static int c_legalize_parse_make_map_type_name(
     }
 
     if (canonical_name != NULL && canonical_capacity > 0) {
-        snprintf(canonical_name, canonical_capacity, "map<%s,%s>", key_type_name, value_type_name);
+        int written = snprintf(canonical_name, canonical_capacity, "map<%s,%s>", key_type_name, value_type_name);
+        if (written < 0 || (size_t)written >= canonical_capacity) {
+            canonical_name[0] = '\0';
+            return 0;
+        }
     }
 
     return 1;
@@ -435,10 +449,10 @@ static const char *c_legalize_find_symbol_type(const zir_function *function_decl
 }
 
 static int c_legalize_resolve_sequence_type(const zir_function *function_decl, const char *expr_text, char *dest, size_t capacity) {
-    char trimmed[256];
-    char map_type_name[64];
-    char key_type_name[64];
-    char value_type_name[64];
+    char trimmed[C_LEGALIZE_TYPE_NAME_MAX];
+    char map_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     const char *type_name;
 
     if (!c_legalize_copy_trimmed(trimmed, sizeof(trimmed), expr_text)) {
@@ -537,13 +551,13 @@ static int c_legalize_index_seq(
         const char *expected_type_name,
         c_legalized_seq_expr *out,
         c_legalize_result *result) {
-    char sequence_expr[128];
-    char index_expr[64];
-    char sequence_type[64];
-    char map_type_name[64];
-    char key_type_name[64];
-    char value_type_name[64];
-    char runtime_name[160];
+    char sequence_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char index_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
+    char map_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
 
     if (!c_legalize_split_two_operands(expr_text + 10, sequence_expr, sizeof(sequence_expr), index_expr, sizeof(index_expr))) {
         c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_EXPR, "invalid index_seq expression '%s'", c_legalize_safe_text(expr_text));
@@ -624,10 +638,10 @@ static int c_legalize_slice_seq(
         const char *expected_type_name,
         c_legalized_seq_expr *out,
         c_legalize_result *result) {
-    char sequence_expr[128];
-    char start_expr[64];
-    char end_expr[64];
-    char sequence_type[64];
+    char sequence_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char start_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char end_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
 
     if (!c_legalize_split_three_operands(expr_text + 10, sequence_expr, sizeof(sequence_expr), start_expr, sizeof(start_expr), end_expr, sizeof(end_expr))) {
         c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_EXPR, "invalid slice_seq expression '%s'", c_legalize_safe_text(expr_text));
@@ -720,13 +734,13 @@ int c_legalize_list_len_expr(
         const char *expected_type_name,
         c_legalized_seq_expr *out,
         c_legalize_result *result) {
-    char trimmed[256];
-    char sequence_expr[128];
-    char sequence_type[64];
-    char map_type_name[64];
-    char key_type_name[64];
-    char value_type_name[64];
-    char runtime_name[160];
+    char trimmed[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
+    char map_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
     const char *op_name = NULL;
     size_t op_prefix_length = 0;
 
@@ -887,14 +901,14 @@ int c_legalize_zir_seq_expr(
         const char *expected_type_name,
         c_legalized_seq_expr *out,
         c_legalize_result *result) {
-    char sequence_type[64];
-    char sequence_expr[128];
-    char arg1_expr[64];
-    char arg2_expr[64];
-    char map_type_name[64];
-    char key_type_name[64];
-    char value_type_name[64];
-    char runtime_name[160];
+    char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char arg1_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char arg2_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char map_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
 
     c_legalize_result_init(result);
 
@@ -999,12 +1013,12 @@ int c_legalize_zir_list_len_expr(
         const char *expected_type_name,
         c_legalized_seq_expr *out,
         c_legalize_result *result) {
-    char sequence_type[64];
-    char sequence_expr[128];
-    char map_type_name[64];
-    char key_type_name[64];
-    char value_type_name[64];
-    char runtime_name[160];
+    char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
+    char sequence_expr[C_LEGALIZE_TYPE_NAME_MAX];
+    char map_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
+    char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
     const char *op_name = NULL;
 
     c_legalize_result_init(result);

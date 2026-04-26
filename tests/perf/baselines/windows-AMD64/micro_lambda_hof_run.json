@@ -1,6 +1,6 @@
 {
   "benchmark_id": "micro_lambda_hof_run",
-  "generated_at_utc": "2026-04-25T00:07:55.281213+00:00",
+  "generated_at_utc": "2026-04-26T16:39:32.462891+00:00",
   "platform_key": "windows-AMD64",
   "host": {
     "host": "RAILLEN-REDE",
@@ -13,12 +13,12 @@
     "cpu_count": 12
   },
   "metric_values": {
-    "lat_median_ms": 224.112,
-    "lat_p95_ms": 238.191,
-    "lat_std_ms": 11.113,
-    "throughput_ops_per_sec": 4.4621,
-    "peak_ws": 0,
-    "alloc_proxy": 0,
-    "binary_size": 355886
+    "lat_median_ms": 959.582,
+    "lat_p95_ms": 971.643,
+    "lat_std_ms": 9.324,
+    "throughput_ops_per_sec": 1.0421,
+    "peak_ws": 6483968,
+    "alloc_proxy": 2560000,
+    "binary_size": 356547
   }
 }

@@ -2142,11 +2142,7 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
             struct stat st;
             if (stat(child_path, &st) != 0) continue;
             if (st.st_mode & S_IFDIR) {
-                char sub_path[512];
-                char sub_msg[256];
-                if (zt_find_focus_anchor(child_path, sub_path, sub_msg, sizeof(sub_path), sizeof(sub_msg))) {
-                    snprintf(out_path, path_cap, "%s", sub_path);
-                    snprintf(out_message, msg_cap, "%s", sub_msg);
+                if (zt_find_focus_anchor(child_path, out_path, out_message, path_cap, msg_cap)) {
                     FindClose(hFind);
                     return 1;
                 }
@@ -2163,11 +2159,17 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
                         const char *next_prefix = "-- NEXT:";
                         if (strncmp(line, focus_prefix, strlen(focus_prefix)) == 0) {
                             const char *msg_start = line + strlen(focus_prefix);
+                            int written;
                             while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
                             {
                                 size_t len = strlen(msg_start);
                                 while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
-                                snprintf(out_path, path_cap, "%s", child_path);
+                                written = snprintf(out_path, path_cap, "%s", child_path);
+                                if (written < 0 || (size_t)written >= path_cap) {
+                                    fclose(file);
+                                    FindClose(hFind);
+                                    return 0;
+                                }
                                 snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
                             }
                             fclose(file);
@@ -2176,11 +2178,17 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
                         }
                         if (strncmp(line, next_prefix, strlen(next_prefix)) == 0) {
                             const char *msg_start = line + strlen(next_prefix);
+                            int written;
                             while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
                             {
                                 size_t len = strlen(msg_start);
                                 while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
-                                snprintf(out_path, path_cap, "%s", child_path);
+                                written = snprintf(out_path, path_cap, "%s", child_path);
+                                if (written < 0 || (size_t)written >= path_cap) {
+                                    fclose(file);
+                                    FindClose(hFind);
+                                    return 0;
+                                }
                                 snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
                             }
                             fclose(file);
@@ -2206,11 +2214,7 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
             struct stat st;
             if (stat(child_path, &st) != 0) continue;
             if (S_ISDIR(st.st_mode)) {
-                char sub_path[512];
-                char sub_msg[256];
-                if (zt_find_focus_anchor(child_path, sub_path, sub_msg, sizeof(sub_path), sizeof(sub_msg))) {
-                    snprintf(out_path, path_cap, "%s", sub_path);
-                    snprintf(out_message, msg_cap, "%s", sub_msg);
+                if (zt_find_focus_anchor(child_path, out_path, out_message, path_cap, msg_cap)) {
                     closedir(dp);
                     return 1;
                 }
@@ -2227,11 +2231,17 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
                         const char *next_prefix = "-- NEXT:";
                         if (strncmp(line, focus_prefix, strlen(focus_prefix)) == 0) {
                             const char *msg_start = line + strlen(focus_prefix);
+                            int written;
                             while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
                             {
                                 size_t len = strlen(msg_start);
                                 while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
-                                snprintf(out_path, path_cap, "%s", child_path);
+                                written = snprintf(out_path, path_cap, "%s", child_path);
+                                if (written < 0 || (size_t)written >= path_cap) {
+                                    fclose(file);
+                                    closedir(dp);
+                                    return 0;
+                                }
                                 snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
                             }
                             fclose(file);
@@ -2240,11 +2250,17 @@ static int zt_find_focus_anchor(const char *source_root, char *out_path, char *o
                         }
                         if (strncmp(line, next_prefix, strlen(next_prefix)) == 0) {
                             const char *msg_start = line + strlen(next_prefix);
+                            int written;
                             while (*msg_start == ' ' || *msg_start == '\t') msg_start++;
                             {
                                 size_t len = strlen(msg_start);
                                 while (len > 0 && (msg_start[len-1] == '\n' || msg_start[len-1] == '\r')) len--;
-                                snprintf(out_path, path_cap, "%s", child_path);
+                                written = snprintf(out_path, path_cap, "%s", child_path);
+                                if (written < 0 || (size_t)written >= path_cap) {
+                                    fclose(file);
+                                    closedir(dp);
+                                    return 0;
+                                }
                                 snprintf(out_message, msg_cap, "%.*s", (int)len, msg_start);
                             }
                             fclose(file);
@@ -2605,12 +2621,21 @@ static void zt_sanitize_project_name(const char *input, char *out, size_t out_ca
     size_t in_i = 0;
     size_t out_i = 0;
     int wrote_dash = 0;
+    /*
+     * Reserve room for the "app-" prefix that may be prepended below when the
+     * sanitized name starts with a digit. Without this reservation, a long input
+     * + small out_capacity would silently truncate the suffix when prepending.
+     */
+    const size_t prefix_reserve = 4; /* strlen("app-") */
+    size_t accumulate_capacity;
 
     if (out == NULL || out_capacity == 0) return;
     out[0] = '\0';
     if (input == NULL) input = "";
 
-    while (input[in_i] != '\0' && out_i + 1 < out_capacity) {
+    accumulate_capacity = (out_capacity > prefix_reserve + 1) ? (out_capacity - prefix_reserve) : out_capacity;
+
+    while (input[in_i] != '\0' && out_i + 1 < accumulate_capacity) {
         unsigned char ch = (unsigned char)input[in_i];
         char lowered = (char)tolower(ch);
 
@@ -2638,9 +2663,11 @@ static void zt_sanitize_project_name(const char *input, char *out, size_t out_ca
 
     out[out_i] = '\0';
     if (isdigit((unsigned char)out[0])) {
-        char prefixed[256];
-        snprintf(prefixed, sizeof(prefixed), "app-%s", out);
+        char *prefixed = (char *)malloc(out_capacity);
+        if (prefixed == NULL) return;
+        snprintf(prefixed, out_capacity, "app-%s", out);
         snprintf(out, out_capacity, "%s", prefixed);
+        free(prefixed);
     }
 }
 
@@ -2648,12 +2675,17 @@ static void zt_sanitize_namespace_root(const char *input, char *out, size_t out_
     size_t in_i = 0;
     size_t out_i = 0;
     int wrote_sep = 0;
+    /* Reserve room for the "app_" prefix prepended for digit-leading names. */
+    const size_t prefix_reserve = 4; /* strlen("app_") */
+    size_t accumulate_capacity;
 
     if (out == NULL || out_capacity == 0) return;
     out[0] = '\0';
     if (input == NULL) input = "";
 
-    while (input[in_i] != '\0' && out_i + 1 < out_capacity) {
+    accumulate_capacity = (out_capacity > prefix_reserve + 1) ? (out_capacity - prefix_reserve) : out_capacity;
+
+    while (input[in_i] != '\0' && out_i + 1 < accumulate_capacity) {
         unsigned char ch = (unsigned char)input[in_i];
         char lowered = (char)tolower(ch);
 
@@ -2681,9 +2713,11 @@ static void zt_sanitize_namespace_root(const char *input, char *out, size_t out_
 
     out[out_i] = '\0';
     if (isdigit((unsigned char)out[0])) {
-        char prefixed[256];
-        snprintf(prefixed, sizeof(prefixed), "app_%s", out);
+        char *prefixed = (char *)malloc(out_capacity);
+        if (prefixed == NULL) return;
+        snprintf(prefixed, out_capacity, "app_%s", out);
         snprintf(out, out_capacity, "%s", prefixed);
+        free(prefixed);
     }
 }
 

@@ -1930,23 +1930,23 @@ static zir_expr *zir_lower_hir_expr(
 
         case ZT_HIR_CLOSURE_EXPR: {
             char name_buf[128];
-            size_t i;
-            zir_expr *out;
+            size_t capture_index;
+            zir_expr *closure_expr;
             size_t next_closure_index = 0;
             if (env->closure_counter != NULL) {
                 next_closure_index = (*env->closure_counter)++;
             }
             snprintf(name_buf, sizeof(name_buf), "__zt_closure_%zu", next_closure_index);
-            
-            zir_function_buffer_push(env->hoisted_functions, 
+
+            zir_function_buffer_push(env->hoisted_functions,
                 zir_lower_closure_as_function(env, name_buf, expr));
-            
-            out = zir_expr_make_make_closure(name_buf);
-            for (i = 0; i < expr->as.closure_expr.captures.count; i++) {
-                zir_expr_list_push(&out->as.make_closure.captures, 
-                    zir_expr_make_name(expr->as.closure_expr.captures.items[i].name));
+
+            closure_expr = zir_expr_make_make_closure(name_buf);
+            for (capture_index = 0; capture_index < expr->as.closure_expr.captures.count; capture_index++) {
+                zir_expr_list_push(&closure_expr->as.make_closure.captures,
+                    zir_expr_make_name(expr->as.closure_expr.captures.items[capture_index].name));
             }
-            return out;
+            return closure_expr;
         }
         case ZT_HIR_CONSTRUCT_EXPR: {
             out = zir_expr_make_make_struct(expr->as.construct_expr.type_name);

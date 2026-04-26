@@ -1823,13 +1823,18 @@ static int c_optional_spec_for_type(const char *type_name, c_optional_spec *spec
 }
 
 static int c_optional_spec_for_value_type(const char *value_type_name, c_optional_spec *spec) {
-    char optional_type_name[128];
+    /* "optional<" + value_type_name (<= C_EMIT_SYMBOL_PART_MAX) + ">" + NUL */
+    char optional_type_name[C_EMIT_SYMBOL_PART_MAX + 16];
+    int written;
 
     if (value_type_name == NULL || spec == NULL) {
         return 0;
     }
 
-    snprintf(optional_type_name, sizeof(optional_type_name), "optional<%s>", value_type_name);
+    written = snprintf(optional_type_name, sizeof(optional_type_name), "optional<%s>", value_type_name);
+    if (written < 0 || (size_t)written >= sizeof(optional_type_name)) {
+        return 0;
+    }
     return c_optional_spec_for_type(optional_type_name, spec);
 }
 

@@ -204,3 +204,77 @@ export interface StudioSnapshot {
   scripts: ScriptDocument[];
   console: ConsoleLine[];
 }
+
+export type BridgeStatus = "loading" | "tauri" | "browser" | "error";
+
+export type ViewMode = "2d" | "3d";
+export type ViewProjection = "perspective" | "orthographic" | "isometric";
+export type ViewOrientation = "free" | "top" | "bottom" | "left" | "right" | "front" | "back";
+export type RenderMode = "wireframe" | "color" | "texture" | "light";
+export type ShortcutTemplate = "blender" | "3dsmax" | "maya";
+export type ThemeMode = "codex" | "xcode" | "unity-dark";
+export type SnapMode = "grid" | "object" | "grid-object";
+
+export interface SnapSettings {
+  gridSize: number;
+  snapToGrid: boolean;
+  snapToObject: boolean;
+}
+
+export interface StudioPreferences {
+  gizmoSize: number;
+  ptzSpeed: number;
+  shortcutTemplate: ShortcutTemplate;
+  snapMode: SnapMode;
+  theme: ThemeMode;
+}
+
+export interface LayoutState {
+  left: number;
+  right: number;
+  bottom: number;
+}
+
+export interface DragState {
+  id: string;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+}
+
+export interface AssetDragState {
+  asset: ProjectAsset;
+  x: number;
+  y: number;
+}
+
+export interface ViewportCamera {
+  panX: number;
+  panY: number;
+  zoom: number;
+}
+
+export interface ViewportPanState {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originPanX: number;
+  originPanY: number;
+}
+
+export interface ViewportRendererProps {
+  camera: ViewportCamera;
+  dragState: DragState | null;
+  entities: SceneEntity[];
+  mode: StudioMode;
+  preferences: StudioPreferences;
+  selectedEntityId: string;
+  onDragStateChange: (state: DragState | null) => void;
+  onEntityPointerDown: (entity: SceneEntity, event: React.PointerEvent<HTMLButtonElement>) => void;
+  onEntityPointerMove: (entity: SceneEntity, event: React.PointerEvent<HTMLButtonElement>) => void;
+  onResetCamera: () => void;
+  onClearSelection: () => void;
+  onSelectEntity: (entity: SceneEntity) => void;
+  onUpdateTransform: (id: string, transform: Transform3D) => void;
+}

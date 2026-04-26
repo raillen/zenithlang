@@ -159,6 +159,12 @@ def trim(s, limit=12000):
 
 
 def measure(exe, args, cwd, timeout_sec):
+    # Use the same fast Python+ctypes path on Windows so working-set measurement
+    # is consistent across kind=bin and kind=cmd benchmarks. The legacy
+    # PowerShell wrapper is kept below as a fallback (force via env var).
+    if os.name == "nt" and os.environ.get("ZT_PERF_LEGACY_WRAPPER") != "1":
+        return measure_cmd_fast(exe, args, cwd, timeout_sec)
+
     if os.name != "nt":
         t0 = time.perf_counter()
         p = subprocess.run([str(exe), *args], cwd=str(cwd), text=True, capture_output=True, check=False, timeout=timeout_sec)
@@ -192,7 +198,7 @@ def measure(exe, args, cwd, timeout_sec):
         "    while ($p.StandardError.Peek() -ne -1) { $stderr += [char]$p.StandardError.Read() }",
         "  } catch { }",
         "  if ($sw.ElapsedMilliseconds -gt $limit) { try { $p.Kill() } catch { }; $to = $true; break }",
-        "  Start-Sleep -Milliseconds 10",
+        "  Start-Sleep -Milliseconds 1",
         "}",
         "while ($p.StandardOutput.Peek() -ne -1) { $stdout += [char]$p.StandardOutput.Read() }",
         "while ($p.StandardError.Peek() -ne -1) { $stderr += [char]$p.StandardError.Read() }",
@@ -210,17 +216,118 @@ def measure(exe, args, cwd, timeout_sec):
     return {"exit": int(d.get("exit", -1)), "ws": int(d.get("ws", 0)), "alloc": int(d.get("alloc", 0)), "stdout": normalize_out(d.get("stdout", "")), "stderr": normalize_out(d.get("stderr", "")), "ms": float(d.get("ms", 0.0)), "timeout": bool(d.get("timeout", False))}
 
 
+if os.name == "nt":
+    import ctypes
+    from ctypes import wintypes
+
+    class _PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    try:
+        _psapi_GetProcessMemoryInfo = ctypes.windll.psapi.GetProcessMemoryInfo
+        _psapi_GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+        _psapi_GetProcessMemoryInfo.restype = wintypes.BOOL
+    except (AttributeError, OSError):
+        _psapi_GetProcessMemoryInfo = None
+
+    def _read_process_memory(handle):
+        if _psapi_GetProcessMemoryInfo is None or not handle:
+            return 0, 0
+        pmc = _PROCESS_MEMORY_COUNTERS()
+        pmc.cb = ctypes.sizeof(pmc)
+        ok = _psapi_GetProcessMemoryInfo(int(handle), ctypes.byref(pmc), ctypes.sizeof(pmc))
+        if not ok:
+            return 0, 0
+        return int(pmc.PeakWorkingSetSize), int(pmc.PeakPagefileUsage)
+
+
 def measure_cmd_fast(exe, args, cwd, timeout_sec):
+    """Fast subprocess-based measurement.
+
+    On Windows, polls the live process handle with Win32 GetProcessMemoryInfo so
+    peak working set is captured even for sub-100ms processes (without the
+    PowerShell-wrapper overhead used by `measure`). On POSIX, working set is
+    not collected here (same behavior as the legacy fast path).
+    """
+    if os.name != "nt":
+        t0 = time.perf_counter()
+        p = subprocess.run([str(exe), *args], cwd=str(cwd), text=True, capture_output=True, check=False, timeout=timeout_sec)
+        return {
+            "exit": p.returncode,
+            "ws": 0,
+            "alloc": 0,
+            "stdout": normalize_out(p.stdout),
+            "stderr": normalize_out(p.stderr),
+            "ms": (time.perf_counter() - t0) * 1000.0,
+            "timeout": False,
+        }
+
     t0 = time.perf_counter()
-    p = subprocess.run([str(exe), *args], cwd=str(cwd), text=True, capture_output=True, check=False, timeout=timeout_sec)
+    proc = subprocess.Popen(
+        [str(exe), *args],
+        cwd=str(cwd),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    peak_ws = 0
+    peak_alloc = 0
+    timed_out = False
+    handle = getattr(proc, "_handle", None)
+    deadline = t0 + max(1.0, float(timeout_sec))
+    try:
+        while True:
+            cur_ws, cur_alloc = _read_process_memory(handle)
+            if cur_ws > peak_ws:
+                peak_ws = cur_ws
+            if cur_alloc > peak_alloc:
+                peak_alloc = cur_alloc
+            if proc.poll() is not None:
+                break
+            if time.perf_counter() > deadline:
+                proc.kill()
+                timed_out = True
+                break
+            time.sleep(0.001)
+        # Final snapshot while handle is still valid (after process exit but
+        # before communicate() closes it).
+        cur_ws, cur_alloc = _read_process_memory(handle)
+        if cur_ws > peak_ws:
+            peak_ws = cur_ws
+        if cur_alloc > peak_alloc:
+            peak_alloc = cur_alloc
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            stdout, stderr = proc.communicate()
+            timed_out = True
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        raise
+
     return {
-        "exit": p.returncode,
-        "ws": 0,
-        "alloc": 0,
-        "stdout": normalize_out(p.stdout),
-        "stderr": normalize_out(p.stderr),
+        "exit": proc.returncode if proc.returncode is not None else -1,
+        "ws": peak_ws,
+        "alloc": peak_alloc,
+        "stdout": normalize_out(stdout or ""),
+        "stderr": normalize_out(stderr or ""),
         "ms": (time.perf_counter() - t0) * 1000.0,
-        "timeout": False,
+        "timeout": timed_out,
     }
 
 def pct(values, p):
