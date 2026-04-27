@@ -13,15 +13,15 @@ Use apenas APIs documentadas e validadas por testes quando escrever exemplos pub
 
 ## Modulos comuns
 
-- `std.io`: entrada e saida basica.
+- `std.io`: entrada e saída básica.
 - `std.text`: helpers seguros de texto do corte alpha.
 - `std.bytes`: base para dados binarios.
 - `std.fs`: filesystem sincronico.
-- `std.fs.path`: operacoes de caminho.
+- `std.fs.path`: operações de caminho.
 - `std.json`: JSON.
-- `std.math`: matematica basica.
+- `std.math`: matemática básica.
 - `std.random`: random alpha, com cuidado para estado compartilhado.
-- `std.concurrent`: copia explicita para fronteiras de concorrencia.
+- `std.concurrent`: cópia explícita para fronteiras de concorrência.
 - `std.test`: fail, skip e comparacoes simples para testes.
 - `std.list`: helpers pequenos para `list<T>`.
 - `std.map`: helpers pequenos para `map<K,V>`.
@@ -50,13 +50,13 @@ Quando uma comparacao falha, prefira helpers que mostram esperado e recebido:
 
 Prefira exemplos pequenos.
 
-Se uma API ainda nao esta suportada semanticamente pelo compilador, nao coloque como guia publico.
+Se uma API ainda não esta suportada semanticamente pelo compilador, não coloque como guia publico.
 
-## Referencias
+## Referências
 
 - Texto e arquivos: `docs/public/stdlib/text-and-files.md`.
-- Validacao, matematica e random: `docs/public/stdlib/validation-math-random.md`.
-- Referencia da stdlib: `docs/reference/stdlib/README.md`.
+- Validação, matemática e random: `docs/public/stdlib/validation-math-random.md`.
+- Referência da stdlib: `docs/reference/stdlib/README.md`.
 - KB da stdlib: `docs/reference/zenith-kb/stdlib.md`.
 - Modelo normativo: `language/spec/stdlib-model.md`.
 - ZDoc da stdlib: `stdlib/zdoc/`.

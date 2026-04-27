@@ -1,6 +1,7 @@
 import { Circle, Code2, FileCode2, Save, X } from "lucide-react";
 import React, { useEffect } from "react";
 import { ICON_STROKE } from "../constants";
+import { CodeMirrorEditor } from "../editor/CodeMirrorEditor";
 import type { SceneEntity, ScriptDocument } from "../types";
 import { PanelHeader } from "./shared";
 
@@ -78,8 +79,6 @@ export function CodePanel({
     );
   }
 
-  const lines = activeScript.content.split("\n");
-
   return (
     <section className="code-panel">
       <PanelHeader
@@ -117,16 +116,9 @@ export function CodePanel({
         </select>
       </div>
       <div className="code-editor">
-        <div className="line-gutter">
-          {lines.map((_, index) => (
-            <span key={index}>{index + 1}</span>
-          ))}
-        </div>
-        <textarea
-          aria-label="Zenith script editor"
-          spellCheck={false}
+        <CodeMirrorEditor
           value={activeScript.content}
-          onChange={(event) => onScriptChange(activeScript.path, event.target.value)}
+          onChange={(content) => onScriptChange(activeScript.path, content)}
         />
       </div>
     </section>

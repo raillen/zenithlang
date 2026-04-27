@@ -49,6 +49,16 @@ Reduzir a barreira de instalação.
 - [ ] Série de exemplos curados para "quick start".
 - [ ] Trilha de aprendizado "Zero to Hero".
 
+### R5.M7 - Script Mode & REPL
+Reduzir atrito para experimentação e aprendizado.
+- [x] `zt run arquivo.zt` — executar arquivo avulso sem projeto (`zenith.ztproj`).
+- [ ] `zt repl` — REPL interativo com interpretador ZIR/HIR.
+  - Interpretar ZIR em memória sem emitir C nem invocar gcc.
+  - Estado persistente entre linhas (variáveis, funções definidas).
+  - Acesso à stdlib via runtime interpretado.
+  - Estimativa: ~3000-5000 LOC, 3-4 semanas.
+  - Depende de: avaliador de ZIR completo (aritmética, chamadas, ARC, coleções).
+
 ### R5.M6 - Interface: Borealis Studio (POC)
 Exploração de ferramentas visuais.
 - [ ] POC de integração entre UI Zenith e o Studio.

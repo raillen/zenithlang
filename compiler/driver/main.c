@@ -220,14 +220,20 @@ static int zt_print_help_topic(FILE *out, const char *program, const char *topic
         return 0;
     }
 
-    if (strcmp(topic, "check") == 0 || strcmp(topic, "test") == 0) {
-        fprintf(out, "zt %s [project|zenith.ztproj] [--ci] [--profile <level>] [--all]\n", topic);
-        fprintf(out, "       [--focus <path>] [--since <git-ref>] [--lang <lang>]\n");
+    if (strcmp(topic, "check") == 0) {
+        fprintf(out, "zt check [project|zenith.ztproj|file.zt] [--ci] [--profile <level>] [--all]\n");
+        fprintf(out, "         [--focus <path>] [--since <git-ref>] [--lang <lang>]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "test") == 0) {
+        fprintf(out, "zt test [project|zenith.ztproj] [--ci] [--profile <level>] [--all]\n");
+        fprintf(out, "        [--focus <path>] [--since <git-ref>] [--lang <lang>]\n");
         return 0;
     }
 
     if (strcmp(topic, "build") == 0 || strcmp(topic, "run") == 0) {
-        fprintf(out, "zt %s [project|zenith.ztproj] [-o <output>] [--ci] [--lang <lang>] [--native-raw]\n", topic);
+        fprintf(out, "zt %s [project|zenith.ztproj|file.zt] [-o <output>] [--ci] [--lang <lang>] [--native-raw]\n", topic);
         fprintf(out, "zt build <file.zir> [-o <output>] [--run]\n");
         return 0;
     }
@@ -1844,6 +1850,140 @@ static int zt_handle_test(zt_driver_context *ctx, const char *input_path) {
     return failed == 0 ? 0 : 1;
 }
 
+static int zt_handle_single_file_command(
+        zt_driver_context *ctx,
+        const char *command,
+        const char *zt_file_path,
+        const char *output_path,
+        int run_output) {
+    zt_project_compile_result compiled;
+    c_emitter emitter;
+    c_emit_result emit_result;
+    char output_dir[512];
+    char c_name[192];
+    char c_path[768];
+    char default_exe_name[192];
+    char exe_path[768];
+
+    if (!zt_compile_single_file(ctx, zt_file_path, &compiled)) {
+        return 1;
+    }
+
+    if (strcmp(command, "verify") == 0) {
+        printf("%s", (ctx != NULL && ctx->ci_mode_enabled) ? "check ok\n" : "verification ok\n");
+        zt_project_compile_result_dispose(&compiled);
+        return 0;
+    }
+
+    if (compiled.zir.module.function_count == 0) {
+        zt_print_single_diag(
+            ctx,
+            "zir.lower",
+            ZT_DIAG_BACKEND_C_EMIT_ERROR,
+            zt_source_span_unknown(),
+            "build blocked: ZIR module has no functions");
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (!zt_emit_module_to_c(&compiled.zir.module, &emitter, &emit_result)) {
+        zt_print_single_diag(
+            ctx,
+            "backend.c.emit",
+            zt_diag_code_from_c_emit_error(emit_result.code),
+            zt_source_span_make("<zir>", 1, 1, 1),
+            "%s",
+            emit_result.message[0] != '\0' ? emit_result.message : "C emission failed");
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (strcmp(command, "emit-c") == 0) {
+        if (!c_emitter_write_stream(&emitter, stdout) ||
+                fputc('\n', stdout) == EOF ||
+                fflush(stdout) != 0) {
+            fprintf(stderr, "script error: failed to write generated C to stdout\n");
+            c_emitter_dispose(&emitter);
+            zt_project_compile_result_dispose(&compiled);
+            return 1;
+        }
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 0;
+    }
+
+    if (strcmp(command, "build") != 0) {
+        fprintf(stderr, "unknown command for single-file mode: %s\n", command);
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (!zt_join_path(output_dir, sizeof(output_dir), compiled.project_root, compiled.manifest.output_dir)) {
+        fprintf(stderr, "error: output directory path is too long\n");
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (!zt_make_dirs(output_dir)) {
+        fprintf(stderr, "error: cannot create output directory '%s'\n", output_dir);
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    snprintf(c_name, sizeof(c_name), "%s.c", compiled.manifest.output_name);
+    if (!zt_join_path(c_path, sizeof(c_path), output_dir, c_name)) {
+        fprintf(stderr, "error: C output path is too long\n");
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (output_path != NULL) {
+        if (!zt_copy_text(exe_path, sizeof(exe_path), output_path)) {
+            fprintf(stderr, "error: executable output path is too long\n");
+            c_emitter_dispose(&emitter);
+            zt_project_compile_result_dispose(&compiled);
+            return 1;
+        }
+    } else {
+        snprintf(default_exe_name, sizeof(default_exe_name), "%s.exe", compiled.manifest.output_name);
+        if (!zt_join_path(exe_path, sizeof(exe_path), output_dir, default_exe_name)) {
+            fprintf(stderr, "error: executable output path is too long\n");
+            c_emitter_dispose(&emitter);
+            zt_project_compile_result_dispose(&compiled);
+            return 1;
+        }
+    }
+
+    if (!c_emitter_write_file(&emitter, c_path)) {
+        c_emitter_dispose(&emitter);
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    c_emitter_dispose(&emitter);
+
+    if (!zt_compile_c_file(ctx, c_path, exe_path, &compiled.manifest)) {
+        zt_project_compile_result_dispose(&compiled);
+        return 1;
+    }
+
+    if (ctx != NULL && ctx->ci_mode_enabled && !run_output) {
+        printf("build ok\n");
+    }
+
+    if (run_output) {
+        int run_exit = zt_run_executable(ctx, exe_path);
+        zt_project_compile_result_dispose(&compiled);
+        return run_exit < 0 ? 1 : run_exit;
+    }
+
+    zt_project_compile_result_dispose(&compiled);
+    return 0;
+}
 
 static int zt_handle_zir_command(
         zt_driver_context *ctx,
@@ -3444,6 +3584,19 @@ int main(int argc, char *argv[]) {
 
     if (input_path != NULL && input_path[0] != '\0' && zt_path_has_extension(input_path, ".zir")) {
         return zt_handle_zir_command(&ctx, effective_command, input_path, output_path, run_output);
+    }
+
+    if (input_path != NULL && input_path[0] != '\0' && zt_path_has_extension(input_path, ".zt")) {
+        if (strcmp(effective_command, "emit-c") == 0 ||
+                strcmp(effective_command, "build") == 0 ||
+                strcmp(effective_command, "verify") == 0) {
+            return zt_handle_single_file_command(&ctx, effective_command, input_path, output_path, run_output);
+        }
+        {
+            char message[256];
+            snprintf(message, sizeof(message), "unsupported command '%s' for single .zt file", command);
+            return zt_cli_fail(argv[0], message, "use: zt run <file.zt> | zt check <file.zt> | zt build <file.zt>", 0);
+        }
     }
 
     if (strcmp(effective_command, "parse") == 0) {

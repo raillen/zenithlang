@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer guardar tipos diferentes atras do mesmo contrato.
+Você quer guardar tipos diferentes atrás do mesmo contrato.
 
 Em linguagens com classes, isso costuma ser `virtual`.
 
@@ -66,11 +66,11 @@ end
 
 `dyn<Trait>` mostra o custo e a intencao no tipo.
 
-Quem le o codigo sabe que a chamada passa por dispatch dinamico.
+Quem lê o código sabe que a chamada passa por dispatch dinâmico.
 
 ## Erro comum
 
-Nao procure uma palavra `virtual`:
+Não procure uma palavra `virtual`:
 
 ```zt
 virtual func area() -> int
@@ -90,11 +90,11 @@ e depois:
 const shape: dyn Shape = circle
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Nao use `dyn` se todos os valores tem o mesmo tipo concreto.
+Não use `dyn` se todos os valores tem o mesmo tipo concreto.
 
-Nesse caso, prefira o tipo concreto ou uma funcao generica com constraint.
+Nesse caso, prefira o tipo concreto ou uma funcao genérica com constraint.
 
 ```zt
 func draw_one<T>(shape: T) -> int
@@ -112,11 +112,11 @@ O subset atual de `dyn<Trait>` tem limites.
 
 Por exemplo:
 
-- traits genericas nao entram no subset dinamico atual;
-- metodos mutating em dyn trait sao limitados;
+- traits genéricas não entram no subset dinâmico atual;
+- métodos mutating em dyn trait são limitados;
 - tipos de parametros/retornos precisam seguir as regras do subset.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/abstract-methods-with-trait.md`
 - `docs/reference/language/types.md`

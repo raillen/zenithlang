@@ -155,6 +155,7 @@ Superficie atual em alto nivel:
 - lexer, parser, AST, semantic, HIR, ZIR e emitter C;
 - projeto via `zenith.ztproj`;
 - CLI `zt` para check, build, run, test, fmt, docs, summary e perf;
+- modo single-file: `zt run arquivo.zt` sem necessidade de projeto;
 - runtime C com valores managed e ARC;
 - stdlib com texto, arquivos, JSON, validacao, math, random, collections,
   tests, OS/process e outros modulos;
@@ -212,7 +213,31 @@ Ajuda:
 ./zt.exe
 ```
 
-## Primeiro app
+## Modo rapido (single-file)
+
+Voce pode executar um arquivo `.zt` avulso sem criar um projeto:
+
+```zt
+namespace script
+
+import std.io as io
+
+func main() -> result<void, core.Error>
+    io.write("Hello from Zenith\n")?
+    return success()
+end
+```
+
+```bash
+./zt.exe run hello.zt
+./zt.exe check hello.zt
+./zt.exe build hello.zt
+```
+
+O compilador cria um manifesto sintetico automaticamente. O arquivo precisa
+declarar `namespace` e conter uma funcao `main`.
+
+## Primeiro app (projeto completo)
 
 Estrutura:
 
@@ -270,9 +295,9 @@ Rodar:
 Comandos principais:
 
 ```bash
-zt check [project|zenith.ztproj]
-zt build [project|zenith.ztproj]
-zt run [project|zenith.ztproj]
+zt check [project|zenith.ztproj|file.zt]
+zt build [project|zenith.ztproj|file.zt]
+zt run [project|zenith.ztproj|file.zt]
 zt test [project|zenith.ztproj]
 zt fmt [project|zenith.ztproj] [--check]
 zt doc check [project|zenith.ztproj]

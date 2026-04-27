@@ -28,6 +28,7 @@
 
 | Area | Status | Notes |
 | --- | --- | --- |
+| Single-file execution (`zt run file.zt`) | `Conformant` | `check`, `build`, `run`, `emit-c` work on standalone `.zt` files without a project; synthetic manifest, stdlib auto-load, namespace-path validation skipped |
 | `zt fmt` / `zt fmt --check` | `Conformant` | gate project `tooling_gate_smoke` |
 | `zt fmt` idempotence (`fmt(fmt(x)) == fmt(x)`) | `Conformant` | gate runner `tests/formatter/run_formatter_idempotence.py`, integrado ao `pr_gate` tooling; cobre os 9 casos em `tests/formatter/cases/` |
 | `zt doc check` | `Conformant` | gate project `tooling_gate_smoke` |

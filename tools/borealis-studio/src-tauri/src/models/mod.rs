@@ -1,8 +1,10 @@
 pub mod asset;
+pub mod component;
 pub mod console;
+pub mod entity;
+pub mod history;
 pub mod preview;
 pub mod project;
 pub mod scene;
 pub mod script;
 pub mod selection;
-pub mod history;

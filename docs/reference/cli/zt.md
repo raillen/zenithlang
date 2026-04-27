@@ -14,9 +14,9 @@ zt <command> [input] [options]
 | Comando | Uso |
 | --- | --- |
 | `help` | mostra ajuda geral ou de comando |
-| `check` | valida projeto ou manifesto |
-| `build` | compila projeto |
-| `run` | compila e executa projeto |
+| `check` | valida projeto, manifesto ou arquivo `.zt` avulso |
+| `build` | compila projeto ou arquivo `.zt` avulso |
+| `run` | compila e executa projeto ou arquivo `.zt` avulso |
 | `create` | cria scaffold de projeto |
 | `test` | executa testes |
 | `fmt` | formata codigo |
@@ -36,10 +36,27 @@ zt <command> [input] [options]
 .\zt.exe help create
 ```
 
+## Single-File Mode
+
+Voce pode usar `check`, `build` e `run` diretamente em um arquivo `.zt` avulso,
+sem precisar de um projeto (`zenith.ztproj`):
+
+```powershell
+.\zt.exe check hello.zt
+.\zt.exe build hello.zt
+.\zt.exe run hello.zt
+.\zt.exe build hello.zt -o meu_app.exe
+.\zt.exe emit-c hello.zt
+```
+
+O compilador cria um manifesto sintetico em memoria. O arquivo precisa declarar
+`namespace` e conter uma funcao `main`. A validacao de namespace-path e ignorada.
+
 ## Check
 
 ```powershell
 .\zt.exe check zenith.ztproj
+.\zt.exe check hello.zt
 .\zt.exe check zenith.ztproj --all
 .\zt.exe check zenith.ztproj --ci
 .\zt.exe check zenith.ztproj --focus packages\borealis
@@ -55,6 +72,7 @@ Options accepted by help:
 
 ```powershell
 .\zt.exe build zenith.ztproj
+.\zt.exe build hello.zt
 .\zt.exe build zenith.ztproj -o build\app.exe
 .\zt.exe build zenith.ztproj --native-raw
 ```
@@ -63,6 +81,7 @@ Options accepted by help:
 
 ```powershell
 .\zt.exe run zenith.ztproj
+.\zt.exe run hello.zt
 .\zt.exe run zenith.ztproj --native-raw
 ```
 

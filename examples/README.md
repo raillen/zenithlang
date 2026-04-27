@@ -4,12 +4,18 @@ Colecao de exemplos curtos para demonstrar a linguagem no GitHub.
 
 ## Como rodar
 
-Use `check`, `build` e `run` em qualquer exemplo:
+Use `check`, `build` e `run` em qualquer exemplo via projeto:
 
 ```bash
 ./zt.exe check examples/hello-world/zenith.ztproj
 ./zt.exe build examples/hello-world/zenith.ztproj
 ./zt.exe run examples/hello-world/zenith.ztproj
+```
+
+Ou rode um arquivo `.zt` avulso diretamente (single-file mode):
+
+```bash
+./zt.exe run examples/hello-world/src/app/main.zt
 ```
 
 ## Exemplos

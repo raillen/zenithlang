@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::models::preview::{PreviewCommandResult, PreviewSession};
 use crate::services::preview_runner::{
     collect_preview_events, preview_is_alive, preview_result, preview_scene_target,
-    send_preview_command, spawn_preview_process,
+    reload_scene, send_preview_command, spawn_preview_process,
 };
 use crate::services::project_manager::{resolve_studio_path, studio_layout};
 use crate::utils::paths::normalize_path;
@@ -114,6 +114,22 @@ pub fn poll_preview() -> Result<PreviewCommandResult, String> {
         runner: None,
         events: Vec::new(),
     })
+}
+
+#[tauri::command]
+pub fn reload_preview(scene_json: String) -> Result<PreviewCommandResult, String> {
+    let layout = studio_layout();
+    let (_, preview_scene_for_ipc) = preview_scene_target(&layout);
+    let lock = PREVIEW_SESSION.get_or_init(|| Mutex::new(None));
+    let mut guard = lock
+        .lock()
+        .map_err(|_| "preview session lock poisoned".to_string())?;
+    let Some(session) = guard.as_mut() else {
+        return Err("no preview session running".to_string());
+    };
+    reload_scene(session, &scene_json, &preview_scene_for_ipc)?;
+    let events = collect_preview_events(session, Duration::from_millis(120));
+    Ok(preview_result(session, events))
 }
 
 fn with_preview_command(

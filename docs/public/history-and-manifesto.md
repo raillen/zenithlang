@@ -1,4 +1,4 @@
-﻿# Historia e Manifesto
+﻿# História e Manifesto
 
 > Audience: user
 > Status: current
@@ -7,7 +7,7 @@
 
 ## O que Zenith e
 
-Zenith e uma linguagem criada como estudo pratico.
+Zenith e uma linguagem criada como estudo prático.
 
 Ela nasceu para investigar, construir e testar ideias sobre:
 
@@ -18,17 +18,17 @@ Ela nasceu para investigar, construir e testar ideias sobre:
 - design de linguagens;
 - ergonomia de programacao.
 
-Ela tambem e um laboratorio pessoal: um lugar para aprender fazendo.
+Ela também e um laboratorio pessoal: um lugar para aprender fazendo.
 
-## O que Zenith nao tenta ser
+## O que Zenith não tenta ser
 
-Zenith nao foi criada para competir com linguagens do mercado.
+Zenith não foi criada para competir com linguagens do mercado.
 
-Ela nao tenta substituir Rust, C, C#, Python, JavaScript, Go ou qualquer outra linguagem consolidada.
+Ela não tenta substituir Rust, C, C#, Python, JavaScript, Go ou qualquer outra linguagem consolidada.
 
-Ela tambem nao deve ser lida como promessa comercial, produto empresarial ou plataforma pronta para producao.
+Ela também não deve ser lida como promessa comercial, produto empresarial ou plataforma pronta para producao.
 
-O objetivo principal e estudo, evolucao tecnica e clareza de pensamento.
+O objetivo principal e estudo, evolução técnica e clareza de pensamento.
 
 ## Por que criar uma linguagem
 
@@ -48,7 +48,7 @@ Zenith existe porque esse caminho ensina mais do que apenas ler sobre esses assu
 
 Zenith tenta priorizar:
 
-- codigo explicito;
+- código explícito;
 - baixa ambiguidade;
 - mensagens de erro legiveis;
 - documentacao curta e direta;
@@ -63,7 +63,7 @@ Isso importa especialmente para pessoas com TDAH, dislexia ou dificuldade de man
 
 ## IA como parte do estudo
 
-Zenith tambem e um estudo sobre como IA pode ajudar no desenvolvimento de uma linguagem.
+Zenith também e um estudo sobre como IA pode ajudar no desenvolvimento de uma linguagem.
 
 Isso inclui:
 
@@ -72,15 +72,15 @@ Isso inclui:
 - comparar decisoes de design;
 - detectar inconsistencias;
 - evoluir ferramentas;
-- acelerar ciclos de implementacao.
+- acelerar ciclos de implementação.
 
-A IA nao remove a responsabilidade tecnica. Ela aumenta a necessidade de especificacoes claras, testes bons e revisao honesta.
+A IA não remove a responsabilidade técnica. Ela aumenta a necessidade de especificações claras, testes bons e revisao honesta.
 
 ## Maturidade
 
-Zenith ainda deve ser tratada como linguagem em evolucao.
+Zenith ainda deve ser tratada como linguagem em evolução.
 
-Algumas partes sao experimentais.
+Algumas partes são experimentais.
 
 Algumas APIs podem mudar.
 
@@ -89,8 +89,8 @@ O repositorio deve deixar claro o que e:
 - atual;
 - experimental;
 - planejado;
-- historico;
-- normativo para implementacao.
+- histórico;
+- normativo para implementação.
 
 Essa separacao protege a linguagem contra confusao e documentacao contraditoria.
 
@@ -98,8 +98,8 @@ Essa separacao protege a linguagem contra confusao e documentacao contraditoria.
 
 Zenith e, antes de tudo, um projeto de aprendizado profundo.
 
-Se ela for util para outras pessoas estudarem compiladores, runtime, sistemas, IA ou design de linguagens, isso ja e uma vitoria.
+Se ela for útil para outras pessoas estudarem compiladores, runtime, sistemas, IA ou design de linguagens, isso já e uma vitoria.
 
-O foco nao e vencer o mercado.
+O foco não e vencer o mercado.
 
 O foco e aprender com rigor, construir com clareza e registrar as decisoes de forma honesta.

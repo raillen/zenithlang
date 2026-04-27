@@ -58,10 +58,10 @@ end
 
 - `text` e UTF-8.
 - `bytes` e dado binario.
-- `fs.*` retorna `result` quando a operacao pode falhar.
-- Use `?` para propagar erro quando a funcao tambem retorna `result`.
+- `fs.*` retorna `result` quando a operação pode falhar.
+- Use `?` para propagar erro quando a funcao também retorna `result`.
 
-## Veja tambem
+## Veja também
 
 - `docs/reference/stdlib/text-bytes-format.md`
 - `docs/reference/stdlib/filesystem-os-time.md`

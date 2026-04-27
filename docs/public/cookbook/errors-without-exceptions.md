@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer representar uma falha recuperavel.
+Você quer representar uma falha recuperavel.
 
 Em Zenith, erro recuperavel usa `result<T, E>`.
 
@@ -67,7 +67,7 @@ Isso ajuda a leitura:
 
 ## Erro comum
 
-Nao use `panic` para fluxo normal de negocio:
+Não use `panic` para fluxo normal de negócio:
 
 ```zt
 func parse_score(value: text) -> int
@@ -91,13 +91,13 @@ func parse_score(value: text) -> result<int, text>
 end
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Use `optional<T>` quando a ausencia for normal e nao precisar de motivo.
+Use `optional<T>` quando a ausencia for normal e não precisar de motivo.
 
-Use `panic(...)` quando o programa encontrou um estado fatal ou impossivel.
+Use `panic(...)` quando o programa encontrou um estado fatal ou impossível.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/absence-without-null.md`
 - `docs/reference/language/errors-and-results.md`

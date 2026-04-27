@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer passar uma funcao para outra parte do codigo.
+Você quer passar uma funcao para outra parte do código.
 
 Em Zenith, use o tipo callable:
 
@@ -17,7 +17,7 @@ func(int, int) -> int
 
 ## Resposta curta
 
-Declare a assinatura de forma explicita.
+Declare a assinatura de forma explícita.
 
 ```zt
 const op: func(int, int) -> int = add
@@ -54,7 +54,7 @@ Isso evita callback escondido.
 
 ## Erro comum
 
-Nao tente usar uma funcao generica como callable neste corte.
+Não tente usar uma funcao genérica como callable neste corte.
 
 Prefira uma funcao top-level simples:
 
@@ -66,17 +66,17 @@ end
 
 ## Limites atuais
 
-Callables v1 sao estreitos de proposito.
+Callables v1 são estreitos de propósito.
 
 Neste corte, evite:
 
 - callable como field de struct;
 - callable dentro de list/map;
 - partial application;
-- metodo como valor;
-- funcao generica como valor.
+- método como valor;
+- funcao genérica como valor.
 
-## Veja tambem
+## Veja também
 
 - `language/spec/callables.md`
 - `language/decisions/089-callable-delegates-v1.md`

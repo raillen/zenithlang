@@ -1,4 +1,4 @@
-# Validacao, matematica e random
+# Validação, matemática e random
 
 > Audience: user
 > Status: current
@@ -10,10 +10,10 @@
 Use:
 
 - `std.validate` para predicados claros;
-- `std.math` para operacoes numericas;
-- `std.random` para numeros pseudoaleatorios no corte alpha.
+- `std.math` para operações numéricas;
+- `std.random` para números pseudoaleatorios no corte alpha.
 
-## Validacao
+## Validação
 
 ```zt
 namespace app.main
@@ -37,7 +37,7 @@ public func main() -> int
 end
 ```
 
-## Matematica
+## Matemática
 
 ```zt
 namespace app.main
@@ -83,10 +83,10 @@ end
 - `random.last_seed`;
 - `random.draw_count`.
 
-Outros namespaces podem ler esse estado, mas nao devem escrever diretamente.
+Outros namespaces podem ler esse estado, mas não devem escrever diretamente.
 
 Use `random.seed(...)`.
 
-## Veja tambem
+## Veja também
 
 - `docs/reference/stdlib/math-random-validate.md`

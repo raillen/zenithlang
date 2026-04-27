@@ -226,6 +226,10 @@ int zt_compile_project(
         zt_driver_context *ctx,
         const char *input_path,
         zt_project_compile_result *out);
+int zt_compile_single_file(
+        zt_driver_context *ctx,
+        const char *zt_file_path,
+        zt_project_compile_result *out);
 int zt_emit_module_to_c(
         const zir_module *module_decl,
         c_emitter *emitter,

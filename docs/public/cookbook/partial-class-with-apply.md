@@ -1,4 +1,4 @@
-# Como separar metodos sem partial class
+# Como separar métodos sem partial class
 
 > Audience: user
 > Status: current
@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer manter dados e metodos organizados sem colocar tudo no mesmo bloco.
+Você quer manter dados e métodos organizados sem colocar tudo no mesmo bloco.
 
 Em C# isso pode virar `partial class`.
 
@@ -17,7 +17,7 @@ Em Zenith, use `struct` para dados e `apply` para comportamento.
 
 Declare os dados com `struct`.
 
-Adicione metodos com `apply Type`.
+Adicione métodos com `apply Type`.
 
 ```zt
 struct Player
@@ -56,17 +56,17 @@ end
 
 ## Por que
 
-`apply` permite separar comportamento sem fragmentar a definicao dos dados.
+`apply` permite separar comportamento sem fragmentar a definição dos dados.
 
 Isso ajuda a leitura:
 
 - `struct` mostra o formato do valor;
 - `apply Type` mostra comportamento inerente;
-- `apply Trait to Type` mostra implementacao de contrato.
+- `apply Trait to Type` mostra implementação de contrato.
 
 ## Erro comum
 
-Nao escreva:
+Não escreva:
 
 ```zt
 partial struct Player
@@ -88,13 +88,13 @@ apply Player
 end
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Nao espalhe metodos em arquivos demais sem motivo.
+Não espalhe métodos em arquivos demais sem motivo.
 
-Use `apply` para organizar, nao para esconder comportamento.
+Use `apply` para organizar, não para esconder comportamento.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/abstract-methods-with-trait.md`
 - `language/decisions/010-structs-traits-apply-enums-and-match.md`

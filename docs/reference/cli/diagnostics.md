@@ -15,6 +15,7 @@ Use normal output for local development:
 
 ```powershell
 .\zt.exe check zenith.ztproj
+.\zt.exe check hello.zt
 ```
 
 Use CI output for automation:

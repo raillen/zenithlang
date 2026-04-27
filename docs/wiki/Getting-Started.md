@@ -18,6 +18,14 @@ Run help:
 ./zt.exe help
 ```
 
+Run a single `.zt` file (no project needed):
+
+```bash
+./zt.exe run hello.zt
+./zt.exe check hello.zt
+./zt.exe build hello.zt
+```
+
 Create a project:
 
 ```bash

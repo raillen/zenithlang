@@ -1,0 +1,131 @@
+# Módulo `std.fs.path`
+
+Módulo puro de operações lexicais sobre caminhos.
+Não acessa o filesystem, não resolve symlinks.
+Todas as operações são baseadas em texto.
+
+## Constantes e Funções
+
+### `join`
+
+```zt
+public func join(parts: list<text>) -> text
+```
+
+Junta múltiplas partes de caminho usando o separador da plataforma.
+
+@param parts — Lista de partes do caminho.
+@return Caminho completo unido.
+
+### `base_name`
+
+```zt
+public func base_name(value: text) -> text
+```
+
+Retorna o nome do arquivo (última parte do caminho).
+
+@param value — Caminho completo.
+@return Nome do arquivo, ou `""` se o caminho termina em separador.
+
+### `name_without_extension`
+
+```zt
+public func name_without_extension(value: text) -> text
+```
+
+Retorna o nome do arquivo sem extensão.
+
+### `extension`
+
+```zt
+public func extension(value: text) -> optional<text>
+```
+
+Retorna a extensão do arquivo, ou `none` se não houver.
+
+@param value — Caminho ou nome de arquivo.
+@return Extensão sem o ponto, ou `none`.
+
+### `parent`
+
+```zt
+public func parent(value: text) -> optional<text>
+```
+
+Retorna o diretório pai, ou `none` se não houver pai.
+
+@param value — Caminho.
+@return Caminho do diretório pai, ou `none`.
+
+### `normalize`
+
+```zt
+public func normalize(value: text) -> text
+```
+
+Normaliza o caminho resolvendo `.` e `..` lexicalmente.
+
+### `absolute`
+
+```zt
+public func absolute(value: text, base: text) -> text
+```
+
+Converte para caminho absoluto usando o `base` explícito.
+Não lê o diretório atual implicitamente.
+
+@param value — Caminho relativo.
+@param base — Base explícita para resolução.
+@return Caminho absoluto.
+
+### `relative`
+
+```zt
+public func relative(value: text, from: text) -> text
+```
+
+Calcula o caminho relativo de `value` a partir de `from`.
+
+### `is_absolute`
+
+```zt
+public func is_absolute(value: text) -> bool
+```
+
+Verifica se o caminho é absoluto.
+
+### `is_relative`
+
+```zt
+public func is_relative(value: text) -> bool
+```
+
+Verifica se o caminho é relativo.
+
+### `has_extension`
+
+```zt
+public func has_extension(value: text, expected: text) -> bool
+```
+
+Verifica se o caminho tem a extensão esperada.
+O ponto inicial em `expected` é tratado automaticamente.
+
+@param value — Caminho a verificar.
+@param expected — Extensão esperada (com ou sem ponto).
+@return `true` se a extensão corresponde.
+
+### `change_extension`
+
+```zt
+public func change_extension(value: text, new_ext: text) -> text
+```
+
+Troca a extensão do arquivo no caminho.
+O ponto inicial em `new_ext` é tratado automaticamente.
+
+@param value — Caminho original.
+@param new_ext — Nova extensão (com ou sem ponto).
+@return Caminho com extensão alterada.
+

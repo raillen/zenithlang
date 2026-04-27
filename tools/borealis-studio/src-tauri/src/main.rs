@@ -5,7 +5,11 @@ mod state;
 mod utils;
 
 fn main() {
+    let layout = services::project_manager::studio_layout();
+    let app_state = std::sync::Mutex::new(state::AppState::new(layout));
+
     tauri::Builder::default()
+        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::project::create_borealis_project,
             commands::project::load_studio_home,
@@ -14,9 +18,44 @@ fn main() {
             commands::preview::poll_preview,
             commands::preview::start_preview,
             commands::preview::stop_preview,
+            commands::preview::reload_preview,
             commands::file::read_text_file,
             commands::file::write_text_file,
             commands::file::write_project_text_file,
+            commands::entity::add_entity,
+            commands::entity::remove_entity,
+            commands::entity::update_entity,
+            commands::entity::update_entity_transform,
+            commands::entity::duplicate_entity,
+            commands::entity::reparent_entity,
+            commands::entity::get_entity_tree,
+            commands::scene::save_scene,
+            commands::scene::update_scene_settings,
+            commands::scene::get_scene,
+            commands::component::get_component_schemas,
+            commands::component::get_component_schema,
+            commands::component::add_component,
+            commands::component::remove_component,
+            commands::component::update_component,
+            commands::asset::scan_assets,
+            commands::asset::import_asset,
+            commands::asset::get_asset_metadata,
+            commands::asset::delete_asset,
+            commands::history::undo,
+            commands::history::redo,
+            commands::history::get_history_state,
+            commands::history::clear_history,
+            commands::selection::select_entity,
+            commands::selection::toggle_selection,
+            commands::selection::deselect_all,
+            commands::selection::select_all,
+            commands::selection::get_selection,
+            commands::selection::set_hover,
+            commands::clipboard::copy_entities,
+            commands::clipboard::paste_entities,
+            commands::clipboard::cut_entities,
+            commands::clipboard::delete_selected,
+            commands::clipboard::duplicate_selected,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Borealis Studio");

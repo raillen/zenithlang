@@ -7,11 +7,11 @@
 
 ## Problema
 
-Voce quer um valor que pode ter formatos diferentes.
+Você quer um valor que pode ter formatos diferentes.
 
 Em Zenith, a forma recomendada e `enum` com payload.
 
-Nao crie uma keyword `union` para isso.
+Não crie uma keyword `union` para isso.
 
 ## Resposta curta
 
@@ -59,13 +59,13 @@ end
 
 - quais formas o valor pode ter;
 - quais dados cada forma carrega;
-- onde o codigo trata cada caso.
+- onde o código trata cada caso.
 
 O `match` torna o fluxo visivel.
 
 ## Erro comum
 
-Nao procure uma forma assim:
+Não procure uma forma assim:
 
 ```zt
 union Shape = Circle | Rectangle | Point
@@ -81,15 +81,15 @@ enum Shape
 end
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Nao use `enum` com payload para comportamento compartilhado entre muitos tipos.
+Não use `enum` com payload para comportamento compartilhado entre muitos tipos.
 
 Para comportamento, use `trait`.
 
-Para dispatch dinamico, use `dyn<Trait>`.
+Para dispatch dinâmico, use `dyn<Trait>`.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/abstract-methods-with-trait.md`
 - `docs/public/cookbook/virtual-dispatch-with-dyn.md`

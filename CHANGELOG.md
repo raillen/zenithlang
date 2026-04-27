@@ -2,6 +2,19 @@
 
 Todos os marcos do desenvolvimento da linguagem Zenith.
 
+## [Unreleased]
+
+### Adicionado
+
+- **Single-file execution**: `zt run arquivo.zt`, `zt check arquivo.zt`, `zt build arquivo.zt` e `zt emit-c arquivo.zt` funcionam sem necessidade de projeto (`zenith.ztproj`). O compilador cria um manifesto sintetico em memoria, carrega a stdlib automaticamente e ignora validacao de namespace-path.
+- Roadmap R5.M7 (Script Mode & REPL) com REPL interpretador ZIR/HIR como item futuro.
+
+### Arquivos modificados
+
+- `compiler/driver/pipeline.c`: nova funcao `zt_compile_single_file`.
+- `compiler/driver/main.c`: novo handler `zt_handle_single_file_command` + dispatch CLI para `.zt`.
+- `compiler/driver/driver_internal.h`: declaracao de `zt_compile_single_file`.
+
 ## [0.3.0-alpha.3] - 2026-04-24
 
 Release final do ciclo R3 com artefatos verificaveis locais.

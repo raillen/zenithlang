@@ -7,11 +7,11 @@
 
 ## Objetivo
 
-Responder perguntas praticas:
+Responder perguntas práticas:
 
 "Como faco isto em Zenith?"
 
-O cookbook existe para transformar conceitos da linguagem em solucoes diretas.
+O cookbook existe para transformar conceitos da linguagem em soluções diretas.
 
 ## Escopo
 
@@ -20,19 +20,19 @@ Inclui receitas para problemas comuns:
 - ausencia sem `null`;
 - erro sem exception;
 - union segura;
-- metodo abstrato;
+- método abstrato;
 - dispatch virtual;
-- validacao de entrada;
-- conversao para texto;
+- validação de entrada;
+- conversão para texto;
 - lookup seguro;
 - falhas intencionais;
 - testes legiveis.
 
-Nao inclui:
+Não inclui:
 
 - spec normativa;
 - roadmap;
-- debate historico de design;
+- debate histórico de design;
 - features futuras como se fossem atuais.
 
 ## Dependencias
@@ -43,35 +43,35 @@ Nao inclui:
 - Downstream:
   - `docs/public/README.md`
   - `docs/reference/language/`
-- Codigo/Testes relacionados:
+- Código/Testes relacionados:
   - `tests/behavior/MATRIX.md`
 
 ## Conteudo principal
 
-Formato padrao de receita:
+Formato padrão de receita:
 
 1. Problema.
 2. Resposta curta.
-3. Codigo recomendado.
+3. Código recomendado.
 4. Explicacao.
 5. Erro comum.
-6. Quando nao usar.
+6. Quando não usar.
 
 Receitas iniciais recomendadas:
 
 | Receita | Use quando |
 | --- | --- |
-| `absence-without-null.md` | um valor pode nao existir |
-| `errors-without-exceptions.md` | uma operacao pode falhar e o chamador deve decidir |
+| `absence-without-null.md` | um valor pode não existir |
+| `errors-without-exceptions.md` | uma operação pode falhar e o chamador deve decidir |
 | `safe-union-with-enum.md` | um valor pode ter formatos diferentes |
 | `abstract-methods-with-trait.md` | varios tipos precisam cumprir o mesmo contrato |
 | `virtual-dispatch-with-dyn.md` | valores de tipos diferentes precisam ser chamados pelo mesmo contrato |
-| `partial-class-with-apply.md` | voce quer separar metodos sem fragmentar os dados |
-| `callable-delegate.md` | voce quer passar uma funcao como valor |
-| `zenith-equivalents-from-other-languages.md` | voce conhece o conceito em outra linguagem e quer o equivalente Zenith |
-| `intentional-failure-builtins.md` | voce precisa falhar de modo claro com `check`, `todo` ou `unreachable` |
+| `partial-class-with-apply.md` | você quer separar métodos sem fragmentar os dados |
+| `callable-delegate.md` | você quer passar uma funcao como valor |
+| `zenith-equivalents-from-other-languages.md` | você conhece o conceito em outra linguagem e quer o equivalente Zenith |
+| `intentional-failure-builtins.md` | você precisa falhar de modo claro com `check`, `todo` ou `unreachable` |
 
-## Validacao
+## Validação
 
 Antes de publicar uma receita:
 
@@ -82,8 +82,8 @@ git diff --check
 
 Exemplos devem compilar ou ser marcados como ilustrativos.
 
-## Historico de atualizacao
+## Histórico de atualização
 
-- 2026-04-25: indice inicial do cookbook.
+- 2026-04-25: índice inicial do cookbook.
 - 2026-04-26: adicionada receita de equivalentes Zenith para conceitos de outras linguagens.
 - 2026-04-26: adicionada receita de falhas intencionais com `check`, `todo` e `unreachable`.

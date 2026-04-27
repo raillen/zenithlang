@@ -1,4 +1,4 @@
-# Como fazer metodo abstrato com `trait`
+# Como fazer método abstrato com `trait`
 
 > Audience: user
 > Status: current
@@ -7,11 +7,11 @@
 
 ## Problema
 
-Voce quer declarar um comportamento que varios tipos devem implementar.
+Você quer declarar um comportamento que varios tipos devem implementar.
 
 Em Zenith, use `trait`.
 
-Nao use `abstract class`.
+Não use `abstract class`.
 
 ## Resposta curta
 
@@ -52,15 +52,15 @@ end
 
 ## Por que
 
-`trait` deixa a intencao explicita:
+`trait` deixa a intencao explícita:
 
 - o tipo precisa oferecer aquele comportamento;
-- a implementacao fica separada;
-- nao existe heranca classica escondida.
+- a implementação fica separada;
+- não existe heranca classica escondida.
 
 ## Erro comum
 
-Nao escreva:
+Não escreva:
 
 ```zt
 abstract class Scoreable
@@ -76,13 +76,13 @@ trait Scoreable
 end
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Nao use `trait` se so existe um tipo concreto e nao ha contrato compartilhado.
+Não use `trait` se só existe um tipo concreto e não há contrato compartilhado.
 
-Nesse caso, use metodo inerente com `apply Type`.
+Nesse caso, use método inerente com `apply Type`.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/partial-class-with-apply.md`
 - `docs/public/cookbook/virtual-dispatch-with-dyn.md`

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use crate::models::preview::{PreviewCommandResult, PreviewEvent, PreviewSession};
+use crate::models::preview::{PreviewCommandResult, PreviewEvent, PreviewSession, PreviewStatus};
 use crate::models::project::StudioLayout;
 use crate::utils::paths::normalize_path;
 
@@ -77,6 +77,7 @@ pub fn spawn_preview_process(layout: &StudioLayout) -> Result<PreviewSession, St
         runner,
         seq: 1,
         status: "starting".to_string(),
+        machine: PreviewStatus::Starting,
     })
 }
 
@@ -171,6 +172,7 @@ pub fn collect_preview_events(
                 let event = parse_preview_event(line);
                 if let Some(status) = event.status.as_ref() {
                     session.status = status.clone();
+                    session.machine = PreviewStatus::from_str(status);
                 }
                 events.push(event);
             }
@@ -180,6 +182,7 @@ pub fn collect_preview_events(
             Err(std::sync::mpsc::TryRecvError::Empty) => break,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 session.status = "exited".to_string();
+                session.machine = PreviewStatus::Exited;
                 break;
             }
         }
@@ -187,9 +190,28 @@ pub fn collect_preview_events(
 
     if !preview_is_alive(session) && session.status != "stopped" {
         session.status = "exited".to_string();
+        session.machine = PreviewStatus::Exited;
     }
 
     events
+}
+
+pub fn reload_scene(
+    session: &mut PreviewSession,
+    scene_json: &str,
+    scene_path: &str,
+) -> Result<(), String> {
+    if session.machine == PreviewStatus::Exited || !preview_is_alive(session) {
+        return Err("preview process is not running".to_string());
+    }
+    send_preview_command(
+        session,
+        "reload_scene",
+        json!({
+            "path": scene_path,
+            "content": scene_json
+        }),
+    )
 }
 
 pub fn parse_preview_event(raw: String) -> PreviewEvent {

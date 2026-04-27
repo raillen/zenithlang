@@ -1,0 +1,119 @@
+# Módulo `std.io`
+
+## Constantes e Funções
+
+### `﻿--- @target: namespace
+# std.io â€” Entrada e SaÃ­da PadrÃ£o
+
+MÃ³dulo textual sÃ­ncrono para streams padrÃ£o de entrada, saÃ­da e erro.
+Usa handles tipados (`io.Input`, `io.Output`) e funÃ§Ãµes livres com parÃ¢metros opcionais `to:` e `from:`.
+Todas as operaÃ§Ãµes retornam `result` com erro tipado `core.Error`.
+---`
+
+Input
+
+### ````zt
+public struct Input
+    handle: int
+end
+```
+
+Handle tipado para streams de entrada.
+O handle padrÃ£o `io.input` representa a entrada padrÃ£o (stdin).
+---`
+
+Output
+
+### ````zt
+public struct Output
+    handle: int
+end
+```
+
+Handle tipado para streams de saÃ­da.
+Os handles padrÃ£o sÃ£o `io.output` (stdout) e `io.stderr` (stderr).
+---`
+
+Error
+
+### ````zt
+public enum Error
+    ReadFailed
+    WriteFailed
+    Unknown
+end
+```
+
+Erro tipado para operaÃ§Ãµes de I/O.
+---`
+
+input
+
+### ````zt
+public const input: io.Input
+```
+
+Handle padrÃ£o de entrada (stdin).
+---`
+
+output
+
+### ````zt
+public const output: io.Output
+```
+
+Handle padrÃ£o de saÃ­da (stdout).
+---`
+
+err
+
+### ````zt
+public const err: io.Output
+```
+
+Handle de saÃ­da de erro (stderr).
+Nomeado `err` para evitar conflito com o construtor `error(...)` de `result`.
+---`
+
+read_line
+
+### ````zt
+public func read_line(from: io.Input = io.input) -> result<optional<text>, core.Error>
+```
+
+LÃª uma Ãºnica linha da entrada.
+Retorna `none` ao atingir EOF sem conteÃºdo.
+Terminadores de linha (`\n`, `\r\n`) sÃ£o removidos.
+
+@param from â€” Handle de entrada (padrÃ£o: `io.input`).
+@return Linha lida como `optional<text>`, ou erro de I/O.
+---`
+
+read_all
+
+### ````zt
+public func read_all(from: io.Input = io.input) -> result<text, core.Error>
+```
+
+LÃª todo o conteÃºdo disponÃ­vel na entrada atÃ© EOF.
+
+@param from â€” Handle de entrada (padrÃ£o: `io.input`).
+@return Todo o texto lido, ou erro de I/O.
+---`
+
+write
+
+### ````zt
+public func write(value: text, to: io.Output = io.output) -> result<void, core.Error>
+```
+
+Escreve texto bruto no stream de saÃ­da especificado.
+NÃ£o adiciona quebra de linha.
+
+@param value â€” Texto a ser escrito.
+@param to â€” Handle de saÃ­da (padrÃ£o: `io.output`).
+@return `void` em sucesso, ou erro de I/O.
+---`
+
+print
+

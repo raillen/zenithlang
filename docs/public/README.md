@@ -17,21 +17,21 @@ Use esta pasta para:
 - guias de uso das ferramentas;
 - material que pode ir para o site.
 
-Nao use esta pasta para:
+Não use esta pasta para:
 
 - roadmap;
 - checklist;
-- relatorio;
+- relatório;
 - auditoria;
 - planos internos;
-- features ainda nao implementadas como se fossem atuais.
+- features ainda não implementadas como se fossem atuais.
 
-## Secoes
+## Seções
 
 - `learn/`: trilha didatica em ordem, para aprender a linguagem.
-- `cookbook/`: respostas praticas para problemas comuns.
-- `history-and-manifesto.md`: historia, motivacao e filosofia publica do projeto.
-- `guides/`: guias praticos existentes.
+- `cookbook/`: respostas práticas para problemas comuns.
+- `history-and-manifesto.md`: história, motivacao e filosofia publica do projeto.
+- `guides/`: guias práticos existentes.
 - `tools/`: ferramentas do ecossistema, como ZPM.
 - `licensing/`: licenca, marca e contribuicao.
 - `get-started/`: primeiros passos.
@@ -39,9 +39,9 @@ Nao use esta pasta para:
 - `stdlib/`: guias de uso da stdlib.
 - `packages/`: guias de packages oficiais.
 
-## Regra para conteudo de usuario
+## Regra para conteúdo de usuário
 
-Toda pagina publica deve responder rapidamente:
+Toda página publica deve responder rapidamente:
 
 - o que e;
 - quando usar;
@@ -49,4 +49,4 @@ Toda pagina publica deve responder rapidamente:
 - erro comum;
 - limite atual.
 
-Use `docs/internal/standards/user-doc-template.md` para manter esse padrao.
+Use `docs/internal/standards/user-doc-template.md` para manter esse padrão.

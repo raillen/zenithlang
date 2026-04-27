@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer dizer que um valor pode nao existir.
+Você quer dizer que um valor pode não existir.
 
 Em muitas linguagens isso vira `null`.
 
@@ -73,7 +73,7 @@ Isso evita erro escondido por `null`.
 
 ## Erro comum
 
-Nao escreva:
+Não escreva:
 
 ```zt
 func find_name(id: int) -> text
@@ -89,13 +89,13 @@ func find_name(id: int) -> optional<text>
 end
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Nao use `optional<T>` para erro recuperavel com motivo.
+Não use `optional<T>` para erro recuperavel com motivo.
 
 Se precisa dizer por que falhou, use `result<T, E>`.
 
-## Veja tambem
+## Veja também
 
 - `docs/public/cookbook/errors-without-exceptions.md`
 - `docs/reference/language/errors-and-results.md`

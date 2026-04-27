@@ -819,6 +819,273 @@ fail:
     return 0;
 }
 
+/*
+ * zt_compile_single_file — compile a standalone .zt file without a project.
+ *
+ * Creates a synthetic manifest in memory, loads the single file plus any
+ * stdlib imports, then runs the full pipeline (parse -> bind -> check ->
+ * HIR -> ZIR -> verify). Namespace-to-path validation is intentionally
+ * skipped so that any .zt file can be compiled from any location.
+ */
+int zt_compile_single_file(
+        zt_driver_context *ctx,
+        const char *zt_file_path,
+        zt_project_compile_result *out) {
+    zt_ast_node *program_root = NULL;
+    zt_bind_result bound;
+    zt_check_result checked;
+    zt_hir_lower_result hir = { 0 };
+    zir_lower_result zir;
+    zir_verifier_result verifier;
+    int program_ready = 0;
+    int bound_ready = 0;
+    int checked_ready = 0;
+    int hir_ready = 0;
+    int zir_ready = 0;
+    char abs_path[512];
+    const char *file_base;
+    const char *dot;
+    size_t stem_len;
+
+    zt_project_compile_result_init(out);
+    zt_project_source_file_list_init(&out->source_files);
+
+    /* Resolve absolute path of the .zt file */
+    if (zt_file_path == NULL || zt_file_path[0] == '\0') {
+        zt_print_single_diag(ctx, "script", ZT_DIAG_PROJECT_INVALID_INPUT, zt_source_span_unknown(),
+            "no .zt file path provided");
+        return 0;
+    }
+
+    if (!zt_path_is_file(zt_file_path)) {
+        zt_print_single_diag(ctx, "script", ZT_DIAG_PROJECT_INVALID_INPUT, zt_source_span_unknown(),
+            "file not found: '%s'", zt_file_path);
+        return 0;
+    }
+
+    if (!zt_copy_text(abs_path, sizeof(abs_path), zt_file_path)) {
+        zt_print_single_diag(ctx, "script", ZT_DIAG_PROJECT_PATH_TOO_LONG, zt_source_span_unknown(),
+            "file path is too long");
+        return 0;
+    }
+
+    /* Derive project_root from the file's parent directory */
+    if (!zt_dirname(out->project_root, sizeof(out->project_root), abs_path)) {
+        if (!zt_get_current_dir(out->project_root, sizeof(out->project_root))) {
+            zt_copy_text(out->project_root, sizeof(out->project_root), ".");
+        }
+    }
+
+    /* Extract stem (filename without extension) for the synthetic manifest */
+    {
+        size_t i;
+        size_t last_sep = 0;
+        int has_sep = 0;
+        for (i = 0; abs_path[i] != '\0'; i++) {
+            if (abs_path[i] == '/' || abs_path[i] == '\\') {
+                last_sep = i;
+                has_sep = 1;
+            }
+        }
+        file_base = has_sep ? abs_path + last_sep + 1 : abs_path;
+        dot = strrchr(file_base, '.');
+        stem_len = dot != NULL ? (size_t)(dot - file_base) : strlen(file_base);
+        if (stem_len == 0) stem_len = strlen(file_base);
+    }
+
+    /* Build synthetic manifest */
+    zt_project_manifest_init(&out->manifest);
+    snprintf(out->manifest.project_name, sizeof(out->manifest.project_name), "%.*s", (int)stem_len, file_base);
+    snprintf(out->manifest.project_kind, sizeof(out->manifest.project_kind), "app");
+    snprintf(out->manifest.version, sizeof(out->manifest.version), "0.0.0");
+    snprintf(out->manifest.source_root, sizeof(out->manifest.source_root), ".");
+    snprintf(out->manifest.build_target, sizeof(out->manifest.build_target), "native");
+    snprintf(out->manifest.build_profile, sizeof(out->manifest.build_profile), "debug");
+    snprintf(out->manifest.build_output, sizeof(out->manifest.build_output), "build");
+    snprintf(out->manifest.output_dir, sizeof(out->manifest.output_dir), "build");
+    snprintf(out->manifest.test_root, sizeof(out->manifest.test_root), "tests");
+    snprintf(out->manifest.zdoc_root, sizeof(out->manifest.zdoc_root), "zdoc");
+    snprintf(out->manifest.accessibility_profile, sizeof(out->manifest.accessibility_profile), "balanced");
+    out->manifest.build_monomorphization_limit = ZT_PROJECT_DEFAULT_MONOMORPHIZATION_LIMIT;
+
+    /* app_entry will be set after parsing, when we know the file's namespace */
+    snprintf(out->manifest.app_entry, sizeof(out->manifest.app_entry), "script");
+    snprintf(out->manifest.entry, sizeof(out->manifest.entry), "script");
+    snprintf(out->manifest.output_name, sizeof(out->manifest.output_name), "%.*s", (int)stem_len, file_base);
+
+    out->manifest_path[0] = '\0';
+
+    if (ctx != NULL) {
+        zt_driver_context_activate_project(ctx, &out->manifest, out->project_root);
+    }
+
+    /* Add the single .zt file */
+    zt_project_source_file_list_push(&out->source_files, abs_path);
+
+    /* Scan and load stdlib imports */
+    {
+        const char *stdlib_base = getenv("ZENITH_HOME");
+        char runtime_base[768];
+        char default_base[768];
+        size_t si;
+        zt_string_set std_imports;
+
+        zt_string_set_init(&std_imports);
+        zt_runtime_root(runtime_base, sizeof(runtime_base));
+
+        if (zt_home_has_stdlib(runtime_base)) {
+            if (!zt_join_path(default_base, sizeof(default_base), runtime_base, "stdlib")) {
+                strcpy(default_base, "stdlib");
+            }
+            stdlib_base = default_base;
+        } else if (stdlib_base != NULL && stdlib_base[0] != '\0' && zt_home_has_stdlib(stdlib_base)) {
+            if (!zt_join_path(default_base, sizeof(default_base), stdlib_base, "stdlib")) {
+                strcpy(default_base, "stdlib");
+            }
+            stdlib_base = default_base;
+        } else {
+            strcpy(default_base, "stdlib");
+            stdlib_base = default_base;
+        }
+
+        if (!zt_native_collect_std_imports_from_file(abs_path, &std_imports)) {
+            zt_string_set_dispose(&std_imports);
+            zt_print_single_diag(ctx, "script", ZT_DIAG_PROJECT_ERROR, zt_source_span_unknown(),
+                "failed to scan stdlib imports in '%s'", abs_path);
+            goto fail;
+        }
+
+        for (si = 0; si < std_imports.count; si++) {
+            char import_buf[256];
+            char mod_path[768];
+            size_t j;
+            int already_loaded;
+
+            if (!zt_copy_text(import_buf, sizeof(import_buf), std_imports.items[si])) {
+                continue;
+            }
+
+            snprintf(mod_path, sizeof(mod_path), "%s", stdlib_base);
+            for (j = 0; import_buf[j]; j++) {
+                if (import_buf[j] == '.') import_buf[j] = '/';
+            }
+            if (strlen(mod_path) + 1 + strlen(import_buf) + 3 >= sizeof(mod_path)) {
+                continue;
+            }
+
+            strcat(mod_path, "/");
+            strcat(mod_path, import_buf);
+            strcat(mod_path, ".zt");
+
+            already_loaded = 0;
+            for (j = 0; j < out->source_files.count; j++) {
+                if (strcmp(out->source_files.items[j].path, mod_path) == 0) {
+                    already_loaded = 1;
+                    break;
+                }
+            }
+
+            if (!already_loaded && zt_path_is_file(mod_path)) {
+                zt_project_source_file_list_push(&out->source_files, mod_path);
+            }
+        }
+
+        zt_string_set_dispose(&std_imports);
+    }
+
+    /* Parse sources */
+    if (!zt_parse_project_sources(ctx, &out->source_files)) {
+        goto fail;
+    }
+
+    /* Update manifest entry/app_entry from the parsed namespace */
+    {
+        const zt_ast_node *root = out->source_files.items[0].parsed.root;
+        if (root != NULL && root->kind == ZT_AST_FILE && root->as.file.module_name != NULL) {
+            zt_copy_text(out->manifest.app_entry, sizeof(out->manifest.app_entry), root->as.file.module_name);
+            zt_copy_text(out->manifest.entry, sizeof(out->manifest.entry), root->as.file.module_name);
+        }
+    }
+
+    /* Skip zt_validate_source_namespaces — single-file mode does not
+     * require namespace-to-path alignment. */
+
+    program_root = zt_build_combined_project_ast(&out->source_files, &out->manifest);
+    if (program_root == NULL) {
+        zt_print_single_diag(ctx, "script", ZT_DIAG_PROJECT_ERROR, zt_source_span_unknown(),
+            "unable to aggregate source");
+        goto fail;
+    }
+    program_ready = 1;
+
+    bound = zt_bind_file(program_root);
+    bound_ready = 1;
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "binding", &bound.diagnostics)) {
+        goto fail;
+    }
+
+    checked = zt_check_file(program_root);
+    checked_ready = 1;
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "type", &checked.diagnostics)) {
+        goto fail;
+    }
+
+    hir = zt_lower_ast_to_hir(program_root);
+    hir_ready = 1;
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "hir", &hir.diagnostics) || hir.module == NULL) {
+        goto fail;
+    }
+
+    zir = zir_lower_hir_to_zir(hir.module);
+    zir_ready = 1;
+    if (!zt_handle_stage_diagnostics(ctx, &out->manifest, "zir", &zir.diagnostics)) {
+        goto fail;
+    }
+
+    if (!zir_verify_module(&zir.module, &verifier)) {
+        zt_source_span span = zt_source_span_make("<zir>", 1, 1, 1);
+        if (verifier.has_span) {
+            const char *source_name = verifier.source_name != NULL && verifier.source_name[0] != '\0'
+                ? verifier.source_name
+                : "<zir>";
+            size_t line = verifier.line > 0 ? verifier.line : 1;
+            size_t column = verifier.column > 0 ? verifier.column : 1;
+            span = zt_source_span_make(source_name, line, column, column);
+        }
+        zt_print_single_diag(
+            ctx,
+            "zir.verify",
+            zt_diag_code_from_zir_verifier(verifier.code),
+            span,
+            "%s",
+            verifier.message[0] != '\0' ? verifier.message : "ZIR verification failed");
+        goto fail;
+    }
+
+    if (!zt_enforce_monomorphization_limit(ctx, abs_path, out->manifest.build_monomorphization_limit, &zir.module)) {
+        goto fail;
+    }
+
+    out->zir = zir;
+    out->has_zir = 1;
+    zir_ready = 0;
+
+    if (hir_ready) zt_hir_lower_result_dispose(&hir);
+    if (checked_ready) zt_check_result_dispose(&checked);
+    if (bound_ready) zt_bind_result_dispose(&bound);
+    if (program_ready) { (void)program_root; }
+    return 1;
+
+fail:
+    if (zir_ready) zir_lower_result_dispose(&zir);
+    if (hir_ready) zt_hir_lower_result_dispose(&hir);
+    if (checked_ready) zt_check_result_dispose(&checked);
+    if (bound_ready) zt_bind_result_dispose(&bound);
+    if (program_ready) { (void)program_root; }
+    zt_project_source_file_list_dispose(&out->source_files);
+    return 0;
+}
+
 int zt_emit_module_to_c(
         const zir_module *module_decl,
         c_emitter *emitter,

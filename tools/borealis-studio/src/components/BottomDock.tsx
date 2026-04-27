@@ -1,5 +1,5 @@
-import { Archive, BadgeAlert, Check, Circle, FileCode2, Terminal, ZoomIn } from "lucide-react";
-import React, { PointerEvent, useEffect, useRef, useState } from "react";
+import { Archive, BadgeAlert, Check, Circle, FileCode2, Terminal, Trash2, ZoomIn } from "lucide-react";
+import React, { PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ICON_STROKE } from "../constants";
 import type { BottomTab, ConsoleLine, ProjectAsset, ScriptDocument } from "../types";
 import { assetKindIcon } from "../utils/assets";
@@ -13,6 +13,7 @@ export function BottomDock({
   scripts,
   onAssetDrop,
   onAssetPointerDown,
+  onClearConsole,
   onOpenScript,
   onScriptSelect,
   onTabChange,
@@ -23,6 +24,7 @@ export function BottomDock({
   scripts: ScriptDocument[];
   onAssetDrop: (asset: ProjectAsset) => void;
   onAssetPointerDown: (asset: ProjectAsset, event: PointerEvent<HTMLElement>) => void;
+  onClearConsole?: () => void;
   onOpenScript: (path: string) => void;
   onScriptSelect: (path: string) => void;
   onTabChange: (tab: BottomTab) => void;
@@ -57,6 +59,7 @@ export function BottomDock({
         </DockTab>
         <DockTab active={activeTab === "console"} icon={<Terminal size={14} strokeWidth={ICON_STROKE} />} onClick={() => onTabChange("console")}>
           Console
+          <ConsoleCounters lines={console} />
         </DockTab>
         <DockTab active={activeTab === "problems"} icon={<BadgeAlert size={14} strokeWidth={ICON_STROKE} />} onClick={() => onTabChange("problems")}>
           Problems
@@ -99,7 +102,7 @@ export function BottomDock({
           </div>
         </div>
       ) : null}
-      {activeTab === "console" ? <ConsoleView lines={console} /> : null}
+      {activeTab === "console" ? <ConsoleView lines={console} onClear={onClearConsole} /> : null}
       {activeTab === "problems" ? <ProblemsView scripts={scripts} /> : null}
     </section>
   );
@@ -158,15 +161,91 @@ export function AssetDragPreview({ asset, x, y }: { asset: ProjectAsset; x: numb
   );
 }
 
-function ConsoleView({ lines }: { lines: ConsoleLine[] }) {
+function ConsoleCounters({ lines }: { lines: ConsoleLine[] }) {
+  const warnCount = lines.filter((l) => l.level === "warn").length;
+  const errorCount = lines.filter((l) => l.level === "error").length;
+  if (warnCount === 0 && errorCount === 0) return null;
+  return (
+    <span className="console-counters">
+      {warnCount > 0 ? <span className="counter-warn">{warnCount}</span> : null}
+      {errorCount > 0 ? <span className="counter-error">{errorCount}</span> : null}
+    </span>
+  );
+}
+
+type ConsoleFilter = "all" | "info" | "warn" | "error";
+type SourceFilter = "all" | "studio" | "preview" | "script";
+
+function ConsoleView({ lines, onClear }: { lines: ConsoleLine[]; onClear?: () => void }) {
+  const [levelFilter, setLevelFilter] = useState<ConsoleFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const filtered = useMemo(
+    () =>
+      lines.filter((line) => {
+        if (levelFilter !== "all" && line.level !== levelFilter) return false;
+        if (sourceFilter !== "all" && line.source !== sourceFilter) return false;
+        return true;
+      }),
+    [lines, levelFilter, sourceFilter],
+  );
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [filtered, autoScroll]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    setAutoScroll(atBottom);
+  }, []);
+
   return (
     <div className="console-view">
-      {lines.map((line) => (
-        <div className={`console-line ${line.level}`} key={line.id}>
-          <span>{line.source}</span>
-          <p>{line.message}</p>
-        </div>
-      ))}
+      <div className="console-toolbar">
+        <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value as ConsoleFilter)}>
+          <option value="all">All levels</option>
+          <option value="info">Info</option>
+          <option value="warn">Warn</option>
+          <option value="error">Error</option>
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}>
+          <option value="all">All sources</option>
+          <option value="studio">Studio</option>
+          <option value="preview">Preview</option>
+          <option value="script">Script</option>
+        </select>
+        <button
+          className={autoScroll ? "active" : ""}
+          onClick={() => setAutoScroll((v) => !v)}
+          title={autoScroll ? "Auto-scroll ON" : "Auto-scroll OFF"}
+          type="button"
+        >
+          Auto
+        </button>
+        {onClear ? (
+          <button onClick={onClear} title="Clear console" type="button">
+            <Trash2 size={12} strokeWidth={ICON_STROKE} />
+          </button>
+        ) : null}
+        <span className="console-count">{filtered.length} / {lines.length}</span>
+      </div>
+      <div className="console-lines" ref={scrollRef} onScroll={handleScroll}>
+        {filtered.map((line) => (
+          <div className={`console-line ${line.level}`} key={line.id}>
+            <span className="console-timestamp">
+              {new Date(line.id).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
+            <span className="console-source">{line.source}</span>
+            <p>{line.message}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

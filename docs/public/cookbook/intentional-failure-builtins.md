@@ -7,7 +7,7 @@
 
 ## Problema
 
-Voce quer que um erro pare o programa com uma mensagem clara.
+Você quer que um erro pare o programa com uma mensagem clara.
 
 Mas cada caso tem uma intencao diferente.
 
@@ -15,12 +15,12 @@ Mas cada caso tem uma intencao diferente.
 
 Use:
 
-- `check(condition, message)` quando uma condicao interna precisa ser verdadeira;
-- `todo(message)` quando o caminho ainda nao foi implementado;
-- `unreachable(message)` quando o caminho deveria ser impossivel;
+- `check(condition, message)` quando uma condição interna precisa ser verdadeira;
+- `todo(message)` quando o caminho ainda não foi implementado;
+- `unreachable(message)` quando o caminho deveria ser impossível;
 - `panic(message)` para uma falha fatal geral.
 
-## Codigo recomendado
+## Código recomendado
 
 ```zt
 namespace app.main
@@ -51,7 +51,7 @@ end
 
 ## Explicacao
 
-`check` comunica uma validacao.
+`check` comunica uma validação.
 
 `todo` comunica trabalho incompleto.
 
@@ -61,7 +61,7 @@ Esses nomes ajudam a ler o motivo da falha antes de depurar.
 
 ## Erro comum
 
-Nao use `todo` para erro esperado de negocio.
+Não use `todo` para erro esperado de negócio.
 
 ```zt
 func find_user(id: int) -> result<text, text>
@@ -74,13 +74,13 @@ func find_user(id: int) -> result<text, text>
 end
 ```
 
-O `todo` acima so faz sentido enquanto a busca ainda nao existe.
+O `todo` acima só faz sentido enquanto a busca ainda não existe.
 
 Quando a busca existir, ausencia normal deve virar `optional<T>` ou `result<T,E>`.
 
-## Quando nao usar
+## Quando não usar
 
-Nao use esses builtins para fluxo normal.
+Não use esses builtins para fluxo normal.
 
 Use `optional<T>` quando faltar valor for esperado.
 

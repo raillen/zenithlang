@@ -692,8 +692,8 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 
 ### Manual Notes
 
-- Critical flow:
-- Break conditions:
-- Related docs or decisions:
-- Extra test cases worth adding:
+- Critical flow: Single-file mode (`zt run file.zt`) routes through `zt_handle_single_file_command` → `zt_compile_single_file` (pipeline.c). CLI dispatch intercepts `.zt` files after `.zir` but before project handler.
+- Break conditions: `zt_compile_single_file` depends on `zt_project_manifest_init`, `zt_parse_project_sources`, `zt_build_combined_project_ast`, and the full pipeline stages. Changes to these functions may break single-file mode.
+- Related docs or decisions: `language/decisions/092-single-file-execution.md`, `docs/internal/planning/roadmap-v5.md` (R5.M7)
+- Extra test cases worth adding: single-file with stdlib imports, single-file without namespace declaration, single-file with multiple namespaces (should fail)
 <!-- CODEMAP:GENERATED:END -->

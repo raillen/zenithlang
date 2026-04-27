@@ -1,0 +1,125 @@
+# Módulo `std.net`
+
+Módulo para comunicação TCP cliente com sockets bloqueantes e timeouts explícitos.
+Projetado para simplicidade e segurança com contratos `where` nos parâmetros.
+
+## Constantes e Funções
+
+### `Error`
+
+```zt
+public enum Error
+    ConnectionRefused
+    HostUnreachable
+    Timeout
+    AddressInUse
+    AlreadyConnected
+    NotConnected
+    NetworkDown
+    Overflow
+    PeerReset
+    SystemLimit
+    Unknown
+end
+```
+
+Enumeração tipada dos erros de rede possíveis.
+
+### `Connection`
+
+```zt
+public struct Connection
+end
+```
+
+Handle opaco representando uma conexão TCP aberta.
+
+## Funções
+
+### `connect`
+
+```zt
+public func connect(
+    host: text,
+    port: int where it >= 1 and it <= 65535,
+    timeout_ms: int
+) -> result<net.Connection, core.Error>
+```
+
+Abre uma conexão TCP para o host e porta indicados.
+A porta é validada por contrato `where` no intervalo `[1, 65535]`.
+
+@param host — Nome do host ou endereço IP.
+@param port — Porta TCP (1–65535, validada por where).
+@param timeout_ms — Tempo máximo de espera em milissegundos.
+@return Handle da conexão aberta, ou erro.
+
+### `read_some`
+
+```zt
+public func read_some(
+    connection: net.Connection,
+    max: int where it > 0,
+    timeout_ms: int = -1
+) -> result<optional<bytes>, core.Error>
+```
+
+Lê até `max` bytes da conexão. Retorna `none` se o servidor fechar a conexão (EOF).
+O parâmetro `max` é validado por `where` para ser positivo.
+
+@param connection — Conexão TCP aberta.
+@param max — Número máximo de bytes a ler (> 0).
+@param timeout_ms — Timeout em milissegundos (-1 = sem timeout).
+@return Bytes lidos, `none` em EOF, ou erro.
+
+### `write_all`
+
+```zt
+public func write_all(
+    connection: net.Connection,
+    data: bytes,
+    timeout_ms: int = -1
+) -> result<void, core.Error>
+```
+
+Envia todos os bytes de `data` pela conexão. Garante envio completo.
+
+@param connection — Conexão TCP aberta.
+@param data — Bytes a enviar.
+@param timeout_ms — Timeout em milissegundos (-1 = sem timeout).
+@return `void` em sucesso, ou erro.
+
+### `close`
+
+```zt
+public func close(connection: net.Connection) -> result<void, core.Error>
+```
+
+Fecha uma conexão TCP.
+
+@param connection — Conexão a fechar.
+@return `void` em sucesso, ou erro.
+
+### `is_closed`
+
+```zt
+public func is_closed(connection: net.Connection) -> bool
+```
+
+Verifica se a conexão está fechada.
+
+@param connection — Conexão a verificar.
+@return `true` se a conexão estiver fechada.
+
+### `kind`
+
+```zt
+public func kind(err: core.Error) -> net.Error
+```
+
+Converte um `core.Error` genérico em um `net.Error` tipado.
+Faz correspondência com o campo `code` do erro para determinar a variante correta.
+
+@param err — Erro genérico do core.
+@return Variante tipada `net.Error` correspondente.
+

@@ -9,9 +9,9 @@
 
 ZPM e o gerenciador de packages da linguagem Zenith.
 
-No corte atual, ele existe como binario `zpm.exe` e tambem segue o modelo de integracao com o driver `zt`.
+No corte atual, ele existe como binario `zpm.exe` e também segue o modelo de integração com o driver `zt`.
 
-## Ajuda rapida
+## Ajuda rápida
 
 ```powershell
 .\zpm.exe help
@@ -61,7 +61,7 @@ Isso resolve dependencias e gera `zenith.lock`.
 ..\zpm.exe update
 ```
 
-Ou atualize um package especifico:
+Ou atualize um package específico:
 
 ```powershell
 ..\zpm.exe update borealis
@@ -85,9 +85,9 @@ Ou atualize um package especifico:
 ..\zpm.exe publish
 ```
 
-Use `publish` como validacao antes de compartilhar um package.
+Use `publish` como validação antes de compartilhar um package.
 
-## Manifesto basico
+## Manifesto básico
 
 ```toml
 [project]

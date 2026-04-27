@@ -1,4 +1,8 @@
+pub mod asset_database;
 pub mod asset_pipeline;
+pub mod component_registry;
+pub mod edit_commands;
+pub mod entity_tree;
 pub mod file_service;
 pub mod preview_runner;
 pub mod project_manager;
