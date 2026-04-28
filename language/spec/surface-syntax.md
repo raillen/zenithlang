@@ -280,18 +280,18 @@ Concatenation uses `+` only for `text + text`. Implicit conversions do not exist
 Interpolation and Formatting:
 
 ```zt
--- Day-to-day interpolation uses fmt.
-const message: text = fmt "Player {player.name} has {player.hp} HP"
+-- Day-to-day interpolation uses f"...".
+const message: text = f"Player {player.name} has {player.hp} HP"
 
--- Explicit conversion outside fmt remains available.
+-- Explicit conversion outside f-strings remains available.
 const report: text = "Coordinates: X=" + to_text(x) + ", Y=" + to_text(y)
 ```
 
 Rules:
 
 - ordinary text literals do not interpolate.
-- interpolation requires `fmt`.
-- expressions inside `{...}` in `fmt` are ordinary expressions.
+- interpolation requires `f"..."`.
+- expressions inside `{...}` in f-strings are ordinary expressions.
 - each interpolated expression must implement `TextRepresentable<T>`.
 - formatting helpers belong to `std.format`.
 - explicit UTF-8 conversion between `text` and `bytes` belongs to `std.text`.
@@ -471,6 +471,45 @@ Rules:
 - `break` and `continue` apply to the nearest loop
 - `repeat` count is evaluated once before the loop
 - negative repeat count is invalid
+
+## Resource Cleanup With `using`
+
+`using` binds a value and gives it a predictable cleanup point.
+
+Block form:
+
+```zt
+using handle = open_handle()
+    use(handle)
+end
+```
+
+Flat form:
+
+```zt
+using handle = open_handle()
+use(handle)
+return 0
+```
+
+Custom cleanup form:
+
+```zt
+using handle = open_handle() then close_handle(handle)
+use(handle)
+```
+
+Rules:
+
+- `using name = expr` declares `name` as immutable.
+- In block form, `name` is visible only inside the indented block.
+- In flat form, `name` is visible until the current block ends.
+- At function-body indentation, that means the rest of the function.
+- Inside a loop body, that means the current loop iteration.
+- `using name = expr then cleanup(name)` runs the cleanup at scope exit.
+- Cleanups run in LIFO order: the last active `using` cleans up first.
+- Cleanups run before early `return`, before `?` propagates an error, and before `break` or `continue` leaves the current scope.
+- If the initializer itself propagates with `?`, the new `using` cleanup is not active yet.
 
 ## Structs
 

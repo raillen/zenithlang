@@ -10,9 +10,11 @@
 | `std.fs.path` | Path operations |
 | `std.json` | JSON parsing and serialization |
 | `std.math` | Math functions |
+| `std.regex` | Simple regex validation and search |
 | `std.text` | Text manipulation, UTF-8 conversion |
 | `std.list` | Small helpers for built-in lists |
 | `std.map` | Small helpers for built-in maps |
+| `std.set` | Small helpers for built-in sets |
 | `std.random` | Random number generation |
 | `std.validate` | Validation helpers |
 | `std.time` | Time, duration, instant |
@@ -32,6 +34,7 @@ import std.fs as fs
 import std.fs.path as path
 import std.json as json
 import std.math as math
+import std.regex as regex
 import std.random as random
 import std.time as time
 import std.format as format
@@ -40,6 +43,7 @@ import std.os.process as process
 import std.validate as validate
 import std.list as list
 import std.map as map
+import std.set as set
 ```
 
 Rules:
@@ -56,7 +60,8 @@ Each side-effecting/fallible module owns its error type:
 | `std.io` | `io.Error` |
 | `std.fs` | `fs.Error` |
 | `std.json` | `json.Error` |
-| `std.time` | `time.Error` |
+| `std.regex` | `regex.Error` |
+| `std.time` | `core.Error` for host sleep failures |
 | `std.os` | `os.Error` |
 | `std.os.process` | `process.Error` |
 
@@ -76,10 +81,30 @@ Rules:
 - `json.Value`, `json.Object`, `json.Array`, `json.Kind`, `json.Error`
 
 ### std.time
-- `time.Instant`, `time.Duration`, `time.Error`
+- `time.Instant`, `time.Duration`
+- Clock helpers: `now`, `now_ms`
+- Duration helpers: `milliseconds`, `seconds`, `minutes`, `hours`
+- Difference helpers: `diff`, `elapsed`, `since`, `until`
+- Sleep helpers: `sleep`, `sleep_ms`
 
 ### std.fs
 - `fs.Metadata`, `fs.Error`
+- Main helpers: `exists`, `is_file`, `is_dir`, `create_dir`, `create_dir_all`, `remove_file`, `remove_dir`, `copy`, `rename`, `list_dir`, `file_size`
+- Compatibility names remain available: `copy_file`, `move`, `size`
+
+### std.math
+- Constants: `pi`, `e`, `tau`
+- Core helpers: `abs`, `min`, `max`, `clamp`, `pow`, `sqrt`
+- Rounding: `floor`, `ceil`, `round`, `trunc`
+- Trigonometry: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`
+- Logs and exponentials: `ln`, `log_ten`, `log2`, `log`, `exp`
+- Float checks: `is_nan`, `is_infinite`, `is_finite`
+
+### std.regex
+- Types: `regex.Regex`, `regex.Error`
+- Core helpers: `compile`, `is_match`, `find_all`
+- Current engine covers simple ASCII-oriented patterns: literals, `.`, `^`, `$`, `*`, `+`, `?`, character classes/ranges and `\d`, `\w`, `\s`
+- Groups, captures, flags and replace are deferred
 
 ### std.format
 - `format.BytesStyle`
@@ -122,8 +147,22 @@ const score: int = scores["Julia"]
 -- Safe lookup returns optional
 const maybe_score: optional<int> = scores.get(score_key)
 const maybe_item: optional<int> = values.get(3)
+const maybe_first: optional<int> = list.first(values)
+const maybe_last: optional<int> = list.last(values)
+const without_first: list<int> = list.rest(values)
+const without_two: list<int> = list.skip(values, 2)
 const has_julia: bool = map.has_key(scores, score_key)
 const no_values: bool = list.is_empty(values)
+
+import std.set as set
+
+var tags: set<text> = set.empty()
+set.add(tags, "docs")
+set.add(tags, "language")
+
+const more_tags: set<text> = set.of("docs", "stdlib")
+const all_tags: set<text> = set.union(tags, more_tags)
+const has_docs: bool = set.has(all_tags, "docs")
 ```
 
 ## Naming Policy

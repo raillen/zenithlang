@@ -16,7 +16,7 @@
 | Implicit `return` | Deferred | `return` is always explicit |
 | `uint` standalone type | Deferred | Use `u8`/`u16`/`u32`/`u64` |
 | `char` type | Deferred | |
-| `**` exponentiation operator | Deferred | Use future `math.pow` |
+| `**` exponentiation operator | Deferred | Use `math.pow` |
 | `//` floor division | Deferred | |
 | C-style for loops | Deferred | Use collection-oriented `for` |
 | `for` with numeric ranges | Deferred | Only collection-oriented `for` |
@@ -43,11 +43,10 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| `std.fs` public API expansion | Deferred | |
+| Advanced filesystem APIs (watch, permissions, symlinks) | Deferred | `std.fs` covers the Phase 4A sync API surface |
 | Networking and pipes | Deferred | `std.net` is next wave |
-| `std.math` - `math.pow`, `math.sin`, etc | Deferred | Use `extern c` for now |
-| `std.time` - dates, timestamps | Deferred | |
-| `std.regex` | Deferred | |
+| Calendar/date formatting APIs | Deferred | `std.time` currently covers instant, duration, Unix timestamps, elapsed time and sleep |
+| Advanced regex APIs (groups, captures, flags, replace, Unicode classes) | Deferred | `std.regex` currently covers `compile`, `is_match` and `find_all` for simple patterns |
 | Public generic stream abstraction | Deferred | |
 | Async IO | Deferred | |
 | TLS | Deferred | |
@@ -73,8 +72,6 @@
 | Custom allocator hooks | Deferred | |
 | Separate compilation units in C runtime | Deferred | |
 | `map` specializations beyond `map<text,text>` | Deferred | |
-| `list<float>` specialization | Deferred | |
-| `optional<float>` and `optional<bool>` specializations | Deferred | |
 | Struct runtime support (generic field access) | Deferred | |
 | Full `std.text` helper surface | Deferred | Subset shipped in alpha |
 

@@ -61,6 +61,8 @@ typedef enum zt_token_kind {
     ZT_TOKEN_DYN,
     ZT_TOKEN_VOID,
     ZT_TOKEN_MUT,
+    ZT_TOKEN_USING,
+    ZT_TOKEN_SET,
     ZT_TOKEN_SELF,
 
     ZT_TOKEN_IDENTIFIER,

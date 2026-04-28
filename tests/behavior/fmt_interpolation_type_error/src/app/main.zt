@@ -6,6 +6,6 @@ end
 
 func main() -> int
     const user: User = User(id: 7)
-    const text_value: text = fmt "User {user}"
+    const text_value: text = f"User {user}"
     return 0
 end

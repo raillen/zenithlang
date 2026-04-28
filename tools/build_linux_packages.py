@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env python3
-"""Build Linux packages for Zenith using fpm."""
+"""Build Linux packages for Zenith compiler, ZPM, and LSP using fpm."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-DEFAULT_VERSION = "0.3.0-alpha.1"
+DEFAULT_VERSION = "0.3.0-alpha.3"
 DEFAULT_OUTPUT_DIR = "dist/linux"
 DEFAULT_STAGE_DIR = ".artifacts/linux/stage"
 DEFAULT_MAINTAINER = "Zenith Team <maintainers@zenithlang.dev>"
@@ -63,7 +63,7 @@ def _stage_files(args: argparse.Namespace, repo_root: Path, stage_root: Path) ->
     rootfs = stage_root / "rootfs"
     install_prefix = Path("usr/local")
     zenith_root = rootfs / install_prefix / "lib" / "zenith"
-    zenith_bin = rootfs / install_prefix / "bin" / "zt"
+    zenith_bin = rootfs / install_prefix / "bin"
     profile_file = rootfs / "etc" / "profile.d" / "zenith.sh"
     doc_root = rootfs / install_prefix / "share" / "doc" / "zenith"
 
@@ -71,12 +71,16 @@ def _stage_files(args: argparse.Namespace, repo_root: Path, stage_root: Path) ->
         _safe_rmtree(stage_root)
     rootfs.mkdir(parents=True, exist_ok=True)
 
-    binary_src = _resolve_repo_path(repo_root, args.binary)
+    zt_src = _resolve_repo_path(repo_root, args.zt_binary)
+    zpm_src = _resolve_repo_path(repo_root, args.zpm_binary)
+    lsp_src = _resolve_repo_path(repo_root, args.lsp_binary)
     stdlib_src = repo_root / "stdlib"
     runtime_src = repo_root / "runtime"
 
     required = [
-        (binary_src, "compiler binary"),
+        (zt_src, "compiler binary"),
+        (zpm_src, "package manager binary"),
+        (lsp_src, "language server binary"),
         (stdlib_src, "stdlib folder"),
         (runtime_src, "runtime folder"),
         (repo_root / "README.md", "README"),
@@ -90,7 +94,9 @@ def _stage_files(args: argparse.Namespace, repo_root: Path, stage_root: Path) ->
         if not path.exists():
             raise FileNotFoundError(f"{label} not found: {path}")
 
-    _copy_file(binary_src, zenith_root / "zt")
+    _copy_file(zt_src, zenith_root / "zt")
+    _copy_file(zpm_src, zenith_root / "zpm")
+    _copy_file(lsp_src, zenith_root / "zt-lsp")
     _copy_tree(stdlib_src, zenith_root / "stdlib")
     _copy_tree(runtime_src, zenith_root / "runtime")
 
@@ -100,16 +106,17 @@ def _stage_files(args: argparse.Namespace, repo_root: Path, stage_root: Path) ->
     _copy_file(repo_root / "LICENSE-APACHE", doc_root / "LICENSE-APACHE")
     _copy_file(repo_root / "LICENSE-MIT", doc_root / "LICENSE-MIT")
 
-    wrapper = """#!/usr/bin/env sh
+    wrapper_template = """#!/usr/bin/env sh
 set -eu
 
-if [ -z \"${ZENITH_HOME:-}\" ]; then
+if [ -z \"${{ZENITH_HOME:-}}\" ]; then
   export ZENITH_HOME=\"/usr/local/lib/zenith\"
 fi
 
-exec \"$ZENITH_HOME/zt\" \"$@\"
+exec \"$ZENITH_HOME/{tool}\" \"$@\"
 """
-    _write_text(zenith_bin, wrapper, 0o755)
+    for tool in ("zt", "zpm", "zt-lsp"):
+        _write_text(zenith_bin / tool, wrapper_template.format(tool=tool), 0o755)
 
     profile_script = """# Zenith global environment
 export ZENITH_HOME=\"/usr/local/lib/zenith\"
@@ -117,6 +124,8 @@ export ZENITH_HOME=\"/usr/local/lib/zenith\"
     _write_text(profile_file, profile_script, 0o644)
 
     _chmod_executable(zenith_root / "zt")
+    _chmod_executable(zenith_root / "zpm")
+    _chmod_executable(zenith_root / "zt-lsp")
 
 
 def _build_commands(args: argparse.Namespace, rootfs: Path, output_dir: Path) -> list[list[str]]:
@@ -138,7 +147,7 @@ def _build_commands(args: argparse.Namespace, rootfs: Path, output_dir: Path) ->
         "--url",
         "https://github.com/raillen/zenithlang",
         "--description",
-        "Zenith compiler + stdlib + runtime",
+        "Zenith compiler, ZPM package manager, LSP, stdlib, and runtime",
         "-C",
         str(rootfs),
     ]
@@ -192,7 +201,9 @@ def _run_commands(commands: list[list[str]], dry_run: bool) -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Zenith Linux packages (.deb/.rpm/.pkg.tar.zst) via fpm.")
     parser.add_argument("--version", default=DEFAULT_VERSION, help="Package version")
-    parser.add_argument("--binary", default="zt", help="Path to compiled Linux zt binary")
+    parser.add_argument("--zt-binary", "--binary", dest="zt_binary", default="zt", help="Path to compiled Linux zt binary")
+    parser.add_argument("--zpm-binary", default="zpm", help="Path to compiled Linux zpm binary")
+    parser.add_argument("--lsp-binary", default="zt-lsp", help="Path to compiled Linux zt-lsp binary")
     parser.add_argument("--fpm", default="fpm", help="fpm executable path")
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output directory for packages")
     parser.add_argument("--stage-dir", default=DEFAULT_STAGE_DIR, help="Temporary staging directory")

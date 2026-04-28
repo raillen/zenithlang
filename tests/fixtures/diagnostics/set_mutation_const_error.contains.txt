@@ -1,0 +1,3 @@
+std.set.add(...) requires a mutable set variable
+tests/behavior/set_mutation_const_error/src/app/main.zt:7:
+error[type.invalid_call]

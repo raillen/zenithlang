@@ -1,0 +1,41 @@
+.hierarchy-panel { display: grid; grid-template-rows: 34px auto minmax(0, 1fr); }
+.panel-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+.panel-search input { border: 0; min-height: 0; padding: 0; }
+.hierarchy-tree { min-height: 0; overflow: auto; padding: 8px 0; }
+.hierarchy-branch { display: grid; }
+.hierarchy-row {
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding-right: 10px;
+}
+.hierarchy-root {
+  border-bottom: 1px solid var(--line);
+  padding: 0 10px;
+  margin-bottom: 6px;
+  background: var(--panel-subtle);
+}
+.hierarchy-row.selected { background: var(--accent-soft); color: var(--accent-strong); }
+.hierarchy-expander,
+.hierarchy-expander-spacer {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+}
+.hierarchy-icon { display: inline-grid; place-items: center; color: var(--text-muted); }
+.hierarchy-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hierarchy-row small { color: var(--text-faint); font-size: 11px; }

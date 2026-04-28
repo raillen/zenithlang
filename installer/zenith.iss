@@ -1,13 +1,13 @@
 ; Zenith installer (Inno Setup)
 ; Build with:
-;   iscc installer\zenith.iss /DMyAppVersion=0.3.0-alpha.2 /DSourceDir=C:\path\to\stage /DOutputDir=C:\path\to\dist\installer
+;   iscc installer\zenith.iss /DMyAppVersion=0.3.0-alpha.3 /DSourceDir=C:\path\to\stage /DOutputDir=C:\path\to\dist\installer
 
 #ifndef MyAppName
   #define MyAppName "Zenith Language"
 #endif
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.3.0-alpha.1"
+  #define MyAppVersion "0.3.0-alpha.3"
 #endif
 
 #ifndef MyAppPublisher
@@ -82,6 +82,8 @@ Name: "addtopath"; Description: "Add Zenith to system PATH"; Flags: checkedonce
 
 [Files]
 Source: "{#SourceDir}\zt.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\zpm.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\zt-lsp.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#InstallerIconPath}"; DestDir: "{app}"; DestName: "logo-only.ico"; Flags: ignoreversion
 Source: "{#SourceDir}\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourceDir}\stdlib\*"; DestDir: "{app}\stdlib"; Flags: recursesubdirs createallsubdirs ignoreversion

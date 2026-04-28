@@ -18,6 +18,7 @@
 | `std.list` | small compiler-known helpers for built-in lists |
 | `std.map` | small compiler-known helpers for built-in maps |
 | `std.math` | numeric functions and constants |
+| `std.regex` | simple pattern validation and text search |
 | `std.random` | simple random state and stats |
 | `std.validate` | validation predicates |
 | `std.concurrent` | explicit copy helpers for boundaries |

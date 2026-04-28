@@ -6,7 +6,7 @@ Suite unica de performance E2E para Zenith Next.
 
 - micro frontend: lexer/parser/binder/typechecker (via `zt check`)
 - micro lowering/backend: HIR/ZIR/emissao C (via `zt emit-c`)
-- micro runtime: `text`, `bytes`, `list`, `map`, `grid2d`, `pqueue`, `circbuf`, `btreemap`, `btreeset`, `grid3d`
+- micro runtime: `text`, `bytes`, `list`, primitive numeric lists, `map`, `grid2d`, `pqueue`, `circbuf`, `btreemap`, `btreeset`, `grid3d`
 - micro stdlib: `json`, `format`, `math`, `random`, `validate`
 - macro: `zt check`, `zt build`, `zt run`, `zt test`
 - cenarios `small`, `medium`, `large`, com build `cold` e `warm`
@@ -22,6 +22,7 @@ Rodar alvo especifico:
 
 ```powershell
 python tests\perf\run_perf.py macro_large
+python tests\perf\run_perf.py micro_primitive_numeric_lists
 python tests\perf\run_perf.py m37_result_generic
 python tests\perf\run_perf.py --benchmark macro_small_build_cold
 ```

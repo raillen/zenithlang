@@ -54,6 +54,8 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_DYN: return "dyn";
         case ZT_TOKEN_VOID: return "void";
         case ZT_TOKEN_MUT: return "mut";
+        case ZT_TOKEN_USING: return "using";
+        case ZT_TOKEN_SET: return "set";
         case ZT_TOKEN_SELF: return "self";
         case ZT_TOKEN_IDENTIFIER: return "identifier";
         case ZT_TOKEN_INT_LITERAL: return "int_literal";

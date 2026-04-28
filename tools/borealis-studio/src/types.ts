@@ -1,10 +1,52 @@
-export type StudioMode = "select" | "move" | "rotate" | "scale";
+export type StudioMode = "select" | "move" | "rotate" | "scale" | "rect" | "hand";
 
 export type AssetKind = "scene" | "script" | "model" | "texture" | "audio" | "shader" | "cubemap" | "data";
 
-export type BottomTab = "assets" | "console" | "problems";
-
+export type BottomTab = "project" | "console" | "animation" | "assets" | "problems";
+export type ViewportTab = "scene" | "game";
+export type DockPanelId = "hierarchy" | "scene" | "game" | "inspector" | "project" | "console" | "animation";
+export type DockRegionId = "leftDock" | "rightDock" | "bottomDock";
+export type SelectionKind = "none" | "scene-root" | "entity";
 export type ProjectTemplateId = string;
+
+export interface SelectionTarget {
+  kind: SelectionKind;
+  entityId?: string;
+}
+
+export interface DockRegionState {
+  size: number;
+  tabs: DockPanelId[];
+  activeTab: DockPanelId;
+  collapsed: boolean;
+}
+
+export interface DockLayoutState {
+  leftRailWidth: number;
+  leftDock: DockRegionState;
+  rightDock: DockRegionState;
+  bottomDock: DockRegionState;
+}
+
+export interface HierarchyTreeNode {
+  id: string;
+  name: string;
+  layer: string;
+  depth: number;
+  parentId?: string;
+  children: HierarchyTreeNode[];
+  hasChildren: boolean;
+}
+
+export interface FlatTreeNode {
+  id: string;
+  name: string;
+  layer: string;
+  depth: number;
+  parentId?: string;
+  childCount: number;
+  hasChildren: boolean;
+}
 
 export type ComponentFieldKind = "asset" | "number" | "text" | "select" | "boolean" | "color";
 
@@ -125,6 +167,12 @@ export interface ProjectAsset {
   kind: AssetKind;
 }
 
+export interface RecentProject {
+  name: string;
+  path: string;
+  openedAt: number;
+}
+
 export interface ScriptDocument {
   path: string;
   name: string;
@@ -135,7 +183,7 @@ export interface ScriptDocument {
 export interface ConsoleLine {
   id: string;
   level: "info" | "warn" | "error";
-  source: "studio" | "preview" | "compiler";
+  source: "studio" | "preview" | "compiler" | "script";
   message: string;
 }
 
@@ -212,8 +260,10 @@ export type ViewProjection = "perspective" | "orthographic" | "isometric";
 export type ViewOrientation = "free" | "top" | "bottom" | "left" | "right" | "front" | "back";
 export type RenderMode = "wireframe" | "color" | "texture" | "light";
 export type ShortcutTemplate = "blender" | "3dsmax" | "maya";
-export type ThemeMode = "codex" | "xcode" | "unity-dark";
+export type ThemeMode = "unity-light" | "codex" | "xcode" | "unity-dark";
 export type SnapMode = "grid" | "object" | "grid-object";
+export type ViewportPivotMode = "pivot" | "center";
+export type ViewportSpaceMode = "global" | "local";
 
 export interface SnapSettings {
   gridSize: number;
@@ -223,8 +273,11 @@ export interface SnapSettings {
 
 export interface StudioPreferences {
   gizmoSize: number;
+  gridColor: string;
+  gridOpacity: number;
   ptzSpeed: number;
   shortcutTemplate: ShortcutTemplate;
+  showGrid: boolean;
   snapMode: SnapMode;
   theme: ThemeMode;
 }
@@ -233,14 +286,19 @@ export interface LayoutState {
   left: number;
   right: number;
   bottom: number;
+  docks: DockLayoutState;
 }
 
 export interface DragState {
   id: string;
+  kind?: "move" | "rotate" | "scale";
   startX: number;
   startY: number;
   originX: number;
   originY: number;
+  originRotationZ?: number;
+  originScaleX?: number;
+  originScaleY?: number;
 }
 
 export interface AssetDragState {
@@ -261,6 +319,13 @@ export interface ViewportPanState {
   startY: number;
   originPanX: number;
   originPanY: number;
+}
+
+export interface ViewportRectSelectionState {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
 }
 
 export interface ViewportRendererProps {

@@ -1,24 +1,27 @@
-﻿import React, { PointerEvent, useEffect } from "react";
+import React, { PointerEvent, useEffect } from "react";
 import { configureBorealisCatalog } from "./borealisCatalog";
 import { pollRuntimePreview } from "./backend";
-import { AssetDragPreview, BottomDock } from "./components/BottomDock";
-import { InspectorPanel } from "./components/InspectorPanel";
-import { MenuBar } from "./components/MenuBar";
-import { NavigatorPanel } from "./components/NavigatorPanel";
-import { SceneViewport } from "./components/SceneViewport";
+import { GlobalHeader } from "./components/layout/GlobalHeader";
+import { DockLayout } from "./components/layout/DockLayout";
+import { ToolRail } from "./components/layout/ToolRail";
 import { ScriptEditorWindow } from "./components/ScriptEditor";
 import { SettingsWindow } from "./components/SettingsWindow";
-import { StageToolbar } from "./components/StageToolbar";
 import { StartScreen } from "./components/StartScreen";
-import { useStudioStore, useSelectedEntity, useActiveScript } from "./store/useStudioStore";
+import { StatusBar } from "./components/status/StatusBar";
+import { useActiveScript, useSceneRootSelected, useSelectedEntity, useStudioStore } from "./store/useStudioStore";
 import { modeForShortcut } from "./utils/keybinds";
 import { normalizePreviewStatus } from "./utils/preview";
-import { clamp } from "./utils/viewport";
 
 export function BorealisStudioApp() {
   const store = useStudioStore();
   const selectedEntity = useSelectedEntity();
   const activeScript = useActiveScript();
+  const sceneRootSelected = useSceneRootSelected();
+  const consoleLines = useStudioStore((state) => state.snapshot.console);
+  const consoleCounts = {
+    warnings: consoleLines.filter((line) => line.level === "warn").length,
+    errors: consoleLines.filter((line) => line.level === "error").length,
+  };
 
   useEffect(() => {
     configureBorealisCatalog(store.home.editorManifest);
@@ -98,45 +101,24 @@ export function BorealisStudioApp() {
     store.setAssetDrag({ asset, x: event.clientX, y: event.clientY });
   }
 
-  function startResize(axis: "left" | "right" | "bottom", event: PointerEvent<HTMLDivElement>) {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const initial = store.layout[axis];
-
-    function onMove(moveEvent: globalThis.PointerEvent) {
-      const delta = axis === "bottom" ? startY - moveEvent.clientY : moveEvent.clientX - startX;
-      if (axis === "left") useStudioStore.setState({ layout: { ...useStudioStore.getState().layout, left: clamp(initial + delta, 220, 420) } });
-      else if (axis === "right") useStudioStore.setState({ layout: { ...useStudioStore.getState().layout, right: clamp(initial - delta, 240, 420) } });
-      else useStudioStore.setState({ layout: { ...useStudioStore.getState().layout, bottom: clamp(initial + delta, 156, 320) } });
-    }
-
-    function onUp() {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }
-
   return (
-    <div
-      className={`studio-shell theme-${store.preferences.theme}`}
-      style={
-        {
-          "--left-width": `${store.layout.left}px`,
-          "--right-width": `${store.layout.right}px`,
-          "--bottom-height": `${store.layout.bottom}px`,
-        } as React.CSSProperties
-      }
-    >
-      <MenuBar
+    <div className={`studio-shell-unity theme-${store.preferences.theme}`}>
+      <GlobalHeader
+        assets={store.snapshot.assets}
         bridgeStatus={store.bridgeStatus}
-        projectName={store.snapshot.projectName}
+        entities={store.snapshot.scene.entities}
         onOpenDefaultProject={store.openDefaultProject}
+        onOpenScript={store.openScriptEditor}
         onOpenSettings={() => store.setSettingsOpen(true)}
+        onPausePreview={store.pausePreview}
+        onResetLayout={store.resetLayout}
+        onSelectEntity={store.setSelectedEntityId}
         onShowHome={() => store.setHomeVisible(true)}
+        onStartPreview={store.startPreview}
+        previewBusy={store.previewBusy}
+        previewStatus={store.previewStatus}
+        projectName={store.snapshot.projectName}
+        scripts={store.snapshot.scripts}
       />
 
       {store.homeVisible ? (
@@ -145,118 +127,114 @@ export function BorealisStudioApp() {
           busy={store.homeBusy}
           error={store.homeError}
           home={store.home}
+          recentProjects={store.recentProjects}
+          onClearRecentProjects={store.clearRecentProjects}
           onCreateProject={store.createProject}
           onOpenDefaultProject={store.openDefaultProject}
           onOpenProject={store.openProject}
         />
       ) : (
-        <div className="studio-workspace">
-          <NavigatorPanel
+        <div className="studio-workspace-unity">
+          <ToolRail mode={store.mode} onModeChange={store.setMode} />
+          <DockLayout
+            assetDrag={store.assetDrag}
             assets={store.snapshot.assets}
+            consoleLines={store.snapshot.console}
+            dragState={store.dragState}
             entities={store.snapshot.scene.entities}
-            selectedEntityId={store.selectedEntityId}
-            onSelectEntity={store.selectEntity}
-          />
-
-        <div className="resize-handle resize-handle-vertical resize-handle-left" onPointerDown={(event) => startResize("left", event)} />
-
-        <main className="stage-panel">
-          <StageToolbar
+            expandedEntityIds={store.expandedEntityIds}
+            hierarchySearch={store.hierarchySearch}
+            layout={store.layout}
             mode={store.mode}
-            previewBusy={store.previewBusy}
+            onAssetDrop={store.createEntityFromAsset}
+            onAssetPointerDown={beginAssetDrag}
+            onAttachScript={store.attachScript}
+            onClearConsole={store.clearConsole}
+            onClearSelection={store.clearSelection}
+            onComponentChange={(index, component) => {
+              if (!selectedEntity) return;
+              store.updateSelectedEntity({
+                components: selectedEntity.components.map((current, currentIndex) =>
+                  currentIndex === index ? component : current,
+                ),
+              });
+            }}
+            onDockTabActivate={store.setDockActiveTab}
+            onDragStateChange={store.setDragState}
+            onEntityChange={store.updateSelectedEntity}
+            onMoveDockPanel={store.moveDockPanel}
+            onOpenScript={store.openScriptEditor}
+            onReparentEntity={(entityId, newParentId) => void store.reparentEntity(entityId, newParentId)}
+            onResizeRegion={store.resizeDockRegion}
+            onSceneChange={(patch) => store.updateScene((scene) => ({ ...scene, ...patch }))}
+            onScriptSelect={store.setSelectedScriptPath}
+            onSelectEntity={store.selectEntity}
+            onSelectSceneRoot={store.selectSceneRoot}
+            onSetHierarchySearch={store.setHierarchySearch}
+            onSetMode={store.setMode}
+            onSetViewMode={store.setViewMode}
+            onSetViewportGizmos={store.setViewportGizmos}
+            onSetViewportPivotMode={store.setViewportPivotMode}
+            onSetViewportSpaceMode={store.setViewportSpaceMode}
+            onSetViewportTab={store.setViewportTab}
+            onToggleHierarchyExpanded={store.toggleHierarchyExpanded}
+            onToggleRegionCollapse={store.toggleDockCollapse}
+            onTransformChange={store.updateSelectedTransform}
+            onUpdateTransform={(id, transform) => {
+              store.updateScene((scene) => ({
+                ...scene,
+                entities: scene.entities.map((entity) => (entity.id === id ? { ...entity, transform } : entity)),
+              }));
+            }}
+            preferences={store.preferences}
             previewStatus={store.previewStatus}
-            sceneDirty={store.sceneDirty}
-            savingScene={store.savingScene}
-            viewMode={store.viewMode}
+            scene={store.snapshot.scene}
+            sceneRootSelected={sceneRootSelected}
+            scripts={store.snapshot.scripts}
             selectedEntity={selectedEntity}
-            onModeChange={store.setMode}
-            onPausePreview={store.pausePreview}
-            onSaveScene={store.saveScene}
-            onStartPreview={store.startPreview}
-            onStopPreview={store.stopPreview}
-            onViewModeChange={store.setViewMode}
+            selectedEntityId={store.selectedEntityId}
+            selectionTarget={store.selectionTarget}
+            viewMode={store.viewMode}
+            viewportGizmos={store.viewportGizmos}
+            viewportPivotMode={store.viewportPivotMode}
+            viewportSpaceMode={store.viewportSpaceMode}
+            viewportTab={store.viewportTab}
           />
-
-          <div className="stage-content">
-            <section className="viewport-wrap">
-              <SceneViewport
-                entities={store.snapshot.scene.entities}
-                scene={store.snapshot.scene}
-                mode={store.mode}
-                viewMode={store.viewMode}
-                selectedEntityId={store.selectedEntityId}
-                preferences={store.preferences}
-                dragState={store.dragState}
-                onAssetDrop={store.createEntityFromAsset}
-                onDragStateChange={store.setDragState}
-                onClearSelection={store.clearSelection}
-                onSelectEntity={store.selectEntity}
-                onUpdateTransform={(id, transform) => {
-                  store.updateScene((scene) => ({
-                    ...scene,
-                    entities: scene.entities.map((entity) => (entity.id === id ? { ...entity, transform } : entity)),
-                  }));
-                }}
-              />
-            </section>
-          </div>
-        </main>
-
-        <div className="resize-handle resize-handle-vertical resize-handle-right" onPointerDown={(event) => startResize("right", event)} />
-
-        <InspectorPanel
-          assets={store.snapshot.assets}
-          entity={selectedEntity}
-          scene={store.snapshot.scene}
-          scripts={store.snapshot.scripts}
-          onAttachScript={store.attachScript}
-          onComponentChange={(index, component) => {
-            if (!selectedEntity) return;
-            store.updateSelectedEntity({
-              components: selectedEntity.components.map((current, currentIndex) =>
-                currentIndex === index ? component : current,
-              ),
-            });
-          }}
-          onEntityChange={store.updateSelectedEntity}
-          onSceneChange={(patch) => store.updateScene((scene) => ({ ...scene, ...patch }))}
-          onTransformChange={store.updateSelectedTransform}
-        />
-
-        <div className="resize-handle resize-handle-horizontal" onPointerDown={(event) => startResize("bottom", event)} />
-
-        <BottomDock
-          activeTab={store.bottomTab}
-          assets={store.snapshot.assets}
-          console={store.snapshot.console}
-          scripts={store.snapshot.scripts}
-          onAssetDrop={store.createEntityFromAsset}
-          onAssetPointerDown={beginAssetDrag}
-          onOpenScript={store.openScriptEditor}
-          onScriptSelect={store.setSelectedScriptPath}
-          onTabChange={store.setBottomTab}
-        />
         </div>
       )}
 
-      {!store.homeVisible && store.assetDrag ? <AssetDragPreview asset={store.assetDrag.asset} x={store.assetDrag.x} y={store.assetDrag.y} /> : null}
       {!store.homeVisible && store.scriptEditorOpen ? (
         <ScriptEditorWindow
           activeScript={activeScript}
-          scripts={store.snapshot.scripts}
-          selectedEntity={selectedEntity}
           onAttachScript={store.attachScript}
           onClose={() => store.setScriptEditorOpen(false)}
           onSaveScript={store.saveScript}
           onScriptChange={store.updateScriptContent}
           onScriptSelect={store.setSelectedScriptPath}
+          scripts={store.snapshot.scripts}
+          selectedEntity={selectedEntity}
         />
       ) : null}
+
       {store.settingsOpen ? (
         <SettingsWindow
-          preferences={store.preferences}
           onClose={() => store.setSettingsOpen(false)}
           onPreferencesChange={store.setPreferences}
+          preferences={store.preferences}
+        />
+      ) : null}
+
+      {!store.homeVisible ? (
+        <StatusBar
+          bridgeStatus={store.bridgeStatus}
+          errors={consoleCounts.errors}
+          previewStatus={store.previewStatus}
+          projectName={store.snapshot.projectName}
+          savingScene={store.savingScene}
+          sceneDirty={store.sceneDirty}
+          selectedEntityName={selectedEntity?.name}
+          selectionTarget={store.selectionTarget}
+          warnings={consoleCounts.warnings}
         />
       ) : null}
     </div>

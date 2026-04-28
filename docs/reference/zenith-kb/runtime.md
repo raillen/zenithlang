@@ -33,6 +33,24 @@ Tracked by ARC:
 - Structs with managed fields
 - Enums with managed payloads
 
+Primitive list elements use contiguous value storage:
+- `list<int>` stores `zt_int[]`
+- `list<float>` stores `zt_float[]`
+- `list<bool>` stores `zt_bool[]`
+- `list<int8>`, `list<int16>`, `list<int32>` and `list<int64>` store fixed-width signed arrays
+- `list<u8>`, `list<u16>`, `list<u32>` and `list<u64>` store fixed-width unsigned arrays
+- Element operations copy scalar values directly
+- There is no ARC retain/release per primitive element
+
+Primitive optionals use stack/in-place value storage:
+- `optional<int>` and `optional<int64>` use `zt_optional_i64`
+- `optional<float>` uses `zt_optional_f64`
+- `optional<bool>` uses `zt_optional_bool`
+- `optional<int8>`, `optional<int16>` and `optional<int32>` use fixed-width signed payloads
+- `optional<u8>`, `optional<u16>`, `optional<u32>` and `optional<u64>` use fixed-width unsigned payloads
+- `none`, `is_some`/`is_none`, unwrap, and `or` do not allocate for these scalar payloads
+- There is no ARC retain/release for primitive optional payloads
+
 ## Value Semantics Implementation
 
 Assignment and parameter passing create semantic value copies.

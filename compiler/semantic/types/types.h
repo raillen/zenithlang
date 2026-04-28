@@ -35,6 +35,7 @@ typedef enum zt_type_kind {
     ZT_TYPE_RESULT,
     ZT_TYPE_LIST,
     ZT_TYPE_MAP,
+    ZT_TYPE_SET,
     ZT_TYPE_GRID2D,
     ZT_TYPE_PQUEUE,
     ZT_TYPE_CIRCBUF,

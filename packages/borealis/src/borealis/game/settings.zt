@@ -403,7 +403,7 @@ public func serialize_flag(value: bool) -> text
 end
 
 public func serialize_number(value: float) -> text
-    return fmt "{value}"
+    return f"{value}"
 end
 
 public func read_profile_text(profile: text, name: text, fallback: text) -> text
@@ -567,11 +567,11 @@ public func digit_value(ch: text) -> optional<float>
 end
 
 public func profile_marker_key(profile: text) -> text
-    return fmt "settings::{profile}::__profile"
+    return f"settings::{profile}::__profile"
 end
 
 public func profile_value_key(profile: text, name: text) -> text
-    return fmt "settings::{profile}::{name}"
+    return f"settings::{profile}::{name}"
 end
 
 public func normalize_profile_name(profile: text) -> text

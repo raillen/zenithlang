@@ -22,11 +22,19 @@ extern c
 end
 
 public func now() -> time.Instant
-    return time.Instant(millis: time.zt_host_time_now_unix_ms())
+    return time.Instant(millis: time.now_ms())
+end
+
+public func now_ms() -> int
+    return time.zt_host_time_now_unix_ms()
 end
 
 public func sleep(duration: time.Duration) -> result<void, core.Error>
     return time.zt_host_time_sleep_ms(duration.millis)
+end
+
+public func sleep_ms(ms: int) -> result<void, core.Error>
+    return time.zt_host_time_sleep_ms(ms)
 end
 
 public func since(start: time.Instant) -> time.Duration
@@ -35,6 +43,11 @@ end
 
 public func until(target: time.Instant) -> time.Duration
     return time.diff(time.now(), target)
+end
+
+public func elapsed(start: time.Instant, finish: time.Instant) -> int
+    const span: time.Duration = time.diff(start, finish)
+    return span.millis
 end
 
 public func diff(a: time.Instant, b: time.Instant) -> time.Duration

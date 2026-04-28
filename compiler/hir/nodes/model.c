@@ -28,6 +28,7 @@ const char *zt_hir_stmt_kind_name(zt_hir_stmt_kind kind) {
         case ZT_HIR_MATCH_STMT: return "match_stmt";
         case ZT_HIR_BREAK_STMT: return "break_stmt";
         case ZT_HIR_CONTINUE_STMT: return "continue_stmt";
+        case ZT_HIR_USING_STMT: return "using_stmt";
         case ZT_HIR_EXPR_STMT: return "expr_stmt";
         default: return "unknown";
     }
@@ -46,6 +47,7 @@ const char *zt_hir_expr_kind_name(zt_hir_expr_kind kind) {
         case ZT_HIR_ERROR_EXPR: return "error_expr";
         case ZT_HIR_LIST_EXPR: return "list_expr";
         case ZT_HIR_MAP_EXPR: return "map_expr";
+        case ZT_HIR_SET_EXPR: return "set_expr";
         case ZT_HIR_UNARY_EXPR: return "unary_expr";
         case ZT_HIR_BINARY_EXPR: return "binary_expr";
         case ZT_HIR_FIELD_EXPR: return "field_expr";
@@ -292,6 +294,7 @@ void zt_hir_expr_dispose(zt_hir_expr *expr) {
         case ZT_HIR_ERROR_EXPR: zt_hir_expr_dispose(expr->as.error_expr.value); break;
         case ZT_HIR_LIST_EXPR: zt_hir_expr_list_dispose(&expr->as.list_expr.elements); break;
         case ZT_HIR_MAP_EXPR: zt_hir_map_entry_list_dispose(&expr->as.map_expr.entries); break;
+        case ZT_HIR_SET_EXPR: zt_hir_expr_list_dispose(&expr->as.set_expr.elements); break;
         case ZT_HIR_UNARY_EXPR: zt_hir_expr_dispose(expr->as.unary_expr.operand); break;
         case ZT_HIR_BINARY_EXPR:
             zt_hir_expr_dispose(expr->as.binary_expr.left);
@@ -433,6 +436,13 @@ void zt_hir_stmt_dispose(zt_hir_stmt *stmt) {
             zt_hir_expr_dispose(stmt->as.match_stmt.subject);
             zt_hir_match_case_list_dispose(&stmt->as.match_stmt.cases);
             break;
+        case ZT_HIR_USING_STMT:
+            free(stmt->as.using_stmt.name);
+            zt_type_dispose(stmt->as.using_stmt.type);
+            zt_hir_expr_dispose(stmt->as.using_stmt.init_value);
+            zt_hir_expr_dispose(stmt->as.using_stmt.cleanup_expr);
+            zt_hir_stmt_dispose(stmt->as.using_stmt.body);
+            break;
         case ZT_HIR_EXPR_STMT: zt_hir_expr_dispose(stmt->as.expr_stmt.expr); break;
         default: break;
     }
@@ -571,4 +581,3 @@ void zt_hir_module_dispose(zt_hir_module *module) {
     zt_hir_decl_list_dispose(&module->declarations);
     free(module);
 }
-

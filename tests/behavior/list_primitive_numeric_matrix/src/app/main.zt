@@ -1,0 +1,71 @@
+namespace app.main
+
+func main() -> int
+    var flags: list<bool> = [true, false, true]
+    flags[1] = true
+    const flag_slice: list<bool> = flags[1..2]
+    if len(flags) != 3 or len(flag_slice) != 2
+        return 1
+    end
+    if flags[1] == false or flag_slice[0] == false
+        return 2
+    end
+
+    var signed_eight_values: list<int8> = [1, 2, 3]
+    signed_eight_values[1] = 4
+    const signed_eight_tail: list<int8> = signed_eight_values[1..2]
+    if len(signed_eight_tail) != 2 or signed_eight_tail[0] != 4 or signed_eight_tail[1] != 3
+        return 10
+    end
+
+    var signed_sixteen_values: list<int16> = [10, 20, 30]
+    signed_sixteen_values[1] = 40
+    const signed_sixteen_tail: list<int16> = signed_sixteen_values[1..2]
+    if len(signed_sixteen_values) != 3 or signed_sixteen_tail[0] != 40
+        return 11
+    end
+
+    var signed_thirty_two_values: list<int32> = [100, 200, 300]
+    signed_thirty_two_values[1] = 400
+    const signed_thirty_two_tail: list<int32> = signed_thirty_two_values[1..2]
+    if signed_thirty_two_tail[0] != 400 or signed_thirty_two_tail[1] != 300
+        return 12
+    end
+
+    var signed_sixty_four_values: list<int64> = [1000, 2000, 3000]
+    signed_sixty_four_values[1] = 4000
+    const signed_sixty_four_tail: list<int64> = signed_sixty_four_values[1..2]
+    if signed_sixty_four_tail[0] != 4000 or len(signed_sixty_four_tail) != 2
+        return 13
+    end
+
+    var unsigned_eight_values: list<u8> = [1, 2, 3]
+    unsigned_eight_values[1] = 4
+    const unsigned_eight_tail: list<u8> = unsigned_eight_values[1..2]
+    if unsigned_eight_tail[0] != 4 or unsigned_eight_tail[1] != 3
+        return 20
+    end
+
+    var unsigned_sixteen_values: list<u16> = [10, 20, 30]
+    unsigned_sixteen_values[1] = 40
+    const unsigned_sixteen_tail: list<u16> = unsigned_sixteen_values[1..2]
+    if unsigned_sixteen_tail[0] != 40 or len(unsigned_sixteen_tail) != 2
+        return 21
+    end
+
+    var unsigned_thirty_two_values: list<u32> = [100, 200, 300]
+    unsigned_thirty_two_values[1] = 400
+    const unsigned_thirty_two_tail: list<u32> = unsigned_thirty_two_values[1..2]
+    if unsigned_thirty_two_tail[0] != 400 or unsigned_thirty_two_tail[1] != 300
+        return 22
+    end
+
+    var unsigned_sixty_four_values: list<u64> = [1000, 2000, 3000]
+    unsigned_sixty_four_values[1] = 4000
+    const unsigned_sixty_four_tail: list<u64> = unsigned_sixty_four_values[1..2]
+    if unsigned_sixty_four_tail[0] != 4000 or len(unsigned_sixty_four_tail) != 2
+        return 23
+    end
+
+    return 0
+end

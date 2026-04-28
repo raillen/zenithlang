@@ -152,15 +152,20 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_MAKE_STRUCT: return "make_struct";
         case ZIR_EXPR_MAKE_LIST: return "make_list";
         case ZIR_EXPR_MAKE_MAP: return "make_map";
+        case ZIR_EXPR_MAKE_SET: return "make_set";
         case ZIR_EXPR_GET_FIELD: return "get_field";
         case ZIR_EXPR_SET_FIELD: return "set_field";
         case ZIR_EXPR_INDEX_SEQ: return "index_seq";
         case ZIR_EXPR_SLICE_SEQ: return "slice_seq";
         case ZIR_EXPR_LIST_LEN: return "list_len";
         case ZIR_EXPR_MAP_LEN: return "map_len";
+        case ZIR_EXPR_SET_LEN: return "set_len";
         case ZIR_EXPR_LIST_PUSH: return "list_push";
         case ZIR_EXPR_LIST_SET: return "list_set";
         case ZIR_EXPR_MAP_SET: return "map_set";
+        case ZIR_EXPR_SET_ADD: return "set_add";
+        case ZIR_EXPR_SET_REMOVE: return "set_remove";
+        case ZIR_EXPR_SET_HAS: return "set_has";
         case ZIR_EXPR_OPTIONAL_PRESENT: return "optional_present";
         case ZIR_EXPR_OPTIONAL_EMPTY: return "optional_empty";
         case ZIR_EXPR_OPTIONAL_IS_PRESENT: return "optional_is_present";
@@ -170,6 +175,7 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_OUTCOME_IS_SUCCESS: return "outcome_is_success";
         case ZIR_EXPR_OUTCOME_VALUE: return "outcome_value";
         case ZIR_EXPR_TRY_PROPAGATE: return "try_propagate";
+        case ZIR_EXPR_OUTCOME_WRAP_CONTEXT: return "outcome_wrap_context";
         case ZIR_EXPR_OPTIONAL_VALUE: return "optional_value";
         case ZIR_EXPR_FUNC_REF: return "func_ref";
         case ZIR_EXPR_CALL_INDIRECT: return "call_indirect";
@@ -403,6 +409,14 @@ zir_expr *zir_expr_make_make_map(const char *key_type_name, const char *value_ty
     return expr;
 }
 
+zir_expr *zir_expr_make_make_set(const char *elem_type_name) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_MAKE_SET);
+    if (expr == NULL) return NULL;
+    expr->as.make_set.elem_type_name = zir_strdup_owned(elem_type_name);
+    expr->as.make_set.items = zir_expr_list_make();
+    return expr;
+}
+
 zir_expr *zir_expr_make_get_field(zir_expr *object, const char *field_name) {
     zir_expr *expr = zir_expr_make(ZIR_EXPR_GET_FIELD);
     if (expr == NULL) return NULL;
@@ -477,6 +491,37 @@ zir_expr *zir_expr_make_map_set(zir_expr *target, zir_expr *key, zir_expr *value
     return expr;
 }
 
+zir_expr *zir_expr_make_set_len(zir_expr *set) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_SET_LEN);
+    if (expr == NULL) return NULL;
+    expr->as.single.value = set;
+    return expr;
+}
+
+zir_expr *zir_expr_make_set_add(zir_expr *target, zir_expr *value) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_SET_ADD);
+    if (expr == NULL) return NULL;
+    expr->as.sequence.first = target;
+    expr->as.sequence.second = value;
+    return expr;
+}
+
+zir_expr *zir_expr_make_set_remove(zir_expr *target, zir_expr *value) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_SET_REMOVE);
+    if (expr == NULL) return NULL;
+    expr->as.sequence.first = target;
+    expr->as.sequence.second = value;
+    return expr;
+}
+
+zir_expr *zir_expr_make_set_has(zir_expr *target, zir_expr *value) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_SET_HAS);
+    if (expr == NULL) return NULL;
+    expr->as.sequence.first = target;
+    expr->as.sequence.second = value;
+    return expr;
+}
+
 zir_expr *zir_expr_make_optional_present(zir_expr *value) {
     zir_expr *expr = zir_expr_make(ZIR_EXPR_OPTIONAL_PRESENT);
     if (expr == NULL) return NULL;
@@ -538,6 +583,14 @@ zir_expr *zir_expr_make_try_propagate(zir_expr *value) {
     zir_expr *expr = zir_expr_make(ZIR_EXPR_TRY_PROPAGATE);
     if (expr == NULL) return NULL;
     expr->as.single.value = value;
+    return expr;
+}
+
+zir_expr *zir_expr_make_outcome_wrap_context(zir_expr *value, zir_expr *context) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_OUTCOME_WRAP_CONTEXT);
+    if (expr == NULL) return NULL;
+    expr->as.sequence.first = value;
+    expr->as.sequence.second = context;
     return expr;
 }
 
@@ -607,6 +660,11 @@ void zir_expr_make_map_add_entry(zir_expr *expr, zir_expr *key, zir_expr *value)
     entry.value = value;
     entry.span = zir_make_span(NULL, 0, 0);
     zir_map_entry_list_push(&expr->as.make_map.entries, entry);
+}
+
+void zir_expr_make_set_add_item(zir_expr *expr, zir_expr *item) {
+    if (expr == NULL || expr->kind != ZIR_EXPR_MAKE_SET) return;
+    zir_expr_list_push(&expr->as.make_set.items, item);
 }
 
 static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr);
@@ -733,6 +791,27 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
                    zir_render_expr(buffer, expr->as.sequence.second) &&
                    zir_string_buffer_append(buffer, ", ") &&
                    zir_render_expr(buffer, expr->as.sequence.third);
+        case ZIR_EXPR_MAKE_SET:
+            if (!zir_string_buffer_append_format(buffer, "make_set<%s> [", expr->as.make_set.elem_type_name != NULL ? expr->as.make_set.elem_type_name : "")) return 0;
+            if (!zir_render_expr_list(buffer, &expr->as.make_set.items)) return 0;
+            return zir_string_buffer_append_char(buffer, ']');
+        case ZIR_EXPR_SET_LEN:
+            return zir_string_buffer_append(buffer, "set_len ") && zir_render_expr(buffer, expr->as.single.value);
+        case ZIR_EXPR_SET_ADD:
+            return zir_string_buffer_append(buffer, "set_add ") &&
+                   zir_render_expr(buffer, expr->as.sequence.first) &&
+                   zir_string_buffer_append(buffer, ", ") &&
+                   zir_render_expr(buffer, expr->as.sequence.second);
+        case ZIR_EXPR_SET_REMOVE:
+            return zir_string_buffer_append(buffer, "set_remove ") &&
+                   zir_render_expr(buffer, expr->as.sequence.first) &&
+                   zir_string_buffer_append(buffer, ", ") &&
+                   zir_render_expr(buffer, expr->as.sequence.second);
+        case ZIR_EXPR_SET_HAS:
+            return zir_string_buffer_append(buffer, "set_has ") &&
+                   zir_render_expr(buffer, expr->as.sequence.first) &&
+                   zir_string_buffer_append(buffer, ", ") &&
+                   zir_render_expr(buffer, expr->as.sequence.second);
         case ZIR_EXPR_OPTIONAL_PRESENT:
             return zir_string_buffer_append(buffer, "optional_present ") && zir_render_expr(buffer, expr->as.single.value);
         case ZIR_EXPR_OPTIONAL_EMPTY:
@@ -755,6 +834,11 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
             return zir_string_buffer_append(buffer, "outcome_value ") && zir_render_expr(buffer, expr->as.single.value);
         case ZIR_EXPR_TRY_PROPAGATE:
             return zir_string_buffer_append(buffer, "try_propagate ") && zir_render_expr(buffer, expr->as.single.value);
+        case ZIR_EXPR_OUTCOME_WRAP_CONTEXT:
+            return zir_string_buffer_append(buffer, "outcome_wrap_context ") &&
+                   zir_render_expr(buffer, expr->as.sequence.first) &&
+                   zir_string_buffer_append(buffer, ", ") &&
+                   zir_render_expr(buffer, expr->as.sequence.second);
         case ZIR_EXPR_OPTIONAL_VALUE:
             return zir_string_buffer_append(buffer, "optional_value ") && zir_render_expr(buffer, expr->as.single.value);
         case ZIR_EXPR_FUNC_REF:
@@ -803,6 +887,7 @@ void zir_expr_dispose(zir_expr *expr) {
         case ZIR_EXPR_COPY:
         case ZIR_EXPR_LIST_LEN:
         case ZIR_EXPR_MAP_LEN:
+        case ZIR_EXPR_SET_LEN:
         case ZIR_EXPR_OPTIONAL_PRESENT:
         case ZIR_EXPR_OPTIONAL_IS_PRESENT:
         case ZIR_EXPR_OUTCOME_SUCCESS:
@@ -846,6 +931,10 @@ void zir_expr_dispose(zir_expr *expr) {
             free((void *)expr->as.make_map.value_type_name);
             zir_map_entry_list_dispose(&expr->as.make_map.entries);
             break;
+        case ZIR_EXPR_MAKE_SET:
+            free((void *)expr->as.make_set.elem_type_name);
+            zir_expr_list_dispose(&expr->as.make_set.items);
+            break;
         case ZIR_EXPR_GET_FIELD:
             zir_expr_dispose(expr->as.field.object);
             free((void *)expr->as.field.field_name);
@@ -857,7 +946,11 @@ void zir_expr_dispose(zir_expr *expr) {
             break;
         case ZIR_EXPR_INDEX_SEQ:
         case ZIR_EXPR_COALESCE:
+        case ZIR_EXPR_OUTCOME_WRAP_CONTEXT:
         case ZIR_EXPR_LIST_PUSH:
+        case ZIR_EXPR_SET_ADD:
+        case ZIR_EXPR_SET_REMOVE:
+        case ZIR_EXPR_SET_HAS:
             zir_expr_dispose(expr->as.sequence.first);
             zir_expr_dispose(expr->as.sequence.second);
             break;

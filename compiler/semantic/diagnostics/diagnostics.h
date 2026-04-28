@@ -86,7 +86,9 @@ typedef enum zt_diag_code {
     ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED,
     ZT_DIAG_CALLABLE_INVALID_FUNC_REF,
     /* R3.M6 - Closures v1 */
-    ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED
+    ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED,
+    /* v7 - Deprecation */
+    ZT_DIAG_DEPRECATED_SYNTAX
 } zt_diag_code;
 
 typedef enum zt_diag_severity {

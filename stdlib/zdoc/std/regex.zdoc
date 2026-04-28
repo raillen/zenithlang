@@ -1,0 +1,64 @@
+--- @target: namespace
+# std.regex - Expressoes regulares basicas
+
+Modulo de regex portavel para validacao e buscas simples.
+
+Suporte atual:
+
+- literais ASCII;
+- `.`, `^`, `$`;
+- quantificadores `*`, `+`, `?`;
+- classes como `[abc]`, `[a-z]`, `[^0-9]`;
+- escapes `\d`, `\w`, `\s`.
+
+Grupos, capturas, flags e replace ficam para uma fase futura.
+---
+
+--- @target: Error
+```zt
+public enum Error
+    InvalidPattern
+end
+```
+
+Erro retornado por `compile` quando o padrao nao e valido.
+---
+
+--- @target: Regex
+```zt
+public struct Regex
+    pattern: text
+end
+```
+
+Regex compilada no nivel da API.
+No corte atual ela guarda o padrao validado.
+---
+
+--- @target: compile
+```zt
+public func compile(pattern: text) -> result<regex.Regex, regex.Error>
+```
+
+Valida um padrao.
+Retorna `success(Regex)` quando o padrao e aceito.
+Retorna `error(regex.Error.InvalidPattern)` quando o padrao e invalido.
+---
+
+--- @target: is_match
+```zt
+public func is_match(pattern: text, input: text) -> bool
+```
+
+Retorna `true` quando o padrao encontra pelo menos uma ocorrencia em `input`.
+Se o padrao for invalido, retorna `false`.
+---
+
+--- @target: find_all
+```zt
+public func find_all(pattern: text, input: text) -> list<text>
+```
+
+Retorna todas as ocorrencias nao vazias encontradas em `input`.
+Se o padrao for invalido, retorna lista vazia.
+---

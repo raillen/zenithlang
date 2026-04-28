@@ -26,17 +26,6 @@ end
 
 時間間隔をミリ秒単位で表します。
 
-### `Error`
-
-```zt
-public enum Error
-    SleepInterrupted
-    Unknown
-end
-```
-
-一時的な操作の型付きエラー。
-
 ### `now`
 
 ```zt
@@ -45,16 +34,32 @@ public func now() -> time.Instant
 
 システムクロックの現在の瞬間を返します。
 
+### `now_ms`
+
+```zt
+public func now_ms() -> int
+```
+
+Returns the current Unix timestamp in milliseconds.
+
 ### `sleep`
 
 ```zt
-public func sleep(duration: time.Duration) -> result<void, time.Error>
+public func sleep(duration: time.Duration) -> result<void, core.Error>
 ```
 
 指定した期間実行を一時停止します。
 
 @paramduration — スリープ期間。
 @戻る`void`成功した場合、または一時的なエラーが発生した場合。
+
+### `sleep_ms`
+
+```zt
+public func sleep_ms(ms: int) -> result<void, core.Error>
+```
+
+Suspends execution for `ms` milliseconds.
 
 ### `since`
 
@@ -79,6 +84,14 @@ public func diff(a: time.Instant, b: time.Instant) -> time.Duration
 ```
 
 2 つの瞬間間の時間差を返します (`b - a`）。
+
+### `elapsed`
+
+```zt
+public func elapsed(start: time.Instant, finish: time.Instant) -> int
+```
+
+Returns the difference in milliseconds between `start` and `finish`.
 
 ### `add`
 

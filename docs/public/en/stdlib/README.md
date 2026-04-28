@@ -20,11 +20,13 @@ Use only documented, test-validated APIs when writing public examples.
 -`std.fs.path`: path operations.
 -`std.json`:JSON.
 -`std.math`: basic mathematics.
+-`std.regex`: simple regex helpers for validation and search.
 -`std.random`: random alpha, with care for shared state.
 -`std.concurrent`: explicit copy for competition boundaries.
 -`std.test`: fail, skip and simple comparisons for testing.
 -`std.list`: small helpers for`list<T>`.
 - `std.map`: small helpers for`map<K,V>`.
+- `std.set`: small helpers for`set<T>`.
 
 ## Small tests with`std.test`
 
@@ -56,6 +58,8 @@ If an API is not yet semantically supported by the compiler, do not post it as a
 
 - Text and files:`docs/public/stdlib/text-and-files.md`.
 - Validation, mathematics and random:`docs/public/stdlib/validation-math-random.md`.
+- Regex: `docs/public/en/stdlib/regex.md`.
+- Set helpers:`docs/public/stdlib/set.md`.
 - stdlib reference:`docs/reference/stdlib/README.md`.
 - KB of stdlib:`docs/reference/zenith-kb/stdlib.md`.
 - Normative model:`language/spec/stdlib-model.md`.

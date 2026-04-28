@@ -18,7 +18,7 @@ Consultar APIs publicas da stdlib alpha.
 | `text-bytes-format.md` | texto, bytes e formatacao |
 | `filesystem-os-time.md` | filesystem, caminhos, OS, processo e tempo |
 | `collections.md` | estruturas auxiliares em `std.collections`, `std.list` e `std.map` |
-| `math-random-validate.md` | math, random e validacao |
+| `math-random-validate.md` | math, regex, random e validacao |
 | `concurrency-lazy-test-net.md` | concorrencia base, lazy, test e net |
 
 ## Fontes

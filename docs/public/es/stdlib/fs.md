@@ -142,6 +142,14 @@ public func copy_file(from: text, to: text) -> result<void, fs.Error>
 
 Copia un archivo.
 
+### `copy`
+
+```zt
+public func copy(from: text, to: text) -> result<void, fs.Error>
+```
+
+Alias de `copy_file`.
+
 ### `move`
 
 ```zt
@@ -149,6 +157,14 @@ public func move(from: text, to: text) -> result<void, fs.Error>
 ```
 
 Mover o cambiar el nombre de una entrada.
+
+### `rename`
+
+```zt
+public func rename(from: text, to: text) -> result<void, fs.Error>
+```
+
+Alias de `move`.
 
 ### `metadata`
 
@@ -165,6 +181,14 @@ public func size(path: text) -> result<int, fs.Error>
 ```
 
 Devuelve el tamaño en bytes.
+
+### `file_size`
+
+```zt
+public func file_size(path: text) -> result<int, fs.Error>
+```
+
+Alias de `size`.
 
 ### `modified_at`
 

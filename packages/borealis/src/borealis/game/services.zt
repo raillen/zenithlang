@@ -33,11 +33,11 @@ public func http_send(request: services.HttpRequest) -> result<services.HttpResp
     last_request_url = request.url
 
     if body == ""
-        const response_body: text = fmt "{method} {request.url}"
+        const response_body: text = f"{method} {request.url}"
         return success(services.HttpResponse(status: 200, body: response_body))
     end
 
-    const response_body: text = fmt "{method} {request.url} body={body}"
+    const response_body: text = f"{method} {request.url} body={body}"
     return success(services.HttpResponse(status: 200, body: response_body))
 end
 
@@ -204,7 +204,7 @@ public func normalize_body(body: text) -> text
 end
 
 public func cloud_key(provider: text, name: text) -> text
-    return fmt "{provider}::{name}"
+    return f"{provider}::{name}"
 end
 
 public func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool

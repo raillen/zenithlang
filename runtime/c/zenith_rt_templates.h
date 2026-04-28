@@ -5,9 +5,9 @@
  * for the Zenith generic type system (list<T>, optional<T>, outcome<T,E>, map<K,V>).
  *
  * Usage:
- *   ZT_DEFINE_LIST(i64, zt_int, ZT_HEAP_LIST_I64, 0)   // list<int>   - value type
- *   ZT_DEFINE_LIST(text, zt_text *, ZT_HEAP_LIST_TEXT, 1) // list<text>  - managed type
- *   ZT_DEFINE_LIST(f64, zt_float, ZT_HEAP_LIST_F64, 0)  // list<float> - new monomorphized type
+ *   ZT_DEFINE_LIST(i64, zt_int, ZT_HEAP_LIST_I64, 0)      // list<int>  - value type
+ *   ZT_DEFINE_LIST(f64, zt_float, ZT_HEAP_LIST_F64, 0)    // list<float> - value type
+ *   ZT_DEFINE_LIST(text, zt_text *, ZT_HEAP_LIST_TEXT, 1) // list<text> - managed type
  *
  * IS_PTR = 0: element is a value type (copied by value, no retain/release)
  * IS_PTR = 1: element is a managed/pointer type (needs zt_retain/zt_release)
@@ -2125,7 +2125,9 @@ typedef struct zt_optional_##SUFFIX {                                           
 static inline zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(              \
         ELEM_TYPE value) {                                                       \
     zt_optional_##SUFFIX result;                                                 \
-    if (IS_PTR && (const void *)value != NULL) { zt_retain((void *)value); }                                   \
+    ZT_TEMPLATE_IF(IS_PTR,                                                       \
+        if ((const void *)value != NULL) { zt_retain((void *)value); }           \
+    )                                                                            \
     result.is_present = true;                                                    \
     result.value = value;                                                         \
     return result;                                                               \
@@ -2146,7 +2148,9 @@ static inline zt_bool zt_optional_##SUFFIX##_is_present(                        
 static inline ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                        \
         zt_optional_##SUFFIX opt, ELEM_TYPE fallback) {                          \
     ELEM_TYPE selected = opt.is_present ? opt.value : fallback;                  \
-    if (IS_PTR && (const void *)selected != NULL) { zt_retain((void *)selected); }                                \
+    ZT_TEMPLATE_IF(IS_PTR,                                                       \
+        if ((const void *)selected != NULL) { zt_retain((void *)selected); }     \
+    )                                                                            \
     return selected;                                                             \
 }
 
@@ -2163,7 +2167,9 @@ static inline ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                        
                                                                                  \
 zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(ELEM_TYPE value) {          \
     zt_optional_##SUFFIX result;                                                 \
-    if (IS_PTR && (const void *)value != NULL) { zt_retain((void *)value); }                                   \
+    ZT_TEMPLATE_IF(IS_PTR,                                                       \
+        if ((const void *)value != NULL) { zt_retain((void *)value); }           \
+    )                                                                            \
     result.is_present = true;                                                    \
     result.value = value;                                                         \
     return result;                                                               \
@@ -2183,13 +2189,17 @@ zt_bool zt_optional_##SUFFIX##_is_present(zt_optional_##SUFFIX opt) {           
 ELEM_TYPE zt_optional_##SUFFIX##_coalesce(                                       \
         zt_optional_##SUFFIX opt, ELEM_TYPE fallback) {                          \
     ELEM_TYPE selected = opt.is_present ? opt.value : fallback;                  \
-    if (IS_PTR && (const void *)selected != NULL) { zt_retain((void *)selected); }                                \
+    ZT_TEMPLATE_IF(IS_PTR,                                                       \
+        if ((const void *)selected != NULL) { zt_retain((void *)selected); }     \
+    )                                                                            \
     return selected;                                                             \
 }                                                                                \
                                                                                  \
 ELEM_TYPE zt_optional_##SUFFIX##_value(zt_optional_##SUFFIX opt) {               \
     ELEM_TYPE val = opt.value;                                                     \
-    if (IS_PTR && (const void *)val != NULL) { zt_retain((void *)val); }          \
+    ZT_TEMPLATE_IF(IS_PTR,                                                       \
+        if ((const void *)val != NULL) { zt_retain((void *)val); }               \
+    )                                                                            \
     return val;                                                                   \
 }
 

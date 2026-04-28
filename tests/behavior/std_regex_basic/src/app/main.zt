@@ -1,0 +1,47 @@
+namespace app.main
+
+import std.regex as regex
+
+func expect_invalid(pattern: text) -> result<void, regex.Error>
+    const compiled_result: result<regex.Regex, regex.Error> = regex.compile(pattern)
+    match compiled_result
+        case success(_compiled) ->
+            return error(regex.Error.InvalidPattern)
+        case error(_err) ->
+            return success()
+    end
+end
+
+func main() -> result<void, regex.Error>
+    const compiled_result: result<regex.Regex, regex.Error> = regex.compile("^[A-Za-z]+[0-9]+$")
+    const compiled: regex.Regex = compiled_result?
+
+    if regex.is_match(compiled.pattern, "player123") == false
+        return error(regex.Error.InvalidPattern)
+    end
+    if regex.is_match(compiled.pattern, "123player")
+        return error(regex.Error.InvalidPattern)
+    end
+    if regex.is_match("^colou?r$", "color") == false
+        return error(regex.Error.InvalidPattern)
+    end
+    if regex.is_match("^colou?r$", "colour") == false
+        return error(regex.Error.InvalidPattern)
+    end
+    if regex.is_match("a.c", "xxabcxx") == false
+        return error(regex.Error.InvalidPattern)
+    end
+
+    const matches: list<text> = regex.find_all("[0-9]+", "a12 b7 c345")
+    if len(matches) != 3
+        return error(regex.Error.InvalidPattern)
+    end
+    if matches[0] != "12" or matches[1] != "7" or matches[2] != "345"
+        return error(regex.Error.InvalidPattern)
+    end
+
+    const invalid_result: result<void, regex.Error> = expect_invalid("[abc")
+    invalid_result?
+
+    return success()
+end

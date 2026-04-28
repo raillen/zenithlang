@@ -86,7 +86,7 @@ public func asset_load_from(path: text, kind: text, source: text = "runtime") ->
     if existing_key_id > 0
         const existing_kind: text = assets.asset_text_or(asset_kind, existing_key_id, "")
         if existing_kind != "" and existing_kind != kind
-            const conflict_message: text = fmt "assets: key '{path}' is already registered as kind '{existing_kind}'"
+            const conflict_message: text = f"assets: key '{path}' is already registered as kind '{existing_kind}'"
             return error(conflict_message)
         end
     end
@@ -442,7 +442,7 @@ public func asset_is_loaded_key(key: text) -> bool
 end
 
 public func asset_cache_key(kind: text, path: text) -> text
-    return fmt "{kind}::{path}"
+    return f"{kind}::{path}"
 end
 
 public func asset_handle(id: int) -> assets.AssetHandle

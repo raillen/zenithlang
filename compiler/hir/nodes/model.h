@@ -35,6 +35,7 @@ typedef enum zt_hir_stmt_kind {
     ZT_HIR_MATCH_STMT,
     ZT_HIR_BREAK_STMT,
     ZT_HIR_CONTINUE_STMT,
+    ZT_HIR_USING_STMT,
     ZT_HIR_EXPR_STMT
 } zt_hir_stmt_kind;
 
@@ -50,6 +51,7 @@ typedef enum zt_hir_expr_kind {
     ZT_HIR_ERROR_EXPR,
     ZT_HIR_LIST_EXPR,
     ZT_HIR_MAP_EXPR,
+    ZT_HIR_SET_EXPR,
     ZT_HIR_UNARY_EXPR,
     ZT_HIR_BINARY_EXPR,
     ZT_HIR_FIELD_EXPR,
@@ -293,6 +295,13 @@ struct zt_hir_stmt {
             zt_hir_match_case_list cases;
         } match_stmt;
         struct {
+            char *name;
+            zt_type *type;
+            zt_hir_expr *init_value;
+            zt_hir_expr *cleanup_expr;
+            zt_hir_stmt *body;
+        } using_stmt;
+        struct {
             zt_hir_expr *expr;
         } expr_stmt;
     } as;
@@ -313,6 +322,7 @@ struct zt_hir_expr {
         struct { zt_hir_expr *value; } error_expr;
         struct { zt_hir_expr_list elements; } list_expr;
         struct { zt_hir_map_entry_list entries; } map_expr;
+        struct { zt_hir_expr_list elements; } set_expr;
         struct { zt_token_kind op; zt_hir_expr *operand; } unary_expr;
         struct { zt_token_kind op; zt_hir_expr *left; zt_hir_expr *right; } binary_expr;
         struct { zt_hir_expr *object; char *field_name; } field_expr;
@@ -392,4 +402,3 @@ void zt_hir_module_var_list_dispose(zt_hir_module_var_list *list);
 #endif
 
 #endif
-

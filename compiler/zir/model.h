@@ -88,15 +88,20 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_MAKE_STRUCT,
     ZIR_EXPR_MAKE_LIST,
     ZIR_EXPR_MAKE_MAP,
+    ZIR_EXPR_MAKE_SET,
     ZIR_EXPR_GET_FIELD,
     ZIR_EXPR_SET_FIELD,
     ZIR_EXPR_INDEX_SEQ,
     ZIR_EXPR_SLICE_SEQ,
     ZIR_EXPR_LIST_LEN,
     ZIR_EXPR_MAP_LEN,
+    ZIR_EXPR_SET_LEN,
     ZIR_EXPR_LIST_PUSH,
     ZIR_EXPR_LIST_SET,
     ZIR_EXPR_MAP_SET,
+    ZIR_EXPR_SET_ADD,
+    ZIR_EXPR_SET_REMOVE,
+    ZIR_EXPR_SET_HAS,
     ZIR_EXPR_OPTIONAL_PRESENT,
     ZIR_EXPR_OPTIONAL_EMPTY,
     ZIR_EXPR_OPTIONAL_IS_PRESENT,
@@ -106,6 +111,7 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_OUTCOME_IS_SUCCESS,
     ZIR_EXPR_OUTCOME_VALUE,
     ZIR_EXPR_TRY_PROPAGATE,
+    ZIR_EXPR_OUTCOME_WRAP_CONTEXT,
     ZIR_EXPR_OPTIONAL_VALUE,
     ZIR_EXPR_FUNC_REF,
     ZIR_EXPR_CALL_INDIRECT,
@@ -157,6 +163,10 @@ struct zir_expr {
             const char *value_type_name;
             zir_map_entry_list entries;
         } make_map;
+        struct {
+            const char *elem_type_name;
+            zir_expr_list items;
+        } make_set;
         struct {
             zir_expr *object;
             const char *field_name;
@@ -331,15 +341,20 @@ zir_expr *zir_expr_make_call_runtime_intrinsic(const char *callee_name);
 zir_expr *zir_expr_make_make_struct(const char *type_name);
 zir_expr *zir_expr_make_make_list(const char *item_type_name);
 zir_expr *zir_expr_make_make_map(const char *key_type_name, const char *value_type_name);
+zir_expr *zir_expr_make_make_set(const char *elem_type_name);
 zir_expr *zir_expr_make_get_field(zir_expr *object, const char *field_name);
 zir_expr *zir_expr_make_set_field(zir_expr *object, const char *field_name, zir_expr *value);
 zir_expr *zir_expr_make_index_seq(zir_expr *sequence, zir_expr *index);
 zir_expr *zir_expr_make_slice_seq(zir_expr *sequence, zir_expr *start, zir_expr *end);
 zir_expr *zir_expr_make_list_len(zir_expr *sequence);
 zir_expr *zir_expr_make_map_len(zir_expr *map);
+zir_expr *zir_expr_make_set_len(zir_expr *set);
 zir_expr *zir_expr_make_list_push(zir_expr *target, zir_expr *value);
 zir_expr *zir_expr_make_list_set(zir_expr *target, zir_expr *index, zir_expr *value);
 zir_expr *zir_expr_make_map_set(zir_expr *target, zir_expr *key, zir_expr *value);
+zir_expr *zir_expr_make_set_add(zir_expr *target, zir_expr *value);
+zir_expr *zir_expr_make_set_remove(zir_expr *target, zir_expr *value);
+zir_expr *zir_expr_make_set_has(zir_expr *target, zir_expr *value);
 zir_expr *zir_expr_make_optional_present(zir_expr *value);
 zir_expr *zir_expr_make_optional_empty(const char *type_name);
 zir_expr *zir_expr_make_optional_is_present(zir_expr *value);
@@ -349,6 +364,7 @@ zir_expr *zir_expr_make_outcome_failure(zir_expr *value);
 zir_expr *zir_expr_make_outcome_is_success(zir_expr *value);
 zir_expr *zir_expr_make_outcome_value(zir_expr *value);
 zir_expr *zir_expr_make_try_propagate(zir_expr *value);
+zir_expr *zir_expr_make_outcome_wrap_context(zir_expr *value, zir_expr *context);
 zir_expr *zir_expr_make_optional_value(zir_expr *value);
 zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_type_name);
 zir_expr *zir_expr_make_call_indirect(zir_expr *callable);
@@ -357,6 +373,7 @@ void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg);
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value);
 void zir_expr_make_list_add_item(zir_expr *expr, zir_expr *item);
 void zir_expr_make_map_add_entry(zir_expr *expr, zir_expr *key, zir_expr *value);
+void zir_expr_make_set_add_item(zir_expr *expr, zir_expr *item);
 void zir_expr_dispose(zir_expr *expr);
 char *zir_expr_render_alloc(const zir_expr *expr);
 

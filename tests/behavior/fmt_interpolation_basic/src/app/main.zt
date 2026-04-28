@@ -8,7 +8,7 @@ func main() -> int
     const name: text = "Ada"
     const hp: int = 41
     const alive: bool = true
-    const msg: text = fmt "Player {name} hp={hp + 1} alive={alive} next={inc(hp)} braces={{ok}}"
+    const msg: text = f"Player {name} hp={hp + 1} alive={alive} next={inc(hp)} braces={{ok}}"
     if len(msg) > 0
         return 0
     end

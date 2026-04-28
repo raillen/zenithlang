@@ -301,6 +301,118 @@ static int c_legalize_build_map_runtime_name(
     return 1;
 }
 
+typedef struct c_legalize_list_value_spec {
+    const char *item_type_name;
+    const char *list_type_name;
+    const char *get_fn;
+    const char *slice_fn;
+    const char *len_fn;
+} c_legalize_list_value_spec;
+
+static const c_legalize_list_value_spec C_LEGALIZE_LIST_VALUE_SPECS[] = {
+    {"int", "list<int>", "zt_list_i64_get", "zt_list_i64_slice", "zt_list_i64_len"},
+    {"int64", "list<int64>", "zt_list_i64_get", "zt_list_i64_slice", "zt_list_i64_len"},
+    {"float", "list<float>", "zt_list_f64_get", "zt_list_f64_slice", "zt_list_f64_len"},
+    {"bool", "list<bool>", "zt_list_bool_get", "zt_list_bool_slice", "zt_list_bool_len"},
+    {"int8", "list<int8>", "zt_list_i8_get", "zt_list_i8_slice", "zt_list_i8_len"},
+    {"int16", "list<int16>", "zt_list_i16_get", "zt_list_i16_slice", "zt_list_i16_len"},
+    {"int32", "list<int32>", "zt_list_i32_get", "zt_list_i32_slice", "zt_list_i32_len"},
+    {"uint8", "list<uint8>", "zt_list_u8_get", "zt_list_u8_slice", "zt_list_u8_len"},
+    {"uint16", "list<uint16>", "zt_list_u16_get", "zt_list_u16_slice", "zt_list_u16_len"},
+    {"uint32", "list<uint32>", "zt_list_u32_get", "zt_list_u32_slice", "zt_list_u32_len"},
+    {"uint64", "list<uint64>", "zt_list_u64_get", "zt_list_u64_slice", "zt_list_u64_len"},
+};
+
+#define C_LEGALIZE_LIST_VALUE_SPEC_COUNT (sizeof(C_LEGALIZE_LIST_VALUE_SPECS) / sizeof(C_LEGALIZE_LIST_VALUE_SPECS[0]))
+
+static int c_legalize_list_value_spec_for_item_type(
+        const char *item_type_name,
+        c_legalize_list_value_spec *out) {
+    char canonical[C_LEGALIZE_TYPE_NAME_MAX];
+    size_t index;
+
+    if (item_type_name == NULL) {
+        return 0;
+    }
+
+    c_legalize_canonicalize_type(canonical, sizeof(canonical), item_type_name);
+    for (index = 0; index < C_LEGALIZE_LIST_VALUE_SPEC_COUNT; index += 1) {
+        if (strcmp(canonical, C_LEGALIZE_LIST_VALUE_SPECS[index].item_type_name) != 0) {
+            continue;
+        }
+        if (out != NULL) {
+            *out = C_LEGALIZE_LIST_VALUE_SPECS[index];
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+static int c_legalize_list_value_spec_for_list_type(
+        const char *list_type_name,
+        c_legalize_list_value_spec *out) {
+    char canonical[C_LEGALIZE_TYPE_NAME_MAX];
+    size_t index;
+
+    if (list_type_name == NULL) {
+        return 0;
+    }
+
+    c_legalize_canonicalize_type(canonical, sizeof(canonical), list_type_name);
+    for (index = 0; index < C_LEGALIZE_LIST_VALUE_SPEC_COUNT; index += 1) {
+        if (strcmp(canonical, C_LEGALIZE_LIST_VALUE_SPECS[index].list_type_name) != 0) {
+            continue;
+        }
+        if (out != NULL) {
+            *out = C_LEGALIZE_LIST_VALUE_SPECS[index];
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+static int c_legalize_parse_make_list_type_name(
+        const char *text,
+        char *list_type_name,
+        size_t list_capacity,
+        char *item_type_name,
+        size_t item_capacity) {
+    char trimmed[C_LEGALIZE_TYPE_NAME_MAX];
+    char item[C_LEGALIZE_TYPE_NAME_MAX];
+    const char *start;
+    const char *end = NULL;
+    size_t index;
+
+    if (!c_legalize_copy_trimmed(trimmed, sizeof(trimmed), text) ||
+            !c_legalize_starts_with(trimmed, "make_list<")) {
+        return 0;
+    }
+
+    start = trimmed + strlen("make_list<");
+    for (index = 0; start[index] != '\0'; index += 1) {
+        if (start[index] == '>') {
+            end = start + index;
+            break;
+        }
+    }
+
+    if (end == NULL ||
+            !c_legalize_copy_trimmed_segment(item, sizeof(item), start, end)) {
+        return 0;
+    }
+
+    c_legalize_canonicalize_type(item, sizeof(item), item);
+    if (item_type_name != NULL && item_capacity > 0) {
+        snprintf(item_type_name, item_capacity, "%s", item);
+    }
+    if (list_type_name != NULL && list_capacity > 0) {
+        snprintf(list_type_name, list_capacity, "list<%s>", item);
+    }
+    return 1;
+}
+
 static int c_legalize_parse_map_type_name(
         const char *text,
         char *canonical_name,
@@ -468,8 +580,26 @@ static int c_legalize_resolve_sequence_type(const zir_function *function_decl, c
         return 1;
     }
 
+    if (c_legalize_parse_make_list_type_name(
+            trimmed,
+            map_type_name,
+            sizeof(map_type_name),
+            key_type_name,
+            sizeof(key_type_name))) {
+        c_legalize_list_value_spec value_spec;
+        if (c_legalize_list_value_spec_for_item_type(key_type_name, &value_spec)) {
+            snprintf(dest, capacity, "%s", value_spec.list_type_name);
+            return 1;
+        }
+    }
+
     if (c_legalize_starts_with(trimmed, "make_list<int>")) {
         snprintf(dest, capacity, "list<int>");
+        return 1;
+    }
+
+    if (c_legalize_starts_with(trimmed, "make_list<float>")) {
+        snprintf(dest, capacity, "list<float>");
         return 1;
     }
 
@@ -558,6 +688,7 @@ static int c_legalize_index_seq(
     char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
+    c_legalize_list_value_spec value_spec;
 
     if (!c_legalize_split_two_operands(expr_text + 10, sequence_expr, sizeof(sequence_expr), index_expr, sizeof(index_expr))) {
         c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_EXPR, "invalid index_seq expression '%s'", c_legalize_safe_text(expr_text));
@@ -578,12 +709,30 @@ static int c_legalize_index_seq(
         return 1;
     }
 
+    if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+        if (!c_legalize_expect_result_type("index_seq", value_spec.item_type_name, expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_INDEX, value_spec.get_fn, value_spec.list_type_name, sequence_expr, index_expr, "");
+        return 1;
+    }
+
     if (strcmp(sequence_type, "list<int>") == 0) {
         if (!c_legalize_expect_result_type("index_seq", "int", expected_type_name, result)) {
             return 0;
         }
 
         c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_INDEX, "zt_list_i64_get", "list<int>", sequence_expr, index_expr, "");
+        return 1;
+    }
+
+    if (strcmp(sequence_type, "list<float>") == 0) {
+        if (!c_legalize_expect_result_type("index_seq", "float", expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_INDEX, "zt_list_f64_get", "list<float>", sequence_expr, index_expr, "");
         return 1;
     }
 
@@ -642,6 +791,7 @@ static int c_legalize_slice_seq(
     char start_expr[C_LEGALIZE_TYPE_NAME_MAX];
     char end_expr[C_LEGALIZE_TYPE_NAME_MAX];
     char sequence_type[C_LEGALIZE_TYPE_NAME_MAX];
+    c_legalize_list_value_spec value_spec;
 
     if (!c_legalize_split_three_operands(expr_text + 10, sequence_expr, sizeof(sequence_expr), start_expr, sizeof(start_expr), end_expr, sizeof(end_expr))) {
         c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_EXPR, "invalid slice_seq expression '%s'", c_legalize_safe_text(expr_text));
@@ -662,12 +812,30 @@ static int c_legalize_slice_seq(
         return 1;
     }
 
+    if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+        if (!c_legalize_expect_result_type("slice_seq", value_spec.list_type_name, expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_SLICE, value_spec.slice_fn, value_spec.list_type_name, sequence_expr, start_expr, end_expr);
+        return 1;
+    }
+
     if (strcmp(sequence_type, "list<int>") == 0) {
         if (!c_legalize_expect_result_type("slice_seq", "list<int>", expected_type_name, result)) {
             return 0;
         }
 
         c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_SLICE, "zt_list_i64_slice", "list<int>", sequence_expr, start_expr, end_expr);
+        return 1;
+    }
+
+    if (strcmp(sequence_type, "list<float>") == 0) {
+        if (!c_legalize_expect_result_type("slice_seq", "list<float>", expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_SLICE, "zt_list_f64_slice", "list<float>", sequence_expr, start_expr, end_expr);
         return 1;
     }
 
@@ -741,6 +909,7 @@ int c_legalize_list_len_expr(
     char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
+    c_legalize_list_value_spec value_spec;
     const char *op_name = NULL;
     size_t op_prefix_length = 0;
 
@@ -784,12 +953,30 @@ int c_legalize_list_len_expr(
         return 0;
     }
 
+    if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+        if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_LEN, value_spec.len_fn, value_spec.list_type_name, sequence_expr, "", "");
+        return 1;
+    }
+
     if (strcmp(sequence_type, "list<int>") == 0) {
         if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) {
             return 0;
         }
 
         c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_LEN, "zt_list_i64_len", "list<int>", sequence_expr, "", "");
+        return 1;
+    }
+
+    if (strcmp(sequence_type, "list<float>") == 0) {
+        if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) {
+            return 0;
+        }
+
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_LEN, "zt_list_f64_len", "list<float>", sequence_expr, "", "");
         return 1;
     }
 
@@ -909,6 +1096,7 @@ int c_legalize_zir_seq_expr(
     char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
+    c_legalize_list_value_spec value_spec;
 
     c_legalize_result_init(result);
 
@@ -945,9 +1133,21 @@ int c_legalize_zir_seq_expr(
             return 1;
         }
 
+        if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+            if (!c_legalize_expect_result_type("index_seq", value_spec.item_type_name, expected_type_name, result)) return 0;
+            c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_INDEX, value_spec.get_fn, value_spec.list_type_name, sequence_expr, arg1_expr, "");
+            return 1;
+        }
+
         if (strcmp(sequence_type, "list<int>") == 0) {
             if (!c_legalize_expect_result_type("index_seq", "int", expected_type_name, result)) return 0;
             c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_INDEX, "zt_list_i64_get", "list<int>", sequence_expr, arg1_expr, "");
+            return 1;
+        }
+
+        if (strcmp(sequence_type, "list<float>") == 0) {
+            if (!c_legalize_expect_result_type("index_seq", "float", expected_type_name, result)) return 0;
+            c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_INDEX, "zt_list_f64_get", "list<float>", sequence_expr, arg1_expr, "");
             return 1;
         }
 
@@ -990,9 +1190,21 @@ int c_legalize_zir_seq_expr(
             return 1;
         }
 
+        if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+            if (!c_legalize_expect_result_type("slice_seq", value_spec.list_type_name, expected_type_name, result)) return 0;
+            c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_SLICE, value_spec.slice_fn, value_spec.list_type_name, sequence_expr, arg1_expr, arg2_expr);
+            return 1;
+        }
+
         if (strcmp(sequence_type, "list<int>") == 0) {
             if (!c_legalize_expect_result_type("slice_seq", "list<int>", expected_type_name, result)) return 0;
             c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_SLICE, "zt_list_i64_slice", "list<int>", sequence_expr, arg1_expr, arg2_expr);
+            return 1;
+        }
+
+        if (strcmp(sequence_type, "list<float>") == 0) {
+            if (!c_legalize_expect_result_type("slice_seq", "list<float>", expected_type_name, result)) return 0;
+            c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_SLICE, "zt_list_f64_slice", "list<float>", sequence_expr, arg1_expr, arg2_expr);
             return 1;
         }
 
@@ -1019,6 +1231,7 @@ int c_legalize_zir_list_len_expr(
     char key_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char value_type_name[C_LEGALIZE_TYPE_NAME_MAX];
     char runtime_name[C_LEGALIZE_RUNTIME_NAME_MAX];
+    c_legalize_list_value_spec value_spec;
     const char *op_name = NULL;
 
     c_legalize_result_init(result);
@@ -1043,9 +1256,21 @@ int c_legalize_zir_list_len_expr(
         return 0;
     }
 
+    if (c_legalize_list_value_spec_for_list_type(sequence_type, &value_spec)) {
+        if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) return 0;
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_VALUE_LEN, value_spec.len_fn, value_spec.list_type_name, sequence_expr, "", "");
+        return 1;
+    }
+
     if (strcmp(sequence_type, "list<int>") == 0) {
         if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) return 0;
         c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_I64_LEN, "zt_list_i64_len", "list<int>", sequence_expr, "", "");
+        return 1;
+    }
+
+    if (strcmp(sequence_type, "list<float>") == 0) {
+        if (!c_legalize_expect_result_type(op_name, "int", expected_type_name, result)) return 0;
+        c_legalize_fill_expr(out, C_LEGALIZED_SEQ_LIST_F64_LEN, "zt_list_f64_len", "list<float>", sequence_expr, "", "");
         return 1;
     }
 
@@ -1074,6 +1299,6 @@ int c_legalize_zir_list_len_expr(
         return 1;
     }
 
-    c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_TYPE, "%s is supported only for list<int>, list<text>, and map<K,V>, got '%s'", op_name, sequence_type);
+    c_legalize_set_result(result, C_LEGALIZE_UNSUPPORTED_TYPE, "%s is supported only for list<int>, list<float>, list<text>, and map<K,V>, got '%s'", op_name, sequence_type);
     return 0;
 }

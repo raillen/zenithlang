@@ -2,6 +2,6 @@ namespace fuzz.fmt_interp
 
 public func main() -> int
     -- Chaves desbalanceadas
-    const x: text = fmt "Hello {name"
+    const x: text = f"Hello {name"
     return 0
 end

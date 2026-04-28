@@ -184,7 +184,7 @@ public func watch_text(label: text, value: text) -> text
     if debug.enabled == false
         return ""
     end
-    return fmt "{label}: {value}"
+    return f"{label}: {value}"
 end
 
 public func watch_entry(name: text) -> text
@@ -205,35 +205,35 @@ public func grid_text(cell_size: int, offset_x: int = 0, offset_y: int = 0) -> t
     if debug.enabled == false
         return ""
     end
-    return fmt "grid(size={cell_size}, offset={offset_x},{offset_y})"
+    return f"grid(size={cell_size}, offset={offset_x},{offset_y})"
 end
 
 public func bounds_text(x: float, y: float, width: float, height: float) -> text
     if debug.enabled == false
         return ""
     end
-    return fmt "bounds({x}, {y}, {width}, {height})"
+    return f"bounds({x}, {y}, {width}, {height})"
 end
 
 public func hitbox_text(x: float, y: float, width: float, height: float) -> text
     if debug.enabled == false
         return ""
     end
-    return fmt "hitbox({x}, {y}, {width}, {height})"
+    return f"hitbox({x}, {y}, {width}, {height})"
 end
 
 public func fps_text(fps: int) -> text
     if debug.enabled == false
         return ""
     end
-    return fmt "fps({fps})"
+    return f"fps({fps})"
 end
 
 public func overlay_summary() -> text
     if debug.enabled == false
         return ""
     end
-    return fmt "overlay(flags={debug.flag_count()}, watches={debug.watch_count()}, logs={debug.log_count()})"
+    return f"overlay(flags={debug.flag_count()}, watches={debug.watch_count()}, logs={debug.log_count()})"
 end
 
 public func clear() -> void

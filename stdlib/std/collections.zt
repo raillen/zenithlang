@@ -109,10 +109,10 @@ extern c
     func zt_btreemap_text_text_len(self_map: btreemap<text,text>) -> int
 
     func zt_btreeset_text_new() -> btreeset<text>
-    func zt_btreeset_text_insert_owned(set: btreeset<text>, value: text) -> btreeset<text>
-    func zt_btreeset_text_contains(set: btreeset<text>, value: text) -> bool
-    func zt_btreeset_text_remove_owned(set: btreeset<text>, value: text) -> btreeset<text>
-    func zt_btreeset_text_len(set: btreeset<text>) -> int
+    func zt_btreeset_text_insert_owned(self_set: btreeset<text>, value: text) -> btreeset<text>
+    func zt_btreeset_text_contains(self_set: btreeset<text>, value: text) -> bool
+    func zt_btreeset_text_remove_owned(self_set: btreeset<text>, value: text) -> btreeset<text>
+    func zt_btreeset_text_len(self_set: btreeset<text>) -> int
 
     func zt_grid3d_i64_new(depth: int, rows: int, cols: int) -> grid3d<int>
     func zt_grid3d_i64_get(grid: grid3d<int>, layer: int, row: int, col: int) -> int
@@ -470,20 +470,20 @@ public func btreeset_text_new() -> btreeset<text>
     return collections.zt_btreeset_text_new()
 end
 
-public func btreeset_text_insert(set: btreeset<text>, value: text) -> btreeset<text>
-    return collections.zt_btreeset_text_insert_owned(set, value)
+public func btreeset_text_insert(self_set: btreeset<text>, value: text) -> btreeset<text>
+    return collections.zt_btreeset_text_insert_owned(self_set, value)
 end
 
-public func btreeset_text_contains(set: btreeset<text>, value: text) -> bool
-    return collections.zt_btreeset_text_contains(set, value)
+public func btreeset_text_contains(self_set: btreeset<text>, value: text) -> bool
+    return collections.zt_btreeset_text_contains(self_set, value)
 end
 
-public func btreeset_text_remove(set: btreeset<text>, value: text) -> btreeset<text>
-    return collections.zt_btreeset_text_remove_owned(set, value)
+public func btreeset_text_remove(self_set: btreeset<text>, value: text) -> btreeset<text>
+    return collections.zt_btreeset_text_remove_owned(self_set, value)
 end
 
-public func btreeset_text_len(set: btreeset<text>) -> int
-    return collections.zt_btreeset_text_len(set)
+public func btreeset_text_len(self_set: btreeset<text>) -> int
+    return collections.zt_btreeset_text_len(self_set)
 end
 
 public func grid3d_int_new(depth: int, rows: int, cols: int) -> grid3d<int>
@@ -562,8 +562,8 @@ public func btreemap_text_is_empty(self_map: btreemap<text,text>) -> bool
     return collections.zt_btreemap_text_text_len(self_map) == 0
 end
 
-public func btreeset_text_is_empty(set: btreeset<text>) -> bool
-    return collections.zt_btreeset_text_len(set) == 0
+public func btreeset_text_is_empty(self_set: btreeset<text>) -> bool
+    return collections.zt_btreeset_text_len(self_set) == 0
 end
 
 public func grid2d_int_size(grid: grid2d<int>) -> int

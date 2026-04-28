@@ -1,0 +1,3 @@
+std.set.empty() requires an expected set<T> type
+tests/behavior/set_empty_inference_error/src/app/main.zt:6:
+error[type.invalid]

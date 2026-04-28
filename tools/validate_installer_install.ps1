@@ -47,6 +47,8 @@ function Run-Step([string]$Name, [string]$Exe, [string[]]$Args, [string]$LogFile
 $installResolved = Resolve-InstallRoot -Value $InstallRoot
 $installAbs = [System.IO.Path]::GetFullPath($installResolved)
 $ztExe = Join-Path $installAbs "zt.exe"
+$zpmExe = Join-Path $installAbs "zpm.exe"
+$lspExe = Join-Path $installAbs "zt-lsp.exe"
 $runtimeSource = Join-Path $installAbs "runtime\\c\\zenith_rt.c"
 $stdlibDir = Join-Path $installAbs "stdlib"
 $projectAbs = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $ProjectPath))
@@ -54,6 +56,8 @@ $logAbs = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $LogPath))
 
 Assert-Exists $installAbs "Install root"
 Assert-Exists $ztExe "Installed compiler binary"
+Assert-Exists $zpmExe "Installed package manager binary"
+Assert-Exists $lspExe "Installed language server binary"
 Assert-Exists $runtimeSource "Installed runtime source"
 Assert-Exists $stdlibDir "Installed stdlib folder"
 Assert-Exists $projectAbs "Validation project"
@@ -68,6 +72,7 @@ $timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssK"
 Run-Step -Name "zt check" -Exe $ztExe -Args @("check", $projectAbs) -LogFile $logAbs
 Run-Step -Name "zt build" -Exe $ztExe -Args @("build", $projectAbs) -LogFile $logAbs
 Run-Step -Name "zt run" -Exe $ztExe -Args @("run", $projectAbs) -LogFile $logAbs
+Run-Step -Name "zpm help" -Exe $zpmExe -Args @("help") -LogFile $logAbs
 
 Add-Content -Path $logAbs -Value ""
 Add-Content -Path $logAbs -Value "Validation result: PASS"

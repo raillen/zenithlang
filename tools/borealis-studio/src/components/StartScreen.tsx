@@ -1,4 +1,4 @@
-import { BookOpen, FilePlus2, FolderOpen, Home, LayoutTemplate } from "lucide-react";
+import { BookOpen, Clock3, FilePlus2, FolderOpen, Home, LayoutTemplate, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { ICON_STROKE } from "../constants";
 import type {
@@ -7,6 +7,7 @@ import type {
   NewProjectRequest,
   ProjectTemplate,
   ProjectTemplateId,
+  RecentProject,
   StudioHome,
 } from "../types";
 import { StatusPill } from "./shared";
@@ -16,6 +17,8 @@ export function StartScreen({
   busy,
   error,
   home,
+  recentProjects,
+  onClearRecentProjects,
   onCreateProject,
   onOpenDefaultProject,
   onOpenProject,
@@ -24,6 +27,8 @@ export function StartScreen({
   busy: boolean;
   error: string | null;
   home: StudioHome;
+  recentProjects: RecentProject[];
+  onClearRecentProjects: () => void;
   onCreateProject: (request: NewProjectRequest) => void;
   onOpenDefaultProject: () => void;
   onOpenProject: (projectPath: string) => void;
@@ -182,6 +187,34 @@ export function StartScreen({
           </div>
         </section>
 
+        <section className="start-panel start-recent-panel">
+          <div className="start-panel-title">
+            <Clock3 size={16} strokeWidth={ICON_STROKE} />
+            <div>
+              <strong>Recentes</strong>
+              <span>Projetos abertos neste Studio.</span>
+            </div>
+            {recentProjects.length > 0 ? (
+              <button className="start-panel-icon-action" onClick={onClearRecentProjects} title="Limpar recentes" type="button">
+                <Trash2 size={14} strokeWidth={ICON_STROKE} />
+              </button>
+            ) : null}
+          </div>
+          <div className="recent-list">
+            {recentProjects.length === 0 ? (
+              <div className="empty-state inline">Nenhum projeto recente.</div>
+            ) : (
+              recentProjects.map((project) => (
+                <button className="recent-row" key={project.path} onClick={() => void onOpenProject(project.path)} type="button">
+                  <strong>{project.name}</strong>
+                  <span>{project.path}</span>
+                  <small>{formatRecentDate(project.openedAt)}</small>
+                </button>
+              ))
+            )}
+          </div>
+        </section>
+
         <section className="start-panel start-docs-panel">
           <div className="start-panel-title">
             <BookOpen size={16} strokeWidth={ICON_STROKE} />
@@ -215,4 +248,14 @@ function DocumentationRow({ doc }: { doc: DocumentationLink }) {
       <code>{doc.path}</code>
     </div>
   );
+}
+
+function formatRecentDate(timestamp: number): string {
+  if (!Number.isFinite(timestamp)) return "Data desconhecida";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
 }

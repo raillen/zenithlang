@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.3.0-alpha.1",
+    [string]$Version = "0.3.0-alpha.3",
     [string]$IsccPath = "iscc",
     [string]$OutputDir = "dist\\installer",
     [string]$StageDir = ".artifacts\\installer\\stage",
@@ -31,6 +31,8 @@ if (-not $SkipStaging) {
     Get-ChildItem -Force -Path $stageAbs | Remove-Item -Recurse -Force
 
     $ztExe = Join-Path $repoRoot "zt.exe"
+    $zpmExe = Join-Path $repoRoot "zpm.exe"
+    $lspExe = Join-Path $repoRoot "zt-lsp.exe"
     $logoIco = Join-Path $repoRoot "branding\\logo-only.ico"
     $runtime = Join-Path $repoRoot "runtime"
     $stdlib = Join-Path $repoRoot "stdlib"
@@ -41,6 +43,8 @@ if (-not $SkipStaging) {
     $licenseMit = Join-Path $repoRoot "LICENSE-MIT"
 
     Assert-Path $ztExe "Compiler binary"
+    Assert-Path $zpmExe "Package manager binary"
+    Assert-Path $lspExe "Language server binary"
     Assert-Path $logoIco "Installer icon (.ico)"
     Assert-Path $runtime "Runtime folder"
     Assert-Path $stdlib "Standard library folder"
@@ -51,6 +55,8 @@ if (-not $SkipStaging) {
     Assert-Path $licenseMit "LICENSE-MIT"
 
     Copy-Item -LiteralPath $ztExe -Destination $stageAbs -Force
+    Copy-Item -LiteralPath $zpmExe -Destination $stageAbs -Force
+    Copy-Item -LiteralPath $lspExe -Destination $stageAbs -Force
     Copy-Item -LiteralPath $logoIco -Destination $stageAbs -Force
     Copy-Item -LiteralPath $runtime -Destination (Join-Path $stageAbs "runtime") -Recurse -Force
     Copy-Item -LiteralPath $stdlib -Destination (Join-Path $stageAbs "stdlib") -Recurse -Force

@@ -26,17 +26,6 @@ end
 
 Representa un intervalo de tiempo en milisegundos.
 
-### `Error`
-
-```zt
-public enum Error
-    SleepInterrupted
-    Unknown
-end
-```
-
-Error escrito para operaciones temporales.
-
 ### `now`
 
 ```zt
@@ -45,16 +34,32 @@ public func now() -> time.Instant
 
 Devuelve el instante actual del reloj del sistema.
 
+### `now_ms`
+
+```zt
+public func now_ms() -> int
+```
+
+Devuelve la marca Unix actual en milisegundos.
+
 ### `sleep`
 
 ```zt
-public func sleep(duration: time.Duration) -> result<void, time.Error>
+public func sleep(duration: time.Duration) -> result<void, core.Error>
 ```
 
 Suspende la ejecución durante el período especificado.
 
 @param duración: duración del sueño.
-@devolver`void`en éxito o error temporal.
+@devolver `void` en éxito o error del host.
+
+### `sleep_ms`
+
+```zt
+public func sleep_ms(ms: int) -> result<void, core.Error>
+```
+
+Suspende la ejecución por `ms` milisegundos.
 
 ### `since`
 
@@ -79,6 +84,14 @@ public func diff(a: time.Instant, b: time.Instant) -> time.Duration
 ```
 
 Devuelve la diferencia temporal entre dos instantes (`b - a`).
+
+### `elapsed`
+
+```zt
+public func elapsed(start: time.Instant, finish: time.Instant) -> int
+```
+
+Devuelve la diferencia en milisegundos entre `start` y `finish`.
 
 ### `add`
 

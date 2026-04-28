@@ -43,5 +43,5 @@ Se a pergunta for normativa para implementacao do compilador, consulte tambem `l
 | texto, bytes e formatacao | `docs/reference/stdlib/text-bytes-format.md` |
 | filesystem, OS e tempo | `docs/reference/stdlib/filesystem-os-time.md` |
 | collections | `docs/reference/stdlib/collections.md` |
-| math, random e validate | `docs/reference/stdlib/math-random-validate.md` |
+| math, regex, random e validate | `docs/reference/stdlib/math-random-validate.md` |
 | concurrent, lazy, test e net | `docs/reference/stdlib/concurrency-lazy-test-net.md` |

@@ -1,6 +1,35 @@
 # Zenith Installers
 
-This folder documents installer flows for Zenith.
+This folder documents installer/package flows for Zenith.
+
+Each installer must ship the same core payload:
+
+- `zt`: compiler/driver.
+- `zpm`: package manager.
+- `zt-lsp`: language server used by editors.
+- `stdlib/`, `runtime/`, license files, README, and changelog.
+
+## One Command
+
+Use the orchestrator when possible. It builds `zt`, `zpm`, and `zt-lsp`, then delegates to the platform packager.
+
+Windows:
+
+```powershell
+python tools\build_installers.py --target windows --version 0.3.0-alpha.3
+```
+
+Linux or WSL:
+
+```bash
+python3 tools/build_installers.py --target linux --version 0.3.0-alpha.3
+```
+
+Automatic current-platform target:
+
+```bash
+python3 tools/build_installers.py --version 0.3.0-alpha.3
+```
 
 ## Windows (Inno Setup)
 
@@ -13,15 +42,16 @@ The Windows flow uses Inno Setup with admin elevation and environment setup.
 ## Files
 
 - `installer/zenith.iss`: installer definition
+- `tools/build_installers.py`: builds binaries and delegates to the platform packager
 - `tools/build_installer.ps1`: stages files and builds installer + checksums
-- `tools/validate_installer_install.ps1`: validates installed binary with hello-world (`check/build/run`)
+- `tools/validate_installer_install.ps1`: validates installed tools with hello-world (`zt check/build/run`) and `zpm help`
 
 ## Build Installer
 
 From repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\build_installer.ps1 -Version 0.3.0-alpha.2
+powershell -ExecutionPolicy Bypass -File tools\build_installer.ps1 -Version 0.3.0-alpha.3
 ```
 
 Output:
@@ -55,12 +85,12 @@ Prerequisites:
 
 - Linux host (or CI runner)
 - `fpm` installed and available in `PATH`
-- Linux `zt` binary already compiled (default expected path: `./zt`)
+- Linux `zt`, `zpm`, and `zt-lsp` binaries already compiled.
 
 Build (from repository root):
 
 ```bash
-python3 tools/build_linux_packages.py --version 0.3.0-alpha.2
+python3 tools/build_linux_packages.py --version 0.3.0-alpha.3
 ```
 
 Outputs:
@@ -74,3 +104,4 @@ Global environment:
 
 - The package installs `/etc/profile.d/zenith.sh`.
 - It exports `ZENITH_HOME="/usr/local/lib/zenith"` globally for login shells.
+- The package exposes `/usr/local/bin/zt`, `/usr/local/bin/zpm`, and `/usr/local/bin/zt-lsp`.

@@ -64,6 +64,8 @@ typedef struct zir_function_ctx {
     size_t try_temp_counter;
     size_t try_label_counter;
     size_t generated_value_counter;
+    const zt_hir_expr *cleanup_stack[32];
+    size_t cleanup_depth;
 } zir_function_ctx;
 
 typedef struct zir_decl_counts {
@@ -336,6 +338,14 @@ static int zir_validate_hir_stmt_nesting(zir_nesting_guard *guard, const zt_hir_
                 }
             }
             break;
+        case ZT_HIR_USING_STMT:
+            if (!zir_validate_hir_expr_nesting(guard, stmt->as.using_stmt.init_value) ||
+                    !zir_validate_hir_expr_nesting(guard, stmt->as.using_stmt.cleanup_expr) ||
+                    !zir_validate_hir_stmt_nesting(guard, stmt->as.using_stmt.body)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
         case ZT_HIR_EXPR_STMT:
             if (!zir_validate_hir_expr_nesting(guard, stmt->as.expr_stmt.expr)) {
                 zir_nesting_pop(guard);
@@ -578,6 +588,46 @@ static int zir_build_map_runtime_name_from_type(
     snprintf(dest, capacity, "zt_map_generated_%s_%s", sanitized, suffix);
     free(key_type_name);
     free(value_type_name);
+    return 1;
+}
+
+static int zir_build_set_runtime_name_from_type(
+        const zt_type *set_type,
+        const char *suffix,
+        char *dest,
+        size_t capacity) {
+    char *elem_type_name = NULL;
+    char sanitized[192];
+
+    if (set_type == NULL || suffix == NULL || dest == NULL || capacity == 0) {
+        return 0;
+    }
+
+    if (set_type->kind != ZT_TYPE_SET || set_type->args.count < 1) {
+        return 0;
+    }
+
+    elem_type_name = zir_type_name_owned(set_type->args.items[0]);
+    if (elem_type_name == NULL) {
+        return 0;
+    }
+
+    zir_strip_spaces_in_place(elem_type_name);
+
+    if (strcmp(elem_type_name, "int") == 0) {
+        snprintf(dest, capacity, "zt_set_i64_%s", suffix);
+        free(elem_type_name);
+        return 1;
+    }
+    if (strcmp(elem_type_name, "text") == 0) {
+        snprintf(dest, capacity, "zt_set_text_%s", suffix);
+        free(elem_type_name);
+        return 1;
+    }
+
+    zir_copy_sanitized(sanitized, sizeof(sanitized), elem_type_name);
+    snprintf(dest, capacity, "zt_set_generated_%s_%s", sanitized, suffix);
+    free(elem_type_name);
     return 1;
 }
 
@@ -848,6 +898,10 @@ static zir_expr *zir_lower_len_call(
     if (arg->type->kind == ZT_TYPE_MAP) {
         return zir_expr_make_map_len(arg_expr);
     }
+
+    if (arg->type->kind == ZT_TYPE_SET) {
+        return zir_expr_make_set_len(arg_expr);
+    }
     if (arg->type->kind == ZT_TYPE_TEXT) {
         if (arg->kind == ZT_HIR_CALL_EXPR &&
                 zir_name_matches(arg->as.call_expr.callee_name, "core.dyn_text_repr_to_text") &&
@@ -930,6 +984,96 @@ static zir_expr *zir_lower_call_expr(
                     replace_it_to));
         } else {
             zir_expr_call_add_arg(call, zir_expr_make_string(callee_name));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "print")) {
+        call = zir_expr_make_call_extern("c.zt_builtin_print");
+        if (expr->as.call_expr.args.count > 0) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_string(""));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "read")) {
+        call = zir_expr_make_call_extern("c.zt_builtin_read");
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "debug")) {
+        call = zir_expr_make_call_extern("c.zt_builtin_debug");
+        if (expr->as.call_expr.args.count > 0) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_string(""));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "type_name")) {
+        call = zir_expr_make_call_extern("c.zt_builtin_type_name");
+        if (expr->as.call_expr.args.count > 0) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_string(""));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "size_of")) {
+        call = zir_expr_make_call_extern("c.zt_builtin_size_of");
+        if (expr->as.call_expr.args.count > 0) {
+            zir_expr_call_add_arg(
+                call,
+                zir_lower_hir_expr(env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+        } else {
+            zir_expr_call_add_arg(call, zir_expr_make_int(0));
+        }
+        return call;
+    }
+
+    if (zir_text_eq(callee_name, "range")) {
+        if (expr->as.call_expr.args.count == 3) {
+            call = zir_expr_make_call_extern("c.zt_builtin_range3");
+        } else {
+            call = zir_expr_make_call_extern("c.zt_builtin_range2");
+        }
+        {
+            size_t ri;
+            for (ri = 0; ri < expr->as.call_expr.args.count && ri < 3; ri++) {
+                zir_expr_call_add_arg(
+                    call,
+                    zir_lower_hir_expr(env,
+                        expr->as.call_expr.args.items[ri],
+                        replace_ident_from,
+                        replace_ident_to,
+                        replace_it_to));
+            }
         }
         return call;
     }
@@ -1028,6 +1172,22 @@ static zir_expr *zir_lower_call_expr(
                     replace_it_to)),
             zir_expr_make_bool(0));
     }
+    if (zir_name_matches(callee_name, "core.result_or_wrap")) {
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_name("<invalid_result_or_wrap>");
+        return zir_expr_make_outcome_wrap_context(
+            zir_lower_hir_expr(
+                env,
+                expr->as.call_expr.args.items[0],
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to),
+            zir_lower_hir_expr(
+                env,
+                expr->as.call_expr.args.items[1],
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to));
+    }
 
     if (zir_name_matches(callee_name, "core.list_is_empty")) {
         if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
@@ -1079,6 +1239,115 @@ static zir_expr *zir_lower_call_expr(
         return call;
     }
 
+    if (zir_name_matches(callee_name, "core.set_is_empty")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_bool(1);
+        return zir_expr_make_binary(
+            "eq",
+            zir_expr_make_set_len(
+                zir_lower_hir_expr(
+                    env,
+                    expr->as.call_expr.args.items[0],
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to)),
+            zir_expr_make_int("0"));
+    }
+    if (zir_name_matches(callee_name, "core.set_len")) {
+        if (expr->as.call_expr.args.count == 0) return zir_expr_make_int("0");
+        return zir_expr_make_set_len(
+            zir_lower_hir_expr(
+                env,
+                expr->as.call_expr.args.items[0],
+                replace_ident_from,
+                replace_ident_to,
+                replace_it_to));
+    }
+    if (zir_name_matches(callee_name, "core.set_add")) {
+        char runtime_name[224];
+        char callee_buffer[256];
+        const zt_type *set_type = NULL;
+
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_name("<invalid_set_add>");
+        if (expr->as.call_expr.args.items[0] != NULL) {
+            set_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (!zir_build_set_runtime_name_from_type(set_type, "add", runtime_name, sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_set_i64_add");
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.set_remove")) {
+        char runtime_name[224];
+        char callee_buffer[256];
+        const zt_type *set_type = NULL;
+
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_name("<invalid_set_remove>");
+        if (expr->as.call_expr.args.items[0] != NULL) {
+            set_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (!zir_build_set_runtime_name_from_type(set_type, "remove", runtime_name, sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_set_i64_remove");
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.set_has")) {
+        char runtime_name[224];
+        char callee_buffer[256];
+        const zt_type *set_type = NULL;
+
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_bool(0);
+        if (expr->as.call_expr.args.items[0] != NULL) {
+            set_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (!zir_build_set_runtime_name_from_type(set_type, "has", runtime_name, sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_set_i64_has");
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.set_union") ||
+            zir_name_matches(callee_name, "core.set_intersect") ||
+            zir_name_matches(callee_name, "core.set_difference")) {
+        char runtime_name[224];
+        char callee_buffer[256];
+        const char *suffix = "union";
+        const zt_type *set_type = NULL;
+
+        if (expr->as.call_expr.args.count < 2) return zir_expr_make_name("<invalid_set_operation>");
+        if (expr->as.call_expr.args.items[0] != NULL) {
+            set_type = expr->as.call_expr.args.items[0]->type;
+        }
+
+        if (zir_name_matches(callee_name, "core.set_intersect")) {
+            suffix = "intersect";
+        } else if (zir_name_matches(callee_name, "core.set_difference")) {
+            suffix = "difference";
+        }
+
+        if (!zir_build_set_runtime_name_from_type(set_type, suffix, runtime_name, sizeof(runtime_name))) {
+            snprintf(runtime_name, sizeof(runtime_name), "zt_set_i64_%s", suffix);
+        }
+
+        snprintf(callee_buffer, sizeof(callee_buffer), "c.%s", runtime_name);
+        call = zir_expr_make_call_extern(callee_buffer);
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+
     if (zir_name_matches(callee_name, "core.list_get_i64")) {
         call = zir_expr_make_call_extern("c.zt_list_i64_get_optional");
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -1086,6 +1355,36 @@ static zir_expr *zir_lower_call_expr(
     }
     if (zir_name_matches(callee_name, "core.list_get_text")) {
         call = zir_expr_make_call_extern("c.zt_list_text_get_optional");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_last_i64")) {
+        call = zir_expr_make_call_extern("c.zt_list_i64_last_optional");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_last_text")) {
+        call = zir_expr_make_call_extern("c.zt_list_text_last_optional");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_rest_i64")) {
+        call = zir_expr_make_call_extern("c.zt_list_i64_rest");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_rest_text")) {
+        call = zir_expr_make_call_extern("c.zt_list_text_rest");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_skip_i64")) {
+        call = zir_expr_make_call_extern("c.zt_list_i64_skip");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_name_matches(callee_name, "core.list_skip_text")) {
+        call = zir_expr_make_call_extern("c.zt_list_text_skip");
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
@@ -1295,6 +1594,21 @@ static zir_expr *zir_lower_call_expr(
     }
     if (zir_call_is_module_func(callee_name, "time", "zt_host_time_sleep_ms")) {
         call = zir_expr_make_call_extern("c.zt_host_time_sleep_ms");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_validate_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_validate_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_is_match_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_is_match_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_find_all_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_find_all_core");
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
@@ -1743,6 +2057,26 @@ static zir_expr *zir_lower_hir_expr(
             return out;
         }
 
+        case ZT_HIR_SET_EXPR: {
+            char *elem_type = zir_lower_strdup("unknown");
+            if (expr->type != NULL && expr->type->kind == ZT_TYPE_SET && expr->type->args.count > 0) {
+                free(elem_type);
+                elem_type = zir_type_name_owned(expr->type->args.items[0]);
+            }
+            out = zir_expr_make_make_set(elem_type);
+            free(elem_type);
+            for (i = 0; i < expr->as.set_expr.elements.count; i += 1) {
+                zir_expr_make_set_add_item(
+                    out,
+                    zir_lower_hir_expr(env,
+                        expr->as.set_expr.elements.items[i],
+                        replace_ident_from,
+                        replace_ident_to,
+                        replace_it_to));
+            }
+            return out;
+        }
+
         case ZT_HIR_UNARY_EXPR:
             if (expr->as.unary_expr.op == ZT_TOKEN_QUESTION) {
                 return zir_expr_make_try_propagate(zir_lower_hir_expr(env,
@@ -2054,11 +2388,87 @@ static const zir_loop_target *zir_loop_current(const zir_function_ctx *ctx) {
     return &ctx->loop_stack[ctx->loop_depth - 1];
 }
 
+static void zir_emit_cleanup_expr(
+        zir_function_ctx *ctx,
+        const zt_hir_expr *cleanup_expr,
+        zir_span span) {
+    if (ctx == NULL || cleanup_expr == NULL) return;
+    zir_emit_effect_expr(
+        ctx,
+        zir_lower_hir_expr(ctx->env, cleanup_expr, NULL, NULL, NULL),
+        span);
+}
+
+static void zir_emit_active_cleanups(zir_function_ctx *ctx, zir_span span) {
+    size_t index;
+    if (ctx == NULL) return;
+    for (index = ctx->cleanup_depth; index > 0; index -= 1) {
+        zir_emit_cleanup_expr(ctx, ctx->cleanup_stack[index - 1], span);
+    }
+}
+
+static void zir_cleanup_push(
+        zir_function_ctx *ctx,
+        const zt_hir_expr *cleanup_expr,
+        zir_span span) {
+    (void)span;
+    if (ctx == NULL || cleanup_expr == NULL) return;
+    if (ctx->cleanup_depth >= sizeof(ctx->cleanup_stack) / sizeof(ctx->cleanup_stack[0])) {
+        zir_add_lower_diag(ctx->env != NULL ? ctx->env->diagnostics : NULL, zt_source_span_unknown(), "too many nested using cleanups");
+        return;
+    }
+    ctx->cleanup_stack[ctx->cleanup_depth] = cleanup_expr;
+    ctx->cleanup_depth += 1;
+}
+
+static void zir_emit_and_pop_cleanups_to_depth(
+        zir_function_ctx *ctx,
+        size_t target_depth,
+        zir_span span) {
+    if (ctx == NULL) return;
+    while (ctx->cleanup_depth > target_depth) {
+        ctx->cleanup_depth -= 1;
+        zir_emit_cleanup_expr(ctx, ctx->cleanup_stack[ctx->cleanup_depth], span);
+        ctx->cleanup_stack[ctx->cleanup_depth] = NULL;
+    }
+}
+
 static int zir_is_try_expr(const zt_hir_expr *expr) {
     return expr != NULL &&
            expr->kind == ZT_HIR_UNARY_EXPR &&
            expr->as.unary_expr.op == ZT_TOKEN_QUESTION &&
            expr->as.unary_expr.operand != NULL;
+}
+
+static int zir_is_optional_or_return_expr(const zt_hir_expr *expr) {
+    return expr != NULL &&
+           expr->kind == ZT_HIR_CALL_EXPR &&
+           zir_name_matches(expr->as.call_expr.callee_name, "core.optional_or_return") &&
+           expr->as.call_expr.args.count >= 2 &&
+           expr->as.call_expr.args.items[0] != NULL &&
+           expr->as.call_expr.args.items[1] != NULL;
+}
+
+static zir_expr *zir_lower_return_value_for_type(
+        zir_lower_env *env,
+        const zt_hir_expr *value,
+        const char *fn_return_type) {
+    zir_expr *return_expr;
+    char *value_type_name;
+
+    if (value == NULL) {
+        return NULL;
+    }
+
+    return_expr = zir_lower_hir_expr(env, value, NULL, NULL, NULL);
+    value_type_name = zir_type_name_owned(value->type);
+    if (zir_type_name_is_optional(fn_return_type) &&
+            value->kind != ZT_HIR_NONE_EXPR &&
+            (value_type_name == NULL || !zir_text_eq(value_type_name, fn_return_type))) {
+        return_expr = zir_expr_make_optional_present(return_expr);
+    }
+    free(value_type_name);
+    return return_expr;
 }
 
 static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const char *fn_return_type);
@@ -2178,6 +2588,7 @@ static void zir_lower_try_assignment(
 
     failure_block = zir_add_block(ctx, failure_label, span);
     ctx->current_block = failure_block;
+    zir_emit_active_cleanups(ctx, span);
     if (is_optional_try) {
         char *optional_inner = zir_optional_inner_type_owned(fn_return_type);
         if (optional_inner == NULL) optional_inner = zir_lower_strdup("int");
@@ -2202,6 +2613,193 @@ static void zir_lower_try_assignment(
             ? zir_expr_make_optional_value(zir_expr_make_name(temp_name))
             : zir_expr_make_outcome_value(zir_expr_make_name(temp_name)),
         span);
+    zir_set_terminator(ctx, zir_make_jump_terminator(zir_lower_strdup(after_label)));
+
+    after_block = zir_add_block(ctx, after_label, span);
+    ctx->current_block = after_block;
+
+    free(temp_name);
+    free(temp_type);
+    free(success_label);
+    free(failure_label);
+    free(after_label);
+}
+
+static void zir_lower_optional_or_return_assignment(
+        zir_function_ctx *ctx,
+        const char *target_name,
+        const char *target_type_name,
+        const zt_hir_expr *call_expr,
+        zir_span span,
+        const char *fn_return_type) {
+    char *temp_name;
+    char *temp_type;
+    char *success_label;
+    char *failure_label;
+    char *after_label;
+    zir_expr *optional_expr;
+    size_t success_block;
+    size_t failure_block;
+    size_t after_block;
+    const zt_hir_expr *optional_value;
+    const zt_hir_expr *return_value;
+
+    if (ctx == NULL || !zir_is_optional_or_return_expr(call_expr)) return;
+
+    optional_value = call_expr->as.call_expr.args.items[0];
+    return_value = call_expr->as.call_expr.args.items[1];
+
+    temp_name = zir_lower_format("__zt_or_return_optional_", ctx->try_temp_counter++);
+    temp_type = zir_type_name_owned(optional_value->type);
+    optional_expr = zir_lower_hir_expr(ctx->env, optional_value, NULL, NULL, NULL);
+    zir_emit_assign_expr(ctx, temp_name, temp_type, optional_expr, span);
+
+    success_label = zir_lower_format("or_return_success_", ctx->try_label_counter++);
+    failure_label = zir_lower_format("or_return_failure_", ctx->try_label_counter++);
+    after_label = zir_lower_format("or_return_after_", ctx->try_label_counter++);
+
+    zir_set_terminator(
+        ctx,
+        zir_make_branch_if_terminator_expr(
+            zir_expr_make_optional_is_present(zir_expr_make_name(temp_name)),
+            zir_lower_strdup(success_label),
+            zir_lower_strdup(failure_label)));
+
+    failure_block = zir_add_block(ctx, failure_label, span);
+    ctx->current_block = failure_block;
+    {
+        zir_expr *fallback_expr = zir_lower_return_value_for_type(ctx->env, return_value, fn_return_type);
+        zir_emit_active_cleanups(ctx, span);
+        zir_set_terminator(ctx, zir_make_return_terminator_expr(fallback_expr));
+    }
+
+    success_block = zir_add_block(ctx, success_label, span);
+    ctx->current_block = success_block;
+    zir_emit_assign_expr(
+        ctx,
+        target_name,
+        target_type_name,
+        zir_expr_make_optional_value(zir_expr_make_name(temp_name)),
+        span);
+    zir_set_terminator(ctx, zir_make_jump_terminator(zir_lower_strdup(after_label)));
+
+    after_block = zir_add_block(ctx, after_label, span);
+    ctx->current_block = after_block;
+
+    free(temp_name);
+    free(temp_type);
+    free(success_label);
+    free(failure_label);
+    free(after_label);
+}
+
+static void zir_lower_optional_or_return_return(
+        zir_function_ctx *ctx,
+        const zt_hir_expr *call_expr,
+        zir_span span,
+        const char *fn_return_type) {
+    char *temp_name;
+    char *temp_type;
+    char *success_label;
+    char *failure_label;
+    const zt_hir_expr *optional_value;
+    const zt_hir_expr *return_value;
+    zir_expr *optional_expr;
+    zir_expr *success_expr;
+    size_t success_block;
+    size_t failure_block;
+
+    if (ctx == NULL || !zir_is_optional_or_return_expr(call_expr)) return;
+
+    optional_value = call_expr->as.call_expr.args.items[0];
+    return_value = call_expr->as.call_expr.args.items[1];
+
+    temp_name = zir_lower_format("__zt_or_return_optional_", ctx->try_temp_counter++);
+    temp_type = zir_type_name_owned(optional_value->type);
+    optional_expr = zir_lower_hir_expr(ctx->env, optional_value, NULL, NULL, NULL);
+    zir_emit_assign_expr(ctx, temp_name, temp_type, optional_expr, span);
+
+    success_label = zir_lower_format("or_return_success_", ctx->try_label_counter++);
+    failure_label = zir_lower_format("or_return_failure_", ctx->try_label_counter++);
+
+    zir_set_terminator(
+        ctx,
+        zir_make_branch_if_terminator_expr(
+            zir_expr_make_optional_is_present(zir_expr_make_name(temp_name)),
+            zir_lower_strdup(success_label),
+            zir_lower_strdup(failure_label)));
+
+    failure_block = zir_add_block(ctx, failure_label, span);
+    ctx->current_block = failure_block;
+    {
+        zir_expr *fallback_expr = zir_lower_return_value_for_type(ctx->env, return_value, fn_return_type);
+        zir_emit_active_cleanups(ctx, span);
+        zir_set_terminator(ctx, zir_make_return_terminator_expr(fallback_expr));
+    }
+
+    success_block = zir_add_block(ctx, success_label, span);
+    ctx->current_block = success_block;
+    success_expr = zir_expr_make_optional_value(zir_expr_make_name(temp_name));
+    if (zir_type_name_is_optional(fn_return_type)) {
+        success_expr = zir_expr_make_optional_present(success_expr);
+    }
+    zir_emit_active_cleanups(ctx, span);
+    zir_set_terminator(ctx, zir_make_return_terminator_expr(success_expr));
+
+    free(temp_name);
+    free(temp_type);
+    free(success_label);
+    free(failure_label);
+}
+
+static void zir_lower_optional_or_return_effect(
+        zir_function_ctx *ctx,
+        const zt_hir_expr *call_expr,
+        zir_span span,
+        const char *fn_return_type) {
+    char *temp_name;
+    char *temp_type;
+    char *success_label;
+    char *failure_label;
+    char *after_label;
+    const zt_hir_expr *optional_value;
+    const zt_hir_expr *return_value;
+    zir_expr *optional_expr;
+    size_t success_block;
+    size_t failure_block;
+    size_t after_block;
+
+    if (ctx == NULL || !zir_is_optional_or_return_expr(call_expr)) return;
+
+    optional_value = call_expr->as.call_expr.args.items[0];
+    return_value = call_expr->as.call_expr.args.items[1];
+
+    temp_name = zir_lower_format("__zt_or_return_optional_", ctx->try_temp_counter++);
+    temp_type = zir_type_name_owned(optional_value->type);
+    optional_expr = zir_lower_hir_expr(ctx->env, optional_value, NULL, NULL, NULL);
+    zir_emit_assign_expr(ctx, temp_name, temp_type, optional_expr, span);
+
+    success_label = zir_lower_format("or_return_success_", ctx->try_label_counter++);
+    failure_label = zir_lower_format("or_return_failure_", ctx->try_label_counter++);
+    after_label = zir_lower_format("or_return_after_", ctx->try_label_counter++);
+
+    zir_set_terminator(
+        ctx,
+        zir_make_branch_if_terminator_expr(
+            zir_expr_make_optional_is_present(zir_expr_make_name(temp_name)),
+            zir_lower_strdup(success_label),
+            zir_lower_strdup(failure_label)));
+
+    failure_block = zir_add_block(ctx, failure_label, span);
+    ctx->current_block = failure_block;
+    {
+        zir_expr *fallback_expr = zir_lower_return_value_for_type(ctx->env, return_value, fn_return_type);
+        zir_emit_active_cleanups(ctx, span);
+        zir_set_terminator(ctx, zir_make_return_terminator_expr(fallback_expr));
+    }
+
+    success_block = zir_add_block(ctx, success_label, span);
+    ctx->current_block = success_block;
     zir_set_terminator(ctx, zir_make_jump_terminator(zir_lower_strdup(after_label)));
 
     after_block = zir_add_block(ctx, after_label, span);
@@ -2260,6 +2858,7 @@ static void zir_lower_try_effect(
 
     failure_block = zir_add_block(ctx, failure_label, span);
     ctx->current_block = failure_block;
+    zir_emit_active_cleanups(ctx, span);
     if (is_optional_try) {
         char *optional_inner = zir_optional_inner_type_owned(fn_return_type);
         if (optional_inner == NULL) optional_inner = zir_lower_strdup("int");
@@ -2300,6 +2899,12 @@ static void zir_lower_var_like_statement(
 
     if (zir_is_try_expr(init_value)) {
         zir_lower_try_assignment(ctx, name, type_name, init_value, span, fn_return_type);
+        free(type_name);
+        return;
+    }
+
+    if (zir_is_optional_or_return_expr(init_value)) {
+        zir_lower_optional_or_return_assignment(ctx, name, type_name, init_value, span, fn_return_type);
         free(type_name);
         return;
     }
@@ -2619,9 +3224,15 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
     switch (stmt->kind) {
         case ZT_HIR_BLOCK_STMT: {
             size_t i;
+            size_t cleanup_depth = ctx->cleanup_depth;
             for (i = 0; i < stmt->as.block_stmt.statements.count; i += 1) {
                 zir_lower_stmt(ctx, stmt->as.block_stmt.statements.items[i], fn_return_type);
                 if (zir_current_block(ctx) != NULL && zir_current_block(ctx)->has_terminator) break;
+            }
+            if (zir_current_block(ctx) != NULL && !zir_current_block(ctx)->has_terminator) {
+                zir_emit_and_pop_cleanups_to_depth(ctx, cleanup_depth, span);
+            } else {
+                ctx->cleanup_depth = cleanup_depth;
             }
             return;
         }
@@ -2742,6 +3353,9 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
             if (iter_type != NULL && iter_kind == ZT_TYPE_LIST && iter_type->args.count > 0) {
                 free(item_type_name);
                 item_type_name = zir_type_name_owned(iter_type->args.items[0]);
+            } else if (iter_type != NULL && iter_kind == ZT_TYPE_SET && iter_type->args.count > 0) {
+                free(item_type_name);
+                item_type_name = zir_type_name_owned(iter_type->args.items[0]);
             } else if (iter_type != NULL && iter_kind == ZT_TYPE_MAP && iter_type->args.count >= 2) {
                 free(item_type_name);
                 free(second_type_name);
@@ -2754,7 +3368,7 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
                 zir_add_lower_diag(
                     ctx->env->diagnostics,
                     stmt->span,
-                    "for-in currently supports list, map<text,text> and text");
+                    "for-in currently supports list, map<text,text>, set and text");
             }
 
             zir_emit_assign_expr(
@@ -2773,6 +3387,8 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
             } else if (iter_kind == ZT_TYPE_BYTES) {
                 len_expr = zir_expr_make_call_extern("c.zt_bytes_len");
                 zir_expr_call_add_arg(len_expr, zir_expr_make_name(iter_temp));
+            } else if (iter_kind == ZT_TYPE_SET) {
+                len_expr = zir_expr_make_set_len(zir_expr_make_name(iter_temp));
             } else if (iter_kind == ZT_TYPE_LIST) {
                 len_expr = zir_expr_make_list_len(zir_expr_make_name(iter_temp));
             } else {
@@ -2802,6 +3418,17 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
                 zir_expr_call_add_arg(item_expr, zir_expr_make_name(index_temp));
             } else if (iter_kind == ZT_TYPE_TEXT) {
                 item_expr = zir_expr_make_call_extern("c.zt_text_index");
+                zir_expr_call_add_arg(item_expr, zir_expr_make_name(iter_temp));
+                zir_expr_call_add_arg(item_expr, zir_expr_make_name(index_temp));
+            } else if (iter_kind == ZT_TYPE_SET) {
+                if (iter_type != NULL &&
+                        iter_type->args.count > 0 &&
+                        iter_type->args.items[0] != NULL &&
+                        iter_type->args.items[0]->kind == ZT_TYPE_TEXT) {
+                    item_expr = zir_expr_make_call_extern("c.zt_set_text_value_at");
+                } else {
+                    item_expr = zir_expr_make_call_extern("c.zt_set_i64_value_at");
+                }
                 zir_expr_call_add_arg(item_expr, zir_expr_make_name(iter_temp));
                 zir_expr_call_add_arg(item_expr, zir_expr_make_name(index_temp));
             } else {
@@ -2926,23 +3553,16 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
 
         case ZT_HIR_RETURN_STMT:
             if (stmt->as.return_stmt.value == NULL || zir_text_eq(fn_return_type, "void")) {
+                zir_emit_active_cleanups(ctx, span);
                 zir_set_terminator(ctx, zir_make_return_terminator(""));
+            } else if (zir_is_optional_or_return_expr(stmt->as.return_stmt.value)) {
+                zir_lower_optional_or_return_return(ctx, stmt->as.return_stmt.value, span, fn_return_type);
             } else {
-                zir_expr *return_expr = zir_lower_hir_expr(ctx->env,
-                    stmt->as.return_stmt.value,
-                    NULL,
-                    NULL,
-                    NULL);
-                char *value_type_name = zir_type_name_owned(stmt->as.return_stmt.value->type);
-                if (zir_type_name_is_optional(fn_return_type) &&
-                        stmt->as.return_stmt.value->kind != ZT_HIR_NONE_EXPR &&
-                        (value_type_name == NULL || !zir_text_eq(value_type_name, fn_return_type))) {
-                    return_expr = zir_expr_make_optional_present(return_expr);
-                }
+                zir_expr *return_expr = zir_lower_return_value_for_type(ctx->env, stmt->as.return_stmt.value, fn_return_type);
+                zir_emit_active_cleanups(ctx, span);
                 zir_set_terminator(
                     ctx,
                     zir_make_return_terminator_expr(return_expr));
-                free(value_type_name);
             }
             return;
 
@@ -2966,11 +3586,54 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
                 fn_return_type);
             return;
 
+        case ZT_HIR_USING_STMT: {
+            size_t cleanup_depth = ctx->cleanup_depth;
+            zir_lower_var_like_statement(
+                ctx,
+                stmt->as.using_stmt.name,
+                stmt->as.using_stmt.type,
+                stmt->as.using_stmt.init_value,
+                stmt->span,
+                fn_return_type);
+            if (zir_current_block(ctx) != NULL && zir_current_block(ctx)->has_terminator) {
+                ctx->cleanup_depth = cleanup_depth;
+                return;
+            }
+
+            if (stmt->as.using_stmt.cleanup_expr != NULL) {
+                zir_cleanup_push(ctx, stmt->as.using_stmt.cleanup_expr, span);
+            }
+
+            if (stmt->as.using_stmt.body == NULL) {
+                return;
+            }
+
+            zir_lower_stmt(ctx, stmt->as.using_stmt.body, fn_return_type);
+            if (zir_current_block(ctx) != NULL && !zir_current_block(ctx)->has_terminator) {
+                zir_emit_and_pop_cleanups_to_depth(ctx, cleanup_depth, span);
+            } else {
+                ctx->cleanup_depth = cleanup_depth;
+            }
+            return;
+        }
+
         case ZT_HIR_ASSIGN_STMT: {
             char *type_name = zir_type_name_owned(
                 stmt->as.assign_stmt.value != NULL ? stmt->as.assign_stmt.value->type : NULL);
             if (zir_is_try_expr(stmt->as.assign_stmt.value)) {
                 zir_lower_try_assignment(
+                    ctx,
+                    stmt->as.assign_stmt.name,
+                    type_name,
+                    stmt->as.assign_stmt.value,
+                    span,
+                    fn_return_type);
+                free(type_name);
+                return;
+            }
+
+            if (zir_is_optional_or_return_expr(stmt->as.assign_stmt.value)) {
+                zir_lower_optional_or_return_assignment(
                     ctx,
                     stmt->as.assign_stmt.name,
                     type_name,
@@ -3102,6 +3765,7 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
         case ZT_HIR_BREAK_STMT: {
             const zir_loop_target *target = zir_loop_current(ctx);
             if (target != NULL) {
+                zir_emit_active_cleanups(ctx, span);
                 zir_set_terminator(ctx, zir_make_jump_terminator(zir_lower_strdup(target->break_label)));
             } else {
                 zir_set_terminator(ctx, zir_make_unreachable_terminator());
@@ -3112,6 +3776,7 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
         case ZT_HIR_CONTINUE_STMT: {
             const zir_loop_target *target = zir_loop_current(ctx);
             if (target != NULL) {
+                zir_emit_active_cleanups(ctx, span);
                 zir_set_terminator(ctx, zir_make_jump_terminator(zir_lower_strdup(target->continue_label)));
             } else {
                 zir_set_terminator(ctx, zir_make_unreachable_terminator());
@@ -3122,6 +3787,10 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
         case ZT_HIR_EXPR_STMT:
             if (zir_is_try_expr(stmt->as.expr_stmt.expr)) {
                 zir_lower_try_effect(ctx, stmt->as.expr_stmt.expr, span, fn_return_type);
+                return;
+            }
+            if (zir_is_optional_or_return_expr(stmt->as.expr_stmt.expr)) {
+                zir_lower_optional_or_return_effect(ctx, stmt->as.expr_stmt.expr, span, fn_return_type);
                 return;
             }
             if (zir_call_is_intrinsic(stmt->as.expr_stmt.expr, "panic")) {
@@ -3136,6 +3805,7 @@ static void zir_lower_stmt(zir_function_ctx *ctx, const zt_hir_stmt *stmt, const
                 if (message_expr == NULL) {
                     message_expr = zir_expr_make_string("panic");
                 }
+                zir_emit_active_cleanups(ctx, span);
                 zir_set_terminator(ctx, zir_make_panic_terminator_expr(message_expr));
                 return;
             }

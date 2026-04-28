@@ -395,6 +395,7 @@ static void zt_collect_generic_instances_from_expr(const zir_expr *expr, zt_stri
             return;
         case ZIR_EXPR_INDEX_SEQ:
         case ZIR_EXPR_COALESCE:
+        case ZIR_EXPR_OUTCOME_WRAP_CONTEXT:
         case ZIR_EXPR_LIST_PUSH:
             zt_collect_generic_instances_from_expr(expr->as.sequence.first, set);
             zt_collect_generic_instances_from_expr(expr->as.sequence.second, set);

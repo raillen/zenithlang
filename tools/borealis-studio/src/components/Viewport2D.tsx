@@ -8,22 +8,25 @@ export function Viewport2D({
   camera,
   dragState,
   entities,
+  gizmos,
   mode,
+  preferences,
   selectedEntityId,
   onDragStateChange,
   onEntityPointerDown,
   onEntityPointerMove,
   onResetCamera,
   onSelectEntity,
-}: ViewportRendererProps) {
+}: ViewportRendererProps & { gizmos: boolean }) {
   return (
     <>
-      <div className="viewport-grid" />
+      {preferences.showGrid ? <div className="viewport-grid" /> : null}
       <div className="viewport-axis axis-x">X</div>
       <div className="viewport-axis axis-y">Y</div>
       <div className="viewport-overlay-top">
         <StatusPill>Scene 2D</StatusPill>
         <StatusPill>{Math.round(camera.zoom * 100)}%</StatusPill>
+        <StatusPill>{mode}</StatusPill>
         <StatusPill>Orthographic</StatusPill>
         <StatusPill>XY</StatusPill>
         <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
@@ -44,12 +47,17 @@ export function Viewport2D({
             style={{
               left: "50%",
               top: "50%",
-              transform: `translate(calc(-50% + ${screenX}px), calc(-50% + ${screenY}px)) scale(${camera.zoom})`,
+              transform: `translate(calc(-50% + ${screenX}px), calc(-50% + ${screenY}px)) rotate(${entity.transform.rotationZ}deg) scale(${camera.zoom * entity.transform.scaleX}, ${camera.zoom * entity.transform.scaleY})`,
             }}
           >
             <span className="object-glyph">{entityGlyph(entity)}</span>
             <span className="object-label">{entity.name}</span>
-            {selected ? <ObjectGizmo viewMode="2d" /> : null}
+            {selected && gizmos ? (
+              <>
+                <ObjectGizmo viewMode="2d" />
+                <span className={`object-tool-badge mode-${mode}`}>{mode}</span>
+              </>
+            ) : null}
           </button>
         );
       })}

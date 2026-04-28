@@ -82,6 +82,8 @@ static zt_keyword_entry zt_keywords[] = {
     {"dyn", ZT_TOKEN_DYN},
     {"void", ZT_TOKEN_VOID},
     {"mut", ZT_TOKEN_MUT},
+    {"using", ZT_TOKEN_USING},
+    {"set", ZT_TOKEN_SET},
     {"self", ZT_TOKEN_SELF},
     {NULL, ZT_TOKEN_EOF}
 };

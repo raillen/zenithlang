@@ -13,6 +13,7 @@ dist/
 target/
 *.o
 *.obj
+!tools/borealis-studio/public/assets/*.obj
 *.exe
 *.dll
 *.lib

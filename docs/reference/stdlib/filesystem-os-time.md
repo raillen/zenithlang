@@ -107,10 +107,13 @@ Functions:
 | API | Description |
 | --- | --- |
 | `time.now() -> time.Instant` | Returns the current instant. |
+| `time.now_ms() -> int` | Returns the current Unix timestamp in milliseconds. |
 | `time.sleep(duration: time.Duration) -> result<void, core.Error>` | Sleeps for a duration. |
+| `time.sleep_ms(ms: int) -> result<void, core.Error>` | Sleeps for a number of milliseconds. |
 | `time.since(start: time.Instant) -> time.Duration` | Returns elapsed time since `start`. |
 | `time.until(target: time.Instant) -> time.Duration` | Returns time from now until `target`. |
 | `time.diff(a: time.Instant, b: time.Instant) -> time.Duration` | Returns the difference between two instants. |
+| `time.elapsed(start: time.Instant, finish: time.Instant) -> int` | Returns elapsed milliseconds between two instants. |
 | `time.add(at: time.Instant, duration: time.Duration) -> time.Instant` | Adds a duration to an instant. |
 | `time.sub(at: time.Instant, duration: time.Duration) -> time.Instant` | Subtracts a duration from an instant. |
 | `time.from_unix(ts: int) -> time.Instant` | Creates an instant from Unix seconds. |

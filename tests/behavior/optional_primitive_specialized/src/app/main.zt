@@ -1,0 +1,129 @@
+namespace app.main
+
+func approx(left: float, right: float, epsilon: float = 0.001) -> bool
+    var diff: float = left - right
+    if diff < 0.0
+        diff = 0.0 - diff
+    end
+    return diff < epsilon
+end
+
+func maybe_float(ok: bool) -> optional<float>
+    if ok
+        return 1.5
+    end
+    return none
+end
+
+func maybe_flag(ok: bool) -> optional<bool>
+    if ok
+        return true
+    end
+    return none
+end
+
+func maybe_signed_eight(ok: bool) -> optional<int8>
+    if ok
+        return 8
+    end
+    return none
+end
+
+func maybe_signed_sixteen(ok: bool) -> optional<int16>
+    if ok
+        return 16
+    end
+    return none
+end
+
+func maybe_signed_thirty_two(ok: bool) -> optional<int32>
+    if ok
+        return 32
+    end
+    return none
+end
+
+func maybe_signed_sixty_four(ok: bool) -> optional<int64>
+    if ok
+        return 64
+    end
+    return none
+end
+
+func maybe_unsigned_eight(ok: bool) -> optional<u8>
+    if ok
+        return 8
+    end
+    return none
+end
+
+func maybe_unsigned_sixteen(ok: bool) -> optional<u16>
+    if ok
+        return 16
+    end
+    return none
+end
+
+func maybe_unsigned_thirty_two(ok: bool) -> optional<u32>
+    if ok
+        return 32
+    end
+    return none
+end
+
+func maybe_unsigned_sixty_four(ok: bool) -> optional<u64>
+    if ok
+        return 64
+    end
+    return none
+end
+
+func main() -> int
+    const float_value: optional<float> = maybe_float(true)
+    if float_value.is_none() or approx(float_value.or(0.0), 1.5) == false
+        return 1
+    end
+    if maybe_float(false).is_some()
+        return 2
+    end
+
+    const flag_value: optional<bool> = maybe_flag(true)
+    if flag_value.is_none() or flag_value.or(false) == false
+        return 3
+    end
+    if maybe_flag(false).is_some()
+        return 4
+    end
+
+    if maybe_signed_eight(true).or(0) != 8
+        return 10
+    end
+    if maybe_signed_sixteen(true).or(0) != 16
+        return 11
+    end
+    if maybe_signed_thirty_two(true).or(0) != 32
+        return 12
+    end
+    if maybe_signed_sixty_four(true).or(0) != 64
+        return 13
+    end
+    if maybe_unsigned_eight(true).or(0) != 8
+        return 20
+    end
+    if maybe_unsigned_sixteen(true).or(0) != 16
+        return 21
+    end
+    if maybe_unsigned_thirty_two(true).or(0) != 32
+        return 22
+    end
+    if maybe_unsigned_sixty_four(true).or(0) != 64
+        return 23
+    end
+
+    if maybe_signed_eight(false).is_some() or maybe_unsigned_sixty_four(false).is_some()
+        return 30
+    end
+
+    return 0
+end
+

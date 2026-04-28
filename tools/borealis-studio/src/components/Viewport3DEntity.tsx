@@ -3,7 +3,16 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { useLoader } from "@react-three/fiber";
 import type { Group } from "three";
-import type { RenderMode, SceneComponent, SceneEntity, SnapSettings, StudioMode, Transform3D } from "../types";
+import type {
+  RenderMode,
+  SceneComponent,
+  SceneEntity,
+  SnapSettings,
+  StudioMode,
+  Transform3D,
+  ViewportPivotMode,
+  ViewportSpaceMode,
+} from "../types";
 import { componentValue } from "../borealisCatalog";
 import { snapTransform } from "../utils/viewport";
 import { clamp } from "../utils/viewport";
@@ -11,11 +20,14 @@ import { clamp } from "../utils/viewport";
 export function Viewport3DEntity({
   entities,
   entity,
+  gizmos,
   gizmoSize,
   mode,
+  pivotMode,
   renderMode,
   selected,
   snapSettings,
+  spaceMode,
   transformMode,
   onSelect,
   onTransformingChange,
@@ -23,11 +35,14 @@ export function Viewport3DEntity({
 }: {
   entities: SceneEntity[];
   entity: SceneEntity;
+  gizmos: boolean;
   gizmoSize: number;
   mode: StudioMode;
+  pivotMode: ViewportPivotMode;
   renderMode: RenderMode;
   selected: boolean;
   snapSettings: SnapSettings;
+  spaceMode: ViewportSpaceMode;
   transformMode: "translate" | "rotate" | "scale";
   onSelect: (entity: SceneEntity) => void;
   onTransformingChange: (active: boolean) => void;
@@ -133,7 +148,7 @@ export function Viewport3DEntity({
     </group>
   );
 
-  if (!selected || mode === "select" || !controlTarget) return entityNode;
+  if (!gizmos || !selected || mode === "select" || !controlTarget) return entityNode;
 
   return (
     <>
@@ -146,7 +161,8 @@ export function Viewport3DEntity({
           onTransformingChange(false);
           commitTransform();
         }}
-        size={gizmoSize}
+        size={pivotMode === "center" ? gizmoSize * 0.94 : gizmoSize}
+        space={spaceMode === "global" ? "world" : "local"}
       />
     </>
   );
