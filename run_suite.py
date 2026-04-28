@@ -488,6 +488,8 @@ def run_hardening_section(suite, results, artifacts_dir):
         ("driver/phase5c_benchmarks", ROOT / "tests" / "driver" / "test_phase5c_benchmarks.py", LAYER_TOOLING, 120, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("driver/phase6_selfhost_tools", ROOT / "tests" / "driver" / "test_phase6_selfhost_tools.py", LAYER_TOOLING, 240, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("driver/phase7_release_engineering", ROOT / "tests" / "driver" / "test_phase7_release_engineering.py", LAYER_TOOLING, 240, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
+        ("driver/phase0_stabilization", ROOT / "tests" / "driver" / "test_phase0_stabilization.py", LAYER_TOOLING, 60, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
+        ("driver/phase8_release_readiness", ROOT / "tests" / "driver" / "test_phase8_release_readiness.py", LAYER_TOOLING, 60, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("driver/cbinding_sqlite3_example", ROOT / "tests" / "driver" / "test_cbinding_sqlite3_example.py", LAYER_TOOLING, 120, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("hardening/determinism", ROOT / "tests" / "hardening" / "test_determinism.py", LAYER_TOOLING, 120, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),
         ("hardening/roundtrip_emit_c", ROOT / "tests" / "hardening" / "test_roundtrip_emit_c.py", LAYER_BACKEND, 180, {SUITE_PR_GATE, SUITE_NIGHTLY, SUITE_STRESS}),

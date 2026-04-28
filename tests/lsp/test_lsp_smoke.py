@@ -387,6 +387,13 @@ def main():
         labels = set(items_by_label)
         assert "func" in labels
         assert "result" in labels
+        assert "any" in labels
+        assert "set" in labels
+        assert "using" in labels
+        assert "capture" in labels
+        assert "apply" in labels
+        assert "repeat" in labels
+        assert "some" in labels
         assert "add" in labels
         assert "util" in labels
         assert "helper" not in labels

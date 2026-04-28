@@ -1,5 +1,6 @@
 #include "compiler/utils/arena.h"
 #include "compiler/utils/string_pool.h"
+#include "compiler/frontend/lexer/lexer.h"
 #include "compiler/frontend/parser/parser.h"
 #include "compiler/semantic/binder/binder.h"
 #include "compiler/semantic/types/checker.h"
@@ -1426,6 +1427,8 @@ static void set_type_candidate(char **candidate, const zt_ast_node *type_node) {
     *candidate = formatted;
 }
 
+static int type_starts_with_name(const char *type_name, const char *name);
+
 static void find_type_for_binding_in_node(
         const zt_ast_node *node,
         const char *name,
@@ -1495,7 +1498,38 @@ static void find_type_for_binding_in_node(
             find_type_for_binding_in_node(node->as.while_stmt.body, name, line, character, candidate);
             break;
         case ZT_AST_FOR_STMT:
+            if (node->as.for_stmt.item_name != NULL &&
+                strcmp(node->as.for_stmt.item_name, name) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                /* The checker knows the precise item type; the LSP keeps the binding visible here. */
+            }
+            if (node->as.for_stmt.index_name != NULL &&
+                strcmp(node->as.for_stmt.index_name, name) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                free(*candidate);
+                *candidate = lsp_strdup("int");
+            }
             find_type_for_binding_in_node(node->as.for_stmt.body, name, line, character, candidate);
+            break;
+        case ZT_AST_USING_STMT:
+            if (node->as.using_stmt.name != NULL &&
+                strcmp(node->as.using_stmt.name, name) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                /* The current public checker API does not expose inferred expression types. */
+            }
+            find_type_for_binding_in_node(node->as.using_stmt.body, name, line, character, candidate);
+            break;
+        case ZT_AST_CLOSURE_EXPR:
+            for (i = 0; i < node->as.closure_expr.params.count; i += 1) {
+                const zt_ast_node *param = node->as.closure_expr.params.items[i];
+                if (param != NULL &&
+                    param->kind == ZT_AST_PARAM &&
+                    param->as.param.name != NULL &&
+                    strcmp(param->as.param.name, name) == 0) {
+                    set_type_candidate(candidate, param->as.param.type_node);
+                }
+            }
+            find_type_for_binding_in_node(node->as.closure_expr.body, name, line, character, candidate);
             break;
         case ZT_AST_REPEAT_STMT:
             find_type_for_binding_in_node(node->as.repeat_stmt.body, name, line, character, candidate);
@@ -1504,7 +1538,15 @@ static void find_type_for_binding_in_node(
             find_type_for_binding_in_list(node->as.match_stmt.cases, name, line, character, candidate);
             break;
         case ZT_AST_MATCH_CASE:
+            find_type_for_binding_in_list(node->as.match_case.patterns, name, line, character, candidate);
             find_type_for_binding_in_node(node->as.match_case.body, name, line, character, candidate);
+            break;
+        case ZT_AST_VALUE_BINDING:
+            if (node->as.value_binding.name != NULL &&
+                strcmp(node->as.value_binding.name, name) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                set_type_candidate(candidate, node->as.value_binding.type_node);
+            }
             break;
         default:
             break;
@@ -1849,11 +1891,13 @@ static void append_local_completions_from_node(
             if (node->as.var_decl.name != NULL && ast_node_starts_before_position(node, line, character)) {
                 append_completion_item(sb, first, node->as.var_decl.name, 6, "var local", NULL, 0);
             }
+            append_local_completions_from_node(sb, first, node->as.var_decl.init_value, line, character);
             break;
         case ZT_AST_CONST_DECL:
             if (node->as.const_decl.name != NULL && ast_node_starts_before_position(node, line, character)) {
                 append_completion_item(sb, first, node->as.const_decl.name, 21, "const local", NULL, 0);
             }
+            append_local_completions_from_node(sb, first, node->as.const_decl.init_value, line, character);
             break;
         case ZT_AST_IF_STMT:
             append_local_completions_from_node(sb, first, node->as.if_stmt.then_block, line, character);
@@ -1863,7 +1907,35 @@ static void append_local_completions_from_node(
             append_local_completions_from_node(sb, first, node->as.while_stmt.body, line, character);
             break;
         case ZT_AST_FOR_STMT:
+            if (node->as.for_stmt.item_name != NULL && ast_node_starts_before_position(node, line, character)) {
+                append_completion_item(sb, first, node->as.for_stmt.item_name, 6, "item do for", NULL, 0);
+            }
+            if (node->as.for_stmt.index_name != NULL && ast_node_starts_before_position(node, line, character)) {
+                append_completion_item(sb, first, node->as.for_stmt.index_name, 6, "indice/chave do for", NULL, 0);
+            }
             append_local_completions_from_node(sb, first, node->as.for_stmt.body, line, character);
+            break;
+        case ZT_AST_USING_STMT:
+            if (node->as.using_stmt.name != NULL && ast_node_starts_before_position(node, line, character)) {
+                append_completion_item(sb, first, node->as.using_stmt.name, 6, "binding using", NULL, 0);
+            }
+            append_local_completions_from_node(sb, first, node->as.using_stmt.body, line, character);
+            break;
+        case ZT_AST_CLOSURE_EXPR:
+            for (i = 0; i < node->as.closure_expr.params.count; i += 1) {
+                const zt_ast_node *param = node->as.closure_expr.params.items[i];
+                lsp_sb detail;
+                if (param == NULL || param->kind != ZT_AST_PARAM || param->as.param.name == NULL) continue;
+                sb_init(&detail);
+                sb_append(&detail, "param closure");
+                if (param->as.param.type_node != NULL) {
+                    sb_append(&detail, ": ");
+                    append_formatted_node(&detail, param->as.param.type_node);
+                }
+                append_completion_item(sb, first, param->as.param.name, 6, detail.data, NULL, 0);
+                free(detail.data);
+            }
+            append_local_completions_from_node(sb, first, node->as.closure_expr.body, line, character);
             break;
         case ZT_AST_REPEAT_STMT:
             append_local_completions_from_node(sb, first, node->as.repeat_stmt.body, line, character);
@@ -1872,7 +1944,94 @@ static void append_local_completions_from_node(
             append_local_completions_from_list(sb, first, node->as.match_stmt.cases, line, character);
             break;
         case ZT_AST_MATCH_CASE:
+            append_local_completions_from_list(sb, first, node->as.match_case.patterns, line, character);
             append_local_completions_from_node(sb, first, node->as.match_case.body, line, character);
+            break;
+        case ZT_AST_EXPR_STMT:
+            append_local_completions_from_node(sb, first, node->as.expr_stmt.expr, line, character);
+            break;
+        case ZT_AST_RETURN_STMT:
+            append_local_completions_from_node(sb, first, node->as.return_stmt.value, line, character);
+            break;
+        case ZT_AST_ASSIGN_STMT:
+            append_local_completions_from_node(sb, first, node->as.assign_stmt.value, line, character);
+            break;
+        case ZT_AST_INDEX_ASSIGN_STMT:
+            append_local_completions_from_node(sb, first, node->as.index_assign_stmt.object, line, character);
+            append_local_completions_from_node(sb, first, node->as.index_assign_stmt.index, line, character);
+            append_local_completions_from_node(sb, first, node->as.index_assign_stmt.value, line, character);
+            break;
+        case ZT_AST_FIELD_ASSIGN_STMT:
+            append_local_completions_from_node(sb, first, node->as.field_assign_stmt.object, line, character);
+            append_local_completions_from_node(sb, first, node->as.field_assign_stmt.value, line, character);
+            break;
+        case ZT_AST_BINARY_EXPR:
+            append_local_completions_from_node(sb, first, node->as.binary_expr.left, line, character);
+            append_local_completions_from_node(sb, first, node->as.binary_expr.right, line, character);
+            break;
+        case ZT_AST_UNARY_EXPR:
+            append_local_completions_from_node(sb, first, node->as.unary_expr.operand, line, character);
+            break;
+        case ZT_AST_CALL_EXPR:
+            append_local_completions_from_node(sb, first, node->as.call_expr.callee, line, character);
+            append_local_completions_from_list(sb, first, node->as.call_expr.positional_args, line, character);
+            for (i = 0; i < node->as.call_expr.named_args.count; i += 1) {
+                append_local_completions_from_node(sb, first, node->as.call_expr.named_args.items[i].value, line, character);
+            }
+            break;
+        case ZT_AST_FIELD_EXPR:
+            append_local_completions_from_node(sb, first, node->as.field_expr.object, line, character);
+            break;
+        case ZT_AST_INDEX_EXPR:
+            append_local_completions_from_node(sb, first, node->as.index_expr.object, line, character);
+            append_local_completions_from_node(sb, first, node->as.index_expr.index, line, character);
+            break;
+        case ZT_AST_SLICE_EXPR:
+            append_local_completions_from_node(sb, first, node->as.slice_expr.object, line, character);
+            append_local_completions_from_node(sb, first, node->as.slice_expr.start, line, character);
+            append_local_completions_from_node(sb, first, node->as.slice_expr.end, line, character);
+            break;
+        case ZT_AST_SUCCESS_EXPR:
+            append_local_completions_from_node(sb, first, node->as.success_expr.value, line, character);
+            break;
+        case ZT_AST_ERROR_EXPR:
+            append_local_completions_from_node(sb, first, node->as.error_expr.value, line, character);
+            break;
+        case ZT_AST_LIST_EXPR:
+        case ZT_AST_SET_EXPR:
+            append_local_completions_from_list(sb, first, node->kind == ZT_AST_LIST_EXPR ? node->as.list_expr.elements : node->as.set_expr.elements, line, character);
+            break;
+        case ZT_AST_MAP_EXPR:
+            for (i = 0; i < node->as.map_expr.entries.count; i += 1) {
+                append_local_completions_from_node(sb, first, node->as.map_expr.entries.items[i].key, line, character);
+                append_local_completions_from_node(sb, first, node->as.map_expr.entries.items[i].value, line, character);
+            }
+            break;
+        case ZT_AST_STRUCT_LITERAL_EXPR:
+            for (i = 0; i < node->as.struct_literal_expr.fields.count; i += 1) {
+                append_local_completions_from_node(sb, first, node->as.struct_literal_expr.fields.items[i].value, line, character);
+            }
+            break;
+        case ZT_AST_FMT_EXPR:
+            append_local_completions_from_list(sb, first, node->as.fmt_expr.parts, line, character);
+            break;
+        case ZT_AST_GROUPED_EXPR:
+            append_local_completions_from_node(sb, first, node->as.grouped_expr.inner, line, character);
+            break;
+        case ZT_AST_IF_EXPR:
+            append_local_completions_from_node(sb, first, node->as.if_expr.condition, line, character);
+            append_local_completions_from_node(sb, first, node->as.if_expr.then_expr, line, character);
+            append_local_completions_from_node(sb, first, node->as.if_expr.else_expr, line, character);
+            break;
+        case ZT_AST_VALUE_BINDING:
+            if (node->as.value_binding.name != NULL && ast_node_starts_before_position(node, line, character)) {
+                append_completion_item(sb, first, node->as.value_binding.name, 6, "binding de match", NULL, 0);
+            }
+            break;
+        case ZT_AST_MATCH_BINDING:
+            if (node->as.match_binding.param_name != NULL && ast_node_starts_before_position(node, line, character)) {
+                append_completion_item(sb, first, node->as.match_binding.param_name, 6, "binding de match", NULL, 0);
+            }
             break;
         default:
             break;
@@ -1928,18 +2087,41 @@ static void append_builtin_completions(lsp_sb *sb, int *first) {
 
     append_completion_item(sb, first, "namespace", 14, "declara namespace do arquivo", NULL, 0);
     append_completion_item(sb, first, "import", 14, "importa outro namespace", "import ${1:modulo} as ${2:alias}", 2);
+    append_completion_item(sb, first, "as", 14, "define alias de import", NULL, 0);
     append_completion_item(sb, first, "func", 14, "declara funcao", "func ${1:nome}(${2}) -> ${3:void}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "return", 14, "retorna de uma funcao", NULL, 0);
     append_completion_item(sb, first, "var", 14, "binding mutavel local", "var ${1:nome}: ${2:tipo} = ${0:valor}", 2);
     append_completion_item(sb, first, "const", 14, "binding imutavel", "const ${1:nome}: ${2:tipo} = ${0:valor}", 2);
     append_completion_item(sb, first, "public", 14, "exporta API do namespace", NULL, 0);
+    append_completion_item(sb, first, "mut", 14, "marca metodo mutating ou receiver mutavel", NULL, 0);
     append_completion_item(sb, first, "struct", 14, "declara struct", "struct ${1:Nome}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "trait", 14, "declara trait", "trait ${1:Nome}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "apply", 14, "implementa trait para tipo", "apply ${1:Trait} to ${2:Tipo}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "to", 14, "liga apply ao tipo alvo", NULL, 0);
     append_completion_item(sb, first, "enum", 14, "declara enum", "enum ${1:Nome}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "if", 14, "controle condicional", "if ${1:condicao}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "else", 14, "ramo alternativo", NULL, 0);
     append_completion_item(sb, first, "match", 14, "pattern matching", "match ${1:valor}\ncase ${2:padrao}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "case", 14, "ramo de match", "case ${1:padrao}\n    ${0}", 2);
+    append_completion_item(sb, first, "default", 14, "ramo padrao de match", "default\n    ${0}", 2);
     append_completion_item(sb, first, "while", 14, "loop condicional", "while ${1:condicao}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "for", 14, "loop por colecao", "for ${1:item} in ${2:colecao}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "in", 14, "separa binding e iteravel no for", NULL, 0);
+    append_completion_item(sb, first, "repeat", 14, "repete um bloco N vezes", "repeat ${1:n} times\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "times", 14, "marca contagem do repeat", NULL, 0);
+    append_completion_item(sb, first, "break", 14, "sai do loop atual", NULL, 0);
+    append_completion_item(sb, first, "continue", 14, "vai para a proxima iteracao", NULL, 0);
+    append_completion_item(sb, first, "where", 14, "contrato local de valor", "where ${1:valor} is ${0:condicao}", 2);
+    append_completion_item(sb, first, "is", 14, "operador de contrato/padrao", NULL, 0);
+    append_completion_item(sb, first, "and", 14, "conjuncao booleana", NULL, 0);
+    append_completion_item(sb, first, "or", 14, "disjuncao booleana", NULL, 0);
+    append_completion_item(sb, first, "not", 14, "negacao booleana", NULL, 0);
+    append_completion_item(sb, first, "extern", 14, "declara bloco externo", "extern ${1:c}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "attr", 14, "atributo de declaracao", "attr ${1:nome}", 2);
+    append_completion_item(sb, first, "type", 14, "alias de tipo", "type ${1:Nome} = ${0:Tipo}", 2);
+    append_completion_item(sb, first, "capture", 14, "binding capturado para closure", "capture ${1:nome}: ${2:tipo} = ${0:valor}", 2);
+    append_completion_item(sb, first, "using", 14, "escopo com limpeza explicita", "using ${1:nome} = ${2:valor}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "self", 6, "receiver implicito em metodo", NULL, 0);
     append_completion_item(sb, first, "end", 14, "fecha bloco", NULL, 0);
 
     append_builtin_function_completion(
@@ -2064,11 +2246,21 @@ static void append_builtin_completions(lsp_sb *sb, int *first) {
     append_completion_item(sb, first, "result", 7, "tipo result<T, E>", "result<${1:T}, ${2:core.Error}>", 2);
     append_completion_item(sb, first, "list", 7, "tipo list<T>", "list<${1:T}>", 2);
     append_completion_item(sb, first, "map", 7, "tipo map<K, V>", "map<${1:K}, ${2:V}>", 2);
+    append_completion_item(sb, first, "set", 7, "tipo set<T>", "set<${1:T}>", 2);
+    append_completion_item(sb, first, "any", 7, "despacho dinamico por trait", "any<${1:Trait}>", 2);
+    append_completion_item(sb, first, "dyn", 7, "forma antiga de despacho dinamico; prefira any", "any<${1:Trait}>", 2);
+    append_completion_item(sb, first, "grid2d", 7, "tipo grid2d<T>", "grid2d<${1:T}>", 2);
+    append_completion_item(sb, first, "pqueue", 7, "tipo pqueue<T>", "pqueue<${1:T}>", 2);
+    append_completion_item(sb, first, "circbuf", 7, "tipo circbuf<T>", "circbuf<${1:T}>", 2);
+    append_completion_item(sb, first, "btreemap", 7, "tipo btreemap<K, V>", "btreemap<${1:K}, ${2:V}>", 2);
+    append_completion_item(sb, first, "btreeset", 7, "tipo btreeset<T>", "btreeset<${1:T}>", 2);
+    append_completion_item(sb, first, "grid3d", 7, "tipo grid3d<T>", "grid3d<${1:T}>", 2);
     append_completion_item(sb, first, "core.Error", 7, "tipo de erro padrao", NULL, 0);
 
     append_completion_item(sb, first, "true", 12, "literal bool", NULL, 0);
     append_completion_item(sb, first, "false", 12, "literal bool", NULL, 0);
     append_completion_item(sb, first, "none", 12, "ausencia optional", NULL, 0);
+    append_completion_item(sb, first, "some", 12, "padrao optional com valor", "some(${0})", 2);
     append_builtin_function_completion(
         sb,
         first,
@@ -2924,24 +3116,15 @@ enum {
     SEM_MOD_PUBLIC = 1 << 2
 };
 
-static int semantic_keyword_kind(const char *text) {
-    static const char *keywords[] = {
-        "namespace", "import", "as", "func", "return", "end", "if", "else", "match", "case",
-        "for", "while", "repeat", "break", "continue", "struct", "trait", "enum", "apply",
-        "extern", "c", "public", "const", "var", "mut", "dyn", "lazy", "true", "false", "void",
-        NULL
-    };
-    size_t i;
-    if (text == NULL) return 0;
-    for (i = 0; keywords[i] != NULL; i += 1) {
-        if (strcmp(text, keywords[i]) == 0) return 1;
-    }
-    return 0;
-}
-
 static int semantic_builtin_type(const char *text) {
     static const char *types[] = {
-        "int", "float", "bool", "text", "bytes", "list", "map", "optional", "result", "Error", NULL
+        "int", "int8", "int16", "int32", "int64",
+        "u8", "u16", "u32", "u64",
+        "uint8", "uint16", "uint32", "uint64",
+        "float", "float32", "float64", "bool", "text", "bytes", "void",
+        "list", "map", "set", "optional", "result",
+        "grid2d", "pqueue", "circbuf", "btreemap", "btreeset", "grid3d",
+        "Error", NULL
     };
     size_t i;
     if (text == NULL) return 0;
@@ -2949,6 +3132,39 @@ static int semantic_builtin_type(const char *text) {
         if (strcmp(text, types[i]) == 0) return 1;
     }
     return 0;
+}
+
+static int semantic_token_kind_is_type(zt_token_kind kind) {
+    switch (kind) {
+        case ZT_TOKEN_OPTIONAL:
+        case ZT_TOKEN_RESULT:
+        case ZT_TOKEN_LIST:
+        case ZT_TOKEN_MAP:
+        case ZT_TOKEN_SET:
+        case ZT_TOKEN_GRID2D:
+        case ZT_TOKEN_PQUEUE:
+        case ZT_TOKEN_CIRCBUF:
+        case ZT_TOKEN_BTREEMAP:
+        case ZT_TOKEN_BTREESET:
+        case ZT_TOKEN_GRID3D:
+        case ZT_TOKEN_VOID:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static int semantic_token_kind_is_modifier(zt_token_kind kind) {
+    switch (kind) {
+        case ZT_TOKEN_PUBLIC:
+        case ZT_TOKEN_MUT:
+        case ZT_TOKEN_CAPTURE:
+        case ZT_TOKEN_DYN:
+        case ZT_TOKEN_ANY:
+            return 1;
+        default:
+            return 0;
+    }
 }
 
 static void append_semantic_token(lsp_sb *sb, int *first, int *last_line, int *last_start, int line, int start, int length, int token_type, int modifiers) {
@@ -2964,118 +3180,70 @@ static void append_semantic_token(lsp_sb *sb, int *first, int *last_line, int *l
     *last_start = start;
 }
 
-static int next_nonspace_char(const char *text, int offset) {
-    if (text == NULL) return 0;
-    while (text[offset] != '\0' && isspace((unsigned char)text[offset])) offset += 1;
-    return (unsigned char)text[offset];
-}
-
-static int prev_nonspace_char(const char *text, int offset) {
-    if (text == NULL) return 0;
-    offset -= 1;
-    while (offset >= 0 && isspace((unsigned char)text[offset])) offset -= 1;
-    return offset >= 0 ? (unsigned char)text[offset] : 0;
-}
-
 static char *semantic_tokens_result_json(lsp_doc *doc) {
     lsp_sb data;
     lsp_sb json;
-    const char *text;
-    int line = 0;
-    int col = 0;
-    int i = 0;
     int first = 1;
     int last_line = 0;
     int last_start = 0;
     int expect_decl = 0;
     int public_next = 0;
     int namespace_path = 0;
+    int previous_line = -1;
+    zt_lexer *lexer;
     if (doc == NULL || doc->text == NULL) return lsp_strdup("{\"data\":[]}");
-    text = doc->text;
+    lexer = zt_lexer_make(doc->path != NULL ? doc->path : doc->uri, doc->text, strlen(doc->text));
+    if (lexer == NULL) return lsp_strdup("{\"data\":[]}");
     sb_init(&data);
-    while (text[i] != '\0') {
-        unsigned char ch = (unsigned char)text[i];
-        if (ch == '\r') {
-            i += 1;
-            continue;
-        }
-        if (ch == '\n') {
-            line += 1;
-            col = 0;
-            i += 1;
+    for (;;) {
+        zt_token token = zt_lexer_next_token(lexer);
+        int line;
+        int col;
+        int length;
+        int token_type = -1;
+        int modifiers = 0;
+        if (token.kind == ZT_TOKEN_EOF) break;
+        if (token.kind == ZT_TOKEN_COMMENT || token.kind == ZT_TOKEN_LEX_ERROR) continue;
+        line = lsp_line(token.span.line);
+        col = lsp_col(token.span.column_start);
+        length = (int)token.length;
+        if (length <= 0) continue;
+        if (previous_line >= 0 && line != previous_line) {
             expect_decl = 0;
             public_next = 0;
             namespace_path = 0;
-            continue;
         }
-        if (isspace(ch)) {
-            col += 1;
-            i += 1;
-            continue;
-        }
-        if (ch == '/' && text[i + 1] == '/') {
-            while (text[i] != '\0' && text[i] != '\n') {
-                i += 1;
-                col += 1;
+        previous_line = line;
+
+        if (token.kind == ZT_TOKEN_STRING_LITERAL ||
+            token.kind == ZT_TOKEN_STRING_PART ||
+            token.kind == ZT_TOKEN_STRING_END ||
+            token.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
+            token_type = SEM_TOKEN_STRING;
+        } else if (token.kind == ZT_TOKEN_INT_LITERAL || token.kind == ZT_TOKEN_FLOAT_LITERAL) {
+            token_type = SEM_TOKEN_NUMBER;
+        } else if (semantic_token_kind_is_type(token.kind)) {
+            token_type = SEM_TOKEN_TYPE;
+        } else if (zt_token_kind_is_keyword(token.kind)) {
+            token_type = semantic_token_kind_is_modifier(token.kind) ? SEM_TOKEN_MODIFIER : SEM_TOKEN_KEYWORD;
+            if (token.kind == ZT_TOKEN_NAMESPACE || token.kind == ZT_TOKEN_IMPORT) namespace_path = 1;
+            else if (token.kind == ZT_TOKEN_AS) namespace_path = 0;
+            else if (token.kind == ZT_TOKEN_PUBLIC) public_next = 1;
+            else if (token.kind == ZT_TOKEN_FUNC) expect_decl = SEM_TOKEN_FUNCTION;
+            else if (token.kind == ZT_TOKEN_STRUCT ||
+                     token.kind == ZT_TOKEN_TRAIT ||
+                     token.kind == ZT_TOKEN_ENUM ||
+                     token.kind == ZT_TOKEN_TYPE) {
+                expect_decl = SEM_TOKEN_TYPE;
+            } else if (token.kind == ZT_TOKEN_VAR || token.kind == ZT_TOKEN_CAPTURE) {
+                expect_decl = SEM_TOKEN_VARIABLE;
+            } else if (token.kind == ZT_TOKEN_CONST) {
+                expect_decl = SEM_TOKEN_VARIABLE | (SEM_MOD_READONLY << 8);
+            } else if (token.kind != ZT_TOKEN_DOT) {
+                if (token.kind != ZT_TOKEN_PUBLIC && token.kind != ZT_TOKEN_MUT) public_next = 0;
             }
-            continue;
-        }
-        if (ch == '"') {
-            int start = col;
-            int length = 1;
-            int escaped = 0;
-            i += 1;
-            col += 1;
-            while (text[i] != '\0') {
-                unsigned char inner = (unsigned char)text[i];
-                length += 1;
-                i += 1;
-                col += 1;
-                if (inner == '"' && !escaped) break;
-                escaped = inner == '\\' && !escaped;
-                if (inner != '\\') escaped = 0;
-                if (inner == '\n') break;
-            }
-            append_semantic_token(&data, &first, &last_line, &last_start, line, start, length, SEM_TOKEN_STRING, 0);
-            continue;
-        }
-        if (isdigit(ch)) {
-            int start = col;
-            int length = 0;
-            while (isdigit((unsigned char)text[i]) || text[i] == '.') {
-                i += 1;
-                col += 1;
-                length += 1;
-            }
-            append_semantic_token(&data, &first, &last_line, &last_start, line, start, length, SEM_TOKEN_NUMBER, 0);
-            continue;
-        }
-        if (ident_char(ch)) {
-            int start = col;
-            int start_offset = i;
-            int length = 0;
-            char ident[128];
-            int token_type = SEM_TOKEN_VARIABLE;
-            int modifiers = 0;
-            while (ident_char((unsigned char)text[i])) {
-                if (length + 1 < (int)sizeof(ident)) ident[length] = text[i];
-                i += 1;
-                col += 1;
-                length += 1;
-            }
-            ident[length < (int)sizeof(ident) ? length : (int)sizeof(ident) - 1] = '\0';
-            if (semantic_keyword_kind(ident)) {
-                token_type = strcmp(ident, "public") == 0 || strcmp(ident, "mut") == 0 || strcmp(ident, "dyn") == 0 || strcmp(ident, "lazy") == 0
-                    ? SEM_TOKEN_MODIFIER
-                    : SEM_TOKEN_KEYWORD;
-                if (strcmp(ident, "namespace") == 0 || strcmp(ident, "import") == 0) namespace_path = 1;
-                else if (strcmp(ident, "as") == 0) namespace_path = 0;
-                else if (strcmp(ident, "public") == 0) public_next = 1;
-                else if (strcmp(ident, "func") == 0) expect_decl = SEM_TOKEN_FUNCTION;
-                else if (strcmp(ident, "struct") == 0 || strcmp(ident, "trait") == 0 || strcmp(ident, "enum") == 0) expect_decl = SEM_TOKEN_TYPE;
-                else if (strcmp(ident, "var") == 0) expect_decl = SEM_TOKEN_VARIABLE;
-                else if (strcmp(ident, "const") == 0) expect_decl = SEM_TOKEN_VARIABLE | (SEM_MOD_READONLY << 8);
-            } else if (expect_decl != 0) {
+        } else if (token.kind == ZT_TOKEN_IDENTIFIER) {
+            if (expect_decl != 0) {
                 token_type = expect_decl & 0xff;
                 modifiers = SEM_MOD_DECLARATION | ((expect_decl >> 8) & 0xff);
                 if (public_next) modifiers |= SEM_MOD_PUBLIC;
@@ -3083,20 +3251,30 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
                 public_next = 0;
             } else if (namespace_path) {
                 token_type = SEM_TOKEN_NAMESPACE;
-            } else if (semantic_builtin_type(ident)) {
-                token_type = SEM_TOKEN_TYPE;
-            } else if (prev_nonspace_char(text, start_offset) == '.') {
-                token_type = next_nonspace_char(text, i) == '(' ? SEM_TOKEN_FUNCTION : SEM_TOKEN_PROPERTY;
-            } else if (next_nonspace_char(text, i) == '(') {
-                token_type = SEM_TOKEN_FUNCTION;
+            } else {
+                token_type = SEM_TOKEN_VARIABLE;
             }
-            append_semantic_token(&data, &first, &last_line, &last_start, line, start, length, token_type, modifiers);
+        } else if (token.kind == ZT_TOKEN_DOT) {
             continue;
+        } else {
+            namespace_path = 0;
         }
-        if (ch != '.') namespace_path = 0;
-        col += 1;
-        i += 1;
+
+        if (token.kind == ZT_TOKEN_IDENTIFIER && token_type == SEM_TOKEN_VARIABLE) {
+            char ident[128];
+            size_t ident_len = token.length < sizeof(ident) - 1 ? token.length : sizeof(ident) - 1;
+            memcpy(ident, token.text, ident_len);
+            ident[ident_len] = '\0';
+            if (semantic_builtin_type(ident)) {
+                token_type = SEM_TOKEN_TYPE;
+            }
+        }
+
+        if (token_type >= 0) {
+            append_semantic_token(&data, &first, &last_line, &last_start, line, col, length, token_type, modifiers);
+        }
     }
+    zt_lexer_dispose(lexer);
     sb_init(&json);
     sb_append(&json, "{\"data\":[");
     sb_append(&json, data.data);
@@ -3606,7 +3784,7 @@ static void handle_initialize(const char *id_raw, const char *msg) {
         "\"documentSymbolProvider\":true,"
         "\"workspaceSymbolProvider\":true,"
         "\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"namespace\",\"type\",\"function\",\"variable\",\"property\",\"keyword\",\"modifier\",\"string\",\"number\"],\"tokenModifiers\":[\"declaration\",\"readonly\",\"public\"]},\"full\":true,\"range\":false},"
-        "\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\"]},"
+        "\"completionProvider\":{\"resolveProvider\":false,\"triggerCharacters\":[\".\",\":\",\"<\"]},"
         "\"executeCommandProvider\":{\"commands\":[\"zenith.check\",\"zenith.build\",\"zenith.run\"]}"
         "},\"serverInfo\":{\"name\":\"Compass LSP\",\"version\":\"0.1.0\"}}"
     );

@@ -11,7 +11,7 @@ Extensao beta para arquivos `.zt`.
 - References para simbolos top-level indexados, incluindo `alias.membro`.
 - Rename para simbolos top-level indexados.
 - Signature Help para chamadas diretas, `alias.func(...)` e metodos `apply` resolvidos por tipo.
-- Semantic Tokens para highlight semantico leve.
+- Semantic Tokens baseados no lexer oficial para highlight semantico leve.
 - Outline do arquivo via Document Symbols.
 - Busca de simbolos do workspace via Workspace Symbols.
 - Formatacao pelo formatter oficial do compilador.
@@ -48,6 +48,6 @@ python tools/build_lsp.py
 - Atalhos de stdlib importada aparecem de forma qualificada: selecionar `print()` insere `io.print(...)`, preservando a regra de que imports continuam qualificados.
 - Signature Help cobre chamadas diretas, `alias.func(...)` e `objeto.metodo(...)` para metodos `apply` indexados.
 - References e Rename cobrem simbolos top-level indexados.
-- Semantic Tokens usa scanner leve; a grammar TextMate continua sendo o fallback visual.
+- Semantic Tokens usa o lexer oficial para a sintaxe atual; a grammar TextMate continua sendo o fallback visual.
 - O namespace automatico usa `zenith.ztproj` e `[source].root`; se o arquivo ficar fora de `source.root`, a extensao nao altera o conteudo.
 - Comandos `check/build/run` executam no terminal integrado.

@@ -33,7 +33,7 @@ Este guia cobre o uso local da extensão beta `tools/vscode-zenith`.
 - Find References para símbolos top-level indexados, incluindo usos via `alias.membro`.
 - Rename Symbol para símbolos top-level indexados.
 - Signature Help para chamadas diretas, `alias.func(...)` e `objeto.metodo(...)` quando o LSP consegue resolver o tipo.
-- Semantic Tokens para highlight semântico leve.
+- Semantic Tokens baseados no lexer oficial para highlight semântico leve.
 - Outline do arquivo, com structs, fields, traits, métodos, enums, variants, funções, consts e vars.
 - Busca de símbolos do workspace pelo comando nativo do VSCode.
 - Formatacao pelo formatter oficial usado pelo compilador.
@@ -116,7 +116,7 @@ lsp smoke ok
 - Conversoes sugeridas pelo autocomplete seguem a regra da linguagem: `int(...)`, `float(...)` e variantes numéricas exigem fonte numérica.
 - Signature Help cobre chamadas diretas, `alias.func(...)` e métodos `apply` resolvidos por tipo.
 - References e Rename cobrem símbolos top-level indexados. Variaveis locais ainda não entram nesse corte.
-- Semantic Tokens destaca keywords, tipos, funções, variaveis, propriedades, namespaces, strings e números.
+- Semantic Tokens destaca a sintaxe atual reconhecida pelo lexer: keywords, tipos, funções, variaveis, propriedades, namespaces, strings e números.
 - O autocomplete de membro sugere apenas recursos aceitos pelo compilador atual. Por isso `list<T>.append(...)` e `list<T>.prepend(...)` não aparecem enquanto não forem suportados semanticamente.
 - O LSP usa sincronização full-document.
 - A extensão beta ainda não esta publicada no Marketplace.

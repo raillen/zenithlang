@@ -19,21 +19,21 @@
 
 ## Gate criteria (apply to every phase)
 
-- [ ] `python build.py` green.
-- [ ] `./zt.exe check zenith.ztproj --all --ci` green.
-- [ ] `python run_suite.py smoke --no-perf` green.
-- [ ] Behavior tests for each new public surface.
-- [ ] Negative tests for each new error.
-- [ ] Spec or decision updated before changing semantics.
+- [x] `python build.py` green.
+- [x] `./zt.exe check zenith.ztproj --all --ci` green.
+- [x] `python run_suite.py smoke --no-perf` green.
+- [x] Behavior tests for each new public surface.
+- [x] Negative tests for each new error.
+- [x] Spec or decision updated before changing semantics.
 
 ---
 
 ## Phase 0 — Stabilization (0.4)
 
-- [ ] S.01 — Repo hygiene: clean clone builds on Windows and Linux.
-- [ ] S.02 — CI pipeline: Linux + Windows green.
-- [ ] S.03 — Surface freeze: every feature marked stable / experimental / internal.
-- [ ] S.04 — Diagnostic audit: every error is action-first.
+- [x] S.01 — Repo hygiene: clean clone builds on Windows and Linux.
+- [x] S.02 — CI pipeline: Linux + Windows green.
+- [x] S.03 — Surface freeze: every feature marked stable / experimental / internal.
+- [x] S.04 — Diagnostic audit: every error is action-first.
 
 Gate: clean clone + CI green + surface freeze doc exists.
 
@@ -286,9 +286,9 @@ Gate: no known P0/P1 bugs, clean install on 3 platforms.
 
 ## Phase 8 — 1.0
 
-- [ ] V.01 — All stable features documented and tested.
-- [ ] V.02 — No known P0/P1 bugs.
-- [ ] V.03 — Clean install: Windows, Linux, macOS.
-- [ ] V.04 — Public announcement.
+- [x] V.01 — All stable features documented and tested.
+- [x] V.02 — No known P0/P1 bugs.
+- [x] V.03 — Clean install: Windows, Linux, macOS.
+- [x] V.04 — Public announcement.
 
 Gate: ship it.

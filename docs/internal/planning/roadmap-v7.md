@@ -27,10 +27,10 @@ Priority: **critical**. Nothing else ships until this is green.
 
 | ID | Item | Status |
 |----|-------|--------|
-| S.01 | Repo hygiene: clean clone builds on Windows and Linux | pending |
-| S.02 | CI pipeline: Linux + Windows, `build.py` + smoke suite | pending |
-| S.03 | Surface freeze: mark every public feature as stable / experimental / internal | pending |
-| S.04 | Diagnostic audit: every error is action-first, no raw compiler internals | pending |
+| S.01 | Repo hygiene: clean clone builds on Windows and Linux | done |
+| S.02 | CI pipeline: Linux + Windows, `build.py` + smoke suite | done |
+| S.03 | Surface freeze: mark every public feature as stable / experimental / internal | done |
+| S.04 | Diagnostic audit: every error is action-first, no raw compiler internals | done |
 
 ---
 
@@ -311,10 +311,10 @@ interactive terminal layer for small CLI apps, examples, and manual runs.
 
 | ID | Item | Status |
 |----|-------|--------|
-| V.01 | All stable features documented and tested | pending |
-| V.02 | No known P0/P1 bugs | pending |
-| V.03 | Clean install experience on Windows, Linux, macOS | pending |
-| V.04 | Public announcement | pending |
+| V.01 | All stable features documented and tested | done |
+| V.02 | No known P0/P1 bugs | done |
+| V.03 | Clean install experience on Windows, Linux, macOS | done |
+| V.04 | Public announcement | done |
 
 ---
 
