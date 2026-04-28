@@ -44,6 +44,15 @@ end
 return name.or("anonymous")
 ```
 
+Para sair cedo quando o valor esta ausente:
+
+```zt
+func score_or_default(input: optional<int>) -> int
+    const score: int = input.or_return(0)
+    return score + 1
+end
+```
+
 ## Erro recuperavel com `result`
 
 ```zt
@@ -69,6 +78,15 @@ return 0
 ```
 
 Use `match` quando precisar extrair o valor com lógica propria.
+
+Para adicionar contexto a um `core.Error` antes de propagar:
+
+```zt
+func load_score() -> result<int, core.Error>
+    const score: int = read_score().or_wrap("load score")?
+    return success(score)
+end
+```
 
 ## Erro fatal com `panic`
 

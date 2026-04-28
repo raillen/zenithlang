@@ -1,0 +1,4 @@
+-- Zenith Standard Library - std.set
+namespace std.set
+
+-- Helpers in this module are compiler-known because `set<T>` is a built-in generic.

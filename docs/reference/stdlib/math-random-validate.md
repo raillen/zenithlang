@@ -1,4 +1,4 @@
-﻿# Math, Random and Validate Reference
+# Math, Regex, Random and Validate Reference
 
 > Surface: reference
 > Status: current
@@ -47,6 +47,26 @@ Functions:
 | `math.is_nan(value: float) -> bool` | Checks whether a value is NaN. |
 | `math.is_infinite(value: float) -> bool` | Checks whether a value is infinite. |
 | `math.is_finite(value: float) -> bool` | Checks whether a value is finite. |
+
+## `std.regex`
+
+Types:
+
+| API | Description |
+| --- | --- |
+| `regex.Regex` | Validated pattern wrapper. |
+| `regex.Error.InvalidPattern` | Returned by `compile` for invalid patterns. |
+
+Functions:
+
+| API | Description |
+| --- | --- |
+| `regex.compile(pattern: text) -> result<regex.Regex, regex.Error>` | Validates a pattern. |
+| `regex.is_match(pattern: text, input: text) -> bool` | Checks whether the pattern matches at least once. |
+| `regex.find_all(pattern: text, input: text) -> list<text>` | Returns all non-empty matches. |
+
+Current pattern support is intentionally small: literals, `.`, `^`, `$`, `*`, `+`, `?`, classes/ranges and `\d`, `\w`, `\s`.
+Groups, captures, flags and replace are deferred.
 
 ## `std.random`
 

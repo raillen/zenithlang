@@ -32,6 +32,7 @@ def bench_specs():
         {"id": "micro_lowering_large_emit_c", "scenario": "micro_lowering_backend", "cat": "lowering_backend", "kind": "cmd", "cmd": "emit-c", "project": ROOT / "tests" / "perf" / "m37_result_generic", "suites": ["nightly"]},
         # micro runtime + stdlib
         {"id": "micro_runtime_core", "scenario": "micro_runtime", "cat": "runtime", "kind": "bin", "project": ROOT / "tests" / "perf" / "m36_runtime_core", "expect": "m36-runtime-core-ok", "suites": ["quick", "nightly"]},
+        {"id": "micro_primitive_numeric_lists", "scenario": "micro_runtime", "cat": "runtime", "kind": "bin", "project": ROOT / "tests" / "perf" / "primitive_numeric_lists", "expect": "primitive-numeric-lists-ok", "iters": {"quick": 2, "nightly": 5}, "suites": ["quick", "nightly"]},
         {"id": "micro_stdlib_core", "scenario": "micro_stdlib", "cat": "stdlib", "kind": "bin", "project": ROOT / "tests" / "perf" / "m36_stdlib_core", "expect": "m36-stdlib-core-ok", "suites": ["quick", "nightly"]},
         {"id": "micro_lambda_hof_run", "scenario": "micro_lambda_hof", "cat": "stdlib", "kind": "cmd", "cmd": "run", "project": ROOT / "tests" / "behavior" / "lambda_hof_basic", "suites": ["quick", "nightly"]},
         # macro small

@@ -1,0 +1,42 @@
+-- Zenith Standard Library - Regex Module
+-- Basic portable matching helpers for Phase 4D.
+namespace std.regex
+
+public enum Error
+    InvalidPattern
+end
+
+public struct Regex
+    pattern: text
+end
+
+extern c
+    func zt_regex_validate_core(pattern: text) -> result<void, core.Error>
+    func zt_regex_is_match_core(pattern: text, input: text) -> bool
+    func zt_regex_find_all_core(pattern: text, input: text) -> list<text>
+end
+
+func map_core_error(err: core.Error) -> regex.Error
+    if err.code == "regex.invalid_pattern"
+        return regex.Error.InvalidPattern
+    end
+
+    return regex.Error.InvalidPattern
+end
+
+public func compile(pattern: text) -> result<regex.Regex, regex.Error>
+    match regex.zt_regex_validate_core(pattern)
+        case success() ->
+            return success(regex.Regex(pattern: pattern))
+        case error(err) ->
+            return error(regex.map_core_error(err))
+    end
+end
+
+public func is_match(pattern: text, input: text) -> bool
+    return regex.zt_regex_is_match_core(pattern, input)
+end
+
+public func find_all(pattern: text, input: text) -> list<text>
+    return regex.zt_regex_find_all_core(pattern, input)
+end

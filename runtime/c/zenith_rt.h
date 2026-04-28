@@ -63,6 +63,16 @@ typedef enum zt_heap_kind {
     ZT_HEAP_LIST_DYN = 32,
     ZT_HEAP_CLOSURE = 33,
     ZT_HEAP_LAZY_I64 = 34,
+    ZT_HEAP_SET_I64 = 35,
+    ZT_HEAP_SET_TEXT = 36,
+    ZT_HEAP_LIST_BOOL = 37,
+    ZT_HEAP_LIST_I8 = 38,
+    ZT_HEAP_LIST_I16 = 39,
+    ZT_HEAP_LIST_I32 = 40,
+    ZT_HEAP_LIST_U8 = 41,
+    ZT_HEAP_LIST_U16 = 42,
+    ZT_HEAP_LIST_U32 = 43,
+    ZT_HEAP_LIST_U64 = 44,
     ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT = 255
 } zt_heap_kind;
 
@@ -201,6 +211,62 @@ typedef struct zt_list_f64 {
     zt_float *data;
 } zt_list_f64;
 
+typedef struct zt_list_bool {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_bool *data;
+} zt_list_bool;
+
+typedef struct zt_list_i8 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    int8_t *data;
+} zt_list_i8;
+
+typedef struct zt_list_i16 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    int16_t *data;
+} zt_list_i16;
+
+typedef struct zt_list_i32 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    int32_t *data;
+} zt_list_i32;
+
+typedef struct zt_list_u8 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    uint8_t *data;
+} zt_list_u8;
+
+typedef struct zt_list_u16 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    uint16_t *data;
+} zt_list_u16;
+
+typedef struct zt_list_u32 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    uint32_t *data;
+} zt_list_u32;
+
+typedef struct zt_list_u64 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    uint64_t *data;
+} zt_list_u64;
+
 typedef struct zt_map_text_text {
     zt_header header;
     size_t len;
@@ -211,10 +277,73 @@ typedef struct zt_map_text_text {
     size_t *hash_indices;
 } zt_map_text_text;
 
+typedef struct zt_set_i64 {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_int *data;
+    uint8_t *occupied;
+    size_t hash_capacity;
+} zt_set_i64;
+
+typedef struct zt_set_text {
+    zt_header header;
+    size_t len;
+    size_t capacity;
+    zt_text **data;
+    uint8_t *occupied;
+    size_t hash_capacity;
+} zt_set_text;
+
 typedef struct zt_optional_i64 {
     zt_bool is_present;
     zt_int value;
 } zt_optional_i64;
+
+typedef struct zt_optional_f64 {
+    zt_bool is_present;
+    zt_float value;
+} zt_optional_f64;
+
+typedef struct zt_optional_bool {
+    zt_bool is_present;
+    zt_bool value;
+} zt_optional_bool;
+
+typedef struct zt_optional_i8 {
+    zt_bool is_present;
+    int8_t value;
+} zt_optional_i8;
+
+typedef struct zt_optional_i16 {
+    zt_bool is_present;
+    int16_t value;
+} zt_optional_i16;
+
+typedef struct zt_optional_i32 {
+    zt_bool is_present;
+    int32_t value;
+} zt_optional_i32;
+
+typedef struct zt_optional_u8 {
+    zt_bool is_present;
+    uint8_t value;
+} zt_optional_u8;
+
+typedef struct zt_optional_u16 {
+    zt_bool is_present;
+    uint16_t value;
+} zt_optional_u16;
+
+typedef struct zt_optional_u32 {
+    zt_bool is_present;
+    uint32_t value;
+} zt_optional_u32;
+
+typedef struct zt_optional_u64 {
+    zt_bool is_present;
+    uint64_t value;
+} zt_optional_u64;
 
 typedef struct zt_optional_text {
     zt_bool is_present;
@@ -574,6 +703,15 @@ void zt_contract_failed_i64(const char *message, zt_int value, zt_runtime_span s
 void zt_contract_failed_float(const char *message, zt_float value, zt_runtime_span span);
 void zt_contract_failed_bool(const char *message, zt_bool value, zt_runtime_span span);
 
+/* ── builtins ─────────────────────────────────────────── */
+void zt_builtin_print(const zt_text *value);
+zt_text *zt_builtin_read(void);
+void zt_builtin_debug(const zt_text *value);
+zt_text *zt_builtin_type_name(const zt_text *value);
+zt_int zt_builtin_size_of(const zt_text *value);
+zt_list_i64 *zt_builtin_range2(zt_int start, zt_int end);
+zt_list_i64 *zt_builtin_range3(zt_int start, zt_int end, zt_int step);
+
 zt_text *zt_text_from_utf8(const char *data, size_t len);
 zt_text *zt_text_from_utf8_literal(const char *data);
 zt_text *zt_text_concat(const zt_text *a, const zt_text *b);
@@ -605,6 +743,9 @@ void zt_list_i64_push(zt_list_i64 *list, zt_int value);
 zt_list_i64 *zt_list_i64_push_owned(zt_list_i64 *list, zt_int value);
 zt_int zt_list_i64_get(const zt_list_i64 *list, zt_int index_0);
 zt_optional_i64 zt_list_i64_get_optional(const zt_list_i64 *list, zt_int index_0);
+zt_optional_i64 zt_list_i64_last_optional(const zt_list_i64 *list);
+zt_list_i64 *zt_list_i64_rest(const zt_list_i64 *list);
+zt_list_i64 *zt_list_i64_skip(const zt_list_i64 *list, zt_int count);
 void zt_list_i64_set(zt_list_i64 *list, zt_int index_0, zt_int value);
 zt_list_i64 *zt_list_i64_set_owned(zt_list_i64 *list, zt_int index_0, zt_int value);
 zt_int zt_list_i64_len(const zt_list_i64 *list);
@@ -616,6 +757,9 @@ void zt_list_text_push(zt_list_text *list, zt_text *value);
 zt_list_text *zt_list_text_push_owned(zt_list_text *list, zt_text *value);
 zt_text *zt_list_text_get(const zt_list_text *list, zt_int index_0);
 zt_optional_text zt_list_text_get_optional(const zt_list_text *list, zt_int index_0);
+zt_optional_text zt_list_text_last_optional(const zt_list_text *list);
+zt_list_text *zt_list_text_rest(const zt_list_text *list);
+zt_list_text *zt_list_text_skip(const zt_list_text *list, zt_int count);
 void zt_list_text_set(zt_list_text *list, zt_int index_0, zt_text *value);
 zt_list_text *zt_list_text_set_owned(zt_list_text *list, zt_int index_0, zt_text *value);
 zt_int zt_list_text_len(const zt_list_text *list);
@@ -631,6 +775,28 @@ void zt_list_f64_set(zt_list_f64 *list, zt_int index_0, zt_float value);
 zt_list_f64 *zt_list_f64_set_owned(zt_list_f64 *list, zt_int index_0, zt_float value);
 zt_int zt_list_f64_len(const zt_list_f64 *list);
 zt_list_f64 *zt_list_f64_slice(const zt_list_f64 *list, zt_int start_0, zt_int end_0);
+
+#define ZT_DECLARE_PRIMITIVE_LIST_API(SUFFIX, ELEM_TYPE) \
+zt_list_##SUFFIX *zt_list_##SUFFIX##_new(void); \
+zt_list_##SUFFIX *zt_list_##SUFFIX##_from_array(const ELEM_TYPE *items, size_t count); \
+void zt_list_##SUFFIX##_push(zt_list_##SUFFIX *list, ELEM_TYPE value); \
+zt_list_##SUFFIX *zt_list_##SUFFIX##_push_owned(zt_list_##SUFFIX *list, ELEM_TYPE value); \
+ELEM_TYPE zt_list_##SUFFIX##_get(const zt_list_##SUFFIX *list, zt_int index_0); \
+void zt_list_##SUFFIX##_set(zt_list_##SUFFIX *list, zt_int index_0, ELEM_TYPE value); \
+zt_list_##SUFFIX *zt_list_##SUFFIX##_set_owned(zt_list_##SUFFIX *list, zt_int index_0, ELEM_TYPE value); \
+zt_int zt_list_##SUFFIX##_len(const zt_list_##SUFFIX *list); \
+zt_list_##SUFFIX *zt_list_##SUFFIX##_slice(const zt_list_##SUFFIX *list, zt_int start_0, zt_int end_0);
+
+ZT_DECLARE_PRIMITIVE_LIST_API(bool, zt_bool)
+ZT_DECLARE_PRIMITIVE_LIST_API(i8, int8_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(i16, int16_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(i32, int32_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(u8, uint8_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(u16, uint16_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(u32, uint32_t)
+ZT_DECLARE_PRIMITIVE_LIST_API(u64, uint64_t)
+
+#undef ZT_DECLARE_PRIMITIVE_LIST_API
 
 zt_dyn_text_repr *zt_dyn_text_repr_from_i64(zt_int value);
 zt_dyn_text_repr *zt_dyn_text_repr_from_float(zt_float value);
@@ -695,6 +861,28 @@ zt_bool zt_map_text_text_contains(const zt_map_text_text *map, const zt_text *ke
 zt_text *zt_map_text_text_key_at(const zt_map_text_text *map, zt_int index_0);
 zt_text *zt_map_text_text_value_at(const zt_map_text_text *map, zt_int index_0);
 zt_int zt_map_text_text_len(const zt_map_text_text *map);
+
+zt_set_i64 *zt_set_i64_create(void);
+zt_set_i64 *zt_set_i64_from_array(const zt_int *items, size_t count);
+void zt_set_i64_add(zt_set_i64 *set, zt_int value);
+zt_bool zt_set_i64_has(const zt_set_i64 *set, zt_int value);
+void zt_set_i64_remove(zt_set_i64 *set, zt_int value);
+zt_int zt_set_i64_len(const zt_set_i64 *set);
+zt_int zt_set_i64_value_at(const zt_set_i64 *set, zt_int index_0);
+zt_set_i64 *zt_set_i64_union(const zt_set_i64 *left, const zt_set_i64 *right);
+zt_set_i64 *zt_set_i64_intersect(const zt_set_i64 *left, const zt_set_i64 *right);
+zt_set_i64 *zt_set_i64_difference(const zt_set_i64 *left, const zt_set_i64 *right);
+
+zt_set_text *zt_set_text_create(void);
+zt_set_text *zt_set_text_from_array(zt_text *const *items, size_t count);
+void zt_set_text_add(zt_set_text *set, zt_text *value);
+zt_bool zt_set_text_has(const zt_set_text *set, const zt_text *value);
+void zt_set_text_remove(zt_set_text *set, const zt_text *value);
+zt_int zt_set_text_len(const zt_set_text *set);
+zt_text *zt_set_text_value_at(const zt_set_text *set, zt_int index_0);
+zt_set_text *zt_set_text_union(const zt_set_text *left, const zt_set_text *right);
+zt_set_text *zt_set_text_intersect(const zt_set_text *left, const zt_set_text *right);
+zt_set_text *zt_set_text_difference(const zt_set_text *left, const zt_set_text *right);
 
 zt_grid2d_i64 *zt_grid2d_i64_new(zt_int rows, zt_int cols);
 zt_int zt_grid2d_i64_get(const zt_grid2d_i64 *grid, zt_int row, zt_int col);
@@ -789,6 +977,25 @@ zt_optional_i64 zt_optional_i64_empty(void);
 zt_bool zt_optional_i64_is_present(zt_optional_i64 value);
 zt_int zt_optional_i64_coalesce(zt_optional_i64 value, zt_int fallback);
 zt_int zt_optional_i64_value(zt_optional_i64 value);
+
+#define ZT_DECLARE_PRIMITIVE_OPTIONAL_API(SUFFIX, ELEM_TYPE) \
+zt_optional_##SUFFIX zt_optional_##SUFFIX##_present(ELEM_TYPE value); \
+zt_optional_##SUFFIX zt_optional_##SUFFIX##_empty(void); \
+zt_bool zt_optional_##SUFFIX##_is_present(zt_optional_##SUFFIX value); \
+ELEM_TYPE zt_optional_##SUFFIX##_coalesce(zt_optional_##SUFFIX value, ELEM_TYPE fallback); \
+ELEM_TYPE zt_optional_##SUFFIX##_value(zt_optional_##SUFFIX value);
+
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(f64, zt_float)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(bool, zt_bool)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(i8, int8_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(i16, int16_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(i32, int32_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(u8, uint8_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(u16, uint16_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(u32, uint32_t)
+ZT_DECLARE_PRIMITIVE_OPTIONAL_API(u64, uint64_t)
+
+#undef ZT_DECLARE_PRIMITIVE_OPTIONAL_API
 
 zt_optional_text zt_optional_text_present(zt_text *value);
 zt_optional_text zt_optional_text_empty(void);
@@ -888,6 +1095,9 @@ zt_outcome_void_core_error zt_host_fs_move_core(const zt_text *from_path, const 
 zt_outcome_i64_core_error zt_host_fs_size_core(const zt_text *path);
 zt_outcome_i64_core_error zt_host_fs_modified_at_core(const zt_text *path);
 zt_outcome_optional_i64_core_error zt_host_fs_created_at_core(const zt_text *path);
+zt_outcome_void_core_error zt_regex_validate_core(const zt_text *pattern);
+zt_bool zt_regex_is_match_core(const zt_text *pattern, const zt_text *input);
+zt_list_text *zt_regex_find_all_core(const zt_text *pattern, const zt_text *input);
 zt_list_text *zt_host_os_args(void);
 zt_optional_text zt_host_os_env(const zt_text *name);
 zt_int zt_host_os_pid(void);

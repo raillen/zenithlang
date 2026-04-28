@@ -1024,6 +1024,14 @@ static size_t zt_normalize_slice_end(size_t length, zt_int end_0) {
 ZT_DEFINE_LIST_IMPL(i64, zt_int, ZT_HEAP_LIST_I64, 0)
 ZT_DEFINE_LIST_IMPL(text, zt_text *, ZT_HEAP_LIST_TEXT, 1)
 ZT_DEFINE_LIST_IMPL(f64, zt_float, ZT_HEAP_LIST_F64, 0)
+ZT_DEFINE_LIST_IMPL(bool, zt_bool, ZT_HEAP_LIST_BOOL, 0)
+ZT_DEFINE_LIST_IMPL(i8, int8_t, ZT_HEAP_LIST_I8, 0)
+ZT_DEFINE_LIST_IMPL(i16, int16_t, ZT_HEAP_LIST_I16, 0)
+ZT_DEFINE_LIST_IMPL(i32, int32_t, ZT_HEAP_LIST_I32, 0)
+ZT_DEFINE_LIST_IMPL(u8, uint8_t, ZT_HEAP_LIST_U8, 0)
+ZT_DEFINE_LIST_IMPL(u16, uint16_t, ZT_HEAP_LIST_U16, 0)
+ZT_DEFINE_LIST_IMPL(u32, uint32_t, ZT_HEAP_LIST_U32, 0)
+ZT_DEFINE_LIST_IMPL(u64, uint64_t, ZT_HEAP_LIST_U64, 0)
 size_t zt_text_hash(const zt_text *value) {
     uint64_t hash = UINT64_C(1469598103934665603);
     size_t index;
@@ -1062,6 +1070,395 @@ ZT_DEFINE_MAP_IMPL(
     zt_text_hash,
     zt_optional_text_present,
     zt_optional_text_empty)
+
+/* --------------------------------------------------------------------------
+ * set<int> — open-addressing hash set for zt_int
+ * -------------------------------------------------------------------------- */
+
+#define ZT_SET_EMPTY    0
+#define ZT_SET_OCCUPIED 1
+#define ZT_SET_DELETED  2
+#define ZT_SET_INITIAL_CAP 16
+
+static void zt_free_set_i64(zt_set_i64 *set) {
+    if (set == NULL) return;
+    free(set->data);
+    free(set->occupied);
+    free(set);
+}
+
+static void zt_set_i64_grow(zt_set_i64 *set);
+
+zt_set_i64 *zt_set_i64_create(void) {
+    zt_set_i64 *set = (zt_set_i64 *)calloc(1, sizeof(zt_set_i64));
+    if (set == NULL) zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate set<int>");
+    set->header.rc = 1;
+    set->header.kind = (uint32_t)ZT_HEAP_SET_I64;
+    set->len = 0;
+    set->hash_capacity = ZT_SET_INITIAL_CAP;
+    set->data = (zt_int *)calloc(ZT_SET_INITIAL_CAP, sizeof(zt_int));
+    set->occupied = (uint8_t *)calloc(ZT_SET_INITIAL_CAP, sizeof(uint8_t));
+    if (set->data == NULL || set->occupied == NULL) {
+        free(set->data);
+        free(set->occupied);
+        free(set);
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate set<int> data");
+    }
+    return set;
+}
+
+zt_set_i64 *zt_set_i64_from_array(const zt_int *items, size_t count) {
+    zt_set_i64 *set = zt_set_i64_create();
+    size_t i;
+    if (items == NULL) return set;
+    for (i = 0; i < count; i += 1) {
+        zt_set_i64_add(set, items[i]);
+    }
+    return set;
+}
+
+void zt_set_i64_add(zt_set_i64 *set, zt_int value) {
+    size_t idx, i;
+    if (set == NULL) return;
+    if (set->len * 4 >= set->hash_capacity * 3) {
+        zt_set_i64_grow(set);
+    }
+    idx = zt_i64_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && set->data[probe] == value) {
+            return;
+        }
+        if (set->occupied[probe] != ZT_SET_OCCUPIED) {
+            set->data[probe] = value;
+            set->occupied[probe] = ZT_SET_OCCUPIED;
+            set->len++;
+            return;
+        }
+    }
+}
+
+zt_bool zt_set_i64_has(const zt_set_i64 *set, zt_int value) {
+    size_t idx, i;
+    if (set == NULL || set->hash_capacity == 0) return false;
+    idx = zt_i64_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_EMPTY) return false;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && set->data[probe] == value) return true;
+    }
+    return false;
+}
+
+void zt_set_i64_remove(zt_set_i64 *set, zt_int value) {
+    size_t idx, i;
+    if (set == NULL || set->hash_capacity == 0) return;
+    idx = zt_i64_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_EMPTY) return;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && set->data[probe] == value) {
+            set->occupied[probe] = ZT_SET_DELETED;
+            set->len--;
+            return;
+        }
+    }
+}
+
+zt_int zt_set_i64_len(const zt_set_i64 *set) {
+    if (set == NULL) return 0;
+    return (zt_int)set->len;
+}
+
+zt_int zt_set_i64_value_at(const zt_set_i64 *set, zt_int index_0) {
+    size_t i;
+    size_t seen = 0;
+    if (set == NULL || index_0 < 0) {
+        zt_runtime_error(ZT_ERR_INDEX, "set<int> index out of bounds");
+    }
+    for (i = 0; i < set->hash_capacity; i += 1) {
+        if (set->occupied[i] != ZT_SET_OCCUPIED) continue;
+        if (seen == (size_t)index_0) {
+            return set->data[i];
+        }
+        seen += 1;
+    }
+    zt_runtime_error(ZT_ERR_INDEX, "set<int> index out of bounds");
+}
+
+zt_set_i64 *zt_set_i64_union(const zt_set_i64 *left, const zt_set_i64 *right) {
+    zt_set_i64 *out = zt_set_i64_create();
+    size_t i;
+    if (left != NULL) {
+        for (i = 0; i < left->hash_capacity; i += 1) {
+            if (left->occupied[i] == ZT_SET_OCCUPIED) {
+                zt_set_i64_add(out, left->data[i]);
+            }
+        }
+    }
+    if (right != NULL) {
+        for (i = 0; i < right->hash_capacity; i += 1) {
+            if (right->occupied[i] == ZT_SET_OCCUPIED) {
+                zt_set_i64_add(out, right->data[i]);
+            }
+        }
+    }
+    return out;
+}
+
+zt_set_i64 *zt_set_i64_intersect(const zt_set_i64 *left, const zt_set_i64 *right) {
+    zt_set_i64 *out = zt_set_i64_create();
+    size_t i;
+    if (left == NULL || right == NULL) return out;
+    for (i = 0; i < left->hash_capacity; i += 1) {
+        if (left->occupied[i] == ZT_SET_OCCUPIED &&
+                zt_set_i64_has(right, left->data[i])) {
+            zt_set_i64_add(out, left->data[i]);
+        }
+    }
+    return out;
+}
+
+zt_set_i64 *zt_set_i64_difference(const zt_set_i64 *left, const zt_set_i64 *right) {
+    zt_set_i64 *out = zt_set_i64_create();
+    size_t i;
+    if (left == NULL) return out;
+    for (i = 0; i < left->hash_capacity; i += 1) {
+        if (left->occupied[i] == ZT_SET_OCCUPIED &&
+                !zt_set_i64_has(right, left->data[i])) {
+            zt_set_i64_add(out, left->data[i]);
+        }
+    }
+    return out;
+}
+
+static void zt_set_i64_grow(zt_set_i64 *set) {
+    size_t old_cap = set->hash_capacity;
+    zt_int *old_data = set->data;
+    uint8_t *old_occ = set->occupied;
+    size_t new_cap = old_cap * 2;
+    size_t i;
+
+    set->hash_capacity = new_cap;
+    set->data = (zt_int *)calloc(new_cap, sizeof(zt_int));
+    set->occupied = (uint8_t *)calloc(new_cap, sizeof(uint8_t));
+    if (set->data == NULL || set->occupied == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to grow set<int>");
+    }
+    set->len = 0;
+
+    for (i = 0; i < old_cap; i++) {
+        if (old_occ[i] == ZT_SET_OCCUPIED) {
+            zt_set_i64_add(set, old_data[i]);
+        }
+    }
+
+    free(old_data);
+    free(old_occ);
+}
+
+/* --------------------------------------------------------------------------
+ * set<text> — open-addressing hash set for zt_text *
+ * -------------------------------------------------------------------------- */
+
+static void zt_free_set_text(zt_set_text *set) {
+    size_t i;
+    if (set == NULL) return;
+    for (i = 0; i < set->hash_capacity; i++) {
+        if (set->occupied[i] == ZT_SET_OCCUPIED && set->data[i] != NULL) {
+            zt_release(set->data[i]);
+        }
+    }
+    free(set->data);
+    free(set->occupied);
+    free(set);
+}
+
+static void zt_set_text_grow(zt_set_text *set);
+
+zt_set_text *zt_set_text_create(void) {
+    zt_set_text *set = (zt_set_text *)calloc(1, sizeof(zt_set_text));
+    if (set == NULL) zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate set<text>");
+    set->header.rc = 1;
+    set->header.kind = (uint32_t)ZT_HEAP_SET_TEXT;
+    set->len = 0;
+    set->hash_capacity = ZT_SET_INITIAL_CAP;
+    set->data = (zt_text **)calloc(ZT_SET_INITIAL_CAP, sizeof(zt_text *));
+    set->occupied = (uint8_t *)calloc(ZT_SET_INITIAL_CAP, sizeof(uint8_t));
+    if (set->data == NULL || set->occupied == NULL) {
+        free(set->data);
+        free(set->occupied);
+        free(set);
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate set<text> data");
+    }
+    return set;
+}
+
+zt_set_text *zt_set_text_from_array(zt_text *const *items, size_t count) {
+    zt_set_text *set = zt_set_text_create();
+    size_t i;
+    if (items == NULL) return set;
+    for (i = 0; i < count; i += 1) {
+        zt_set_text_add(set, items[i]);
+    }
+    return set;
+}
+
+void zt_set_text_add(zt_set_text *set, zt_text *value) {
+    size_t idx, i;
+    if (set == NULL || value == NULL) return;
+    if (set->len * 4 >= set->hash_capacity * 3) {
+        zt_set_text_grow(set);
+    }
+    idx = zt_text_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && zt_text_eq(set->data[probe], value)) {
+            return;
+        }
+        if (set->occupied[probe] != ZT_SET_OCCUPIED) {
+            zt_retain(value);
+            set->data[probe] = value;
+            set->occupied[probe] = ZT_SET_OCCUPIED;
+            set->len++;
+            return;
+        }
+    }
+}
+
+zt_bool zt_set_text_has(const zt_set_text *set, const zt_text *value) {
+    size_t idx, i;
+    if (set == NULL || value == NULL || set->hash_capacity == 0) return false;
+    idx = zt_text_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_EMPTY) return false;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && zt_text_eq(set->data[probe], value)) return true;
+    }
+    return false;
+}
+
+void zt_set_text_remove(zt_set_text *set, const zt_text *value) {
+    size_t idx, i;
+    if (set == NULL || value == NULL || set->hash_capacity == 0) return;
+    idx = zt_text_hash(value) % set->hash_capacity;
+    for (i = 0; i < set->hash_capacity; i++) {
+        size_t probe = (idx + i) % set->hash_capacity;
+        if (set->occupied[probe] == ZT_SET_EMPTY) return;
+        if (set->occupied[probe] == ZT_SET_OCCUPIED && zt_text_eq(set->data[probe], value)) {
+            zt_release(set->data[probe]);
+            set->data[probe] = NULL;
+            set->occupied[probe] = ZT_SET_DELETED;
+            set->len--;
+            return;
+        }
+    }
+}
+
+zt_int zt_set_text_len(const zt_set_text *set) {
+    if (set == NULL) return 0;
+    return (zt_int)set->len;
+}
+
+zt_text *zt_set_text_value_at(const zt_set_text *set, zt_int index_0) {
+    size_t i;
+    size_t seen = 0;
+    if (set == NULL || index_0 < 0) {
+        zt_runtime_error(ZT_ERR_INDEX, "set<text> index out of bounds");
+    }
+    for (i = 0; i < set->hash_capacity; i += 1) {
+        if (set->occupied[i] != ZT_SET_OCCUPIED || set->data[i] == NULL) continue;
+        if (seen == (size_t)index_0) {
+            zt_retain(set->data[i]);
+            return set->data[i];
+        }
+        seen += 1;
+    }
+    zt_runtime_error(ZT_ERR_INDEX, "set<text> index out of bounds");
+}
+
+zt_set_text *zt_set_text_union(const zt_set_text *left, const zt_set_text *right) {
+    zt_set_text *out = zt_set_text_create();
+    size_t i;
+    if (left != NULL) {
+        for (i = 0; i < left->hash_capacity; i += 1) {
+            if (left->occupied[i] == ZT_SET_OCCUPIED && left->data[i] != NULL) {
+                zt_set_text_add(out, left->data[i]);
+            }
+        }
+    }
+    if (right != NULL) {
+        for (i = 0; i < right->hash_capacity; i += 1) {
+            if (right->occupied[i] == ZT_SET_OCCUPIED && right->data[i] != NULL) {
+                zt_set_text_add(out, right->data[i]);
+            }
+        }
+    }
+    return out;
+}
+
+zt_set_text *zt_set_text_intersect(const zt_set_text *left, const zt_set_text *right) {
+    zt_set_text *out = zt_set_text_create();
+    size_t i;
+    if (left == NULL || right == NULL) return out;
+    for (i = 0; i < left->hash_capacity; i += 1) {
+        if (left->occupied[i] == ZT_SET_OCCUPIED &&
+                left->data[i] != NULL &&
+                zt_set_text_has(right, left->data[i])) {
+            zt_set_text_add(out, left->data[i]);
+        }
+    }
+    return out;
+}
+
+zt_set_text *zt_set_text_difference(const zt_set_text *left, const zt_set_text *right) {
+    zt_set_text *out = zt_set_text_create();
+    size_t i;
+    if (left == NULL) return out;
+    for (i = 0; i < left->hash_capacity; i += 1) {
+        if (left->occupied[i] == ZT_SET_OCCUPIED &&
+                left->data[i] != NULL &&
+                !zt_set_text_has(right, left->data[i])) {
+            zt_set_text_add(out, left->data[i]);
+        }
+    }
+    return out;
+}
+
+static void zt_set_text_grow(zt_set_text *set) {
+    size_t old_cap = set->hash_capacity;
+    zt_text **old_data = set->data;
+    uint8_t *old_occ = set->occupied;
+    size_t new_cap = old_cap * 2;
+    size_t i;
+
+    set->hash_capacity = new_cap;
+    set->data = (zt_text **)calloc(new_cap, sizeof(zt_text *));
+    set->occupied = (uint8_t *)calloc(new_cap, sizeof(uint8_t));
+    if (set->data == NULL || set->occupied == NULL) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "failed to grow set<text>");
+    }
+    set->len = 0;
+
+    for (i = 0; i < old_cap; i++) {
+        if (old_occ[i] == ZT_SET_OCCUPIED && old_data[i] != NULL) {
+            size_t idx = zt_text_hash(old_data[i]) % new_cap;
+            size_t j;
+            for (j = 0; j < new_cap; j++) {
+                size_t probe = (idx + j) % new_cap;
+                if (set->occupied[probe] != ZT_SET_OCCUPIED) {
+                    set->data[probe] = old_data[i];
+                    set->occupied[probe] = ZT_SET_OCCUPIED;
+                    set->len++;
+                    break;
+                }
+            }
+        }
+    }
+
+    free(old_data);
+    free(old_occ);
+}
 
 static zt_bool zt_utf8_is_continuation(uint8_t byte) {
     return (byte & 0xC0u) == 0x80u;
@@ -1571,6 +1968,30 @@ void zt_release(void *ref) {
         case ZT_HEAP_LIST_F64:
             zt_free_list_f64((zt_list_f64 *)ref);
             return;
+        case ZT_HEAP_LIST_BOOL:
+            zt_free_list_bool((zt_list_bool *)ref);
+            return;
+        case ZT_HEAP_LIST_I8:
+            zt_free_list_i8((zt_list_i8 *)ref);
+            return;
+        case ZT_HEAP_LIST_I16:
+            zt_free_list_i16((zt_list_i16 *)ref);
+            return;
+        case ZT_HEAP_LIST_I32:
+            zt_free_list_i32((zt_list_i32 *)ref);
+            return;
+        case ZT_HEAP_LIST_U8:
+            zt_free_list_u8((zt_list_u8 *)ref);
+            return;
+        case ZT_HEAP_LIST_U16:
+            zt_free_list_u16((zt_list_u16 *)ref);
+            return;
+        case ZT_HEAP_LIST_U32:
+            zt_free_list_u32((zt_list_u32 *)ref);
+            return;
+        case ZT_HEAP_LIST_U64:
+            zt_free_list_u64((zt_list_u64 *)ref);
+            return;
         case ZT_HEAP_DYN_TEXT_REPR:
             zt_free_dyn_text_repr((zt_dyn_text_repr *)ref);
             return;
@@ -1619,6 +2040,12 @@ void zt_release(void *ref) {
         case ZT_HEAP_NET_CONNECTION:
             zt_free_net_connection((zt_net_connection *)ref);
             return;
+        case ZT_HEAP_SET_I64:
+            zt_free_set_i64((zt_set_i64 *)ref);
+            return;
+        case ZT_HEAP_SET_TEXT:
+            zt_free_set_text((zt_set_text *)ref);
+            return;
         case ZT_HEAP_IMMORTAL_OUTCOME_VOID_TEXT:
             return;
         case ZT_HEAP_UNKNOWN:
@@ -1665,6 +2092,38 @@ void *zt_deep_copy(void *ref) {
             zt_list_f64 *l = (zt_list_f64 *)ref;
             return zt_list_f64_from_array(l->data, l->len);
         }
+        case ZT_HEAP_LIST_BOOL: {
+            zt_list_bool *l = (zt_list_bool *)ref;
+            return zt_list_bool_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_I8: {
+            zt_list_i8 *l = (zt_list_i8 *)ref;
+            return zt_list_i8_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_I16: {
+            zt_list_i16 *l = (zt_list_i16 *)ref;
+            return zt_list_i16_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_I32: {
+            zt_list_i32 *l = (zt_list_i32 *)ref;
+            return zt_list_i32_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_U8: {
+            zt_list_u8 *l = (zt_list_u8 *)ref;
+            return zt_list_u8_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_U16: {
+            zt_list_u16 *l = (zt_list_u16 *)ref;
+            return zt_list_u16_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_U32: {
+            zt_list_u32 *l = (zt_list_u32 *)ref;
+            return zt_list_u32_from_array(l->data, l->len);
+        }
+        case ZT_HEAP_LIST_U64: {
+            zt_list_u64 *l = (zt_list_u64 *)ref;
+            return zt_list_u64_from_array(l->data, l->len);
+        }
         case ZT_HEAP_LIST_TEXT: {
             zt_list_text *l = (zt_list_text *)ref;
             zt_list_text *clone = zt_list_text_new();
@@ -1677,6 +2136,28 @@ void *zt_deep_copy(void *ref) {
         }
         case ZT_HEAP_MAP_TEXT_TEXT: {
             return zt_map_text_text_deep_copy((const zt_map_text_text *)ref);
+        }
+        case ZT_HEAP_SET_I64: {
+            zt_set_i64 *s = (zt_set_i64 *)ref;
+            zt_set_i64 *clone = zt_set_i64_create();
+            for (i = 0; i < s->hash_capacity; i++) {
+                if (s->occupied[i] == ZT_SET_OCCUPIED) {
+                    zt_set_i64_add(clone, s->data[i]);
+                }
+            }
+            return clone;
+        }
+        case ZT_HEAP_SET_TEXT: {
+            zt_set_text *s = (zt_set_text *)ref;
+            zt_set_text *clone = zt_set_text_create();
+            for (i = 0; i < s->hash_capacity; i++) {
+                if (s->occupied[i] == ZT_SET_OCCUPIED && s->data[i] != NULL) {
+                    zt_text *copy = (zt_text *)zt_deep_copy(s->data[i]);
+                    zt_set_text_add(clone, copy);
+                    zt_release(copy);
+                }
+            }
+            return clone;
         }
         case ZT_HEAP_GRID2D_I64: {
             zt_grid2d_i64 *g = (zt_grid2d_i64 *)ref;
@@ -2075,6 +2556,67 @@ ZT_NORETURN void zt_panic(const char *message) {
     zt_runtime_error(ZT_ERR_PANIC, message);
 }
 
+/* ── builtins ─────────────────────────────────────────── */
+
+void zt_builtin_print(const zt_text *value) {
+    if (value != NULL && value->data != NULL) {
+        fputs(value->data, stdout);
+    }
+    fputc('\n', stdout);
+    fflush(stdout);
+}
+
+zt_text *zt_builtin_read(void) {
+    zt_outcome_optional_text_core_error outcome = zt_host_read_line_stdin();
+    if (outcome.is_success && outcome.value.is_present && outcome.value.value != NULL) {
+        return outcome.value.value;
+    }
+    return zt_text_from_utf8_literal("");
+}
+
+void zt_builtin_debug(const zt_text *value) {
+    if (value != NULL && value->data != NULL) {
+        fprintf(stderr, "[debug] %s\n", value->data);
+    } else {
+        fprintf(stderr, "[debug] <nil>\n");
+    }
+    fflush(stderr);
+}
+
+zt_text *zt_builtin_type_name(const zt_text *value) {
+    (void)value;
+    return zt_text_from_utf8_literal("text");
+}
+
+zt_int zt_builtin_size_of(const zt_text *value) {
+    (void)value;
+    return (zt_int)sizeof(zt_text *);
+}
+
+zt_list_i64 *zt_builtin_range3(zt_int start, zt_int end, zt_int step) {
+    zt_list_i64 *list = zt_list_i64_new();
+    zt_int i;
+    if (step == 0) {
+        zt_runtime_error(ZT_ERR_CONTRACT, "range step must not be zero");
+    }
+    if (step > 0) {
+        for (i = start; i <= end; i += step) {
+            zt_list_i64_push(list, i);
+        }
+    } else {
+        for (i = start; i >= end; i += step) {
+            zt_list_i64_push(list, i);
+        }
+    }
+    return list;
+}
+
+zt_list_i64 *zt_builtin_range2(zt_int start, zt_int end) {
+    return zt_builtin_range3(start, end, start <= end ? 1 : -1);
+}
+
+/* ── end builtins ─────────────────────────────────────── */
+
 ZT_NORETURN void zt_test_fail(zt_text *message) {
     const char *raw = (message != NULL && message->data != NULL) ? message->data : "";
     const char *final_message = raw[0] != '\0' ? raw : "test failed";
@@ -2403,6 +2945,489 @@ zt_text *zt_text_deep_copy(const zt_text *value) {
     return zt_text_from_utf8(value->data, value->len);
 }
 
+typedef enum zt_regex_atom_kind {
+    ZT_REGEX_ATOM_LITERAL,
+    ZT_REGEX_ATOM_ANY,
+    ZT_REGEX_ATOM_CLASS,
+    ZT_REGEX_ATOM_DIGIT,
+    ZT_REGEX_ATOM_WORD,
+    ZT_REGEX_ATOM_SPACE
+} zt_regex_atom_kind;
+
+typedef struct zt_regex_atom {
+    zt_regex_atom_kind kind;
+    char literal;
+    const char *class_start;
+    size_t class_len;
+    zt_bool class_negated;
+} zt_regex_atom;
+
+static zt_bool zt_regex_is_quantifier(char ch) {
+    return ch == '*' || ch == '+' || ch == '?';
+}
+
+static zt_bool zt_regex_is_word_char(char ch) {
+    unsigned char value = (unsigned char)ch;
+    return (zt_bool)(isalnum(value) || ch == '_');
+}
+
+static zt_bool zt_regex_find_class_end(
+        const char *pattern,
+        size_t pattern_len,
+        size_t open_index,
+        size_t *close_index) {
+    size_t index;
+    size_t content_start;
+
+    if (pattern == NULL || close_index == NULL || open_index >= pattern_len) {
+        return false;
+    }
+
+    content_start = open_index + 1;
+    if (content_start < pattern_len && pattern[content_start] == '^') {
+        content_start += 1;
+    }
+    if (content_start >= pattern_len || pattern[content_start] == ']') {
+        return false;
+    }
+
+    for (index = content_start; index < pattern_len; index += 1) {
+        if (pattern[index] == '\\') {
+            if (index + 1 >= pattern_len) {
+                return false;
+            }
+            index += 1;
+            continue;
+        }
+        if (pattern[index] == ']') {
+            *close_index = index;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static zt_bool zt_regex_class_range_is_valid(const char *start, size_t len) {
+    size_t index = 0;
+
+    while (index < len) {
+        if (start[index] == '\\') {
+            if (index + 1 >= len) {
+                return false;
+            }
+            index += 2;
+            continue;
+        }
+        if (index + 2 < len && start[index + 1] == '-') {
+            unsigned char first = (unsigned char)start[index];
+            unsigned char last = (unsigned char)start[index + 2];
+            if (first > last) {
+                return false;
+            }
+            index += 3;
+            continue;
+        }
+        index += 1;
+    }
+
+    return true;
+}
+
+static zt_bool zt_regex_validate_pattern_data(
+        const char *pattern,
+        size_t pattern_len,
+        const char **message) {
+    size_t index = 0;
+    zt_bool atom_ready = false;
+    zt_bool just_quantified = false;
+
+    if (message != NULL) {
+        *message = "invalid regex pattern";
+    }
+    if (pattern == NULL) {
+        if (message != NULL) *message = "regex pattern cannot be null";
+        return false;
+    }
+    if (pattern_len == 0) {
+        return true;
+    }
+    if (pattern[index] == '^') {
+        index += 1;
+    }
+
+    while (index < pattern_len) {
+        char ch = pattern[index];
+
+        if (ch == '$' && index + 1 == pattern_len) {
+            index += 1;
+            continue;
+        }
+        if (zt_regex_is_quantifier(ch)) {
+            if (!atom_ready || just_quantified) {
+                if (message != NULL) *message = "regex quantifier has no atom";
+                return false;
+            }
+            atom_ready = false;
+            just_quantified = true;
+            index += 1;
+            continue;
+        }
+        if (ch == '\\') {
+            if (index + 1 >= pattern_len) {
+                if (message != NULL) *message = "regex escape is incomplete";
+                return false;
+            }
+            index += 2;
+            atom_ready = true;
+            just_quantified = false;
+            continue;
+        }
+        if (ch == '[') {
+            size_t close_index = 0;
+            size_t class_start;
+            size_t class_len;
+
+            if (!zt_regex_find_class_end(pattern, pattern_len, index, &close_index)) {
+                if (message != NULL) *message = "regex character class is not closed";
+                return false;
+            }
+            class_start = index + 1;
+            if (class_start < close_index && pattern[class_start] == '^') {
+                class_start += 1;
+            }
+            class_len = close_index - class_start;
+            if (!zt_regex_class_range_is_valid(pattern + class_start, class_len)) {
+                if (message != NULL) *message = "regex character class range is invalid";
+                return false;
+            }
+            index = close_index + 1;
+            atom_ready = true;
+            just_quantified = false;
+            continue;
+        }
+        if (ch == ']') {
+            if (message != NULL) *message = "regex character class is not open";
+            return false;
+        }
+
+        index += 1;
+        atom_ready = true;
+        just_quantified = false;
+    }
+
+    return true;
+}
+
+static zt_bool zt_regex_parse_atom(
+        const char *pattern,
+        size_t pattern_len,
+        size_t index,
+        zt_regex_atom *atom,
+        size_t *next_index) {
+    char ch;
+
+    if (pattern == NULL || atom == NULL || next_index == NULL || index >= pattern_len) {
+        return false;
+    }
+
+    ch = pattern[index];
+    atom->kind = ZT_REGEX_ATOM_LITERAL;
+    atom->literal = ch;
+    atom->class_start = NULL;
+    atom->class_len = 0;
+    atom->class_negated = false;
+
+    if (ch == '.') {
+        atom->kind = ZT_REGEX_ATOM_ANY;
+        *next_index = index + 1;
+        return true;
+    }
+    if (ch == '\\') {
+        char escaped;
+        if (index + 1 >= pattern_len) {
+            return false;
+        }
+        escaped = pattern[index + 1];
+        if (escaped == 'd') {
+            atom->kind = ZT_REGEX_ATOM_DIGIT;
+        } else if (escaped == 'w') {
+            atom->kind = ZT_REGEX_ATOM_WORD;
+        } else if (escaped == 's') {
+            atom->kind = ZT_REGEX_ATOM_SPACE;
+        } else {
+            atom->kind = ZT_REGEX_ATOM_LITERAL;
+            atom->literal = escaped;
+        }
+        *next_index = index + 2;
+        return true;
+    }
+    if (ch == '[') {
+        size_t close_index = 0;
+        size_t class_start = index + 1;
+
+        if (!zt_regex_find_class_end(pattern, pattern_len, index, &close_index)) {
+            return false;
+        }
+        if (class_start < close_index && pattern[class_start] == '^') {
+            atom->class_negated = true;
+            class_start += 1;
+        }
+        atom->kind = ZT_REGEX_ATOM_CLASS;
+        atom->class_start = pattern + class_start;
+        atom->class_len = close_index - class_start;
+        *next_index = close_index + 1;
+        return true;
+    }
+
+    *next_index = index + 1;
+    return true;
+}
+
+static zt_bool zt_regex_class_content_matches(const zt_regex_atom *atom, char ch) {
+    size_t index = 0;
+    zt_bool matched = false;
+
+    while (index < atom->class_len) {
+        char item = atom->class_start[index];
+
+        if (item == '\\' && index + 1 < atom->class_len) {
+            char escaped = atom->class_start[index + 1];
+            if (escaped == 'd') {
+                matched = (zt_bool)(matched || isdigit((unsigned char)ch));
+            } else if (escaped == 'w') {
+                matched = (zt_bool)(matched || zt_regex_is_word_char(ch));
+            } else if (escaped == 's') {
+                matched = (zt_bool)(matched || isspace((unsigned char)ch));
+            } else {
+                matched = (zt_bool)(matched || ch == escaped);
+            }
+            index += 2;
+            continue;
+        }
+        if (index + 2 < atom->class_len && atom->class_start[index + 1] == '-') {
+            unsigned char first = (unsigned char)item;
+            unsigned char last = (unsigned char)atom->class_start[index + 2];
+            unsigned char value = (unsigned char)ch;
+            if (first <= value && value <= last) {
+                matched = true;
+            }
+            index += 3;
+            continue;
+        }
+        if (item == ch) {
+            matched = true;
+        }
+        index += 1;
+    }
+
+    return atom->class_negated ? (zt_bool)!matched : matched;
+}
+
+static zt_bool zt_regex_atom_matches(const zt_regex_atom *atom, char ch) {
+    switch (atom->kind) {
+        case ZT_REGEX_ATOM_LITERAL:
+            return (zt_bool)(ch == atom->literal);
+        case ZT_REGEX_ATOM_ANY:
+            return true;
+        case ZT_REGEX_ATOM_CLASS:
+            return zt_regex_class_content_matches(atom, ch);
+        case ZT_REGEX_ATOM_DIGIT:
+            return (zt_bool)isdigit((unsigned char)ch);
+        case ZT_REGEX_ATOM_WORD:
+            return zt_regex_is_word_char(ch);
+        case ZT_REGEX_ATOM_SPACE:
+            return (zt_bool)isspace((unsigned char)ch);
+    }
+    return false;
+}
+
+static zt_bool zt_regex_match_here(
+        const char *pattern,
+        size_t pattern_len,
+        size_t pattern_index,
+        const char *input,
+        size_t input_len,
+        size_t input_index,
+        size_t *end_index) {
+    zt_regex_atom atom;
+    size_t atom_end = 0;
+    size_t after_quantifier;
+    char quantifier = '\0';
+
+    if (pattern_index >= pattern_len) {
+        if (end_index != NULL) *end_index = input_index;
+        return true;
+    }
+    if (pattern_index == 0 && pattern[pattern_index] == '^') {
+        return zt_regex_match_here(pattern, pattern_len, pattern_index + 1, input, input_len, input_index, end_index);
+    }
+    if (pattern[pattern_index] == '$' && pattern_index + 1 == pattern_len) {
+        if (input_index == input_len) {
+            if (end_index != NULL) *end_index = input_index;
+            return true;
+        }
+        return false;
+    }
+    if (!zt_regex_parse_atom(pattern, pattern_len, pattern_index, &atom, &atom_end)) {
+        return false;
+    }
+
+    after_quantifier = atom_end;
+    if (atom_end < pattern_len && zt_regex_is_quantifier(pattern[atom_end])) {
+        quantifier = pattern[atom_end];
+        after_quantifier = atom_end + 1;
+    }
+
+    if (quantifier == '\0') {
+        if (input_index >= input_len || !zt_regex_atom_matches(&atom, input[input_index])) {
+            return false;
+        }
+        return zt_regex_match_here(pattern, pattern_len, after_quantifier, input, input_len, input_index + 1, end_index);
+    }
+
+    if (quantifier == '?') {
+        if (input_index < input_len &&
+                zt_regex_atom_matches(&atom, input[input_index]) &&
+                zt_regex_match_here(pattern, pattern_len, after_quantifier, input, input_len, input_index + 1, end_index)) {
+            return true;
+        }
+        return zt_regex_match_here(pattern, pattern_len, after_quantifier, input, input_len, input_index, end_index);
+    }
+
+    if (quantifier == '*' || quantifier == '+') {
+        size_t count = 0;
+        size_t cursor = input_index;
+        size_t min_count = quantifier == '+' ? 1 : 0;
+
+        while (cursor < input_len && zt_regex_atom_matches(&atom, input[cursor])) {
+            count += 1;
+            cursor += 1;
+        }
+        if (count < min_count) {
+            return false;
+        }
+        while (count >= min_count) {
+            if (zt_regex_match_here(pattern, pattern_len, after_quantifier, input, input_len, input_index + count, end_index)) {
+                return true;
+            }
+            if (count == 0) {
+                break;
+            }
+            count -= 1;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+static zt_bool zt_regex_match_from(
+        const char *pattern,
+        size_t pattern_len,
+        const char *input,
+        size_t input_len,
+        size_t start_index,
+        size_t *end_index) {
+    if (pattern_len > 0 && pattern[0] == '^' && start_index != 0) {
+        return false;
+    }
+    return zt_regex_match_here(pattern, pattern_len, 0, input, input_len, start_index, end_index);
+}
+
+static zt_bool zt_regex_search_from(
+        const char *pattern,
+        size_t pattern_len,
+        const char *input,
+        size_t input_len,
+        size_t start_index,
+        size_t *match_start,
+        size_t *match_end) {
+    size_t cursor;
+
+    if (pattern_len > 0 && pattern[0] == '^') {
+        size_t end_index = 0;
+        if (start_index > 0) {
+            return false;
+        }
+        if (zt_regex_match_from(pattern, pattern_len, input, input_len, 0, &end_index)) {
+            if (match_start != NULL) *match_start = 0;
+            if (match_end != NULL) *match_end = end_index;
+            return true;
+        }
+        return false;
+    }
+
+    for (cursor = start_index; cursor <= input_len; cursor += 1) {
+        size_t end_index = 0;
+        if (zt_regex_match_from(pattern, pattern_len, input, input_len, cursor, &end_index)) {
+            if (match_start != NULL) *match_start = cursor;
+            if (match_end != NULL) *match_end = end_index;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+zt_outcome_void_core_error zt_regex_validate_core(const zt_text *pattern) {
+    const char *message = NULL;
+
+    zt_runtime_require_text(pattern, "zt_regex_validate_core requires pattern text");
+    if (zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return zt_outcome_void_core_error_success();
+    }
+    return zt_outcome_void_core_error_failure(
+        zt_core_error_from_message("regex.invalid_pattern", message));
+}
+
+zt_bool zt_regex_is_match_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    size_t match_start = 0;
+    size_t match_end = 0;
+
+    zt_runtime_require_text(pattern, "zt_regex_is_match_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_is_match_core requires input text");
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return false;
+    }
+    return zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, 0, &match_start, &match_end);
+}
+
+zt_list_text *zt_regex_find_all_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    zt_list_text *matches;
+    size_t cursor = 0;
+
+    zt_runtime_require_text(pattern, "zt_regex_find_all_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_find_all_core requires input text");
+
+    matches = zt_list_text_new();
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return matches;
+    }
+
+    while (cursor <= input->len) {
+        size_t match_start = 0;
+        size_t match_end = 0;
+        zt_text *match_text;
+
+        if (!zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, cursor, &match_start, &match_end)) {
+            break;
+        }
+        if (match_end <= match_start) {
+            cursor = match_start + 1;
+            continue;
+        }
+        match_text = zt_text_from_utf8(input->data + match_start, match_end - match_start);
+        zt_list_text_push(matches, match_text);
+        zt_release(match_text);
+        cursor = match_end;
+    }
+
+    return matches;
+}
+
 zt_bytes *zt_bytes_empty(void) {
     return zt_bytes_from_array(NULL, 0);
 }
@@ -2630,6 +3655,34 @@ zt_optional_i64 zt_list_i64_get_optional(const zt_list_i64 *list, zt_int index_0
     return zt_optional_i64_present(list->data[index_0]);
 }
 
+zt_optional_i64 zt_list_i64_last_optional(const zt_list_i64 *list) {
+    zt_runtime_require_list_i64(list, "zt_list_i64_last_optional requires list");
+    if (list->len == 0) {
+        return zt_optional_i64_empty();
+    }
+    return zt_optional_i64_present(list->data[list->len - 1]);
+}
+
+zt_list_i64 *zt_list_i64_rest(const zt_list_i64 *list) {
+    zt_runtime_require_list_i64(list, "zt_list_i64_rest requires list");
+    if (list->len <= 1) {
+        return zt_list_i64_new();
+    }
+    return zt_list_i64_slice(list, 1, (zt_int)list->len - 1);
+}
+
+zt_list_i64 *zt_list_i64_skip(const zt_list_i64 *list, zt_int count) {
+    zt_runtime_require_list_i64(list, "zt_list_i64_skip requires list");
+    if (count <= 0) {
+        if (list->len == 0) return zt_list_i64_new();
+        return zt_list_i64_slice(list, 0, (zt_int)list->len - 1);
+    }
+    if ((size_t)count >= list->len) {
+        return zt_list_i64_new();
+    }
+    return zt_list_i64_slice(list, count, (zt_int)list->len - 1);
+}
+
 /* zt_list_text: new, from_array, push, push_owned, get, set, set_owned, len, slice
  * generated by ZT_DEFINE_LIST_IMPL(text, zt_text *, ZT_HEAP_LIST_TEXT, 1) */
 
@@ -2646,6 +3699,40 @@ zt_optional_text zt_list_text_get_optional(const zt_list_text *list, zt_int inde
     value = list->data[index_0];
     zt_runtime_require_text(value, "list<text> entry cannot be null");
     return zt_optional_text_present(value);
+}
+
+zt_optional_text zt_list_text_last_optional(const zt_list_text *list) {
+    zt_text *value;
+
+    zt_runtime_require_list_text(list, "zt_list_text_last_optional requires list");
+
+    if (list->len == 0) {
+        return zt_optional_text_empty();
+    }
+
+    value = list->data[list->len - 1];
+    zt_runtime_require_text(value, "list<text> entry cannot be null");
+    return zt_optional_text_present(value);
+}
+
+zt_list_text *zt_list_text_rest(const zt_list_text *list) {
+    zt_runtime_require_list_text(list, "zt_list_text_rest requires list");
+    if (list->len <= 1) {
+        return zt_list_text_new();
+    }
+    return zt_list_text_slice(list, 1, (zt_int)list->len - 1);
+}
+
+zt_list_text *zt_list_text_skip(const zt_list_text *list, zt_int count) {
+    zt_runtime_require_list_text(list, "zt_list_text_skip requires list");
+    if (count <= 0) {
+        if (list->len == 0) return zt_list_text_new();
+        return zt_list_text_slice(list, 0, (zt_int)list->len - 1);
+    }
+    if ((size_t)count >= list->len) {
+        return zt_list_text_new();
+    }
+    return zt_list_text_slice(list, count, (zt_int)list->len - 1);
 }
 
 zt_list_i64 *zt_queue_i64_new(void) {
@@ -3035,6 +4122,15 @@ zt_list_dyn_text_repr *zt_thread_boundary_copy_list_dyn_text_repr(const zt_list_
 }
 /* ── Monomorphization: optional<T> ──────────────────────────────────────────── */
 ZT_DEFINE_OPTIONAL_IMPL(i64,          zt_int,           0)
+ZT_DEFINE_OPTIONAL_IMPL(f64,          zt_float,         0)
+ZT_DEFINE_OPTIONAL_IMPL(bool,         zt_bool,          0)
+ZT_DEFINE_OPTIONAL_IMPL(i8,           int8_t,           0)
+ZT_DEFINE_OPTIONAL_IMPL(i16,          int16_t,          0)
+ZT_DEFINE_OPTIONAL_IMPL(i32,          int32_t,          0)
+ZT_DEFINE_OPTIONAL_IMPL(u8,           uint8_t,          0)
+ZT_DEFINE_OPTIONAL_IMPL(u16,          uint16_t,         0)
+ZT_DEFINE_OPTIONAL_IMPL(u32,          uint32_t,         0)
+ZT_DEFINE_OPTIONAL_IMPL(u64,          uint64_t,         0)
 ZT_DEFINE_OPTIONAL_IMPL(text,         zt_text *,        1)
 ZT_DEFINE_OPTIONAL_IMPL(bytes,        zt_bytes *,       1)
 ZT_DEFINE_OPTIONAL_IMPL(list_i64,     zt_list_i64 *,    1)

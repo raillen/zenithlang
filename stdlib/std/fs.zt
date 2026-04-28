@@ -194,6 +194,10 @@ public func copy_file(from: text, to: text) -> result<void, fs.Error>
     end
 end
 
+public func copy(from: text, to: text) -> result<void, fs.Error>
+    return fs.copy_file(from, to)
+end
+
 public func move(from: text, to: text) -> result<void, fs.Error>
     match fs.zt_host_fs_move_core(from, to)
         case success() ->
@@ -201,6 +205,10 @@ public func move(from: text, to: text) -> result<void, fs.Error>
         case error(err) ->
             return error(fs.map_host_error(err))
     end
+end
+
+public func rename(from: text, to: text) -> result<void, fs.Error>
+    return fs.move(from, to)
 end
 
 public func metadata(target_path: text) -> result<fs.Metadata, fs.Error>
@@ -245,6 +253,10 @@ public func size(target_path: text) -> result<int, fs.Error>
         case error(err) ->
             return error(fs.map_host_error(err))
     end
+end
+
+public func file_size(target_path: text) -> result<int, fs.Error>
+    return fs.size(target_path)
 end
 
 public func modified_at(target_path: text) -> result<int, fs.Error>

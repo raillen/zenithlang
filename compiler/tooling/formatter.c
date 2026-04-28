@@ -816,11 +816,16 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             sb_append(sb, "}");
             break;
+        case ZT_AST_SET_EXPR:
+            sb_append(sb, "{");
+            format_node_list_comma(sb, node->as.set_expr.elements);
+            sb_append(sb, "}");
+            break;
         case ZT_AST_IDENT_EXPR:
             sb_append(sb, node->as.ident_expr.name);
             break;
         case ZT_AST_FMT_EXPR:
-            sb_append(sb, "fmt \"");
+            sb_append(sb, "f\"");
             for (size_t i = 0; i < node->as.fmt_expr.parts.count; i++) {
                 const zt_ast_node *part = node->as.fmt_expr.parts.items[i];
                 if (part == NULL) continue;
@@ -875,6 +880,20 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             sb_append(sb, " ");
             format_node(sb, node->as.closure_expr.body);
+            break;
+        case ZT_AST_USING_STMT:
+            sb_append(sb, "using ");
+            sb_append(sb, node->as.using_stmt.name);
+            sb_append(sb, " = ");
+            format_node(sb, node->as.using_stmt.init_value);
+            if (node->as.using_stmt.cleanup_expr != NULL) {
+                sb_append(sb, " then ");
+                format_node(sb, node->as.using_stmt.cleanup_expr);
+            } else if (node->as.using_stmt.body != NULL) {
+                sb_append(sb, "\n");
+                format_node(sb, node->as.using_stmt.body);
+                sb_append(sb, "end");
+            }
             break;
     }
 }

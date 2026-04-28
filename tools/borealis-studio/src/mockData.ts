@@ -72,6 +72,7 @@ export function createMockSnapshot(): StudioSnapshot {
           id: "cube-01",
           name: "Cube 01",
           layer: "world3d",
+          parent: "player",
           tags: ["3d", "prop"],
           components: [
             { kind: "cube3d", properties: { size: 48 } },

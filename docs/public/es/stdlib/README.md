@@ -20,6 +20,7 @@ Utilice únicamente API documentadas y validadas por pruebas al escribir ejemplo
 -`std.fs.path`: operaciones de ruta.
 -`std.json`: JSON.
 -`std.math`: matemáticas básicas.
+-`std.regex`: regex simple para validar y buscar texto.
 -`std.random`: alfa aleatorio, con cuidado del estado compartido.
 -`std.concurrent`: copia explícita para los límites de la competencia.
 -`std.test`: fallar, omitir y comparaciones simples para pruebas.
@@ -56,6 +57,7 @@ Si el compilador aún no admite semánticamente una API, no la publique como una
 
 - Texto y archivos:`docs/public/stdlib/text-and-files.md`.
 - Validación, matemáticas y aleatoria:`docs/public/stdlib/validation-math-random.md`.
+- Regex: `docs/public/es/stdlib/regex.md`.
 - referencia de biblioteca estándar:`docs/reference/stdlib/README.md`.
 - KB de stdlib:`docs/reference/zenith-kb/stdlib.md`.
 - Modelo normativo:`language/spec/stdlib-model.md`.

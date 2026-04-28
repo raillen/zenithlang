@@ -91,11 +91,11 @@ public func query(connection: database.DatabaseConnection, sql: text) -> result<
     database.record_sql(connection.id, sql)
 
     if connection.path == ""
-        const payload: text = fmt "{connection.driver}:{sql}"
+        const payload: text = f"{connection.driver}:{sql}"
         return success(payload)
     end
 
-    const payload: text = fmt "{connection.driver}@{connection.path}:{sql}"
+    const payload: text = f"{connection.driver}@{connection.path}:{sql}"
     return success(payload)
 end
 

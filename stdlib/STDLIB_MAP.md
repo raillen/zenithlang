@@ -663,6 +663,21 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 | 173 | `func` | `is_infinite` |
 | 177 | `func` | `is_finite` |
 
+#### `stdlib/std/regex.zt`
+
+| Line | Kind | Symbol |
+| ---: | --- | --- |
+| 3 | `namespace` | `std.regex` |
+| 5 | `enum` | `Error` |
+| 9 | `struct` | `Regex` |
+| 14 | `func` | `zt_regex_validate_core` |
+| 15 | `func` | `zt_regex_is_match_core` |
+| 16 | `func` | `zt_regex_find_all_core` |
+| 19 | `func` | `map_core_error` |
+| 27 | `func` | `compile` |
+| 36 | `func` | `is_match` |
+| 40 | `func` | `find_all` |
+
 #### `stdlib/std/net.zt`
 
 | Line | Kind | Symbol |
@@ -1250,4 +1265,3 @@ Do not edit this block by hand. Re-run `python tools/generate_code_maps.py`.
 - Related docs or decisions:
 - Extra test cases worth adding:
 <!-- CODEMAP:GENERATED:END -->
-

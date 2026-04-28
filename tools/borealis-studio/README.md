@@ -4,8 +4,8 @@ Novo editor desktop do Borealis em `Tauri + React + TypeScript`.
 
 ## Direcao de produto
 
-- Visual: proximo de Codex/Xcode, escuro, denso, limpo e focado.
-- Usabilidade: fluxo de editor de jogo, com Hierarchy, Scene View, Inspector, Assets e Console.
+- Visual: shell clara e produtiva, inspirada no fluxo do Unity e traduzida para o contrato do Borealis.
+- Usabilidade: fluxo de editor de jogo com toolbar lateral, Hierarchy, Scene/Game, Inspector, Project, Console e Animation.
 - Scripts: editor integrado para abrir e editar scripts associados aos objetos.
 - Icones: `lucide-react`.
 - Runtime: Tauri fica responsavel por ponte Rust, arquivos locais e preview.
@@ -16,17 +16,23 @@ Este scaffold ja entrega:
 
 1. shell Tauri 2;
 2. React + Vite + TypeScript;
-3. layout com paineis redimensionaveis;
-4. Scene View 3D visual com gizmos;
-5. Project/Hierarchy;
-6. Inspector com transform 3D;
-7. Assets + Console em dock inferior;
-8. editor de codigo integrado para scripts Zenith;
-9. fallback browser com dados mockados;
-10. comandos Tauri para ler/salvar texto e carregar snapshot local;
-11. save real de cena JSON;
-12. Play/Pause/Stop conectados ao preview sidecar por JSONL stdio;
-13. tela inicial com abrir projeto, novo projeto, templates e links locais de documentacao.
+3. shell Unity-like com header global, tool rail e status bar;
+4. layout dockavel com paineis redimensionaveis e persistencia local;
+5. Hierarchy real com parent/child e reparent por drag-and-drop;
+6. Scene/Game no centro, com Scene View 3D visual e gizmos;
+7. Inspector com fluxo de objeto/cena e transform 3D;
+8. Project + Console + Animation em dock inferior;
+9. editor de codigo integrado para scripts Zenith;
+10. fallback browser com dados mockados;
+11. comandos Tauri para ler/salvar texto e carregar snapshot local;
+12. save real de cena JSON;
+13. Play/Pause/Stop conectados ao preview sidecar por JSONL stdio;
+14. tela inicial com abrir projeto, novo projeto, templates e links locais de documentacao.
+
+## Planejamento ativo
+
+- Roadmap: `docs/internal/planning/borealis-studio-roadmap-v1.md`.
+- Checklist: `docs/internal/planning/borealis-studio-checklist-v1.md`.
 
 ## Preview runtime
 
@@ -132,8 +138,7 @@ npm run tauri dev
 ## Proximos passos
 
 1. adicionar dialog nativo para escolher pasta/arquivo;
-2. persistir projetos recentes;
-3. evoluir o preview de status JSONL para imagem/frame embutido no viewport;
-4. evoluir o empacotamento para anexar o SDK montado no instalador final;
-5. adicionar atalhos, command palette e diagnostics;
-6. ampliar testes automatizados do backend Tauri.
+2. evoluir o preview de status JSONL para imagem/frame embutido no viewport;
+3. evoluir o empacotamento para anexar o SDK montado no instalador final;
+4. adicionar atalhos, command palette e diagnostics;
+5. ampliar testes automatizados do backend Tauri.

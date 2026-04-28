@@ -1,0 +1,4 @@
+std.set operation requires both sets to use the same element type
+expected set<int> but got set<text>
+tests/behavior/set_operation_type_error/src/app/main.zt:8:
+error[type.mismatch]

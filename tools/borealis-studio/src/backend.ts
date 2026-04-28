@@ -1,5 +1,6 @@
 import { serializeSceneDocument } from "./sceneSerialization";
 import type {
+  FlatTreeNode,
   NewProjectRequest,
   PreviewCommandResult,
   SceneDocument,
@@ -120,4 +121,26 @@ export async function pollRuntimePreview(): Promise<PreviewCommandResult> {
   }
 
   return invokeCommand<PreviewCommandResult>("poll_preview");
+}
+
+export async function getEntityTree(): Promise<FlatTreeNode[]> {
+  if (!isTauriRuntime()) {
+    throw new Error("Tauri runtime is not available");
+  }
+
+  return invokeCommand<FlatTreeNode[]>("get_entity_tree");
+}
+
+export async function reparentEntity(entityId: string, newParentId?: string, index?: number): Promise<void> {
+  if (!isTauriRuntime()) {
+    throw new Error("Tauri runtime is not available");
+  }
+
+  await invokeCommand<void>("reparent_entity", {
+    request: {
+      entityId,
+      newParentId,
+      index,
+    },
+  });
 }

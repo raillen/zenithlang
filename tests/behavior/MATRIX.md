@@ -53,19 +53,39 @@ Legend:
 | `value_semantics_arc_isolation` | Chain-copy isolation (`a -> b -> c`) for `list` and `map` under COW/RC | `158` |
 | `value_semantics_optional_result_managed` | `optional<list<int>>` creation/copy and `result<list<int>, text>` `?` with COW-safe list mutation | `0` |
 | `optional_struct_qualified_managed` | `optional<mod.Struct>` com `struct` qualificada, retorno direto, atribuicao/call-site implicitos, campo opcional em outra `struct` e isolamento de `list<text>` | `0` |
+| `optional_primitive_specialized` | `optional<float/bool/int8/int16/int32/int64/u8/u16/u32/u64>` present, none, `is_some`, `is_none` and `or` | `0` |
 | `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
 | `std_collections_queue_stack_cow` | `queue/stack` com retorno estruturado (`colecao + item`) e isolamento por copia em `dequeue/pop` | `0` |
 | `optional_result_basic` | 
 one`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
 | `optional_question_basic` | `optional<T>` `?` propagation with `none` short-circuit in const initialization | `0` |
+| `optional_or_return_basic` | `optional<T>.or_return(value)` unwraps present values or returns from the enclosing function | `0` |
+| `result_or_wrap_basic` | `result<T, core.Error>.or_wrap(context)` preserves success and adds `core.Error.context` on failure | `0` |
 | `edge_boundaries_empty` | Edge values: `u8/u16/u32/u64` bounds, near `int` limits, and empty `text/list/map/bytes` invariants | `0` |
 | `bytes_hex_literal` | `hex bytes "..."`, `len(bytes)`, byte indexing and byte slicing | `9` |
 | `std_bytes_utf8` | `std.bytes.empty`, `std.text.to_utf8`, `std.text.from_utf8` and UTF-8 failure path | `14` |
 | `std_bytes_ops` | `std.bytes.from_list`, `std.bytes.to_list`, `std.bytes.join`, `std.bytes.starts_with`, `std.bytes.ends_with` and `std.bytes.contains` | `7` |
 | `std_validate_basic` | `std.validate` baseline predicates (`between`, `one_of`, `one_of_text`, text length checks) | `42` |
 | `std_small_helpers` | R6 small helper set for `std.validate`, `std.text`, `std.list` and `std.map` | `0` |
-| `std_math_basic` | `std.math` baseline (`abs`, `min`, `max`, `clamp`, `deg_to_rad`, `approx_equal`) | `22` |
+| `list_first_basic` | `std.list.first` returns `optional<int>` / `optional<text>` and `none` for empty lists | `0` |
+| `list_first_type_error` | `std.list.first` rejects non-list arguments | `1` |
+| `list_float_primitive_storage` | `list<float>` literal, index, update, slice and `len(list)` through primitive contiguous storage | `0` |
+| `list_last_basic` | `std.list.last` returns `optional<int>` / `optional<text>` and `none` for empty lists | `0` |
+| `list_last_type_error` | `std.list.last` rejects non-list arguments | `1` |
+| `list_primitive_numeric_matrix` | `list<bool/int8/int16/int32/int64/u8/u16/u32/u64>` literal, index, update, slice and `len(list)` | `0` |
+| `list_rest_basic` | `std.list.rest` returns a list without the first item and handles empty/single-item lists | `0` |
+| `list_rest_type_error` | `std.list.rest` rejects non-list arguments | `1` |
+| `list_skip_basic` | `std.list.skip` skips zero, negative, partial and over-length counts for int/text lists | `0` |
+| `list_skip_type_error` | `std.list.skip` rejects non-integral counts | `1` |
+| `set_core_api_basic` | `std.set.empty`, `std.set.of`, `std.set.add`, `std.set.remove`, `std.set.is_empty`, `std.set.has`, `std.set.len` | `0` |
+| `set_operations_basic` | `set<int>` and `set<text>` literals plus `std.set.union`, `std.set.intersect`, `std.set.difference`, `std.set.has`, `std.set.len` | `0` |
+| `set_iteration_basic` | `for item in set<T>` and `for item, index in set<T>` for `set<int>` and `set<text>` | `0` |
+| `set_empty_inference_error` | `std.set.empty()` requires an expected `set<T>` type | `1` |
+| `set_mutation_const_error` | `std.set.add` rejects mutation through a `const set<T>` binding | `1` |
+| `set_operation_type_error` | `std.set.union` rejects sets with different element types | `1` |
+| `std_math_basic` | `std.math` baseline (`abs`, `pow`, `sqrt`, `min`, `max`, `clamp`, rounding, trig, logs, constants, special float checks) | `42` |
+| `std_regex_basic` | `std.regex` baseline (`compile`, `is_match`, `find_all`) for simple patterns and invalid pattern handling | `0` |
 | `std_random_basic` | `std.random` baseline (`seed`, `next`, `between`) plus `public var` state tracking | `0` |
 | `std_random_state_observability` | `std.random` public state observability (`seeded`, `last_seed`, `draw_count`, `stats`) | `0` |
 | `std_random_between_branches` | `std.random.between` branch behavior (`min == max`, `max < min`) with draw count invariants | `0` |
@@ -76,6 +96,7 @@ one`, `success(...)` and `error(...)` | `0` |
 | `unreachable_builtin_fail` | Builtin `unreachable(message)` fatal path | `runtime.unreachable` |
 | `check_intrinsic_message_fail` | Builtin `check(condition, message)` fatal path with custom message | `runtime.check` |
 | `std_fs_basic` | `std.fs` baseline (`write_text`, `exists`, `read_text`) via host runtime wrappers | `check-pass` |
+| `std_fs_aliases_basic` | `std.fs` checklist aliases (`copy`, `rename`, `file_size`) plus `exists`, `is_file`, `is_dir` | `0` |
 | `std_fs_ops_basic` | `std.fs` create/list/metadata/copy/move/remove com caminhos reais | `0` |
 | `std_fs_path_basic` | `std.fs.path` baseline (`join`, `base`, `dir`, `ext`, 
 ame_without_extension`, `has_ext`, `change_ext`, 
@@ -85,8 +106,7 @@ ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-pro
 | `std_test_attr_pass_skip` | `zt test` com `attr test` exercitando 1 pass e 1 skip | `test ok (pass=1 skip=1)` |
 | `std_test_attr_fail` | `zt test` com `attr test` exercitando 1 pass, 1 skip e 1 fail | `test failed (pass=1 skip=1 fail=1)` |
 | `std_test_helpers_pass` | `std.test` helper assertions no caminho feliz (`is_true`, `is_false`, `equal_*`, `not_equal_*`) | `0` |
-| `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, 
-ow`, `sleep`, `since`, `until`, conversoes unix) | `0` |
+| `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, `now`, `now_ms`, `sleep`, `sleep_ms`, `elapsed`, `since`, `until`, conversoes unix) | `0` |
 | `std_os_basic` | `std.os` tipado (`Platform`, `Arch`, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
 | `std_os_process_basic` | `std.os.process` com `ExitStatus` tipado (`run`, `exit_code`) e comando explicito (`program` + `args`) | `0` |
 | `std_net_basic` | `std.net` TCP client baseline (`connect`, `read_some`, `write_all`, `close`, `is_closed`) em loopback local via `run-loopback.ps1` | `0` |

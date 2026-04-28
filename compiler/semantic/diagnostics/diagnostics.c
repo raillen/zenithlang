@@ -190,6 +190,7 @@ const char *zt_diag_code_name(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "callable.extern_c_closure_unsupported";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
         case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "closure.mut_capture_unsupported";
+        case ZT_DIAG_DEPRECATED_SYNTAX: return "deprecated_syntax";
         default: return "unknown";
     }
 }
@@ -270,6 +271,7 @@ const char *zt_diag_code_stable(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "callable.extern_c_closure_unsupported";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "callable.invalid_func_ref";
         case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "closure.mut_capture_unsupported";
+        case ZT_DIAG_DEPRECATED_SYNTAX: return "deprecated.syntax";
         default: return "internal.unknown";
     }
 }
@@ -353,6 +355,7 @@ const char *zt_diag_default_help(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED: return "Closures capturing variables cannot be passed to an extern c boundary. Use a plain non-capturing function.";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "Use a non-generic top-level wrapper whose signature matches the expected callable type.";
         case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED: return "Captured scoped variables in Zenith are immutable snapshots (by value). You cannot assign a new value to a captured variable.";
+        case ZT_DIAG_DEPRECATED_SYNTAX: return "This syntax is deprecated and will be removed in a future version.";
         default: return NULL;
     }
 }
@@ -430,7 +433,7 @@ static void zt_diag_list_add_va(
         list->capacity = new_capacity;
     }
 
-list->items[list->count].code = code;
+    list->items[list->count].code = code;
     list->items[list->count].severity = severity;
     list->items[list->count].effort = zt_diag_code_effort(code);
     list->items[list->count].span = span;
@@ -486,6 +489,7 @@ void zt_diag_list_add_suggestion(
         snprintf(list->items[idx].suggestion, sizeof(list->items[idx].suggestion), "%s", suggestion);
     }
 }
+
 static int zt_name_edit_distance(const char *a, const char *b) {
     size_t la, lb;
     size_t i, j;
@@ -600,6 +604,7 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_EXTERN_C_CLOSURE_UNSUPPORTED:
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF:
         case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED:
+        case ZT_DIAG_DEPRECATED_SYNTAX:
             return ZT_DIAG_EFFORT_MODERATE;
 
         case ZT_DIAG_NON_EXHAUSTIVE_MATCH:
@@ -666,6 +671,7 @@ const char *zt_diag_action_text(zt_diag_code code) {
         case ZT_DIAG_CALLABLE_ESCAPE_CONTAINER: return "Pass callables individually as function arguments rather than collecting them in a container.";
         case ZT_DIAG_CALLABLE_EXTERN_C_SIGNATURE: return "Use only int, float, bool, text, or bytes in callables that are passed to extern c.";
         case ZT_DIAG_CALLABLE_INVALID_FUNC_REF: return "Reference a non-generic top-level wrapper with the expected signature.";
+        case ZT_DIAG_DEPRECATED_SYNTAX: return "Replace the deprecated syntax with the suggested alternative.";
         default: return NULL;
     }
 }
@@ -757,6 +763,8 @@ const char *zt_diag_next_text(zt_diag_code code) {
             return "Re-run `zt check` after referencing a non-generic wrapper with the expected signature.";
         case ZT_DIAG_CLOSURE_MUT_CAPTURE_UNSUPPORTED:
             return "Re-run `zt check` after removing assignments to outer variables from the closure body.";
+        case ZT_DIAG_DEPRECATED_SYNTAX:
+            return "Replace the deprecated syntax with the suggested alternative.";
         default:
             return NULL;
     }

@@ -88,6 +88,7 @@ counter.value = 0 -- erro
 
 - Tour da linguagem: `docs/public/language/core-tour.md`.
 - Mapeamento mental: `docs/public/language/common-mapping.md`.
+- Limpeza com `using`: `docs/public/language/resource-cleanup.md`.
 - Trilha de aprendizado: `docs/public/learn/README.md`.
 - Cookbook: `docs/public/cookbook/README.md`.
 - Sintaxe curta: `docs/reference/zenith-kb/syntax.md`.

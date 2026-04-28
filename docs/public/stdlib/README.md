@@ -20,11 +20,13 @@ Use apenas APIs documentadas e validadas por testes quando escrever exemplos pub
 - `std.fs.path`: operações de caminho.
 - `std.json`: JSON.
 - `std.math`: matemática básica.
+- `std.regex`: regex simples para validar e buscar texto.
 - `std.random`: random alpha, com cuidado para estado compartilhado.
 - `std.concurrent`: cópia explícita para fronteiras de concorrência.
 - `std.test`: fail, skip e comparacoes simples para testes.
 - `std.list`: helpers pequenos para `list<T>`.
 - `std.map`: helpers pequenos para `map<K,V>`.
+- `std.set`: helpers pequenos para `set<T>`.
 
 ## Testes pequenos com `std.test`
 
@@ -56,6 +58,8 @@ Se uma API ainda não esta suportada semanticamente pelo compilador, não coloqu
 
 - Texto e arquivos: `docs/public/stdlib/text-and-files.md`.
 - Validação, matemática e random: `docs/public/stdlib/validation-math-random.md`.
+- Regex: `docs/public/stdlib/regex.md`.
+- Sets: `docs/public/stdlib/set.md`.
 - Referência da stdlib: `docs/reference/stdlib/README.md`.
 - KB da stdlib: `docs/reference/zenith-kb/stdlib.md`.
 - Modelo normativo: `language/spec/stdlib-model.md`.

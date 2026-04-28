@@ -1,0 +1,79 @@
+namespace app.main
+
+import std.io as io
+
+func bench_int_list(iterations: int) -> int
+    var values: list<int> = [1, 2, 3, 4, 5, 6, 7, 8]
+    var i: int = 0
+    var total: int = 0
+
+    while i < iterations
+        const index: int = i % 8
+        const current: int = values[index]
+        values[index] = current + 1
+        total = total + values[index]
+        i = i + 1
+    end
+
+    const tail: list<int> = values[2..7]
+    return total + len(values) + len(tail)
+end
+
+func bench_float_list(iterations: int) -> int
+    var values: list<float> = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    var i: int = 0
+    var hits: int = 0
+
+    while i < iterations
+        const index: int = i % 8
+        const current: float = values[index]
+        values[index] = 3.5
+        if values[index] > 0.0
+            hits = hits + 1
+        end
+        if current < 0.0
+            hits = hits - 1
+        end
+        i = i + 1
+    end
+
+    const tail: list<float> = values[2..7]
+    return hits + len(values) + len(tail)
+end
+
+func bench_fixed_width_lists(iterations: int) -> int
+    var signed_values: list<int32> = [10, 20, 30, 40]
+    var unsigned_values: list<u32> = [10, 20, 30, 40]
+    var i: int = 0
+    var hits: int = 0
+
+    while i < iterations
+        const index: int = i % 4
+        signed_values[index] = 42
+        unsigned_values[index] = 84
+        if signed_values[index] == 42 and unsigned_values[index] == 84
+            hits = hits + 1
+        end
+        i = i + 1
+    end
+
+    const signed_tail: list<int32> = signed_values[1..3]
+    const unsigned_tail: list<u32> = unsigned_values[1..3]
+    return hits + len(signed_tail) + len(unsigned_tail)
+end
+
+func main() -> result<void, core.Error>
+    const iterations: int = 750000
+
+    const int_score: int = bench_int_list(iterations)
+    const float_score: int = bench_float_list(iterations)
+    const fixed_score: int = bench_fixed_width_lists(iterations)
+
+    if int_score <= iterations or float_score <= iterations or fixed_score <= iterations
+        return error("primitive numeric list benchmark score below expected")
+    end
+
+    io.write("primitive-numeric-lists-ok")?
+    io.write("\n")?
+    return success()
+end

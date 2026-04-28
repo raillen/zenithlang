@@ -1,0 +1,3 @@
+std.list.last(...) requires a list<T> argument
+tests/behavior/list_last_type_error/src/app/main.zt:7:
+error[type.mismatch]

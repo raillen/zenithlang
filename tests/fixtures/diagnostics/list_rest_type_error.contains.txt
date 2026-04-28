@@ -1,0 +1,3 @@
+std.list.rest(...) requires a list<T> argument
+tests/behavior/list_rest_type_error/src/app/main.zt:7:
+error[type.mismatch]

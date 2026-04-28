@@ -45,6 +45,7 @@ const char *zt_type_kind_name(zt_type_kind kind) {
         case ZT_TYPE_RESULT: return "result";
         case ZT_TYPE_LIST: return "list";
         case ZT_TYPE_MAP: return "map";
+        case ZT_TYPE_SET: return "set";
         case ZT_TYPE_GRID2D: return "grid2d";
         case ZT_TYPE_PQUEUE: return "pqueue";
         case ZT_TYPE_CIRCBUF: return "circbuf";
@@ -194,6 +195,7 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_RESULT:
         case ZT_TYPE_LIST:
         case ZT_TYPE_MAP:
+        case ZT_TYPE_SET:
         case ZT_TYPE_GRID2D:
         case ZT_TYPE_PQUEUE:
         case ZT_TYPE_CIRCBUF:

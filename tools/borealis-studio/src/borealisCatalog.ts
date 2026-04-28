@@ -170,8 +170,95 @@ export const BOREALIS_COMPONENTS: Record<string, ComponentSchema> = {
   },
 };
 
+export const BOREALIS_SCENE_SETTINGS: Record<string, SceneSettingSchema> = {
+  skybox: {
+    module: "borealis.game.world3d.skybox",
+    label: "Skybox",
+    description: "Scene background mode and color.",
+    category: "environment",
+    fields: [
+      { key: "mode", label: "Mode", kind: "select", options: ["solid", "skybox", "procedural"], default: "solid" },
+      { key: "color", label: "Color", kind: "color", default: "#1c1f26" },
+    ],
+  },
+  ambient: {
+    module: "borealis.game.world3d.lighting",
+    label: "Ambient Light",
+    description: "Base scene lighting.",
+    category: "environment",
+    fields: [
+      { key: "color", label: "Color", kind: "color", default: "#ffffff" },
+      { key: "intensity", label: "Intensity", kind: "number", min: 0, max: 4, step: 0.05, default: 0.4 },
+    ],
+  },
+  fog: {
+    module: "borealis.game.world3d.atmosphere",
+    label: "Fog",
+    description: "Depth fog applied to the scene.",
+    category: "environment",
+    fields: [
+      { key: "enabled", label: "Enabled", kind: "boolean", default: false },
+      { key: "color", label: "Color", kind: "color", default: "#9ca3af" },
+      { key: "density", label: "Density", kind: "number", min: 0, max: 1, step: 0.01, default: 0.05 },
+    ],
+  },
+  weather: {
+    module: "borealis.game.world3d.weather",
+    label: "Weather",
+    description: "Scene-level weather preset.",
+    category: "environment",
+    fields: [{ key: "preset", label: "Preset", kind: "select", options: ["clear", "cloudy", "rain", "storm"], default: "clear" }],
+  },
+  quality: {
+    module: "borealis.game.render3d",
+    label: "Render Quality",
+    description: "Renderer quality profile.",
+    category: "render",
+    fields: [{ key: "profile", label: "Profile", kind: "select", options: ["low", "medium", "high"], default: "medium" }],
+  },
+  postfx: {
+    module: "borealis.game.postfx",
+    label: "Post FX",
+    description: "Screen-space post processing.",
+    category: "render",
+    fields: [
+      { key: "fxaa", label: "FXAA", kind: "boolean", default: false },
+      { key: "bloom", label: "Bloom", kind: "number", min: 0, max: 2, step: 0.05, default: 0 },
+      { key: "vignette", label: "Vignette", kind: "number", min: 0, max: 1, step: 0.05, default: 0 },
+    ],
+  },
+  camera: {
+    module: "borealis.game.camera3d",
+    label: "Default Camera",
+    description: "Fallback camera settings for Play mode.",
+    category: "render",
+    fields: [
+      { key: "projection", label: "Projection", kind: "select", options: ["perspective", "orthographic"], default: "perspective" },
+      { key: "fov", label: "FOV", kind: "number", min: 20, max: 120, step: 1, default: 60 },
+    ],
+  },
+  listener: {
+    module: "borealis.game.audio3d",
+    label: "Audio Listener",
+    description: "Default listener routing.",
+    category: "audio",
+    fields: [{ key: "target", label: "Target", kind: "text", default: "" }],
+  },
+  mix: {
+    module: "borealis.game.audio",
+    label: "Audio Mix",
+    description: "Scene-level audio volumes.",
+    category: "audio",
+    fields: [
+      { key: "master", label: "Master", kind: "number", min: 0, max: 1, step: 0.05, default: 1 },
+      { key: "music", label: "Music", kind: "number", min: 0, max: 1, step: 0.05, default: 0.8 },
+      { key: "sfx", label: "SFX", kind: "number", min: 0, max: 1, step: 0.05, default: 1 },
+    ],
+  },
+};
+
 let activeComponents: Record<string, ComponentSchema> = BOREALIS_COMPONENTS;
-let activeSceneSettings: Record<string, SceneSettingSchema> = {};
+let activeSceneSettings: Record<string, SceneSettingSchema> = BOREALIS_SCENE_SETTINGS;
 let activeManifestSource = "fallback:frontend-catalog";
 
 export function configureBorealisCatalog(manifest?: BorealisEditorManifest): void {
@@ -181,7 +268,7 @@ export function configureBorealisCatalog(manifest?: BorealisEditorManifest): voi
     Object.keys(manifestComponents).length > 0
       ? { ...BOREALIS_COMPONENTS, ...manifestComponents }
       : BOREALIS_COMPONENTS;
-  activeSceneSettings = manifestSceneSettings;
+  activeSceneSettings = { ...BOREALIS_SCENE_SETTINGS, ...manifestSceneSettings };
   activeManifestSource = manifest?.source ?? "fallback:frontend-catalog";
 }
 

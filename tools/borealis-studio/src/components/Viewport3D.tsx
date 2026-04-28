@@ -21,6 +21,8 @@ import type {
   ViewOrientation,
   ViewProjection,
   ViewportRendererProps,
+  ViewportPivotMode,
+  ViewportSpaceMode,
 } from "../types";
 import { componentValue } from "../borealisCatalog";
 import { cameraPositionForView, numpadOrientation, oppositeOrientation } from "../utils/camera";
@@ -31,22 +33,29 @@ import { Viewport3DEntity } from "./Viewport3DEntity";
 
 export function Viewport3D({
   entities,
+  gizmos,
   mode,
+  pivotMode,
   preferences,
   scene,
   selectedEntityId,
+  spaceMode,
   onClearSelection,
   onResetCamera,
   onSelectEntity,
   onUpdateTransform,
-}: ViewportRendererProps & { scene: SceneDocument }) {
+}: ViewportRendererProps & {
+  gizmos: boolean;
+  pivotMode: ViewportPivotMode;
+  scene: SceneDocument;
+  spaceMode: ViewportSpaceMode;
+}) {
   const orbitRef = useRef<any>(null);
   const [projection, setProjection] = useState<ViewProjection>("perspective");
   const [orientation, setOrientation] = useState<ViewOrientation>("free");
   const [renderMode, setRenderMode] = useState<RenderMode>("light");
   const [radialOpen, setRadialOpen] = useState(false);
-  const [gridEditing, setGridEditing] = useState(false);
-  const [gridDraft, setGridDraft] = useState("25");
+  const [gridDraft, setGridDraft] = useState("1");
   const [transforming, setTransforming] = useState(false);
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({
     gridSize: 1,
@@ -147,7 +156,6 @@ export function Viewport3D({
     const nextSize = clamp(Number(gridDraft) || snapSettings.gridSize, 0.25, 10);
     updateSnapSettings({ gridSize: nextSize });
     setGridDraft(String(nextSize));
-    setGridEditing(false);
   }
 
   return (
@@ -165,16 +173,20 @@ export function Viewport3D({
         <directionalLight castShadow intensity={0.8} position={[10, 12, 10]} />
         <Environment preset="city" />
         <ViewportSceneLights entities={entities} />
-        <Grid
-          args={[30, 30]}
-          cellColor="#2c2c2c"
-          cellSize={snapSettings.gridSize}
-          fadeDistance={30}
-          fadeStrength={1}
-          sectionColor="#353535"
-          sectionSize={snapSettings.gridSize * 5}
-          infiniteGrid
-        />
+        {preferences.showGrid ? (
+          <Grid
+            args={[30, 30]}
+            cellColor={preferences.gridColor}
+            cellSize={snapSettings.gridSize}
+            cellThickness={Math.max(0.25, preferences.gridOpacity * 0.9)}
+            fadeDistance={38}
+            fadeStrength={0.78}
+            sectionColor={preferences.gridColor}
+            sectionSize={snapSettings.gridSize * 5}
+            sectionThickness={Math.max(0.55, preferences.gridOpacity * 1.8)}
+            infiniteGrid
+          />
+        ) : null}
         <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
           <planeGeometry args={[60, 0.015]} />
           <meshBasicMaterial color="#df746c" transparent opacity={0.6} />
@@ -196,8 +208,11 @@ export function Viewport3D({
                 snapSettings={snapSettings}
                 transformMode={transformMode}
                 entities={entities}
+                gizmos={gizmos}
                 gizmoSize={preferences.gizmoSize}
+                pivotMode={pivotMode}
                 onSelect={onSelectEntity}
+                spaceMode={spaceMode}
                 onTransformingChange={setTransforming}
                 onUpdateTransform={onUpdateTransform}
               />
@@ -224,17 +239,16 @@ export function Viewport3D({
           screenSpacePanning
         />
 
-        <GizmoHelper alignment="bottom-right" margin={[40, 40]}>
-          <GizmoViewport axisColors={["#df746c", "#72c08b", "#68a4ff"]} labelColor="#efefef" />
-        </GizmoHelper>
+        {gizmos ? (
+          <GizmoHelper alignment="bottom-right" margin={[58, 72]}>
+            <GizmoViewport axisColors={["#df746c", "#72c08b", "#68a4ff"]} labelColor="#efefef" />
+          </GizmoHelper>
+        ) : null}
       </Canvas>
       <div className="viewport-overlay-top">
-        <StatusPill>Scene 3D</StatusPill>
-        <StatusPill>MMB orbit</StatusPill>
-        <StatusPill>Shift+MMB pan</StatusPill>
+        <StatusPill>3D</StatusPill>
         <StatusPill>{mode === "select" ? "Select" : transformMode}</StatusPill>
         <StatusPill>{cameraMode}</StatusPill>
-        <StatusPill>{orientation === "free" ? "Free" : orientation}</StatusPill>
         {fogEnabled ? <StatusPill>Fog</StatusPill> : null}
         {postfxEnabled ? <StatusPill>PostFX</StatusPill> : null}
         <button className="viewport-reset" onClick={onResetCamera}>Reset</button>
@@ -277,37 +291,23 @@ export function Viewport3D({
         <label>
           <span>Grid m</span>
           <input
+            className="grid-size-input"
             max={10}
             min={0.25}
             onChange={(event) => {
-              updateSnapSettings({ gridSize: Number(event.target.value) });
               setGridDraft(event.target.value);
+              const next = Number(event.target.value);
+              if (Number.isFinite(next)) updateSnapSettings({ gridSize: clamp(next, 0.25, 10) });
+            }}
+            onBlur={commitGridSize}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitGridSize();
+              if (event.key === "Escape") setGridDraft(String(snapSettings.gridSize));
             }}
             step={0.25}
-            type="range"
-            value={snapSettings.gridSize}
+            type="number"
+            value={gridDraft}
           />
-          {gridEditing ? (
-            <input
-              className="grid-size-input"
-              autoFocus
-              onBlur={commitGridSize}
-              onChange={(event) => setGridDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") commitGridSize();
-                if (event.key === "Escape") {
-                  setGridDraft(String(snapSettings.gridSize));
-                  setGridEditing(false);
-                }
-              }}
-              type="number"
-              value={gridDraft}
-            />
-          ) : (
-            <strong onDoubleClick={() => setGridEditing(true)} title="Double-click to type grid size">
-              {snapSettings.gridSize}
-            </strong>
-          )}
         </label>
         <button
           className={snapSettings.snapToGrid ? "active" : ""}

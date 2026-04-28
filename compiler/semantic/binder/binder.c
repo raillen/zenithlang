@@ -205,6 +205,7 @@ static int zt_is_builtin_type_name(const char *name) {
         "bytes",
         "void",
         "list",
+        "set",
         "map",
         "grid2d",
         "pqueue",
@@ -234,7 +235,13 @@ static int zt_is_intrinsic_name(const char *name) {
             strcmp(name, "check") == 0 ||
             strcmp(name, "todo") == 0 ||
             strcmp(name, "unreachable") == 0 ||
-            strcmp(name, "panic") == 0);
+            strcmp(name, "panic") == 0 ||
+            strcmp(name, "print") == 0 ||
+            strcmp(name, "read") == 0 ||
+            strcmp(name, "debug") == 0 ||
+            strcmp(name, "type_name") == 0 ||
+            strcmp(name, "size_of") == 0 ||
+            strcmp(name, "range") == 0);
 }
 
 static const char *zt_import_local_name(const char *path) {
@@ -570,6 +577,20 @@ static void zt_bind_statement(zt_binder *binder, const zt_ast_node *node, zt_sco
             zt_bind_expression(binder, node->as.var_decl.init_value, scope);
             zt_bind_declare_name(binder, scope, ZT_SYMBOL_LOCAL, node->as.var_decl.name, node->span, 0);
             break;
+        case ZT_AST_USING_STMT:
+            zt_bind_expression(binder, node->as.using_stmt.init_value, scope);
+            zt_scope_init(&child_scope, scope);
+            zt_bind_declare_name(binder, &child_scope, ZT_SYMBOL_LOCAL, node->as.using_stmt.name, node->span, 0);
+            if (node->as.using_stmt.cleanup_expr != NULL) {
+                zt_bind_expression(binder, node->as.using_stmt.cleanup_expr, &child_scope);
+            }
+            if (node->as.using_stmt.body != NULL) {
+                zt_bind_block(binder, node->as.using_stmt.body, &child_scope);
+            } else {
+                zt_bind_declare_name(binder, scope, ZT_SYMBOL_LOCAL, node->as.using_stmt.name, node->span, 0);
+            }
+            zt_scope_dispose(&child_scope);
+            break;
         case ZT_AST_ASSIGN_STMT:
             if (zt_scope_lookup(scope, node->as.assign_stmt.name) == NULL) {
                 zt_bind_emit_unresolved_with_suggestion(binder, node->as.assign_stmt.name, node->span, scope);
@@ -744,6 +765,10 @@ static size_t zt_bind_statement_count(const zt_ast_node *node) {
             return count + zt_bind_block_statement_count(node->as.for_stmt.body);
         case ZT_AST_REPEAT_STMT:
             return count + zt_bind_block_statement_count(node->as.repeat_stmt.body);
+        case ZT_AST_USING_STMT:
+            if (node->as.using_stmt.body != NULL)
+                return count + zt_bind_block_statement_count(node->as.using_stmt.body);
+            return count;
         case ZT_AST_MATCH_STMT:
             for (i = 0; i < node->as.match_stmt.cases.count; i += 1) {
                 const zt_ast_node *case_node = node->as.match_stmt.cases.items[i];

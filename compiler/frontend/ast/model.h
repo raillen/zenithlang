@@ -42,6 +42,7 @@ typedef enum zt_ast_kind {
     ZT_AST_FIELD_ASSIGN_STMT,
     ZT_AST_MATCH_STMT,
     ZT_AST_MATCH_CASE,
+    ZT_AST_USING_STMT,
     ZT_AST_BREAK_STMT,
     ZT_AST_CONTINUE_STMT,
     ZT_AST_EXPR_STMT,
@@ -61,6 +62,7 @@ typedef enum zt_ast_kind {
     ZT_AST_ERROR_EXPR,
     ZT_AST_LIST_EXPR,
     ZT_AST_MAP_EXPR,
+    ZT_AST_SET_EXPR,
     ZT_AST_IDENT_EXPR,
     ZT_AST_FMT_EXPR,
     ZT_AST_GROUPED_EXPR,
@@ -301,6 +303,13 @@ struct zt_ast_node {
         } match_case;
 
         struct {
+            const char *name;
+            zt_ast_node *init_value;
+            zt_ast_node *cleanup_expr;
+            zt_ast_node *body;
+        } using_stmt;
+
+        struct {
             zt_ast_node *expr;
         } expr_stmt;
 
@@ -376,6 +385,10 @@ struct zt_ast_node {
         struct {
             zt_ast_map_entry_list entries;
         } map_expr;
+
+        struct {
+            zt_ast_node_list elements;
+        } set_expr;
 
         struct {
             const char *name;

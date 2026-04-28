@@ -529,6 +529,7 @@ static int zir_is_reserved_identifier(const char *token, size_t token_len, char 
         "outcome_is_success",
         "outcome_value",
         "try_propagate",
+        "outcome_wrap_context",
         "get_field",
         "set_field",
         "const",
@@ -798,6 +799,7 @@ static int zir_verify_expr(
         case ZIR_EXPR_COPY:
         case ZIR_EXPR_LIST_LEN:
         case ZIR_EXPR_MAP_LEN:
+        case ZIR_EXPR_SET_LEN:
         case ZIR_EXPR_OPTIONAL_PRESENT:
         case ZIR_EXPR_OPTIONAL_IS_PRESENT:
         case ZIR_EXPR_OUTCOME_SUCCESS:
@@ -890,6 +892,15 @@ static int zir_verify_expr(
             return 1;
         }
 
+        case ZIR_EXPR_MAKE_SET: {
+            size_t i;
+            if (!zir_verify_type_name(expr->as.make_set.elem_type_name, context, span, result)) return 0;
+            for (i = 0; i < expr->as.make_set.items.count; i++) {
+                if (!zir_verify_expr(expr->as.make_set.items.items[i], defined, context, span, result)) return 0;
+            }
+            return 1;
+        }
+
         case ZIR_EXPR_GET_FIELD:
             return zir_verify_expr(expr->as.field.object, defined, context, span, result);
 
@@ -899,7 +910,11 @@ static int zir_verify_expr(
 
         case ZIR_EXPR_INDEX_SEQ:
         case ZIR_EXPR_COALESCE:
+        case ZIR_EXPR_OUTCOME_WRAP_CONTEXT:
         case ZIR_EXPR_LIST_PUSH:
+        case ZIR_EXPR_SET_ADD:
+        case ZIR_EXPR_SET_REMOVE:
+        case ZIR_EXPR_SET_HAS:
             return zir_verify_expr(expr->as.sequence.first, defined, context, span, result) &&
                    zir_verify_expr(expr->as.sequence.second, defined, context, span, result);
 

@@ -227,7 +227,7 @@ public func reset() -> void
 end
 
 public func slot_field_key(slot: int, name: text) -> text
-    return fmt "{slot}::{name}"
+    return f"{slot}::{name}"
 end
 
 public func bool_or_text(values: map<text, bool>, key: text, fallback: bool) -> bool

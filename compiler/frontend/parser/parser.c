@@ -819,6 +819,7 @@ static int zt_parser_is_type_name(zt_token_kind kind) {
            kind == ZT_TOKEN_RESULT ||
            kind == ZT_TOKEN_LIST ||
            kind == ZT_TOKEN_MAP ||
+           kind == ZT_TOKEN_SET ||
            kind == ZT_TOKEN_GRID2D ||
            kind == ZT_TOKEN_PQUEUE ||
            kind == ZT_TOKEN_CIRCBUF ||
@@ -839,7 +840,8 @@ static zt_token zt_parser_expect_type_name(zt_parser *p) {
 static int zt_parser_is_contextual_identifier(zt_token_kind kind) {
     return kind == ZT_TOKEN_IDENTIFIER ||
            kind == ZT_TOKEN_LIST ||
-           kind == ZT_TOKEN_MAP;
+           kind == ZT_TOKEN_MAP ||
+           kind == ZT_TOKEN_SET;
 }
 
 static zt_token zt_parser_expect_contextual_identifier(zt_parser *p) {
@@ -1032,12 +1034,22 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         return node;
     }
 
-    if (zt_parser_token_is_identifier_literal(&tok, "fmt", 3)) {
+    if (zt_parser_token_is_identifier_literal(&tok, "f", 1) ||
+        zt_parser_token_is_identifier_literal(&tok, "fmt", 3)) {
         zt_parser_fill_peek(p);
         if (p->peek.kind == ZT_TOKEN_STRING_LITERAL || p->peek.kind == ZT_TOKEN_TRIPLE_QUOTED_TEXT) {
+            int is_legacy_fmt = zt_parser_token_is_identifier_literal(&tok, "fmt", 3);
             zt_token fmt_tok = tok;
             zt_parser_advance(p);
             tok = zt_parser_advance(p);
+            if (is_legacy_fmt) {
+                zt_diag_list_add_severity(
+                    &p->result->diagnostics,
+                    ZT_DIAG_DEPRECATED_SYNTAX,
+                    ZT_DIAG_SEVERITY_WARNING,
+                    fmt_tok.span,
+                    "fmt \"...\" is deprecated; use f\"...\" instead");
+            }
             return zt_parser_parse_fmt_expr_from_token(p, fmt_tok, tok);
         }
     }
@@ -1118,35 +1130,56 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
 
     if (tok.kind == ZT_TOKEN_LBRACE) {
         zt_parser_advance(p);
-        zt_ast_map_entry_list entries = zt_ast_map_entry_list_make();
-        if (!zt_parser_check(p, ZT_TOKEN_RBRACE)) {
-            {
-                zt_ast_node *key = zt_parser_parse_expression(p);
-                zt_parser_expect(p, ZT_TOKEN_COLON);
-                zt_ast_node *val = zt_parser_parse_expression(p);
-                zt_ast_map_entry entry;
-                entry.span = tok.span;
-                entry.key = key;
-                entry.value = val;
-                zt_ast_map_entry_list_push(p->arena, &entries, entry);
-            }
-            while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
-                if (zt_parser_check(p, ZT_TOKEN_RBRACE)) break;
-                zt_ast_node *key = zt_parser_parse_expression(p);
-                zt_parser_expect(p, ZT_TOKEN_COLON);
-                zt_ast_node *val = zt_parser_parse_expression(p);
-                zt_ast_map_entry entry;
-                entry.span = tok.span;
-                entry.key = key;
-                entry.value = val;
-                zt_ast_map_entry_list_push(p->arena, &entries, entry);
+        if (zt_parser_check(p, ZT_TOKEN_RBRACE)) {
+            zt_parser_advance(p);
+            zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_MAP_EXPR, tok.span);
+            if (node == NULL) return NULL;
+            node->as.map_expr.entries = zt_ast_map_entry_list_make();
+            return node;
+        }
+        {
+            zt_ast_node *first = zt_parser_parse_expression(p);
+            if (zt_parser_check(p, ZT_TOKEN_COLON)) {
+                zt_ast_map_entry_list entries = zt_ast_map_entry_list_make();
+                zt_parser_advance(p);
+                {
+                    zt_ast_node *val = zt_parser_parse_expression(p);
+                    zt_ast_map_entry entry;
+                    entry.span = tok.span;
+                    entry.key = first;
+                    entry.value = val;
+                    zt_ast_map_entry_list_push(p->arena, &entries, entry);
+                }
+                while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
+                    if (zt_parser_check(p, ZT_TOKEN_RBRACE)) break;
+                    zt_ast_node *key = zt_parser_parse_expression(p);
+                    zt_parser_expect(p, ZT_TOKEN_COLON);
+                    zt_ast_node *val = zt_parser_parse_expression(p);
+                    zt_ast_map_entry entry;
+                    entry.span = tok.span;
+                    entry.key = key;
+                    entry.value = val;
+                    zt_ast_map_entry_list_push(p->arena, &entries, entry);
+                }
+                zt_parser_expect(p, ZT_TOKEN_RBRACE);
+                zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_MAP_EXPR, tok.span);
+                if (node == NULL) return NULL;
+                node->as.map_expr.entries = entries;
+                return node;
+            } else {
+                zt_ast_node_list elements = zt_ast_node_list_make();
+                zt_ast_node_list_push(p->arena, &elements, first);
+                while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
+                    if (zt_parser_check(p, ZT_TOKEN_RBRACE)) break;
+                    zt_ast_node_list_push(p->arena, &elements, zt_parser_parse_expression(p));
+                }
+                zt_parser_expect(p, ZT_TOKEN_RBRACE);
+                zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_SET_EXPR, tok.span);
+                if (node == NULL) return NULL;
+                node->as.set_expr.elements = elements;
+                return node;
             }
         }
-        zt_parser_expect(p, ZT_TOKEN_RBRACE);
-        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_MAP_EXPR, tok.span);
-        if (node == NULL) return NULL;
-        node->as.map_expr.entries = entries;
-        return node;
     }
 
     if (tok.kind == ZT_TOKEN_BANG) {
@@ -1725,6 +1758,42 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
             node->as.var_decl.is_module_level = 0;
         }
         return node;
+    }
+
+    if (tok.kind == ZT_TOKEN_USING) {
+        zt_parser_advance(p);
+        zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+        zt_parser_expect(p, ZT_TOKEN_EQ);
+        zt_ast_node *init_expr = zt_parser_parse_expression(p);
+        zt_ast_node *cleanup = NULL;
+        zt_ast_node *body = NULL;
+
+        if (zt_parser_check(p, ZT_TOKEN_IDENTIFIER) &&
+                p->current.length == 4 &&
+                memcmp(p->current.text, "then", 4) == 0) {
+            zt_parser_advance(p);
+            cleanup = zt_parser_parse_expression(p);
+        } else if (!zt_parser_check(p, ZT_TOKEN_EOF) &&
+                !zt_parser_check(p, ZT_TOKEN_END) &&
+                !zt_parser_check(p, ZT_TOKEN_ELSE) &&
+                !zt_parser_check(p, ZT_TOKEN_CASE) &&
+                !zt_parser_check(p, ZT_TOKEN_DEFAULT) &&
+                p->current.span.line > tok.span.line &&
+                p->current.span.column_start > tok.span.column_start) {
+            body = zt_parser_parse_block(p);
+            zt_parser_expect(p, ZT_TOKEN_END);
+        }
+
+        {
+            zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_USING_STMT, tok.span);
+            if (node != NULL) {
+                node->as.using_stmt.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                node->as.using_stmt.init_value = init_expr;
+                node->as.using_stmt.cleanup_expr = cleanup;
+                node->as.using_stmt.body = body;
+            }
+            return node;
+        }
     }
 
     if (tok.kind == ZT_TOKEN_RETURN) {

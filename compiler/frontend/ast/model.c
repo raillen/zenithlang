@@ -29,6 +29,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_RETURN_STMT: return "return_stmt";
         case ZT_AST_VAR_DECL: return "var_decl";
         case ZT_AST_CONST_DECL: return "const_decl";
+        case ZT_AST_USING_STMT: return "using_stmt";
         case ZT_AST_ASSIGN_STMT: return "assign_stmt";
         case ZT_AST_INDEX_ASSIGN_STMT: return "index_assign_stmt";
         case ZT_AST_FIELD_ASSIGN_STMT: return "field_assign_stmt";
@@ -53,6 +54,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_ERROR_EXPR: return "error_expr";
         case ZT_AST_LIST_EXPR: return "list_expr";
         case ZT_AST_MAP_EXPR: return "map_expr";
+        case ZT_AST_SET_EXPR: return "set_expr";
         case ZT_AST_IDENT_EXPR: return "ident_expr";
         case ZT_AST_FMT_EXPR: return "fmt_expr";
         case ZT_AST_GROUPED_EXPR: return "grouped_expr";

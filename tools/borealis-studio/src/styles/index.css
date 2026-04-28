@@ -1,0 +1,11 @@
+@import "./variables.css";
+@import "./reset.css";
+@import "./shell.css";
+@import "./header.css";
+@import "./docking.css";
+@import "./hierarchy.css";
+@import "./viewport.css";
+@import "./inspector.css";
+@import "./project.css";
+@import "./console.css";
+@import "./statusbar.css";
