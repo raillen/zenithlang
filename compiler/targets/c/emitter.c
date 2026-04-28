@@ -4645,6 +4645,9 @@ static int c_zir_expr_resolve_type(
         case ZIR_EXPR_OUTCOME_WRAP_CONTEXT:
             return c_zir_expr_resolve_type(module_decl, function_decl, expr->as.sequence.first, dest, capacity);
 
+        case ZIR_EXPR_IF:
+            return c_zir_expr_resolve_type(module_decl, function_decl, expr->as.sequence.second, dest, capacity);
+
         case ZIR_EXPR_MAKE_LIST:
             snprintf(dest, capacity, "list<%s>", c_safe_text(expr->as.make_list.item_type_name));
             return 1;
@@ -7051,6 +7054,15 @@ static int c_emit_zir_expr(
                    c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, spec.value_type_name, result) &&
                    c_buffer_append(&emitter->buffer, ")");
         }
+
+        case ZIR_EXPR_IF:
+            return c_buffer_append(&emitter->buffer, "(") &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.first, "bool", result) &&
+                   c_buffer_append(&emitter->buffer, " ? ") &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.second, expected_type_name, result) &&
+                   c_buffer_append(&emitter->buffer, " : ") &&
+                   c_emit_zir_expr(emitter, module_decl, function_decl, expr->as.sequence.third, expected_type_name, result) &&
+                   c_buffer_append(&emitter->buffer, ")");
 
         case ZIR_EXPR_OPTIONAL_VALUE:
         {

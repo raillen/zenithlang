@@ -1,0 +1,40 @@
+namespace app.main
+
+import std.console as console
+import std.fs as fs
+
+func note(value: text) -> void
+    const ignored: result<void, core.Error> = console.write_line(value)
+end
+
+func warn(value: text) -> void
+    const ignored: result<void, core.Error> = console.error_line(value)
+end
+
+func check_path(target: text) -> result<void, fs.Error>
+    const exists: bool = fs.exists(target)?
+    if exists
+        return success()
+    end
+
+    warn("missing path: " + target)
+    return error(fs.Error.NotFound)
+end
+
+func main() -> result<void, fs.Error>
+    const roadmap_result: result<void, fs.Error> = check_path("docs/internal/planning/roadmap-v7.md")
+    roadmap_result?
+    const checklist_result: result<void, fs.Error> = check_path("docs/internal/planning/checklist-v7.md")
+    checklist_result?
+    const language_ref_result: result<void, fs.Error> = check_path("language/spec/language-reference.md")
+    language_ref_result?
+    const console_doc_result: result<void, fs.Error> = check_path("docs/public/stdlib/console.md")
+    console_doc_result?
+    const console_stdlib_result: result<void, fs.Error> = check_path("stdlib/std/console.zt")
+    console_stdlib_result?
+    const selfhost_readme_result: result<void, fs.Error> = check_path("tools/selfhost/README.md")
+    selfhost_readme_result?
+
+    note("selfhost-link-checker ok")
+    return success()
+end

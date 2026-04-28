@@ -184,6 +184,14 @@ static int zir_validate_hir_expr_nesting(zir_nesting_guard *guard, const zt_hir_
                 return 0;
             }
             break;
+        case ZT_HIR_IF_EXPR:
+            if (!zir_validate_hir_expr_nesting(guard, expr->as.if_expr.condition) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.if_expr.then_expr) ||
+                    !zir_validate_hir_expr_nesting(guard, expr->as.if_expr.else_expr)) {
+                zir_nesting_pop(guard);
+                return 0;
+            }
+            break;
         case ZT_HIR_FIELD_EXPR:
             if (!zir_validate_hir_expr_nesting(guard, expr->as.field_expr.object)) {
                 zir_nesting_pop(guard);
@@ -1572,6 +1580,11 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "test", "zt_test_throws_closure")) {
+        call = zir_expr_make_call_extern("c.zt_test_throws_closure");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "fs", "zt_host_read_file")) {
         call = zir_expr_make_call_extern("c.zt_host_read_file");
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
@@ -2103,6 +2116,24 @@ static zir_expr *zir_lower_hir_expr(
                     replace_it_to),
                 zir_lower_hir_expr(env,
                     expr->as.binary_expr.right,
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to));
+
+        case ZT_HIR_IF_EXPR:
+            return zir_expr_make_if(
+                zir_lower_hir_expr(env,
+                    expr->as.if_expr.condition,
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to),
+                zir_lower_hir_expr(env,
+                    expr->as.if_expr.then_expr,
+                    replace_ident_from,
+                    replace_ident_to,
+                    replace_it_to),
+                zir_lower_hir_expr(env,
+                    expr->as.if_expr.else_expr,
                     replace_ident_from,
                     replace_ident_to,
                     replace_it_to));

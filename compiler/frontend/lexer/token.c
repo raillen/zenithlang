@@ -28,6 +28,7 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_MATCH: return "match";
         case ZT_TOKEN_CASE: return "case";
         case ZT_TOKEN_DEFAULT: return "default";
+        case ZT_TOKEN_SOME: return "some";
         case ZT_TOKEN_PUBLIC: return "public";
         case ZT_TOKEN_ATTR: return "attr";
         case ZT_TOKEN_WHERE: return "where";
@@ -52,6 +53,9 @@ const char *zt_token_kind_name(zt_token_kind kind) {
         case ZT_TOKEN_GRID3D: return "grid3d";
         case ZT_TOKEN_EXTERN: return "extern";
         case ZT_TOKEN_DYN: return "dyn";
+        case ZT_TOKEN_ANY: return "any";
+        case ZT_TOKEN_TYPE: return "type";
+        case ZT_TOKEN_CAPTURE: return "capture";
         case ZT_TOKEN_VOID: return "void";
         case ZT_TOKEN_MUT: return "mut";
         case ZT_TOKEN_USING: return "using";

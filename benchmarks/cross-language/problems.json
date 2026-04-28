@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "purpose": "internal regression detection only",
+  "not_for_marketing": true,
+  "problems": [
+    {
+      "id": "fibonacci",
+      "description": "Recursive fib(30) with deterministic integer result.",
+      "expected": "832040",
+      "languages": {
+        "zenith": "tests/perf/compare_zenith_python.py",
+        "python": "tests/perf/compare_zenith_python.py",
+        "go": "optional-toolchain",
+        "kotlin": "optional-toolchain"
+      }
+    },
+    {
+      "id": "sort",
+      "description": "Sort a fixed integer list and report first plus last value.",
+      "expected": "44",
+      "languages": {
+        "zenith": "tests/perf/micro_algorithm_core/src/app/main.zt",
+        "python": "optional-toolchain",
+        "go": "optional-toolchain",
+        "kotlin": "optional-toolchain"
+      }
+    },
+    {
+      "id": "string_ops",
+      "description": "Trim, search, prefix, suffix, and index checks over a fixed string.",
+      "expected": "non-zero score",
+      "languages": {
+        "zenith": "tests/perf/micro_algorithm_core/src/app/main.zt",
+        "python": "optional-toolchain",
+        "go": "optional-toolchain",
+        "kotlin": "optional-toolchain"
+      }
+    },
+    {
+      "id": "allocation",
+      "description": "Create short integer collections and derived slices in a loop.",
+      "expected": "non-zero score",
+      "languages": {
+        "zenith": "tests/perf/micro_algorithm_core/src/app/main.zt",
+        "python": "optional-toolchain",
+        "go": "optional-toolchain",
+        "kotlin": "optional-toolchain"
+      }
+    }
+  ]
+}
+

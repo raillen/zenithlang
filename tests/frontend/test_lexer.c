@@ -21,7 +21,7 @@ static int tests_passed = 0;
 } while(0)
 
 static void test_keywords(void) {
-    const char *source = "namespace import as func end const var return if else while for in repeat times break continue struct trait apply to enum match case default public where is and or not true false none success error optional result list map extern void mut self";
+    const char *source = "namespace import as func end const var return if else while for in repeat times break continue struct trait apply to enum match case some public where is and or not true false none success error optional result list map extern dyn any type capture void mut self";
     zt_lexer *lexer = zt_lexer_make("test", source, strlen(source));
     zt_token t;
 
@@ -49,7 +49,7 @@ static void test_keywords(void) {
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_ENUM, "enum");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_MATCH, "match");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_CASE, "case");
-    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_DEFAULT, "default");
+    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_SOME, "some");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_PUBLIC, "public");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_WHERE, "where");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_IS, "is");
@@ -66,6 +66,10 @@ static void test_keywords(void) {
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_LIST, "list");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_MAP, "map");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_EXTERN, "extern");
+    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_DYN, "dyn");
+    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_ANY, "any");
+    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_TYPE, "type");
+    t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_CAPTURE, "capture");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_VOID, "void");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_MUT, "mut");
     t = zt_lexer_next_token(lexer); ASSERT_EQ(t.kind, ZT_TOKEN_SELF, "self");

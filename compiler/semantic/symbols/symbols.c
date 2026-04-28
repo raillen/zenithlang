@@ -22,6 +22,7 @@ const char *zt_symbol_kind_name(zt_symbol_kind kind) {
         case ZT_SYMBOL_STRUCT: return "struct";
         case ZT_SYMBOL_TRAIT: return "trait";
         case ZT_SYMBOL_ENUM: return "enum";
+        case ZT_SYMBOL_TYPE_ALIAS: return "type_alias";
         case ZT_SYMBOL_EXTERN_FUNC: return "extern_func";
         case ZT_SYMBOL_PARAM: return "param";
         case ZT_SYMBOL_LOCAL: return "local";
@@ -113,4 +114,3 @@ int zt_scope_declare(zt_scope *scope, zt_symbol_kind kind, const char *name, zt_
     if (out_symbol != NULL) *out_symbol = entry;
     return 1;
 }
-

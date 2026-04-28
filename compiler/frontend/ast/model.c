@@ -14,6 +14,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_APPLY_DECL: return "apply_decl";
         case ZT_AST_ENUM_DECL: return "enum_decl";
         case ZT_AST_EXTERN_DECL: return "extern_decl";
+        case ZT_AST_TYPE_ALIAS_DECL: return "type_alias_decl";
         case ZT_AST_STRUCT_FIELD: return "struct_field";
         case ZT_AST_TRAIT_METHOD: return "trait_method";
         case ZT_AST_ENUM_VARIANT: return "enum_variant";
@@ -21,6 +22,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_PARAM: return "param";
         case ZT_AST_TYPE_SIMPLE: return "type_simple";
         case ZT_AST_TYPE_GENERIC: return "type_generic";
+        case ZT_AST_TYPE_DYN: return "type_dyn";
         case ZT_AST_BLOCK: return "block";
         case ZT_AST_IF_STMT: return "if_stmt";
         case ZT_AST_WHILE_STMT: return "while_stmt";
@@ -42,6 +44,7 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_UNARY_EXPR: return "unary_expr";
         case ZT_AST_CALL_EXPR: return "call_expr";
         case ZT_AST_FIELD_EXPR: return "field_expr";
+        case ZT_AST_ENUM_DOT_EXPR: return "enum_dot_expr";
         case ZT_AST_INDEX_EXPR: return "index_expr";
         case ZT_AST_SLICE_EXPR: return "slice_expr";
         case ZT_AST_INT_EXPR: return "int_expr";
@@ -55,9 +58,11 @@ const char *zt_ast_kind_name(zt_ast_kind kind) {
         case ZT_AST_LIST_EXPR: return "list_expr";
         case ZT_AST_MAP_EXPR: return "map_expr";
         case ZT_AST_SET_EXPR: return "set_expr";
+        case ZT_AST_STRUCT_LITERAL_EXPR: return "struct_literal_expr";
         case ZT_AST_IDENT_EXPR: return "ident_expr";
         case ZT_AST_FMT_EXPR: return "fmt_expr";
         case ZT_AST_GROUPED_EXPR: return "grouped_expr";
+        case ZT_AST_IF_EXPR: return "if_expr";
         case ZT_AST_CLOSURE_EXPR: return "closure_expr";
         case ZT_AST_WHERE_CLAUSE: return "where_clause";
         case ZT_AST_MATCH_BINDING: return "match_binding";

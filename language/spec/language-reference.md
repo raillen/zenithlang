@@ -545,6 +545,9 @@ Rules:
 
 - construction uses `Type(field: value)` or shorthand `{ field: value }`
 - shorthand requires the expected type to be unambiguously known
+- shorthand works in typed declarations, typed parameters, returns, and typed collection elements
+- shorthand field names are struct field names, not key expressions
+- if the expected type is `map<K, V>`, the same brace form stays a map and the key side is an expression
 - `new` is not canonical
 - fields are explicitly typed
 - field defaults are allowed
@@ -617,8 +620,14 @@ When the expected type is known, the type name can be omitted:
 
 ```zt
 const dir: Direction = .North
-const color: Color = .rgb(255, 0, 0)
+const color: Color = .Rgb(255, 0, 0)
 ```
+
+Rules:
+
+- shorthand requires an expected enum type
+- it works in typed declarations, typed parameters, returns, and typed collection elements
+- payload variants still use call syntax: `.Variant(value)` or `.Variant(name: value)`
 
 ### Match
 
@@ -898,7 +907,21 @@ Rules:
 
 - tests take no parameters and return no value
 - `check(...)` is the canonical assertion helper
+- `std.test.throws(func() -> void)` asserts that the body raises a runtime error
 - `zt test` discovers and runs tests
+- `zt test` reports each test name and duration
+- failed or skipped tests include a short source trace
+
+```zt
+import std.test as test
+
+attr test
+func rejects_empty_name()
+    test.throws(func() -> void
+        panic("empty name")
+    end)
+end
+```
 
 ---
 
@@ -982,13 +1005,21 @@ const sum = numbers.fold(0, func(acc: int, x: int) acc + x)
 
 ### Closure return type inference
 
-When the return type is omitted, the checker infers it from `return` statements:
+When the return type is omitted, the checker first uses the expected callable
+type when one is available. If there is no expected callable return type, it
+infers from `return` statements in the closure body.
 
 ```zt
-const processed = items.map(func(item: Item)
+const process_item: func(Item) -> ProcessedItem = func(item: Item)
     return transform(item)
-end)
+end
 ```
+
+Rules:
+
+- all returned values must fit the inferred return type
+- `return` with no value infers `void`
+- a closure body with no `return` also infers `void`
 
 ### Immutable Capture
 
@@ -1049,7 +1080,7 @@ Closures that capture ARC-managed values (`text`, `list`, `map`, structs) retain
 
 ```zt
 extern c
-    func sqlite3_open(filename: text, db: int) -> int
+    func zt_sqlite3_memory_exec(sql: text) -> int
 end
 ```
 
@@ -1059,6 +1090,7 @@ Rules:
 - boundary-safe types: `int`, `int32`, `int64`, `float`, `float64`, `bool`, `text`, `bytes`, `void`
 - structs, enums, optional, result, `any<Trait>` are not boundary-safe
 - function types as parameters are allowed for callbacks (non-capturing only)
+- C libraries that require raw pointers should use a small C shim
 
 ---
 
@@ -1122,7 +1154,7 @@ Available without import:
 
 ## Keywords
 
-### Reserved Keywords (49)
+### Reserved Keywords (50)
 
 ```
 namespace  import  as  func  end  const  var  return
@@ -1131,7 +1163,7 @@ struct  trait  apply  to  enum  match  case
 public  attr  where  is  and  or  not
 true  false  none  some  success  error
 optional  result  list  map  set
-extern  any  void  mut  using  self  capture
+extern  any  type  void  mut  using  self  capture
 ```
 
 ### Contextual Keywords (2)

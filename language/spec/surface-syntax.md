@@ -225,6 +225,13 @@ result<Success, Error>
 lazy<T>
 ```
 
+Type aliases name an existing type. They do not create a new runtime shape.
+
+```zt
+public type io_result = result<void, core.Error>
+type maybe_text = optional<text>
+```
+
 Rules:
 
 - `text` is canonical; `string` is not a separate user type
@@ -236,6 +243,7 @@ Rules:
 - `void` is restricted to no-value type positions such as function returns and `result<void, E>`
 - `void` is not valid for locals, fields, parameters, lists, maps or optionals
 - `lazy<T>` is explicit delayed evaluation; R3.M8 executes only `lazy<int>` through `std.lazy`
+- `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, and `btreeset` are library identifiers, not reserved keywords
 - `grid` is not a core MVP type
 
 ## Numeric Model
@@ -371,7 +379,7 @@ Optional match form:
 
 ```zt
 match maybe_user
-case value user:
+case some(user):
     return user.name
 case none:
     return "anonymous"
@@ -390,8 +398,8 @@ const value: int = read_cached_score()?
 
 Rules:
 
-- `some(value)` is not required in MVP user code
-- `case value name` binds an optional present value
+- `case some(name)` binds an optional present value
+- legacy `case value name` may be accepted during transition, but it is not canonical
 - `?` is reserved for propagation/early return in functions that return `optional<...>` or `result<...>`
 - `?` is not safe navigation
 - `optional<T>.is_some()` returns `bool`
@@ -415,12 +423,13 @@ Expression forms:
 - arithmetic: `*`, `/`, `%`, `+`, `-`
 - comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - logical: `and`, `or`
+- if-else expression: `if cond then a else b`
 
 Rules:
 
 - conditions must be `bool`
 - no truthiness
-- no ternary operator in MVP
+- no ternary operator (`cond ? a : b` is rejected)
 - no `++` or `--`
 - no `&&`, `||` or symbolic `!`
 - no exponentiation operator in MVP; use future `math.pow`
@@ -434,6 +443,30 @@ Precedence from strongest to weakest:
 5. comparison
 6. `and`
 7. `or`
+
+### If-Else As Expression
+
+Inline form:
+
+```zt
+const label: text = if active then "on" else "off"
+```
+
+Multiline form:
+
+```zt
+const result: int = if score > 100
+    compute_bonus()
+else
+    default_value()
+end
+```
+
+Rules:
+
+- `then` is required for inline form
+- `else` is always required in expression form
+- `then` is contextual and may still be used as an identifier elsewhere
 
 ## Control Flow
 
@@ -528,9 +561,26 @@ var p1: Player = Player(name: "Julia", hp: 100)
 p1.hp = 80
 ```
 
+### Struct Literal Shorthand
+
+When the expected type is known from context, the type name can be omitted.
+
+```zt
+const pos: Point = { x: 10, y: 20 }
+
+func origin() -> Point
+    return { x: 0, y: 0 }
+end
+
+draw_rect({ x: 0, y: 0, width: 100, height: 50 })
+```
+
 Rules:
 
-- construction uses `Type(field: value)`
+- construction uses `Type(field: value)` or shorthand `{ field: value }`
+- shorthand requires a known expected struct type
+- shorthand field names are struct field names, not key expressions
+- if the expected type is `map<K, V>`, the same brace form stays a map and the key side is an expression
 - `new` is not canonical
 - fields are explicitly typed
 - field defaults are allowed when implemented by the compiler cut
@@ -585,13 +635,33 @@ Construction uses qualified cases:
 const error: LoadUserError = LoadUserError.NotFound(id: 10)
 ```
 
-`match` supports multiple literal cases and default:
+### Enum Dot Shorthand
+
+When the expected type is known, the enum type name can be omitted.
+
+```zt
+const dir: Direction = .North
+
+func default_dir() -> Direction
+    return .North
+end
+
+move(.South)
+```
+
+Rules:
+
+- shorthand requires an expected enum type
+- it works in typed declarations, typed parameters, returns, and typed collection elements
+- payload variants still use call syntax: `.Variant(value)` or `.Variant(name: value)`
+
+`match` supports multiple literal cases and fallback:
 
 ```zt
 match status
 case 10, 20, 30:
     handle_known()
-case default:
+case else:
     handle_other()
 end
 ```
@@ -604,27 +674,31 @@ The implementation strategy for standard generics is **Monomorphization**. It cr
 
 Generic call type arguments may be omitted when inference is unambiguous.
 
-Constraints use `where` for trait bounds.
+Constraints use inline `<T: Trait>` bounds by default. `given` is accepted as a trailing contextual clause.
 
-To support heterogeneous collections (e.g., UI elements, Game nodes) where monomorphization is impossible, Zenith introduces **Dynamic Dispatch via `dyn` (Fat Pointers)**.
+To support heterogeneous collections (e.g., UI elements, Game nodes) where monomorphization is impossible, Zenith introduces **Dynamic Dispatch via `any` (Fat Pointers)**.
 
 ```zt
 -- Monomorphized (Zero-Cost Abstraction, homogenous)
 const list_of_ints: list<int> = [1, 2, 3]
 
 -- Dynamic Dispatch (Heterogeneous collection of traits)
-var ui_nodes: list<dyn Widget> = []
+var ui_nodes: list<any<Widget>> = []
 ui_nodes.append(Button())
 ```
 
 Rules:
 - Monomorphization is the default for generic struct and function declarations.
-- `dyn Trait` forces the compiler to generate Fat Pointers (vtable + data) allowing diverse structs conforming to `Trait` to sit in the same generic collection.
-- Constraints use `where` for trait bounds.
+- `any Trait` and `any<Trait>` force the compiler to generate Fat Pointers (vtable + data) allowing diverse structs conforming to `Trait` to sit in the same generic collection.
+- Constraints use `<T: Trait>` as the primary form.
+- `given T is Trait` is a contextual trailing form; `given` is not reserved outside this position.
 
 ```zt
-func contains<Item>(items: list<Item>, target: Item) -> bool
-where Item is Equatable<Item>
+func contains<Item: Equatable>(items: list<Item>, target: Item) -> bool
+    ...
+end
+
+func label<T>(value: T) -> text given T is TextRepresentable
     ...
 end
 ```
@@ -767,35 +841,42 @@ const factor: int = 5
 const add_factor: func(int) -> int = func(value: int) -> int
     return value + factor
 end
+
+const add_factor_inferred: func(int) -> int = func(value: int)
+    return value + factor
+end
 ```
 
 Rules:
 
+- `-> T` may be omitted when the return type can be inferred
+- the checker uses the expected `func(...) -> T` type first, then `return` statements
+- `return` with no value, or no `return`, infers `void`
 - captured values are copied into the closure context
 - captured values are immutable inside the closure
 - assigning to a captured outer variable is an error
-- mutable capture is deferred to a future feature
+- explicit closure-local capture state uses `capture name: Type = init` inside the closure body
 - `func(...)` values are not raw global functions
 - internally, `func(...)` values carry a function pointer plus a context pointer
 
-## Lambdas v1
+## Single-Expression Closures
 
-Lambdas are expression-bodied closure sugar.
+Single-expression closures are expression-bodied closure sugar.
 
 Canonical form:
 
 ```zt
-const twice: func(int) -> int = func(value: int) => value * 2
+const twice: func(int) -> int = func(value: int) value * 2
 ```
 
 Rules:
 
-- lambdas use the same capture and lifetime model as closures
-- lambdas require typed parameters
+- single-expression closures use the same capture and lifetime model as closures
+- single-expression closures require typed parameters
 - return type is inferred from the expected `func(...) -> ...` type
 - use explicit `func ... end` when the body needs statements
 - v1 does not support untyped parameters
-- v1 does not support block lambdas
+- v1 does not support untyped block lambda parameters
 
 ## Explicit Lazy Values
 

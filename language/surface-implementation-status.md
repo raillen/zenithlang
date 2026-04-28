@@ -1,7 +1,7 @@
 # Zenith Surface Implementation Status
 
 - Status: current compiler cut snapshot
-- Date: 2026-04-26
+- Date: 2026-04-28
 - Labels: `Spec`, `Parsed`, `Semantic`, `Lowered`, `Emitted`, `Runtime`, `Executable`, `Conformant`, `Deferred`, `Risk`, `Rejected`
 
 ## Language Surface
@@ -35,6 +35,7 @@
 | Runtime contracts (`where`) | `Conformant` | positive and negative behavior tests |
 | Runtime diagnostic codes | `Conformant` | canonical alpha contract is `language/spec/diagnostic-code-catalog.md` plus `language/spec/diagnostics-model.md` |
 | Perf nightly gate | `Conformant` | `reports/perf/summary-nightly.json` status `pass` |
+| `std.console` interactive helpers | `Conformant` | Phase 5D: `console.write_line`, `console.error_line`, `console.pause`, `console.prompt`, and `console.confirm(default_value: ...)`; `std.io` remains the stream layer |
 
 ## Open Items
 
@@ -42,3 +43,4 @@
 | --- | --- | --- |
 | Default runtime thread-safety boundary | `Risk` | default runtime path is single-isolate with non-atomic ARC; cross-thread work must stay behind isolate/message-passing boundaries; the first public transfer slice is `std.concurrent.copy_*`, while workers/jobs/channels remain future surface |
 | RC cycles ownership strategy | `Risk` | default runtime ships without cycle collection; cycle-prone APIs remain gated by `language/spec/runtime-model.md` |
+| Terminal controls in `std.console` | `Conformant` | Phase 5D includes detection, size, clear screen, foreground colors, basic styles, reset, and non-blocking key read; cursor movement remains future work |

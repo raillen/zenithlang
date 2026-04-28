@@ -8,11 +8,11 @@ end
 
 func area(shape: Shape) -> int 
     match shape
-        case Shape.Circle(r) ->
+        case Shape.Circle(r):
             return r * r
-        case Shape.Rectangle(w, h) ->
+        case Shape.Rectangle(w, h):
             return w * h
-        case Shape.Point ->
+        case Shape.Point:
             return 0
     end
 end

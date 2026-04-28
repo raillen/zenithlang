@@ -1,0 +1,105 @@
+namespace app.main
+
+import std.io as io
+import std.text as text
+
+func fib(n: int) -> int
+    if n <= 1
+        return n
+    end
+    return fib(n - 1) + fib(n - 2)
+end
+
+func bench_fibonacci(iterations: int) -> int
+    var i: int = 0
+    var total: int = 0
+
+    while i < iterations
+        total = total + fib(18)
+        i = i + 1
+    end
+
+    return total
+end
+
+func bench_sort(iterations: int) -> int
+    var i: int = 0
+    var checksum: int = 0
+
+    while i < iterations
+        var values: list<int> = [19, 3, 42, 7, 11, 5, 23, 17, 2, 29]
+        var outer: int = 1
+
+        while outer < len(values)
+            const current: int = values[outer]
+            var inner: int = outer - 1
+
+            while inner >= 0 and values[inner] > current
+                values[inner + 1] = values[inner]
+                inner = inner - 1
+            end
+
+            values[inner + 1] = current
+            outer = outer + 1
+        end
+
+        checksum = checksum + values[0] + values[9]
+        i = i + 1
+    end
+
+    return checksum
+end
+
+func bench_string_ops(iterations: int) -> int
+    var i: int = 0
+    var score: int = 0
+    const payload: text = "  zenith benchmark payload  "
+
+    while i < iterations
+        const trimmed: text = text.trim(payload)
+        if text.contains(trimmed, "bench")
+            score = score + 1
+        end
+        if text.starts_with(trimmed, "zen")
+            score = score + 1
+        end
+        if text.ends_with(trimmed, "load")
+            score = score + 1
+        end
+        score = score + text.index_of(trimmed, "mark")
+        i = i + 1
+    end
+
+    return score
+end
+
+func bench_allocation(iterations: int) -> int
+    var i: int = 0
+    var total: int = 0
+
+    while i < iterations
+        var values: list<int> = [i, i + 1, i + 2, i + 3, i + 4, i + 5]
+        values[2] = values[2] + values[5]
+        const tail: list<int> = values[1..5]
+        total = total + len(values) + len(tail) + values[2]
+        i = i + 1
+    end
+
+    return total
+end
+
+func main() -> result<void, core.Error>
+    const fib_score: int = bench_fibonacci(120)
+    const sort_score: int = bench_sort(20000)
+    const string_score: int = bench_string_ops(50000)
+    const allocation_score: int = bench_allocation(50000)
+
+    if fib_score <= 0 or sort_score <= 0 or string_score <= 0 or allocation_score <= 0
+        return error("micro algorithm benchmark score below expected")
+    end
+
+    io.write("micro-algorithm-core-ok")?
+    io.write("\n")?
+    return success()
+end
+

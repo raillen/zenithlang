@@ -921,6 +921,7 @@ static int zir_verify_expr(
         case ZIR_EXPR_SLICE_SEQ:
         case ZIR_EXPR_LIST_SET:
         case ZIR_EXPR_MAP_SET:
+        case ZIR_EXPR_IF:
             return zir_verify_expr(expr->as.sequence.first, defined, context, span, result) &&
                    zir_verify_expr(expr->as.sequence.second, defined, context, span, result) &&
                    zir_verify_expr(expr->as.sequence.third, defined, context, span, result);

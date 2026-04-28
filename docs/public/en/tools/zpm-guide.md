@@ -37,17 +37,27 @@ Add the package:
 
 ```powershell
 ..\zpm.exe add borealis@0.1.0
+..\zpm.exe add json@^1.2.3
 ```
 
-The manifest receives the dependency on`[dependencies]`.
+The manifest receives the dependency in `[dependencies]`.
+
+Accepted versions in this cut:
+
+- `1.2.3` for one exact version;
+- `^1.2.3` for compatible updates inside the same major version;
+- `~1.2.3` for patch updates inside the same minor version.
 
 ## Install dependencies
 
 ```powershell
 ..\zpm.exe install
+..\zpm.exe install --locked
 ```
 
-This resolves dependencies and generates`zenith.lock`.
+This resolves dependencies and generates `zenith.lock`.
+
+Use `--locked` in CI to fail when `zenith.lock` is missing or stale.
 
 ## List dependencies
 
@@ -101,7 +111,7 @@ borealis = "0.1.0"
 
 ## Lockfile
 
-`zenith.lock`It must be versioned when the project needs reproducibility.
+Commit `zenith.lock` when the project needs reproducibility.
 
 ## Limits of the current cut
 

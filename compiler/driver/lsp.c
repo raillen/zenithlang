@@ -60,6 +60,7 @@ typedef struct lsp_stdlib_module {
 static const lsp_stdlib_module g_stdlib_modules[] = {
     {"std.bytes", "stdlib/std/bytes.zt"},
     {"std.collections", "stdlib/std/collections.zt"},
+    {"std.console", "stdlib/std/console.zt"},
     {"std.concurrent", "stdlib/std/concurrent.zt"},
     {"std.format", "stdlib/std/format.zt"},
     {"std.fs", "stdlib/std/fs.zt"},

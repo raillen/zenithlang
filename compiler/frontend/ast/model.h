@@ -20,6 +20,7 @@ typedef enum zt_ast_kind {
     ZT_AST_APPLY_DECL,
     ZT_AST_ENUM_DECL,
     ZT_AST_EXTERN_DECL,
+    ZT_AST_TYPE_ALIAS_DECL,
     ZT_AST_STRUCT_FIELD,
     ZT_AST_TRAIT_METHOD,
     ZT_AST_ENUM_VARIANT,
@@ -50,6 +51,7 @@ typedef enum zt_ast_kind {
     ZT_AST_UNARY_EXPR,
     ZT_AST_CALL_EXPR,
     ZT_AST_FIELD_EXPR,
+    ZT_AST_ENUM_DOT_EXPR,
     ZT_AST_INDEX_EXPR,
     ZT_AST_SLICE_EXPR,
     ZT_AST_INT_EXPR,
@@ -63,9 +65,11 @@ typedef enum zt_ast_kind {
     ZT_AST_LIST_EXPR,
     ZT_AST_MAP_EXPR,
     ZT_AST_SET_EXPR,
+    ZT_AST_STRUCT_LITERAL_EXPR,
     ZT_AST_IDENT_EXPR,
     ZT_AST_FMT_EXPR,
     ZT_AST_GROUPED_EXPR,
+    ZT_AST_IF_EXPR,
     ZT_AST_CLOSURE_EXPR,
     ZT_AST_WHERE_CLAUSE,
     ZT_AST_MATCH_BINDING,
@@ -180,6 +184,12 @@ struct zt_ast_node {
 
         struct {
             const char *name;
+            zt_ast_node *target_type;
+            int is_public;
+        } type_alias_decl;
+
+        struct {
+            const char *name;
             zt_ast_node *type_node;
             zt_ast_node *default_value;
             zt_ast_node *where_clause;
@@ -264,6 +274,7 @@ struct zt_ast_node {
             zt_ast_node *init_value;
             int is_public;
             int is_module_level;
+            int is_capture;
         } var_decl;
 
         struct {
@@ -336,6 +347,10 @@ struct zt_ast_node {
         } field_expr;
 
         struct {
+            const char *variant_name;
+        } enum_dot_expr;
+
+        struct {
             zt_ast_node *object;
             zt_ast_node *index;
         } index_expr;
@@ -391,6 +406,10 @@ struct zt_ast_node {
         } set_expr;
 
         struct {
+            zt_ast_named_arg_list fields;
+        } struct_literal_expr;
+
+        struct {
             const char *name;
         } ident_expr;
 
@@ -401,6 +420,13 @@ struct zt_ast_node {
         struct {
             zt_ast_node *inner;
         } grouped_expr;
+
+        struct {
+            zt_ast_node *condition;
+            zt_ast_node *then_expr;
+            zt_ast_node *else_expr;
+            int uses_then;
+        } if_expr;
 
         struct {
             zt_ast_node_list params;

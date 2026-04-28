@@ -70,6 +70,7 @@ Receitas iniciais recomendadas:
 | `callable-delegate.md` | você quer passar uma funcao como valor |
 | `zenith-equivalents-from-other-languages.md` | você conhece o conceito em outra linguagem e quer o equivalente Zenith |
 | `intentional-failure-builtins.md` | você precisa falhar de modo claro com `check`, `todo` ou `unreachable` |
+| `stdlib-practical-recipes.md` | você quer receitas pequenas da stdlib ligadas a exemplos executaveis |
 
 ## Validação
 
@@ -87,3 +88,4 @@ Exemplos devem compilar ou ser marcados como ilustrativos.
 - 2026-04-25: índice inicial do cookbook.
 - 2026-04-26: adicionada receita de equivalentes Zenith para conceitos de outras linguagens.
 - 2026-04-26: adicionada receita de falhas intencionais com `check`, `todo` e `unreachable`.
+- 2026-04-28: adicionadas receitas praticas da stdlib.

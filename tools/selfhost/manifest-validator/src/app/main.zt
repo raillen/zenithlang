@@ -1,0 +1,44 @@
+namespace app.main
+
+import std.console as console
+import std.fs as fs
+import std.text as text
+
+func note(value: text) -> void
+    const ignored: result<void, core.Error> = console.write_line(value)
+end
+
+func warn(value: text) -> void
+    const ignored: result<void, core.Error> = console.error_line(value)
+end
+
+func require_fragment(raw: text, fragment: text, label: text) -> result<void, fs.Error>
+    if text.contains(raw, fragment)
+        return success()
+    end
+
+    warn("manifest missing " + label)
+    return error(fs.Error.IOError)
+end
+
+func main() -> result<void, fs.Error>
+    const raw: text = fs.read_text("zenith.ztproj")?
+
+    const project_result: result<void, fs.Error> = require_fragment(raw, "[project]", "project section")
+    project_result?
+    const name_result: result<void, fs.Error> = require_fragment(raw, "name", "project name")
+    name_result?
+    const kind_result: result<void, fs.Error> = require_fragment(raw, "kind", "project kind")
+    kind_result?
+    const source_result: result<void, fs.Error> = require_fragment(raw, "[source]", "source section")
+    source_result?
+    const root_result: result<void, fs.Error> = require_fragment(raw, "root", "source root")
+    root_result?
+    const build_result: result<void, fs.Error> = require_fragment(raw, "[build]", "build section")
+    build_result?
+    const target_result: result<void, fs.Error> = require_fragment(raw, "target", "build target")
+    target_result?
+
+    note("selfhost-manifest-validator ok")
+    return success()
+end

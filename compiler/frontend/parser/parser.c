@@ -84,6 +84,17 @@ static int zt_parser_token_text_equals(const zt_token *tok, const char *text) {
     return tok->length == length && strncmp(tok->text, text, length) == 0;
 }
 
+static int zt_parser_check_identifier_text(zt_parser *p, const char *text) {
+    return p != NULL && p->current.kind == ZT_TOKEN_IDENTIFIER &&
+           zt_parser_token_text_equals(&p->current, text);
+}
+
+static int zt_parser_match_identifier_text(zt_parser *p, const char *text) {
+    if (!zt_parser_check_identifier_text(p, text)) return 0;
+    zt_parser_advance(p);
+    return 1;
+}
+
 static const char *zt_parser_noncanonical_suggestion(const zt_token *tok) {
     if (tok == NULL) return NULL;
     if (tok->kind == ZT_TOKEN_BANG) {
@@ -135,6 +146,7 @@ static int zt_parser_is_declaration_start(zt_token_kind kind) {
         case ZT_TOKEN_APPLY:
         case ZT_TOKEN_ENUM:
         case ZT_TOKEN_EXTERN:
+        case ZT_TOKEN_TYPE:
         case ZT_TOKEN_CONST:
         case ZT_TOKEN_VAR:
             return 1;
@@ -570,6 +582,7 @@ static zt_ast_node *zt_parser_parse_block(zt_parser *p);
 static zt_ast_node *zt_parser_parse_statement(zt_parser *p);
 static zt_ast_node_list zt_parser_parse_params(zt_parser *p);
 static zt_ast_node_list zt_parser_parse_generic_constraints(zt_parser *p);
+static zt_ast_node_list zt_parser_parse_type_params_with_inline_constraints(zt_parser *p, zt_ast_node_list *constraints);
 
 static void zt_parser_push_fmt_text_part(
         zt_parser *p,
@@ -820,12 +833,6 @@ static int zt_parser_is_type_name(zt_token_kind kind) {
            kind == ZT_TOKEN_LIST ||
            kind == ZT_TOKEN_MAP ||
            kind == ZT_TOKEN_SET ||
-           kind == ZT_TOKEN_GRID2D ||
-           kind == ZT_TOKEN_PQUEUE ||
-           kind == ZT_TOKEN_CIRCBUF ||
-           kind == ZT_TOKEN_BTREEMAP ||
-           kind == ZT_TOKEN_BTREESET ||
-           kind == ZT_TOKEN_GRID3D ||
            kind == ZT_TOKEN_VOID ||
            kind == ZT_TOKEN_SELF;
 }
@@ -882,7 +889,7 @@ static zt_ast_node *zt_parser_parse_type(zt_parser *p) {
     if (!zt_parser_push_nesting(p, type_span, "type")) {
         return NULL;
     }
-    if (zt_parser_match(p, ZT_TOKEN_DYN)) {
+    if (zt_parser_match(p, ZT_TOKEN_DYN) || zt_parser_match(p, ZT_TOKEN_ANY)) {
         zt_ast_node *inner = NULL;
         if (zt_parser_match(p, ZT_TOKEN_LT)) {
             inner = zt_parser_parse_type(p);
@@ -972,8 +979,65 @@ static int zt_is_named_arg_ahead(zt_parser *p) {
     return p->peek.kind == ZT_TOKEN_COLON;
 }
 
+static zt_ast_node *zt_parser_parse_if_expr(zt_parser *p) {
+    zt_token if_tok = p->current;
+    zt_ast_node *node;
+    zt_ast_node *condition;
+    zt_ast_node *then_expr;
+    zt_ast_node *else_expr;
+    int uses_then;
+
+    if (!zt_parser_push_nesting(p, if_tok.span, "if expression")) {
+        return NULL;
+    }
+
+    zt_parser_advance(p);
+    condition = zt_parser_parse_expression(p);
+    uses_then = zt_parser_match_identifier_text(p, "then");
+    then_expr = zt_parser_parse_expression(p);
+
+    if (!zt_parser_match(p, ZT_TOKEN_ELSE)) {
+        zt_parser_error_at(p, "if expression requires else branch");
+    }
+    else_expr = zt_parser_parse_expression(p);
+
+    if (!uses_then) {
+        zt_parser_expect(p, ZT_TOKEN_END);
+    }
+
+    node = zt_parser_ast_make(p, ZT_AST_IF_EXPR, if_tok.span);
+    if (node != NULL) {
+        node->as.if_expr.condition = condition;
+        node->as.if_expr.then_expr = then_expr;
+        node->as.if_expr.else_expr = else_expr;
+        node->as.if_expr.uses_then = uses_then;
+    }
+    zt_parser_pop_nesting(p);
+    return node;
+}
+
 static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
     zt_token tok = p->current;
+
+    if (tok.kind == ZT_TOKEN_DOT) {
+        zt_token variant_tok;
+        zt_ast_node *node;
+        zt_parser_advance(p);
+        if (zt_parser_is_contextual_identifier(p->current.kind) || zt_parser_check(p, ZT_TOKEN_OR)) {
+            variant_tok = zt_parser_advance(p);
+        } else {
+            variant_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+        }
+        node = zt_parser_ast_make(p, ZT_AST_ENUM_DOT_EXPR, tok.span);
+        if (node != NULL) {
+            node->as.enum_dot_expr.variant_name = (char *)zt_string_pool_intern_len(p->pool, variant_tok.text, variant_tok.length);
+        }
+        return node;
+    }
+
+    if (tok.kind == ZT_TOKEN_IF) {
+        return zt_parser_parse_if_expr(p);
+    }
 
     if (tok.kind == ZT_TOKEN_FUNC) {
         int is_lambda = 0;
@@ -986,7 +1050,13 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         }
 
         zt_ast_node *body = NULL;
-        if (zt_parser_match(p, ZT_TOKEN_FAT_ARROW)) {
+        if (zt_parser_match(p, ZT_TOKEN_FAT_ARROW) ||
+                (p->current.span.line == tok.span.line &&
+                 !zt_parser_check(p, ZT_TOKEN_END) &&
+                 !zt_parser_check(p, ZT_TOKEN_ELSE) &&
+                 !zt_parser_check(p, ZT_TOKEN_CASE) &&
+                 !zt_parser_check(p, ZT_TOKEN_DEFAULT) &&
+                 !zt_parser_check(p, ZT_TOKEN_EOF))) {
             zt_ast_node *value = zt_parser_parse_expression(p);
             zt_ast_node *ret = zt_parser_ast_make(p, ZT_AST_RETURN_STMT, value != NULL ? value->span : tok.span);
             zt_ast_node_list statements = zt_ast_node_list_make();
@@ -1140,6 +1210,32 @@ static zt_ast_node *zt_parser_parse_primary(zt_parser *p) {
         {
             zt_ast_node *first = zt_parser_parse_expression(p);
             if (zt_parser_check(p, ZT_TOKEN_COLON)) {
+                if (first != NULL && first->kind == ZT_AST_IDENT_EXPR) {
+                    zt_ast_named_arg_list fields = zt_ast_named_arg_list_make();
+                    zt_ast_named_arg field;
+                    zt_parser_advance(p);
+                    memset(&field, 0, sizeof(field));
+                    field.span = first->span;
+                    field.name = first->as.ident_expr.name;
+                    field.value = zt_parser_parse_expression(p);
+                    zt_ast_named_arg_list_push(p->arena, &fields, field);
+                    while (zt_parser_match(p, ZT_TOKEN_COMMA)) {
+                        zt_token name_tok;
+                        if (zt_parser_check(p, ZT_TOKEN_RBRACE)) break;
+                        name_tok = zt_parser_expect_contextual_identifier(p);
+                        zt_parser_expect(p, ZT_TOKEN_COLON);
+                        memset(&field, 0, sizeof(field));
+                        field.span = name_tok.span;
+                        field.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                        field.value = zt_parser_parse_expression(p);
+                        zt_ast_named_arg_list_push(p->arena, &fields, field);
+                    }
+                    zt_parser_expect(p, ZT_TOKEN_RBRACE);
+                    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_STRUCT_LITERAL_EXPR, tok.span);
+                    if (node == NULL) return NULL;
+                    node->as.struct_literal_expr.fields = fields;
+                    return node;
+                }
                 zt_ast_map_entry_list entries = zt_ast_map_entry_list_make();
                 zt_parser_advance(p);
                 {
@@ -1478,6 +1574,10 @@ static zt_ast_node_list zt_parser_parse_params(zt_parser *p) {
 }
 
 static zt_ast_node_list zt_parser_parse_type_params(zt_parser *p) {
+    return zt_parser_parse_type_params_with_inline_constraints(p, NULL);
+}
+
+static zt_ast_node_list zt_parser_parse_type_params_with_inline_constraints(zt_parser *p, zt_ast_node_list *constraints) {
     zt_ast_node_list type_params = zt_ast_node_list_make();
     if (!zt_parser_match(p, ZT_TOKEN_LT)) return type_params;
 
@@ -1489,11 +1589,30 @@ static zt_ast_node_list zt_parser_parse_type_params(zt_parser *p) {
                 tp->as.type_simple.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
             }
             zt_ast_node_list_push(p->arena, &type_params, tp);
+            if (zt_parser_match(p, ZT_TOKEN_COLON)) {
+                zt_ast_node *trait_type = zt_parser_parse_type(p);
+                zt_ast_node *constraint = zt_parser_ast_make(p, ZT_AST_GENERIC_CONSTRAINT, name_tok.span);
+                if (constraint != NULL) {
+                    constraint->as.generic_constraint.type_param_name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+                    constraint->as.generic_constraint.trait_type = trait_type;
+                }
+                if (constraints != NULL) {
+                    zt_ast_node_list_push(p->arena, constraints, constraint);
+                }
+            }
         } while (zt_parser_match(p, ZT_TOKEN_COMMA));
     }
 
     zt_parser_expect(p, ZT_TOKEN_GT);
     return type_params;
+}
+
+static void zt_parser_append_node_list(zt_parser *p, zt_ast_node_list *target, zt_ast_node_list source) {
+    size_t i;
+    if (target == NULL) return;
+    for (i = 0; i < source.count; i++) {
+        zt_ast_node_list_push(p->arena, target, source.items[i]);
+    }
 }
 
 static zt_ast_node *zt_parser_parse_generic_constraint(zt_parser *p) {
@@ -1511,7 +1630,13 @@ static zt_ast_node *zt_parser_parse_generic_constraint(zt_parser *p) {
 static zt_ast_node_list zt_parser_parse_generic_constraints(zt_parser *p) {
     zt_ast_node_list constraints = zt_ast_node_list_make();
     if (!zt_parser_match(p, ZT_TOKEN_WHERE)) {
-        return constraints;
+        if (zt_parser_check(p, ZT_TOKEN_IDENTIFIER) &&
+                p->current.length == 5 &&
+                memcmp(p->current.text, "given", 5) == 0) {
+            zt_parser_advance(p);
+        } else {
+            return constraints;
+        }
     }
 
     zt_ast_node_list_push(p->arena, &constraints, zt_parser_parse_generic_constraint(p));
@@ -1646,6 +1771,19 @@ static zt_ast_node *zt_parser_parse_repeat_stmt(zt_parser *p) {
 
 static zt_ast_node *zt_parser_parse_match_pattern(zt_parser *p) {
     zt_token tok = p->current;
+    if (zt_parser_match(p, ZT_TOKEN_SOME)) {
+        zt_token name_tok;
+        zt_ast_node *node;
+        zt_parser_expect(p, ZT_TOKEN_LPAREN);
+        name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+        zt_parser_expect(p, ZT_TOKEN_RPAREN);
+        node = zt_parser_ast_make(p, ZT_AST_VALUE_BINDING, tok.span);
+        if (node != NULL) {
+            node->as.value_binding.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+            node->as.value_binding.type_node = NULL;
+        }
+        return node;
+    }
     if (zt_parser_token_is_identifier_literal(&tok, "value", 5)) {
         zt_parser_fill_peek(p);
         if (p->peek.kind == ZT_TOKEN_IDENTIFIER) {
@@ -1680,7 +1818,15 @@ static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
         zt_ast_node_list patterns = zt_ast_node_list_make();
         int is_default = 0;
 
-        if (zt_parser_match(p, ZT_TOKEN_DEFAULT)) {
+        if (zt_parser_match(p, ZT_TOKEN_DEFAULT) ||
+                zt_parser_match(p, ZT_TOKEN_ELSE) ||
+                (zt_parser_check(p, ZT_TOKEN_IDENTIFIER) &&
+                 p->current.length == 4 &&
+                 memcmp(p->current.text, "else", 4) == 0) ||
+                (zt_parser_check(p, ZT_TOKEN_IDENTIFIER) &&
+                 p->current.length == 7 &&
+                 memcmp(p->current.text, "default", 7) == 0)) {
+            if (p->current.kind == ZT_TOKEN_IDENTIFIER) zt_parser_advance(p);
             is_default = 1;
         } else {
             zt_ast_node_list_push(p->arena, &patterns, zt_parser_parse_match_pattern(p));
@@ -1689,7 +1835,9 @@ static zt_ast_node *zt_parser_parse_match_stmt(zt_parser *p) {
             }
         }
 
-        zt_parser_expect(p, ZT_TOKEN_ARROW);
+        if (!zt_parser_match(p, ZT_TOKEN_COLON)) {
+            zt_parser_expect(p, ZT_TOKEN_ARROW);
+        }
         zt_ast_node *body = zt_parser_parse_block_ex(p, 1);
         zt_ast_node *case_node = zt_parser_ast_make(p, ZT_AST_MATCH_CASE, case_tok.span);
         if (case_node != NULL) {
@@ -1740,6 +1888,27 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
         return node;
     }
 
+    if (tok.kind == ZT_TOKEN_CAPTURE) {
+        zt_parser_advance(p);
+        zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+        zt_parser_expect(p, ZT_TOKEN_COLON);
+        zt_ast_node *type_node = zt_parser_parse_type(p);
+        zt_ast_node *init_value = NULL;
+        if (zt_parser_match(p, ZT_TOKEN_EQ)) {
+            init_value = zt_parser_parse_expression(p);
+        }
+        zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_VAR_DECL, tok.span);
+        if (node != NULL) {
+            node->as.var_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+            node->as.var_decl.type_node = type_node;
+            node->as.var_decl.init_value = init_value;
+            node->as.var_decl.is_public = 0;
+            node->as.var_decl.is_module_level = 0;
+            node->as.var_decl.is_capture = 1;
+        }
+        return node;
+    }
+
     if (tok.kind == ZT_TOKEN_VAR) {
         zt_parser_advance(p);
         zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
@@ -1756,6 +1925,7 @@ static zt_ast_node *zt_parser_parse_statement(zt_parser *p) {
             node->as.var_decl.init_value = init_value;
             node->as.var_decl.is_public = 0;
             node->as.var_decl.is_module_level = 0;
+            node->as.var_decl.is_capture = 0;
         }
         return node;
     }
@@ -1902,7 +2072,8 @@ static zt_ast_node *zt_parser_parse_func_decl(zt_parser *p, int is_public, int i
     zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
     char *name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
 
-    zt_ast_node_list type_params = zt_parser_parse_type_params(p);
+    zt_ast_node_list constraints = zt_ast_node_list_make();
+    zt_ast_node_list type_params = zt_parser_parse_type_params_with_inline_constraints(p, &constraints);
     zt_ast_node_list params = zt_parser_parse_params(p);
 
     zt_ast_node *return_type = NULL;
@@ -1910,7 +2081,7 @@ static zt_ast_node *zt_parser_parse_func_decl(zt_parser *p, int is_public, int i
         return_type = zt_parser_parse_type(p);
     }
 
-    zt_ast_node_list constraints = zt_parser_parse_generic_constraints(p);
+    zt_parser_append_node_list(p, &constraints, zt_parser_parse_generic_constraints(p));
 
     /* Mark that we're entering function body */
     p->in_function_body = 1;
@@ -1971,8 +2142,9 @@ static zt_ast_node *zt_parser_parse_struct_decl(zt_parser *p, int is_public) {
     zt_token struct_tok = p->current;
     zt_parser_advance(p);
     zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-    zt_ast_node_list type_params = zt_parser_parse_type_params(p);
-    zt_ast_node_list constraints = zt_parser_parse_generic_constraints(p);
+    zt_ast_node_list constraints = zt_ast_node_list_make();
+    zt_ast_node_list type_params = zt_parser_parse_type_params_with_inline_constraints(p, &constraints);
+    zt_parser_append_node_list(p, &constraints, zt_parser_parse_generic_constraints(p));
     zt_ast_node_list fields = zt_ast_node_list_make();
 
     while (!zt_parser_check(p, ZT_TOKEN_END) && !zt_parser_check(p, ZT_TOKEN_EOF)) {
@@ -2019,8 +2191,9 @@ static zt_ast_node *zt_parser_parse_trait_decl(zt_parser *p, int is_public) {
     zt_token trait_tok = p->current;
     zt_parser_advance(p);
     zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-    zt_ast_node_list type_params = zt_parser_parse_type_params(p);
-    zt_ast_node_list constraints = zt_parser_parse_generic_constraints(p);
+    zt_ast_node_list constraints = zt_ast_node_list_make();
+    zt_ast_node_list type_params = zt_parser_parse_type_params_with_inline_constraints(p, &constraints);
+    zt_parser_append_node_list(p, &constraints, zt_parser_parse_generic_constraints(p));
     zt_ast_node_list methods = zt_ast_node_list_make();
 
     while (!zt_parser_check(p, ZT_TOKEN_END) && !zt_parser_check(p, ZT_TOKEN_EOF)) {
@@ -2121,8 +2294,9 @@ static zt_ast_node *zt_parser_parse_enum_decl(zt_parser *p, int is_public) {
     zt_token enum_tok = p->current;
     zt_parser_advance(p);
     zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
-    zt_ast_node_list type_params = zt_parser_parse_type_params(p);
-    zt_ast_node_list constraints = zt_parser_parse_generic_constraints(p);
+    zt_ast_node_list constraints = zt_ast_node_list_make();
+    zt_ast_node_list type_params = zt_parser_parse_type_params_with_inline_constraints(p, &constraints);
+    zt_parser_append_node_list(p, &constraints, zt_parser_parse_generic_constraints(p));
     zt_ast_node_list variants = zt_ast_node_list_make();
 
     while (!zt_parser_check(p, ZT_TOKEN_END) && !zt_parser_check(p, ZT_TOKEN_EOF)) {
@@ -2232,6 +2406,21 @@ static zt_ast_node *zt_parser_parse_extern_decl(zt_parser *p) {
     return node;
 }
 
+static zt_ast_node *zt_parser_parse_type_alias_decl(zt_parser *p, int is_public) {
+    zt_token type_tok = p->current;
+    zt_parser_advance(p);
+    zt_token name_tok = zt_parser_expect(p, ZT_TOKEN_IDENTIFIER);
+    zt_parser_expect(p, ZT_TOKEN_EQ);
+    zt_ast_node *target_type = zt_parser_parse_type(p);
+    zt_ast_node *node = zt_parser_ast_make(p, ZT_AST_TYPE_ALIAS_DECL, type_tok.span);
+    if (node != NULL) {
+        node->as.type_alias_decl.name = (char *)zt_string_pool_intern_len(p->pool, name_tok.text, name_tok.length);
+        node->as.type_alias_decl.target_type = target_type;
+        node->as.type_alias_decl.is_public = is_public;
+    }
+    return node;
+}
+
 static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
     int is_public = 0;
     int is_test_attr = 0;
@@ -2303,6 +2492,11 @@ static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
                 zt_parser_error_at(p, "attr test is only valid on func declarations");
             }
             return zt_parser_parse_extern_decl(p);
+        case ZT_TOKEN_TYPE:
+            if (is_test_attr) {
+                zt_parser_error_at(p, "attr test is only valid on func declarations");
+            }
+            return zt_parser_parse_type_alias_decl(p, is_public);
         case ZT_TOKEN_CONST: {
             zt_token const_tok = p->current;
             zt_parser_advance(p);
@@ -2348,13 +2542,14 @@ static zt_ast_node *zt_parser_parse_declaration(zt_parser *p) {
                 node->as.var_decl.init_value = init_value;
                 node->as.var_decl.is_public = is_public;
                 node->as.var_decl.is_module_level = 1;
+                node->as.var_decl.is_capture = 0;
             }
             return node;
         }
         default:
             if (!zt_parser_emit_noncanonical_syntax(p, &p->current)) {
                 zt_parser_error_contextual(p, "expected declaration",
-                    "expected top-level declaration (func, struct, trait, apply, enum, extern, const, or var)");
+                    "expected top-level declaration (func, struct, trait, apply, enum, extern, type, const, or var)");
             }
             zt_parser_advance(p);
             return NULL;
@@ -2462,6 +2657,7 @@ zt_parser_result zt_parse(zt_arena *arena, zt_string_pool *pool, const char *sou
             zt_parser_check(&parser, ZT_TOKEN_APPLY) ||
             zt_parser_check(&parser, ZT_TOKEN_ENUM) ||
             zt_parser_check(&parser, ZT_TOKEN_EXTERN) ||
+            zt_parser_check(&parser, ZT_TOKEN_TYPE) ||
             zt_parser_check(&parser, ZT_TOKEN_CONST) ||
             zt_parser_check(&parser, ZT_TOKEN_VAR)) {
             zt_leading_stash stash = zt_parser_stash_leading(&parser);

@@ -496,6 +496,13 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_indent(sb);
             sb_append(sb, "end");
             break;
+        case ZT_AST_TYPE_ALIAS_DECL:
+            if (node->as.type_alias_decl.is_public) sb_append(sb, "public ");
+            sb_append(sb, "type ");
+            sb_append(sb, node->as.type_alias_decl.name);
+            sb_append(sb, " = ");
+            format_node(sb, node->as.type_alias_decl.target_type);
+            break;
         case ZT_AST_STRUCT_FIELD:
             sb_append(sb, node->as.struct_field.name);
             if (node->as.struct_field.type_node) {
@@ -554,7 +561,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             }
             break;
         case ZT_AST_TYPE_DYN:
-            sb_append(sb, "dyn<");
+            sb_append(sb, "any<");
             format_node(sb, node->as.type_dyn.inner_type);
             sb_append(sb, ">");
             break;
@@ -622,7 +629,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             break;
         case ZT_AST_VAR_DECL:
             if (node->as.var_decl.is_module_level && node->as.var_decl.is_public) sb_append(sb, "public ");
-            sb_append(sb, "var ");
+            sb_append(sb, node->as.var_decl.is_capture ? "capture " : "var ");
             sb_append(sb, node->as.var_decl.name);
             if (node->as.var_decl.type_node) {
                 sb_append(sb, ": ");
@@ -681,11 +688,11 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             break;
         case ZT_AST_MATCH_CASE:
             if (node->as.match_case.is_default) {
-                sb_append(sb, "case default ->");
+                sb_append(sb, "case else:");
             } else {
                 sb_append(sb, "case ");
                 format_node_list_comma(sb, node->as.match_case.patterns);
-                sb_append(sb, " ->");
+                sb_append(sb, ":");
             }
             /*
              * A case body parsed as a block must NOT be emitted with
@@ -758,6 +765,10 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, ".");
             sb_append(sb, node->as.field_expr.field_name);
             break;
+        case ZT_AST_ENUM_DOT_EXPR:
+            sb_append(sb, ".");
+            sb_append(sb, node->as.enum_dot_expr.variant_name);
+            break;
         case ZT_AST_INDEX_EXPR:
             format_node(sb, node->as.index_expr.object);
             sb_append(sb, "[");
@@ -821,6 +832,16 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             format_node_list_comma(sb, node->as.set_expr.elements);
             sb_append(sb, "}");
             break;
+        case ZT_AST_STRUCT_LITERAL_EXPR:
+            sb_append(sb, "{");
+            for (size_t i = 0; i < node->as.struct_literal_expr.fields.count; i++) {
+                sb_append(sb, node->as.struct_literal_expr.fields.items[i].name);
+                sb_append(sb, ": ");
+                format_node(sb, node->as.struct_literal_expr.fields.items[i].value);
+                if (i < node->as.struct_literal_expr.fields.count - 1) sb_append(sb, ", ");
+            }
+            sb_append(sb, "}");
+            break;
         case ZT_AST_IDENT_EXPR:
             sb_append(sb, node->as.ident_expr.name);
             break;
@@ -844,6 +865,32 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             format_node(sb, node->as.grouped_expr.inner);
             sb_append(sb, ")");
             break;
+        case ZT_AST_IF_EXPR:
+            sb_append(sb, "if ");
+            format_node(sb, node->as.if_expr.condition);
+            if (node->as.if_expr.uses_then) {
+                sb_append(sb, " then ");
+                format_node(sb, node->as.if_expr.then_expr);
+                sb_append(sb, " else ");
+                format_node(sb, node->as.if_expr.else_expr);
+            } else {
+                sb_append(sb, "\n");
+                sb->indent_level++;
+                sb_indent(sb);
+                format_node(sb, node->as.if_expr.then_expr);
+                sb_append(sb, "\n");
+                sb->indent_level--;
+                sb_indent(sb);
+                sb_append(sb, "else\n");
+                sb->indent_level++;
+                sb_indent(sb);
+                format_node(sb, node->as.if_expr.else_expr);
+                sb_append(sb, "\n");
+                sb->indent_level--;
+                sb_indent(sb);
+                sb_append(sb, "end");
+            }
+            break;
         case ZT_AST_WHERE_CLAUSE:
             /* The parser reads `where <expression>` and recovers
              * `param_name` from the enclosing declaration (struct
@@ -857,8 +904,9 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
             sb_append(sb, node->as.match_binding.param_name);
             break;
         case ZT_AST_VALUE_BINDING:
-            sb_append(sb, "value ");
+            sb_append(sb, "some(");
             sb_append(sb, node->as.value_binding.name);
+            sb_append(sb, ")");
             break;
         case ZT_AST_CLOSURE_EXPR:
             sb_append(sb, "func(");
@@ -874,7 +922,7 @@ static void format_node(sb_t *sb, const zt_ast_node *node) {
                     node->as.closure_expr.body->as.block.statements.count == 1 &&
                     node->as.closure_expr.body->as.block.statements.items[0] != NULL &&
                     node->as.closure_expr.body->as.block.statements.items[0]->kind == ZT_AST_RETURN_STMT) {
-                sb_append(sb, " => ");
+                sb_append(sb, " ");
                 format_node(sb, node->as.closure_expr.body->as.block.statements.items[0]->as.return_stmt.value);
                 break;
             }

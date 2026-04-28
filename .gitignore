@@ -1,8 +1,17 @@
 # Local editor and agent state
 .agents/
+.claude/
+.codex/
+.continue/
+.cursor/
 .gemini/
 .idea/
+.kiro/
+.roo/
+.serena/
+.windsurf/
 .vscode/
+*.code-workspace
 
 # Dependency folders
 node_modules/
@@ -27,15 +36,28 @@ compiler/driver/zt-next-v2.exe
 # Python cache only. Do not ignore *.py; Python scripts are source here.
 __pycache__/
 *.pyc
+.coverage
+.coverage.*
+.hypothesis/
+.mypy_cache/
+.nox/
+.tox/
 .venv/
+coverage.xml
+htmlcov/
 
 # Local/generated work areas
 .artifacts/
+.cache/
+.next/
+.parcel-cache/
 .playwright-mcp/
 .rag/
 .release-install/
 .ruff_cache/
 .selfhost-artifacts/
+.turbo/
+.vite/
 .ztc-tmp/
 wiki_repo/
 zenith-website/
@@ -45,6 +67,7 @@ reproduce/
 *.log
 *.gcov
 .DS_Store
+Thumbs.db
 build_errors.txt
 build_warnings.txt
 doc_check_output.txt

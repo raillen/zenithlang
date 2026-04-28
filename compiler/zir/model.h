@@ -115,6 +115,7 @@ typedef enum zir_expr_kind {
     ZIR_EXPR_OPTIONAL_VALUE,
     ZIR_EXPR_FUNC_REF,
     ZIR_EXPR_CALL_INDIRECT,
+    ZIR_EXPR_IF,
     ZIR_EXPR_MAKE_CLOSURE
 } zir_expr_kind;
 
@@ -368,6 +369,7 @@ zir_expr *zir_expr_make_outcome_wrap_context(zir_expr *value, zir_expr *context)
 zir_expr *zir_expr_make_optional_value(zir_expr *value);
 zir_expr *zir_expr_make_func_ref(const char *func_name, const char *callable_type_name);
 zir_expr *zir_expr_make_call_indirect(zir_expr *callable);
+zir_expr *zir_expr_make_if(zir_expr *condition, zir_expr *then_expr, zir_expr *else_expr);
 zir_expr *zir_expr_make_make_closure(const char *func_name);
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg);
 void zir_expr_make_struct_add_field(zir_expr *expr, const char *name, zir_expr *value);

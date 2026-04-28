@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "phase": "5C",
+  "status": "internal",
+  "source_of_truth": "tests/perf/run_perf.py",
+  "reports": "reports/perf/",
+  "baselines": "tests/perf/baselines/",
+  "regression_detection_only": true,
+  "not_for_marketing": true,
+  "items": [
+    {
+      "id": "K.01",
+      "title": "Benchmark infrastructure",
+      "status": "done",
+      "paths": [
+        "benchmarks/README.md",
+        "tests/perf/run_perf.py",
+        "tests/perf/README.md",
+        "tests/perf/gate_pr.ps1",
+        "tests/perf/gate_nightly.ps1",
+        "reports/perf/.gitkeep"
+      ]
+    },
+    {
+      "id": "K.02",
+      "title": "Micro benchmarks: fibonacci, sort, string ops, allocation",
+      "status": "done",
+      "paths": [
+        "benchmarks/problems/README.md",
+        "tests/perf/micro_algorithm_core/zenith.ztproj",
+        "tests/perf/micro_algorithm_core/src/app/main.zt"
+      ],
+      "benchmarks": [
+        "micro_algorithm_core"
+      ]
+    },
+    {
+      "id": "K.03",
+      "title": "Compilation time for N-line projects",
+      "status": "done",
+      "paths": [
+        "tests/perf/run_perf.py",
+        "tests/perf/m37_result_generic/zenith.ztproj",
+        "tests/perf/std_validate_vs_c/zenith.ztproj"
+      ],
+      "benchmarks": [
+        "macro_small_build_cold",
+        "macro_small_build_warm",
+        "macro_medium_check",
+        "macro_large_check"
+      ]
+    },
+    {
+      "id": "K.04",
+      "title": "Runtime comparison: emitted C vs hand-written C helper",
+      "status": "done",
+      "paths": [
+        "tests/perf/std_validate_vs_c/README.md",
+        "tests/perf/std_validate_vs_c/src/app/main.zt",
+        "tests/perf/std_validate_vs_c/src/c.zt"
+      ],
+      "benchmarks": [
+        "macro_medium_run"
+      ]
+    },
+    {
+      "id": "K.05",
+      "title": "Cross-language problem inventory: Go, Python, Kotlin",
+      "status": "done",
+      "paths": [
+        "benchmarks/cross-language/README.md",
+        "benchmarks/cross-language/problems.json",
+        "tests/perf/compare_zenith_python.py"
+      ]
+    },
+    {
+      "id": "K.06",
+      "title": "Regression detection only",
+      "status": "done",
+      "paths": [
+        "benchmarks/README.md",
+        "benchmarks/manifest.json",
+        "tests/perf/README.md"
+      ]
+    }
+  ],
+  "benchmark_groups": {
+    "micro": [
+      "micro_algorithm_core",
+      "micro_runtime_core",
+      "micro_primitive_numeric_lists",
+      "micro_stdlib_core",
+      "micro_lambda_hof_run"
+    ],
+    "compilation_time": [
+      "macro_small_build_cold",
+      "macro_small_build_warm",
+      "macro_medium_check",
+      "macro_large_check"
+    ],
+    "runtime_vs_c": [
+      "macro_medium_run"
+    ],
+    "cross_language": [
+      "benchmarks/cross-language/problems.json",
+      "tests/perf/compare_zenith_python.py"
+    ]
+  }
+}
+

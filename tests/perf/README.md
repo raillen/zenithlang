@@ -98,3 +98,9 @@ powershell -ExecutionPolicy Bypass -File tests\perf\gate_nightly.ps1
 
 - `quick`: validado e verde no ambiente local.
 - `nightly`: definido e documentado; executar em janela longa para fechar gate final de release.
+
+## Phase 5C
+
+O indice oficial dos benchmarks fica em `benchmarks/`.
+
+Esses resultados sao internos. Use para detectar regressao. Nao use como material de marketing.

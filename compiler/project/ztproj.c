@@ -966,7 +966,11 @@ int zt_project_manifest_serialize(const zt_project_manifest *manifest, char *buf
     if (manifest->dependency_count > 0) {
         ZT_SCLIP("[dependencies]\n");
         for (i = 0; i < manifest->dependency_count; i += 1) {
-            ZT_SCLIP("%s = %s\n", manifest->dependencies[i].name, manifest->dependencies[i].spec);
+            if (manifest->dependencies[i].spec[0] == '{' || manifest->dependencies[i].spec[0] == '"') {
+                ZT_SCLIP("%s = %s\n", manifest->dependencies[i].name, manifest->dependencies[i].spec);
+            } else {
+                ZT_SCLIP("%s = \"%s\"\n", manifest->dependencies[i].name, manifest->dependencies[i].spec);
+            }
         }
         ZT_SCLIP("\n");
     }
@@ -974,7 +978,11 @@ int zt_project_manifest_serialize(const zt_project_manifest *manifest, char *buf
     if (manifest->dev_dependency_count > 0) {
         ZT_SCLIP("[dev_dependencies]\n");
         for (i = 0; i < manifest->dev_dependency_count; i += 1) {
-            ZT_SCLIP("%s = %s\n", manifest->dev_dependencies[i].name, manifest->dev_dependencies[i].spec);
+            if (manifest->dev_dependencies[i].spec[0] == '{' || manifest->dev_dependencies[i].spec[0] == '"') {
+                ZT_SCLIP("%s = %s\n", manifest->dev_dependencies[i].name, manifest->dev_dependencies[i].spec);
+            } else {
+                ZT_SCLIP("%s = \"%s\"\n", manifest->dev_dependencies[i].name, manifest->dev_dependencies[i].spec);
+            }
         }
         ZT_SCLIP("\n");
     }

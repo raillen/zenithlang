@@ -37,17 +37,27 @@ Adicione o package:
 
 ```powershell
 ..\zpm.exe add borealis@0.1.0
+..\zpm.exe add json@^1.2.3
 ```
 
 O manifesto recebe a dependencia em `[dependencies]`.
+
+Versões aceitas neste corte:
+
+- `1.2.3` para uma versão exata;
+- `^1.2.3` para atualizações compatíveis no mesmo major;
+- `~1.2.3` para atualizações de patch no mesmo minor.
 
 ## Instalar dependencias
 
 ```powershell
 ..\zpm.exe install
+..\zpm.exe install --locked
 ```
 
 Isso resolve dependencias e gera `zenith.lock`.
+
+Use `--locked` em CI para falhar quando `zenith.lock` estiver ausente ou desatualizado.
 
 ## Listar dependencias
 

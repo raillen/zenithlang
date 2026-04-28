@@ -18,7 +18,7 @@ int zt_handle_zpm(zt_driver_context *ctx, int argc, char **argv);
 int zt_handle_zpm_init(zt_driver_context *ctx, const char *path);
 int zt_handle_zpm_add(zt_driver_context *ctx, const char *pkg_spec);
 int zt_handle_zpm_remove(zt_driver_context *ctx, const char *pkg_name);
-int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path);
+int zt_handle_zpm_install(zt_driver_context *ctx, const char *project_path, int locked_mode);
 int zt_handle_zpm_update(zt_driver_context *ctx, const char *pkg_name);
 int zt_handle_zpm_list(zt_driver_context *ctx, const char *project_path);
 int zt_handle_zpm_find(zt_driver_context *ctx, const char *query, int all);

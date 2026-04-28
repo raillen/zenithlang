@@ -42,6 +42,7 @@ The alpha surface is specialized for `int`.
 | --- | --- |
 | `test.fail(message: text = "test failed") -> void` | Fails the current test with a message. |
 | `test.skip(reason: text = "") -> void` | Skips the current test with a reason. |
+| `test.throws(body: func() -> void) -> void` | Fails when the body finishes without a runtime error. |
 | `test.is_true(value: bool) -> void` | Fails when the value is false. |
 | `test.is_false(value: bool) -> void` | Fails when the value is true. |
 | `test.equal_int(actual: int, expected: int) -> void` | Compares ints and reports expected/received values. |
@@ -50,8 +51,10 @@ The alpha surface is specialized for `int`.
 | `test.not_equal_text(actual: text, expected: text) -> void` | Fails when both text values are equal. |
 | `test.zt_test_fail(message: text) -> void` | Low-level exported fail helper used by the runtime/test bridge. |
 | `test.zt_test_skip(reason: text) -> void` | Low-level exported skip helper used by the runtime/test bridge. |
+| `test.zt_test_throws_closure(body: func() -> void) -> bool` | Low-level helper used by `test.throws`. |
 
 Prefer `test.fail` and `test.skip` in user code.
+Prefer `throws` for expected fatal paths.
 Prefer `equal_*` and `not_equal_*` when expected/received values make the failure easier to fix.
 
 ## `std.net`

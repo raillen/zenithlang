@@ -29,6 +29,17 @@ Skip e um resultado distinto: nao e pass nem fail.
 @param reason - Motivo do skip.
 ---
 
+--- @target: throws
+```zt
+public func throws(body: func() -> void) -> void
+```
+
+Falha se `body` terminar sem erro.
+Use para testar caminhos que devem chamar `panic(...)` ou outro erro fatal.
+
+@param body - Funcao sem parametros que deve falhar.
+---
+
 --- @target: is_true
 ```zt
 public func is_true(value: bool) -> void

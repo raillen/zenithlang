@@ -15,6 +15,7 @@ typedef enum zt_symbol_kind {
     ZT_SYMBOL_STRUCT,
     ZT_SYMBOL_TRAIT,
     ZT_SYMBOL_ENUM,
+    ZT_SYMBOL_TYPE_ALIAS,
     ZT_SYMBOL_EXTERN_FUNC,
     ZT_SYMBOL_PARAM,
     ZT_SYMBOL_LOCAL,
@@ -54,4 +55,3 @@ int zt_scope_declare(zt_scope *scope, zt_symbol_kind kind, const char *name, zt_
 #endif
 
 #endif
-

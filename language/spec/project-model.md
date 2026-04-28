@@ -176,9 +176,10 @@ Rules:
 
 - origin resolution strictly adheres to the Git or local file protocol.
 - `git` URLs with strict `tag` or `rev` hashes are required for reproducible releases.
-- dependency versions constraints are matched directly against git tags in the MVP.
+- dependency version constraints use SemVer-shaped strings: `1.2.3`, `^1.2.3`, or `~1.2.3`.
+- dependency version constraints are matched directly against git tags in the MVP.
 - local `path` dependencies are allowed for monorepos or local development tooling.
-- version ranges are post-MVP
+- advanced ranges (`>=`, `<`, `1.2.*`) are post-MVP
 - optional dependencies are post-MVP
 - feature flags are post-MVP
 

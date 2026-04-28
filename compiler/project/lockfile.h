@@ -21,6 +21,8 @@ typedef struct zt_lock_package {
     char version[64];
     char git_url[256];
     char git_rev[64];
+    char git_tag[64];
+    char git_branch[64];
     char path[256];
 } zt_lock_package;
 
@@ -34,6 +36,9 @@ typedef struct zt_lockfile {
 void zt_lockfile_init(zt_lockfile *lock);
 int zt_lockfile_serialize(const zt_lockfile *lock, char *buffer, size_t capacity);
 int zt_lockfile_save(const zt_lockfile *lock, const char *path);
+int zt_lockfile_parse_text(const char *text, size_t length, zt_lockfile *lock, char *error, size_t error_cap);
+int zt_lockfile_load(const char *path, zt_lockfile *lock, char *error, size_t error_cap);
+const zt_lock_package *zt_lockfile_find_package(const zt_lockfile *lock, const char *name);
 
 #ifdef __cplusplus
 }

@@ -16,10 +16,10 @@ func render_report<Item, Error>(
 where Item is TextRenderable<Item> and Error is TextRenderable<Error>
     const header: text = title
     match header
-        case title ->
+        case title:
             -- render comment stays with return
             return render(items[0])
-        case default ->
+        case else:
             return subtitle
     end
 end

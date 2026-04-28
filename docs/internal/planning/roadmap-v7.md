@@ -106,28 +106,28 @@ These changes unify the language surface with its philosophy.
 
 | ID | Item | Status |
 |----|-------|--------|
-| L.34 | Match case delimiter: change `->` to `:` in parser and formatter | pending |
-| L.35 | Fix all examples using `/* */` comments to use `--` / `--- ---` | pending |
-| L.36 | Create beginner `hello-world` example using `print()` and `func main()` | pending |
-| L.37 | Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`) | pending |
-| L.38 | Allow `func main()` with no return type (implicit exit code 0) | pending |
-| L.39 | Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause | pending |
-| L.40 | Replace `case value name` with `case some(name)` for optional match | pending |
-| L.41 | Add `some` keyword to lexer (`ZT_TOKEN_SOME`) | pending |
-| L.42 | Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`) | pending |
-| L.43 | `if-else` as expression: `const x: T = if cond then a else b` | pending |
-| L.44 | `if-else` multiline expression: `const x: T = if cond ... else ... end` | pending |
-| L.45 | `capture` keyword (without `mut`) recognized inside closure bodies | pending |
-| L.46 | Update `decision-conflict-audit.md` with all reconciled changes | pending |
-| L.47 | Update `surface-syntax.md` to reflect all syntax changes | pending |
-| L.48 | Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers | pending |
-| L.49 | Replace `case default:` with `case else:` in match (remove `default` keyword) | pending |
-| L.50 | Make `then` and `given` contextual identifiers (not reserved keywords) | pending |
-| L.51 | Rename `dyn` keyword to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter | pending |
-| L.52 | Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return) | pending |
-| L.53 | Enum dot shorthand: `.variant` when expected type is known | pending |
-| L.54 | Closure return type inference: infer from `return` statements when `-> T` omitted | pending |
-| L.55 | Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`) | pending |
+| L.34 | Match case delimiter: change `->` to `:` in parser and formatter | done |
+| L.35 | Fix all examples using `/* */` comments to use `--` / `--- ---` | done |
+| L.36 | Create beginner `hello-world` example using `print()` and `func main()` | done |
+| L.37 | Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`) | done |
+| L.38 | Allow `func main()` with no return type (implicit exit code 0) | done |
+| L.39 | Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause | done |
+| L.40 | Replace `case value name` with `case some(name)` for optional match | done |
+| L.41 | Add `some` keyword to lexer (`ZT_TOKEN_SOME`) | done |
+| L.42 | Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`) | done |
+| L.43 | `if-else` as expression: `const x: T = if cond then a else b` | done |
+| L.44 | `if-else` multiline expression: `const x: T = if cond ... else ... end` | done |
+| L.45 | `capture` keyword (without `mut`) recognized inside closure bodies | done |
+| L.46 | Update `decision-conflict-audit.md` with all reconciled changes | done |
+| L.47 | Update `surface-syntax.md` to reflect all syntax changes | done |
+| L.48 | Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers | done |
+| L.49 | Replace `case default:` with `case else:` in match (remove `default` keyword) | done |
+| L.50 | Make `then` and `given` contextual identifiers (not reserved keywords) | done |
+| L.51 | Rename `dyn` keyword to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter | done |
+| L.52 | Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return) | done |
+| L.53 | Enum dot shorthand: `.variant` when expected type is known | done |
+| L.54 | Closure return type inference: infer from `return` statements when `-> T` omitted | done |
+| L.55 | Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`) | done |
 
 ---
 
@@ -231,13 +231,13 @@ These changes unify the language surface with its philosophy.
 |----|-------|--------|
 | T.01 | VSCode extension on Marketplace (LSP + syntax highlighting) | pending |
 | T.02 | `zt test --filter <name>` — test filtering | done |
-| T.03 | Test runner DX: test name, duration, stacktrace in output | pending |
-| T.04 | `test.throws(func)` for expected panics | pending |
-| T.05 | C-Binding Pack: sqlite3 and/or libcurl working example | pending |
-| T.06 | REPL: `zt repl` via compile-and-run per expression | pending |
-| T.07 | ZPM: lock file for reproducible builds | pending |
-| T.08 | ZPM: semantic versioning for dependencies | pending |
-| T.09 | Neovim/Zed/Helix LSP config snippets published | pending |
+| T.03 | Test runner DX: test name, duration, stacktrace in output | done |
+| T.04 | `test.throws(func)` for expected panics | done |
+| T.05 | C-Binding Pack: sqlite3 and/or libcurl working example | done |
+| T.06 | REPL: `zt repl` via compile-and-run per expression | done |
+| T.07 | ZPM: lock file for reproducible builds | done |
+| T.08 | ZPM: semantic versioning for dependencies | done |
+| T.09 | Neovim/Zed/Helix LSP config snippets published | done |
 
 ---
 
@@ -245,13 +245,13 @@ These changes unify the language surface with its philosophy.
 
 | ID | Item | Status |
 |----|-------|--------|
-| E.01 | "Learn Zenith in 30 min" tutorial (English) | pending |
-| E.02 | Example: CLI calculator | pending |
-| E.03 | Example: file processor | pending |
-| E.04 | Example: TODO app | pending |
+| E.01 | "Learn Zenith in 30 min" tutorial (English) | done |
+| E.02 | Example: CLI calculator | done |
+| E.03 | Example: file processor | done |
+| E.04 | Example: TODO app | done |
 | E.05 | Example: simple game (Borealis) | pending |
-| E.06 | Example: data parser | pending |
-| E.07 | Cookbook: grow organically with stdlib expansion | pending |
+| E.06 | Example: data parser | done |
+| E.07 | Cookbook: grow organically with stdlib expansion | done |
 
 ---
 
@@ -259,12 +259,28 @@ These changes unify the language surface with its philosophy.
 
 | ID | Item | Status |
 |----|-------|--------|
-| K.01 | Create `benchmarks/` directory with infrastructure | pending |
-| K.02 | Micro: fibonacci, sort, string ops, allocation | pending |
-| K.03 | Compilation time: `zt build` for N-line projects | pending |
-| K.04 | Runtime: compare emitted C vs hand-written C | pending |
-| K.05 | Cross-language: same problems in Go, Python, Kotlin | pending |
-| K.06 | Use for regression detection, NOT for marketing | pending |
+| K.01 | Create `benchmarks/` directory with infrastructure | done |
+| K.02 | Micro: fibonacci, sort, string ops, allocation | done |
+| K.03 | Compilation time: `zt build` for N-line projects | done |
+| K.04 | Runtime: compare emitted C vs hand-written C | done |
+| K.05 | Cross-language: same problems in Go, Python, Kotlin | done |
+| K.06 | Use for regression detection, NOT for marketing | done |
+
+---
+
+## Phase 5D — Interactive Console Helpers (0.7)
+
+Goal: keep `std.io` as the stream layer and add `std.console` as the
+interactive terminal layer for small CLI apps, examples, and manual runs.
+
+| ID | Item | Status |
+|----|-------|--------|
+| N.01 | Define `std.console` as a convenience layer over `std.io`, not a replacement | done |
+| N.02 | Add line helpers: `console.write_line` and `console.error_line` | done |
+| N.03 | Add interactive helpers: `console.pause`, `console.prompt`, `console.confirm` | done |
+| N.04 | Add behavior coverage for non-blocking console output helpers | done |
+| N.05 | Document the `std.io` vs `std.console` boundary in ZDoc and surface status | done |
+| N.06 | Future: terminal detection, size, clear, colors, styles, and key input | done |
 
 ---
 
@@ -272,9 +288,9 @@ These changes unify the language surface with its philosophy.
 
 | ID | Item | Status |
 |----|-------|--------|
-| H.01 | Write 3 real tools in Zenith (link checker, manifest validator, fixture index) | pending |
-| H.02 | Validate language gaps found during dogfooding | pending |
-| H.03 | Fix gaps and iterate on stdlib based on real usage | pending |
+| H.01 | Write 3 real tools in Zenith (link checker, manifest validator, fixture index) | done |
+| H.02 | Validate language gaps found during dogfooding | done |
+| H.03 | Fix gaps and iterate on stdlib based on real usage | done |
 
 ---
 
@@ -282,12 +298,12 @@ These changes unify the language surface with its philosophy.
 
 | ID | Item | Status |
 |----|-------|--------|
-| R.01 | SemVer policy: define breaking change rules | pending |
-| R.02 | Deprecation workflow: old syntax emits warning for 1 release | pending |
-| R.03 | Borealis clean clone dogfood | pending |
-| R.04 | English docs as canonical, other languages best-effort | pending |
+| R.01 | SemVer policy: define breaking change rules | done |
+| R.02 | Deprecation workflow: old syntax emits warning for 1 release | done |
+| R.03 | Borealis clean clone dogfood | done |
+| R.04 | English docs as canonical, other languages best-effort | done |
 | R.05 | License audit: verify all dependencies compatible with Apache-2.0 OR MIT | done |
-| R.06 | Release candidate freeze | pending |
+| R.06 | Release candidate freeze | done |
 
 ---
 

@@ -1,5 +1,5 @@
 [project]
-name = "example-hello-world"
+name = "hello-world"
 kind = "app"
 version = "0.1.0"
 
@@ -13,4 +13,3 @@ entry = "app.main"
 target = "native"
 output = "build"
 profile = "debug"
-

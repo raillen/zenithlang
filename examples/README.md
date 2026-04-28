@@ -21,7 +21,7 @@ Ou rode um arquivo `.zt` avulso diretamente (single-file mode):
 ## Exemplos
 
 1. `hello-world`
-   - `result<void, core.Error>` + `std.io`
+   - `print()` + `func main()` sem tipo de retorno
 2. `structs-and-match`
    - `struct`, `enum`, `match`
 3. `optional-and-result`
@@ -32,12 +32,22 @@ Ou rode um arquivo `.zt` avulso diretamente (single-file mode):
    - `std.json.parse`, `std.json.stringify`, `std.json.pretty`
 6. `extern-c-puts`
    - bloco `extern c` com chamada nativa
+7. `c-bindings-sqlite3`
+   - exemplo real de binding C via shim seguro para SQLite
+8. `cli-calculator`
+   - exemplo de ferramenta CLI com `result` para erro recuperavel
+9. `file-processor`
+   - leitura, limpeza e escrita de arquivo com `std.fs` e `std.text`
+10. `todo-app`
+   - `struct`, lista e contagem simples
+11. `data-parser`
+   - `std.json.parse`, `map.get`, `optional` e `result`
 
 ## Dica para README do GitHub
 
 Para vitrine rapida, use:
 
 1. `hello-world`
-2. `structs-and-match`
-3. `std-json`
-
+2. `cli-calculator`
+3. `todo-app`
+4. `data-parser`

@@ -20,6 +20,7 @@ zt <command> [input] [options]
 | `create` | cria scaffold de projeto |
 | `test` | executa testes |
 | `fmt` | formata codigo |
+| `repl` | avalia expressoes em loop compile-and-run |
 | `doc check` | valida documentacao |
 | `doc show` | mostra documentacao |
 | `summary` | resume projeto |
@@ -34,6 +35,7 @@ zt <command> [input] [options]
 .\zt.exe help build
 .\zt.exe help run
 .\zt.exe help create
+.\zt.exe help repl
 ```
 
 ## Single-File Mode
@@ -82,6 +84,38 @@ name, project path, or project name contains the given text.
 
 Use it for a small loop while editing one area. Keep the full test command for
 final validation.
+
+For `attr test` cases, `zt test` prints one compact line per test:
+
+```text
+test pass app.tests.pass_case duration=12ms
+```
+
+Failed or skipped cases also print a small source trace:
+
+```text
+stacktrace:
+  at app.tests.fail_case (src/app/tests.zt:16:1)
+```
+
+## REPL
+
+```powershell
+.\zt.exe repl
+.\zt.exe repl --eval "1 + 2"
+.\zt.exe repl --eval "\"hello\""
+```
+
+`zt repl` accepts one expression per line.
+Each expression is compiled and run as a small temporary program.
+
+Prompt commands:
+
+- `:help`
+- `:quit`
+- `:exit`
+
+Use `--eval` for scripts and tests.
 
 ## Build
 

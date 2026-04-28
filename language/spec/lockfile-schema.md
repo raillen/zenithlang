@@ -50,5 +50,6 @@ path = "../local_libs/test_helpers"
 ## Current Implementation Boundary
 
 - `zenith.ztproj` parser already reads `[dependencies]` and `[dev_dependencies]` entries as initial raw specs
-- full dependency resolution and lockfile generation are post-bootstrap tasks
-- this schema document is the normative target for the first lockfile writer/reader implementation
+- `zpm install` writes `zenith.lock`
+- `zpm install --locked` reads `zenith.lock` and fails if direct dependencies are missing or stale
+- full registry resolution, downloads for version dependencies, and complete transitive resolution remain post-bootstrap tasks

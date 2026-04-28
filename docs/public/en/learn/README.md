@@ -39,6 +39,7 @@ Cada guia deve:
 
 Ordem inicial recomendada:
 
+0. `learn-zenith-in-30-min.md`: tour rapido em ingles.
 1. `01-first-program.md`: primeiro arquivo Zenith.
 2. `02-values-and-functions.md`: valores, tipos e funções.
 3. `03-errors-and-absence.md`: `optional`, `result` e `panic`.
@@ -60,3 +61,4 @@ Exemplos devem vir de behavior tests quando possível.
 ## Histórico de atualização
 
 - 2026-04-25: índice inicial da trilha de aprendizado.
+- 2026-04-28: added English 30-minute tutorial.

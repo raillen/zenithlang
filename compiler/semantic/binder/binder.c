@@ -455,6 +455,8 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
             }
             zt_bind_expression(binder, node->as.field_expr.object, scope);
             break;
+        case ZT_AST_ENUM_DOT_EXPR:
+            break;
         case ZT_AST_INDEX_EXPR:
             zt_bind_expression(binder, node->as.index_expr.object, scope);
             zt_bind_expression(binder, node->as.index_expr.index, scope);
@@ -466,6 +468,11 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
             break;
         case ZT_AST_GROUPED_EXPR:
             zt_bind_expression(binder, node->as.grouped_expr.inner, scope);
+            break;
+        case ZT_AST_IF_EXPR:
+            zt_bind_expression(binder, node->as.if_expr.condition, scope);
+            zt_bind_expression(binder, node->as.if_expr.then_expr, scope);
+            zt_bind_expression(binder, node->as.if_expr.else_expr, scope);
             break;
         case ZT_AST_SUCCESS_EXPR:
             zt_bind_expression(binder, node->as.success_expr.value, scope);
@@ -480,6 +487,11 @@ static void zt_bind_expression(zt_binder *binder, const zt_ast_node *node, zt_sc
             for (i = 0; i < node->as.map_expr.entries.count; i++) {
                 zt_bind_expression(binder, node->as.map_expr.entries.items[i].key, scope);
                 zt_bind_expression(binder, node->as.map_expr.entries.items[i].value, scope);
+            }
+            break;
+        case ZT_AST_STRUCT_LITERAL_EXPR:
+            for (i = 0; i < node->as.struct_literal_expr.fields.count; i++) {
+                zt_bind_expression(binder, node->as.struct_literal_expr.fields.items[i].value, scope);
             }
             break;
         case ZT_AST_FMT_EXPR:
@@ -917,6 +929,11 @@ static void zt_bind_decl(zt_binder *binder, const zt_ast_node *decl, zt_scope *m
                 zt_scope_dispose(&decl_scope);
             }
             break;
+        case ZT_AST_TYPE_ALIAS_DECL:
+            zt_scope_init(&decl_scope, module_scope);
+            zt_bind_type_node(binder, decl->as.type_alias_decl.target_type, &decl_scope);
+            zt_scope_dispose(&decl_scope);
+            break;
         case ZT_AST_CONST_DECL:
             zt_scope_init(&decl_scope, module_scope);
             zt_bind_seed_module_value_aliases(module_scope, &decl_scope, decl->as.const_decl.name);
@@ -953,6 +970,9 @@ static void zt_bind_declare_top_level(zt_binder *binder, const zt_ast_node *decl
             break;
         case ZT_AST_ENUM_DECL:
             zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_ENUM, decl->as.enum_decl.name, decl->span, 0);
+            break;
+        case ZT_AST_TYPE_ALIAS_DECL:
+            zt_bind_declare_name(binder, module_scope, ZT_SYMBOL_TYPE_ALIAS, decl->as.type_alias_decl.name, decl->span, 0);
             break;
         case ZT_AST_EXTERN_DECL:
             for (i = 0; i < decl->as.extern_decl.functions.count; i++) {

@@ -14,6 +14,7 @@ Use apenas APIs documentadas e validadas por testes quando escrever exemplos pub
 ## Modulos comuns
 
 - `std.io`: entrada e saída básica.
+- `std.console`: helpers interativos de terminal sobre `std.io`; inclui prompt, confirmacao, deteccao, tamanho, cores, estilos e tecla opcional.
 - `std.text`: helpers seguros de texto do corte alpha.
 - `std.bytes`: base para dados binarios.
 - `std.fs`: filesystem sincronico.
@@ -57,6 +58,7 @@ Se uma API ainda não esta suportada semanticamente pelo compilador, não coloqu
 ## Referências
 
 - Texto e arquivos: `docs/public/stdlib/text-and-files.md`.
+- Console interativo: `docs/public/stdlib/console.md`.
 - Validação, matemática e random: `docs/public/stdlib/validation-math-random.md`.
 - Regex: `docs/public/stdlib/regex.md`.
 - Sets: `docs/public/stdlib/set.md`.

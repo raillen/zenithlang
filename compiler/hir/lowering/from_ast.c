@@ -93,6 +93,8 @@ typedef struct zt_lower_ctx {
     const zt_ast_node *root_ast;
 } zt_lower_ctx;
 
+static const zt_ast_node *zt_find_type_alias_ast(const zt_lower_ctx *ctx, const char *name);
+
 static char *zt_lower_strdup(const char *text) {
     size_t len;
     char *copy;
@@ -315,7 +317,7 @@ static zt_type *zt_lower_type_from_generic(zt_lower_ctx *ctx, const char *name, 
     } else if (zt_text_eq(name, "grid3d")) {
         kind = ZT_TYPE_GRID3D;
         display_name = "grid3d";
-    } else if (zt_text_eq(name, "dyn")) {
+    } else if (zt_text_eq(name, "dyn") || zt_text_eq(name, "any")) {
         kind = ZT_TYPE_DYN;
         display_name = "dyn";
     } else if (zt_text_eq(name, "lazy")) {
@@ -333,6 +335,8 @@ static zt_type *zt_lower_type_from_ast(zt_lower_ctx *ctx, const zt_ast_node *nod
     (void)ctx;
     if (node == NULL) return zt_type_make(ZT_TYPE_VOID);
     if (node->kind == ZT_AST_TYPE_SIMPLE) {
+        const zt_ast_node *alias = zt_find_type_alias_ast(ctx, node->as.type_simple.name);
+        if (alias != NULL) return zt_lower_type_from_ast(ctx, alias->as.type_alias_decl.target_type);
         int is_builtin = 0;
         zt_type_kind kind = zt_builtin_kind(node->as.type_simple.name, &is_builtin);
         if (is_builtin) return zt_type_make(kind);
@@ -345,6 +349,10 @@ static zt_type *zt_lower_type_from_ast(zt_lower_ctx *ctx, const zt_ast_node *nod
         return zt_type_make_with_args(ZT_TYPE_DYN, "dyn", args);
     }
     if (node->kind == ZT_AST_TYPE_GENERIC) {
+        const zt_ast_node *alias = zt_find_type_alias_ast(ctx, node->as.type_generic.name);
+        if (alias != NULL && node->as.type_generic.type_args.count == 0) {
+            return zt_lower_type_from_ast(ctx, alias->as.type_alias_decl.target_type);
+        }
         return zt_lower_type_from_generic(ctx, node->as.type_generic.name, &node->as.type_generic.type_args);
     }
     if (node->kind == ZT_AST_TYPE_CALLABLE) {
@@ -474,6 +482,18 @@ static const zt_ast_node *zt_find_enum_decl_ast(const zt_lower_ctx *ctx, const c
         }
     }
     return fallback;
+}
+
+static const zt_ast_node *zt_find_type_alias_ast(const zt_lower_ctx *ctx, const char *name) {
+    size_t i;
+    if (ctx == NULL || ctx->root_ast == NULL || ctx->root_ast->kind != ZT_AST_FILE || name == NULL) return NULL;
+    for (i = 0; i < ctx->root_ast->as.file.declarations.count; i += 1) {
+        const zt_ast_node *decl = ctx->root_ast->as.file.declarations.items[i];
+        if (decl == NULL || decl->kind != ZT_AST_TYPE_ALIAS_DECL || decl->as.type_alias_decl.name == NULL) continue;
+        if (zt_text_eq(decl->as.type_alias_decl.name, name)) return decl;
+        if (zt_name_eq(decl->as.type_alias_decl.name, name)) return decl;
+    }
+    return NULL;
 }
 
 static const zt_ast_node *zt_find_enum_variant_ast(const zt_ast_node *enum_decl, const char *variant_name, size_t *out_index) {
@@ -1184,6 +1204,134 @@ static zt_hir_expr *zt_lower_struct_constructor(
     return construct;
 }
 
+static zt_hir_expr *zt_lower_struct_literal(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *literal,
+        const zt_type *expected,
+        const zt_struct_meta *meta) {
+    const char *type_name;
+    zt_hir_expr *construct;
+    zt_hir_expr **provided;
+    unsigned char *filled;
+    size_t i;
+
+    if (literal == NULL) return NULL;
+
+    if (expected == NULL || expected->kind != ZT_TYPE_USER || expected->name == NULL) {
+        zt_add_diag(ctx, literal->span, "struct literal requires an expected struct type");
+        return zt_make_expr(ZT_HIR_IDENT_EXPR, literal->span, zt_unknown_type());
+    }
+
+    if (meta == NULL) {
+        zt_add_diag(ctx, literal->span, "struct literal expected a known struct type");
+        return zt_make_expr(ZT_HIR_IDENT_EXPR, literal->span, zt_type_clone(expected));
+    }
+
+    type_name = meta->name != NULL ? meta->name : expected->name;
+    construct = zt_make_expr(ZT_HIR_CONSTRUCT_EXPR, literal->span, zt_type_clone(expected));
+    if (construct == NULL) return NULL;
+    construct->as.construct_expr.type_name = zt_lower_strdup(type_name);
+    construct->as.construct_expr.fields = zt_hir_field_init_list_make();
+
+    provided = (zt_hir_expr **)calloc(meta->field_count > 0 ? meta->field_count : 1, sizeof(zt_hir_expr *));
+    filled = (unsigned char *)calloc(meta->field_count > 0 ? meta->field_count : 1, sizeof(unsigned char));
+    if (provided == NULL || filled == NULL) {
+        free(provided);
+        free(filled);
+        zt_hir_expr_dispose(construct);
+        zt_add_diag(ctx, literal->span, "out of memory in struct literal lowering");
+        return NULL;
+    }
+
+    for (i = 0; i < literal->as.struct_literal_expr.fields.count; i += 1) {
+        const zt_ast_named_arg *arg = &literal->as.struct_literal_expr.fields.items[i];
+        size_t f;
+        int found = 0;
+        for (f = 0; f < meta->field_count; f += 1) {
+            if (!zt_text_eq(meta->fields[f].name, arg->name)) continue;
+            found = 1;
+            if (filled[f]) {
+                zt_add_diag(ctx, arg->span, "duplicate field in struct literal");
+                zt_hir_expr_dispose(zt_lower_expr(ctx, scope, arg->value, meta->fields[f].type));
+            } else {
+                provided[f] = zt_lower_expr(ctx, scope, arg->value, meta->fields[f].type);
+                filled[f] = 1;
+            }
+            break;
+        }
+        if (!found) {
+            zt_add_diag(ctx, arg->span, "unknown field in struct literal");
+            zt_hir_expr_dispose(zt_lower_expr(ctx, scope, arg->value, NULL));
+        }
+    }
+
+    for (i = 0; i < meta->field_count; i += 1) {
+        zt_hir_field_init init;
+        memset(&init, 0, sizeof(init));
+        init.span = literal->span;
+        init.name = zt_lower_strdup(meta->fields[i].name);
+        if (filled[i]) {
+            init.value = provided[i];
+        } else if (meta->fields[i].default_value != NULL) {
+            init.value = zt_lower_expr(ctx, scope, meta->fields[i].default_value, meta->fields[i].type);
+        } else {
+            zt_add_diag(ctx, literal->span, "missing required field in struct literal");
+            init.value = zt_make_expr(ZT_HIR_IDENT_EXPR, literal->span, zt_unknown_type());
+            if (init.value != NULL) init.value->as.ident_expr.name = zt_lower_strdup("<missing>");
+        }
+        zt_hir_field_init_list_push(&construct->as.construct_expr.fields, init);
+    }
+
+    free(provided);
+    free(filled);
+    return construct;
+}
+
+static zt_hir_expr *zt_lower_struct_literal_as_map(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *literal,
+        const zt_type *expected) {
+    size_t i;
+    zt_hir_map_entry_list entries = zt_hir_map_entry_list_make();
+    const zt_type *expected_key = NULL;
+    const zt_type *expected_val = NULL;
+    zt_hir_expr *out;
+
+    if (expected != NULL && expected->kind == ZT_TYPE_MAP && expected->args.count >= 2) {
+        expected_key = expected->args.items[0];
+        expected_val = expected->args.items[1];
+    }
+
+    for (i = 0; i < literal->as.struct_literal_expr.fields.count; i += 1) {
+        const zt_ast_named_arg *arg = &literal->as.struct_literal_expr.fields.items[i];
+        zt_ast_node key_node;
+        zt_hir_map_entry entry;
+        memset(&key_node, 0, sizeof(key_node));
+        key_node.kind = ZT_AST_IDENT_EXPR;
+        key_node.span = arg->span;
+        key_node.as.ident_expr.name = arg->name;
+
+        memset(&entry, 0, sizeof(entry));
+        entry.span = arg->span;
+        entry.key = zt_lower_expr(ctx, scope, &key_node, expected_key);
+        entry.value = zt_lower_expr(ctx, scope, arg->value, expected_val);
+        zt_hir_map_entry_list_push(&entries, entry);
+    }
+
+    out = zt_make_expr(
+        ZT_HIR_MAP_EXPR,
+        literal->span,
+        expected != NULL ? zt_type_clone(expected) : zt_unknown_type());
+    if (out == NULL) {
+        zt_hir_map_entry_list_dispose(&entries);
+        return NULL;
+    }
+    out->as.map_expr.entries = entries;
+    return out;
+}
+
 static zt_hir_expr *zt_lower_enum_unit_variant(
         const zt_ast_node *expr,
         const char *enum_name,
@@ -1342,6 +1490,29 @@ static zt_hir_expr *zt_lower_call_expr(
 
     callee = expr->as.call_expr.callee;
     callee_path[0] = '\0';
+
+    if (callee != NULL && callee->kind == ZT_AST_ENUM_DOT_EXPR) {
+        if (expected != NULL && expected->kind == ZT_TYPE_USER && expected->name != NULL) {
+            const zt_ast_node *enum_decl = zt_find_enum_decl_ast(ctx, expected->name);
+            if (enum_decl != NULL) {
+                size_t variant_index = 0;
+                const zt_ast_node *variant_decl = zt_find_enum_variant_ast(enum_decl, callee->as.enum_dot_expr.variant_name, &variant_index);
+                if (variant_decl != NULL) {
+                    return zt_lower_enum_constructor(
+                        ctx,
+                        scope,
+                        expr,
+                        enum_decl->as.enum_decl.name,
+                        variant_decl,
+                        variant_index);
+                }
+            }
+        }
+        zt_add_diag(ctx, expr->span, "enum dot shorthand requires an expected enum type");
+        result = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, expected != NULL ? zt_type_clone(expected) : zt_unknown_type());
+        if (result != NULL) result->as.ident_expr.name = zt_lower_strdup("<invalid_enum_dot>");
+        return result;
+    }
 
     if (callee != NULL && callee->kind == ZT_AST_FIELD_EXPR) {
         if (zt_expr_to_path(callee, callee_path, sizeof(callee_path))) {
@@ -2134,6 +2305,169 @@ static zt_hir_expr *zt_lower_call_expr(
 }
 
 
+static int zt_lower_infer_closure_return_from_stmt(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *stmt,
+        zt_type **inferred_type);
+
+static void zt_lower_record_inferred_return_type(zt_type **inferred_type, const zt_type *candidate) {
+    if (inferred_type == NULL || candidate == NULL) return;
+    if (*inferred_type == NULL || ((*inferred_type)->kind == ZT_TYPE_UNKNOWN && candidate->kind != ZT_TYPE_UNKNOWN)) {
+        zt_type_dispose(*inferred_type);
+        *inferred_type = zt_type_clone(candidate);
+    }
+}
+
+static void zt_lower_bind_declared_local_type(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *stmt,
+        int is_mutable) {
+    zt_type *decl_type;
+    const char *name;
+
+    if (ctx == NULL || scope == NULL || stmt == NULL) return;
+    if (stmt->kind == ZT_AST_CONST_DECL) {
+        name = stmt->as.const_decl.name;
+        decl_type = zt_lower_type_from_ast(ctx, stmt->as.const_decl.type_node);
+    } else if (stmt->kind == ZT_AST_VAR_DECL) {
+        name = stmt->as.var_decl.name;
+        decl_type = zt_lower_type_from_ast(ctx, stmt->as.var_decl.type_node);
+    } else {
+        return;
+    }
+
+    zt_scope_set(scope, name, decl_type, is_mutable);
+    zt_type_dispose(decl_type);
+}
+
+static int zt_lower_infer_closure_return_from_block(
+        zt_lower_ctx *ctx,
+        zt_scope *parent_scope,
+        const zt_ast_node *block,
+        zt_type **inferred_type) {
+    zt_scope local_scope;
+    int found = 0;
+    size_t i;
+
+    if (block == NULL || block->kind != ZT_AST_BLOCK) return 0;
+
+    zt_scope_init(&local_scope, parent_scope);
+    for (i = 0; i < block->as.block.statements.count; i++) {
+        found |= zt_lower_infer_closure_return_from_stmt(
+            ctx,
+            &local_scope,
+            block->as.block.statements.items[i],
+            inferred_type);
+    }
+    zt_scope_dispose(&local_scope);
+    return found;
+}
+
+static int zt_lower_infer_closure_return_from_stmt(
+        zt_lower_ctx *ctx,
+        zt_scope *scope,
+        const zt_ast_node *stmt,
+        zt_type **inferred_type) {
+    zt_hir_expr *value;
+    zt_scope nested_scope;
+    zt_type *item_type;
+    zt_type *second_type;
+    int found = 0;
+    size_t i;
+
+    if (stmt == NULL) return 0;
+
+    switch (stmt->kind) {
+        case ZT_AST_BLOCK:
+            return zt_lower_infer_closure_return_from_block(ctx, scope, stmt, inferred_type);
+        case ZT_AST_RETURN_STMT:
+            if (stmt->as.return_stmt.value != NULL) {
+                value = zt_lower_expr(ctx, scope, stmt->as.return_stmt.value, NULL);
+                if (value != NULL) {
+                    zt_lower_record_inferred_return_type(inferred_type, value->type);
+                    zt_hir_expr_dispose(value);
+                }
+            } else {
+                zt_type *void_type = zt_type_make(ZT_TYPE_VOID);
+                zt_lower_record_inferred_return_type(inferred_type, void_type);
+                zt_type_dispose(void_type);
+            }
+            return 1;
+        case ZT_AST_CONST_DECL:
+            zt_lower_bind_declared_local_type(ctx, scope, stmt, 0);
+            return 0;
+        case ZT_AST_VAR_DECL:
+            zt_lower_bind_declared_local_type(ctx, scope, stmt, 1);
+            return 0;
+        case ZT_AST_IF_STMT:
+            found |= zt_lower_infer_closure_return_from_block(ctx, scope, stmt->as.if_stmt.then_block, inferred_type);
+            if (stmt->as.if_stmt.else_block != NULL) {
+                found |= zt_lower_infer_closure_return_from_stmt(ctx, scope, stmt->as.if_stmt.else_block, inferred_type);
+            }
+            return found;
+        case ZT_AST_WHILE_STMT:
+            return zt_lower_infer_closure_return_from_block(ctx, scope, stmt->as.while_stmt.body, inferred_type);
+        case ZT_AST_REPEAT_STMT:
+            return zt_lower_infer_closure_return_from_block(ctx, scope, stmt->as.repeat_stmt.body, inferred_type);
+        case ZT_AST_FOR_STMT:
+            value = zt_lower_expr(ctx, scope, stmt->as.for_stmt.iterable, NULL);
+            item_type = zt_unknown_type();
+            second_type = zt_type_make(ZT_TYPE_INT);
+            if (value != NULL && value->type != NULL) {
+                if (value->type->kind == ZT_TYPE_LIST && value->type->args.count > 0) {
+                    zt_type_dispose(item_type);
+                    item_type = zt_type_clone(value->type->args.items[0]);
+                } else if (value->type->kind == ZT_TYPE_TEXT) {
+                    zt_type_dispose(item_type);
+                    item_type = zt_type_make(ZT_TYPE_TEXT);
+                } else if (value->type->kind == ZT_TYPE_SET && value->type->args.count > 0) {
+                    zt_type_dispose(item_type);
+                    item_type = zt_type_clone(value->type->args.items[0]);
+                } else if (value->type->kind == ZT_TYPE_MAP && value->type->args.count > 1) {
+                    zt_type_dispose(item_type);
+                    zt_type_dispose(second_type);
+                    item_type = zt_type_clone(value->type->args.items[0]);
+                    second_type = zt_type_clone(value->type->args.items[1]);
+                }
+            }
+            zt_scope_init(&nested_scope, scope);
+            zt_scope_set(&nested_scope, stmt->as.for_stmt.item_name, item_type, 1);
+            if (stmt->as.for_stmt.index_name != NULL) {
+                zt_scope_set(&nested_scope, stmt->as.for_stmt.index_name, second_type, 1);
+            }
+            found = zt_lower_infer_closure_return_from_block(ctx, &nested_scope, stmt->as.for_stmt.body, inferred_type);
+            zt_scope_dispose(&nested_scope);
+            zt_type_dispose(item_type);
+            zt_type_dispose(second_type);
+            zt_hir_expr_dispose(value);
+            return found;
+        case ZT_AST_USING_STMT:
+            value = zt_lower_expr(ctx, scope, stmt->as.using_stmt.init_value, NULL);
+            item_type = value != NULL && value->type != NULL ? zt_type_clone(value->type) : zt_unknown_type();
+            zt_scope_init(&nested_scope, scope);
+            zt_scope_set(&nested_scope, stmt->as.using_stmt.name, item_type, 0);
+            if (stmt->as.using_stmt.body != NULL) {
+                found = zt_lower_infer_closure_return_from_block(ctx, &nested_scope, stmt->as.using_stmt.body, inferred_type);
+            }
+            zt_scope_dispose(&nested_scope);
+            zt_type_dispose(item_type);
+            zt_hir_expr_dispose(value);
+            return found;
+        case ZT_AST_MATCH_STMT:
+            for (i = 0; i < stmt->as.match_stmt.cases.count; i++) {
+                const zt_ast_node *case_node = stmt->as.match_stmt.cases.items[i];
+                if (case_node == NULL || case_node->kind != ZT_AST_MATCH_CASE) continue;
+                found |= zt_lower_infer_closure_return_from_block(ctx, scope, case_node->as.match_case.body, inferred_type);
+            }
+            return found;
+        default:
+            return 0;
+    }
+}
+
+
 static zt_hir_expr *zt_lower_closure_expr(
         zt_lower_ctx *ctx,
         zt_scope *scope,
@@ -2172,7 +2506,9 @@ static zt_hir_expr *zt_lower_closure_expr(
                expected->args.items[0] != NULL) {
         out->as.closure_expr.return_type = zt_type_clone(expected->args.items[0]);
     } else {
-        out->as.closure_expr.return_type = zt_type_make(ZT_TYPE_UNKNOWN);
+        zt_type *inferred_type = NULL;
+        zt_lower_infer_closure_return_from_block(ctx, &closure_scope, expr->as.closure_expr.body, &inferred_type);
+        out->as.closure_expr.return_type = inferred_type != NULL ? inferred_type : zt_type_make(ZT_TYPE_VOID);
     }
     
     // Body is a block in AST
@@ -2384,6 +2720,17 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
             }
             out->as.map_expr.entries = entries;
             return out;
+        }
+
+        case ZT_AST_STRUCT_LITERAL_EXPR: {
+            const zt_struct_meta *meta = NULL;
+            if (expected != NULL && expected->kind == ZT_TYPE_MAP) {
+                return zt_lower_struct_literal_as_map(ctx, scope, expr, expected);
+            }
+            if (expected != NULL && expected->kind == ZT_TYPE_USER) {
+                meta = zt_find_struct_meta(ctx, expected->name);
+            }
+            return zt_lower_struct_literal(ctx, scope, expr, expected, meta);
         }
 
         case ZT_AST_SET_EXPR: {
@@ -2600,6 +2947,53 @@ static zt_hir_expr *zt_lower_expr(zt_lower_ctx *ctx, zt_scope *scope, const zt_a
 
         case ZT_AST_GROUPED_EXPR:
             return zt_lower_expr(ctx, scope, expr->as.grouped_expr.inner, expected);
+
+        case ZT_AST_ENUM_DOT_EXPR: {
+            if (expected != NULL && expected->kind == ZT_TYPE_USER && expected->name != NULL) {
+                const zt_ast_node *enum_decl = zt_find_enum_decl_ast(ctx, expected->name);
+                if (enum_decl != NULL) {
+                    size_t variant_index = 0;
+                    const zt_ast_node *variant_decl = zt_find_enum_variant_ast(enum_decl, expr->as.enum_dot_expr.variant_name, &variant_index);
+                    if (variant_decl != NULL) {
+                        if (variant_decl->as.enum_variant.fields.count == 0) {
+                            return zt_lower_enum_unit_variant(expr, enum_decl->as.enum_decl.name, variant_index);
+                        }
+                        zt_add_diag(ctx, expr->span, "enum variant with payload requires constructor call");
+                    }
+                }
+            }
+            zt_add_diag(ctx, expr->span, "enum dot shorthand requires an expected enum type");
+            out = zt_make_expr(ZT_HIR_IDENT_EXPR, expr->span, expected != NULL ? zt_type_clone(expected) : zt_unknown_type());
+            if (out != NULL) out->as.ident_expr.name = zt_lower_strdup("<invalid_enum_dot>");
+            return out;
+        }
+
+        case ZT_AST_IF_EXPR: {
+            zt_type *if_type;
+            zt_hir_expr *condition;
+            zt_hir_expr *then_expr;
+            zt_hir_expr *else_expr;
+
+            condition = zt_lower_expr(ctx, scope, expr->as.if_expr.condition, zt_type_make(ZT_TYPE_BOOL));
+            then_expr = zt_lower_expr(ctx, scope, expr->as.if_expr.then_expr, expected);
+            if_type = expected != NULL
+                ? zt_type_clone(expected)
+                : (then_expr != NULL && then_expr->type != NULL ? zt_type_clone(then_expr->type) : zt_unknown_type());
+            else_expr = zt_lower_expr(ctx, scope, expr->as.if_expr.else_expr, if_type);
+
+            out = zt_make_expr(ZT_HIR_IF_EXPR, expr->span, zt_type_clone(if_type));
+            if (out != NULL) {
+                out->as.if_expr.condition = condition;
+                out->as.if_expr.then_expr = then_expr;
+                out->as.if_expr.else_expr = else_expr;
+            } else {
+                zt_hir_expr_dispose(condition);
+                zt_hir_expr_dispose(then_expr);
+                zt_hir_expr_dispose(else_expr);
+            }
+            zt_type_dispose(if_type);
+            return out;
+        }
 
         case ZT_AST_CLOSURE_EXPR:
             return zt_lower_closure_expr(ctx, scope, expr, expected);

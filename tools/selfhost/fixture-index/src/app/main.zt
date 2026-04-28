@@ -1,0 +1,61 @@
+namespace app.main
+
+import std.console as console
+import std.fs as fs
+import std.text as text
+
+func note(value: text) -> void
+    const ignored: result<void, core.Error> = console.write_line(value)
+end
+
+func warn(value: text) -> void
+    const ignored: result<void, core.Error> = console.error_line(value)
+end
+
+func list_contains(items: list<text>, expected: text) -> bool
+    var index: int = 0
+
+    while index < len(items)
+        if items[index] == expected
+            return true
+        end
+        index = index + 1
+    end
+
+    return false
+end
+
+func require_fixture(items: list<text>, expected: text) -> result<void, fs.Error>
+    if list_contains(items, expected)
+        return success()
+    end
+
+    warn("missing behavior fixture: " + expected)
+    return error(fs.Error.NotFound)
+end
+
+func main() -> result<void, fs.Error>
+    const fixtures: list<text> = fs.list_dir("tests/behavior")?
+
+    const simple_result: result<void, fs.Error> = require_fixture(fixtures, "simple_app")
+    simple_result?
+    const console_result: result<void, fs.Error> = require_fixture(fixtures, "std_console_basic")
+    console_result?
+    const io_result: result<void, fs.Error> = require_fixture(fixtures, "std_io_basic")
+    io_result?
+    const fs_result: result<void, fs.Error> = require_fixture(fixtures, "std_fs_aliases_basic")
+    fs_result?
+
+    fs.create_dir_all(".ztc-tmp/selfhost")?
+
+    const count_text: text = to_text(len(fixtures))
+    const summary: text = text.join(["behavior fixtures indexed: ", count_text, "\n"])
+    fs.write_text(".ztc-tmp/selfhost/fixture-index.txt", summary)?
+
+    if text.contains(summary, "behavior fixtures indexed") == false
+        return error(fs.Error.IOError)
+    end
+
+    note("selfhost-fixture-index ok")
+    return success()
+end

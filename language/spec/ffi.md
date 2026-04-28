@@ -158,6 +158,7 @@ Current coverage:
 
 - positive, primitive return: `tests/behavior/extern_c_puts_e2e` (`puts(text) -> int`);
 - positive, managed-arg shielding + primitive return: `tests/behavior/extern_c_text_len_e2e` (`zt_text_len(text) -> int`);
+- working external-library example: `examples/c-bindings-sqlite3` uses a C shim around SQLite so raw pointers stay outside Zenith;
 - negative, struct-as-arg: `tests/behavior/extern_c_struct_arg_error` (user struct where `text` expected; `type.mismatch` at call site);
 - negative, non-transferable at related `std.concurrent` boundary: `tests/behavior/std_concurrent_boundary_copy_unsupported_error` (for the concurrent helper wrapper, not the direct `extern c` surface).
 
@@ -166,7 +167,7 @@ Deferred (FFI 1.x follow-ups):
 - arity negative fixture at `extern c` call site;
 - invalid return type negative fixture;
 - callback / function-pointer support with tests;
-- wide-binding suite (libc subset, platform helpers).
+- wider binding suite (libcurl, platform helpers).
 
 ## Implementation Phases (FFI)
 

@@ -6,6 +6,7 @@
 | Module | Responsibility |
 | --- | --- |
 | `std.io` | input/output handles, read/write/print |
+| `std.console` | interactive terminal helpers over `std.io`: prompts, line output, terminal size, ANSI colors/styles, clear, optional key read |
 | `std.text` | text helpers and UTF-8 conversion |
 | `std.bytes` | bytes helpers |
 | `std.format` | number/date/bytes formatting helpers |

@@ -64,6 +64,7 @@ typedef enum zt_hir_expr_kind {
     ZT_HIR_CALL_INDIRECT_EXPR,
     ZT_HIR_CONSTRUCT_EXPR,
     ZT_HIR_VALUE_BINDING_EXPR,
+    ZT_HIR_IF_EXPR,
     ZT_HIR_CLOSURE_EXPR
 } zt_hir_expr_kind;
 
@@ -335,6 +336,7 @@ struct zt_hir_expr {
         struct { zt_hir_expr *callable; zt_hir_expr_list args; } call_indirect_expr;
         struct { char *type_name; zt_hir_field_init_list fields; } construct_expr;
         struct { char *name; } value_binding_expr;
+        struct { zt_hir_expr *condition; zt_hir_expr *then_expr; zt_hir_expr *else_expr; } if_expr;
         struct {
             zt_hir_param_list params;
             zt_type *return_type;

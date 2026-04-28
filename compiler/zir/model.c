@@ -179,6 +179,7 @@ const char *zir_expr_kind_name(zir_expr_kind kind) {
         case ZIR_EXPR_OPTIONAL_VALUE: return "optional_value";
         case ZIR_EXPR_FUNC_REF: return "func_ref";
         case ZIR_EXPR_CALL_INDIRECT: return "call_indirect";
+        case ZIR_EXPR_IF: return "if";
         case ZIR_EXPR_MAKE_CLOSURE: return "make_closure";
         default: return "unknown";
     }
@@ -627,6 +628,15 @@ zir_expr *zir_expr_make_call_indirect(zir_expr *callable) {
     return expr;
 }
 
+zir_expr *zir_expr_make_if(zir_expr *condition, zir_expr *then_expr, zir_expr *else_expr) {
+    zir_expr *expr = zir_expr_make(ZIR_EXPR_IF);
+    if (expr == NULL) return NULL;
+    expr->as.sequence.first = condition;
+    expr->as.sequence.second = then_expr;
+    expr->as.sequence.third = else_expr;
+    return expr;
+}
+
 void zir_expr_call_add_arg(zir_expr *expr, zir_expr *arg) {
     if (expr == NULL) return;
     if (expr->kind != ZIR_EXPR_CALL_DIRECT && expr->kind != ZIR_EXPR_CALL_EXTERN && expr->kind != ZIR_EXPR_CALL_RUNTIME_INTRINSIC && expr->kind != ZIR_EXPR_CALL_DYN && expr->kind != ZIR_EXPR_CALL_INDIRECT) return;
@@ -852,6 +862,13 @@ static int zir_render_expr(zir_string_buffer *buffer, const zir_expr *expr) {
                    zir_string_buffer_append(buffer, "(") &&
                    zir_render_expr_list(buffer, &expr->as.call_indirect.args) &&
                    zir_string_buffer_append(buffer, ")");
+        case ZIR_EXPR_IF:
+            return zir_string_buffer_append(buffer, "if ") &&
+                   zir_render_expr(buffer, expr->as.sequence.first) &&
+                   zir_string_buffer_append(buffer, " then ") &&
+                   zir_render_expr(buffer, expr->as.sequence.second) &&
+                   zir_string_buffer_append(buffer, " else ") &&
+                   zir_render_expr(buffer, expr->as.sequence.third);
         case ZIR_EXPR_MAKE_CLOSURE:
             return zir_string_buffer_append(buffer, "make_closure ") &&
                    zir_string_buffer_append(buffer, expr->as.make_closure.func_name) &&
@@ -957,6 +974,7 @@ void zir_expr_dispose(zir_expr *expr) {
         case ZIR_EXPR_SLICE_SEQ:
         case ZIR_EXPR_LIST_SET:
         case ZIR_EXPR_MAP_SET:
+        case ZIR_EXPR_IF:
             zir_expr_dispose(expr->as.sequence.first);
             zir_expr_dispose(expr->as.sequence.second);
             zir_expr_dispose(expr->as.sequence.third);

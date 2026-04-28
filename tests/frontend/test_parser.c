@@ -389,7 +389,7 @@ static void test_match_statement(void) {    zt_arena test_arena;
     zt_arena_init(&test_arena, 65536);
     zt_string_pool_init(&test_pool, &test_arena);
 
-    const char *src = "namespace app\nfunc classify(x: int)\n    match x\n        case 0\n            return 0\n        case default\n            return 1\n    end\nend";
+    const char *src = "namespace app\nfunc classify(x: int)\n    match x\n        case 0:\n            return 0\n        case else:\n            return 1\n    end\nend";
     zt_parser_result r = zt_parse(&test_arena, &test_pool, "test", src, strlen(src));
     ASSERT_NO_ERRORS(r, "match_statement");
     zt_ast_node *func = r.root->as.file.declarations.items[0];

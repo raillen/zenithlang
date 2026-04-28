@@ -22,6 +22,7 @@ Agrupar guias de estudo e material prático de apoio.
 ## Documentos
 
 - `editor-vscode.md`: uso local do Compass LSP e da extensão VSCode beta.
+- `editor-lsp-configs.md`: LSP snippets for Neovim, Helix and Zed.
 - `practical-and-theoretical-guide.md`
 
 ## Fora desta pasta

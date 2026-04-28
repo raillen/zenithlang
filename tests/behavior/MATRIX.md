@@ -56,6 +56,7 @@ Legend:
 | `optional_primitive_specialized` | `optional<float/bool/int8/int16/int32/int64/u8/u16/u32/u64>` present, none, `is_some`, `is_none` and `or` | `0` |
 | `std_collections_managed_arc` | Copy/mutate isolation para `grid2d<text>`, `pqueue<text>`, `circbuf<text>`, `btreemap<text,text>`, `btreeset<text>` e `grid3d<text>` | `12` |
 | `std_collections_queue_stack_cow` | `queue/stack` com retorno estruturado (`colecao + item`) e isolamento por copia em `dequeue/pop` | `0` |
+| `std_console_basic` | `std.console`: helpers de linha, deteccao, tamanho e leitura de tecla nao bloqueante sobre `std.io` | `0` |
 | `optional_result_basic` | 
 one`, `success(...)` and `error(...)` | `0` |
 | `result_question_basic` | `result<T,E>` `?` propagation in const/var initialization | `0` |
@@ -106,7 +107,10 @@ ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-pro
 | `std_test_attr_pass_skip` | `zt test` com `attr test` exercitando 1 pass e 1 skip | `test ok (pass=1 skip=1)` |
 | `std_test_attr_fail` | `zt test` com `attr test` exercitando 1 pass, 1 skip e 1 fail | `test failed (pass=1 skip=1 fail=1)` |
 | `std_test_helpers_pass` | `std.test` helper assertions no caminho feliz (`is_true`, `is_false`, `equal_*`, `not_equal_*`) | `0` |
+| `std_test_throws_pass` | `std.test.throws` aceita funcoes que chamam `panic(...)` | `0` |
 | `std_time_basic` | `std.time` tipado (`Instant`, `Duration`, `now`, `now_ms`, `sleep`, `sleep_ms`, `elapsed`, `since`, `until`, conversoes unix) | `0` |
+| `syntax_coherence_core` | Sintaxe 1G: `case some(name):`, `case else:`, `type` alias, `any<Trait>`, `func main()` sem retorno e closure de expressao unica | `0` |
+| `syntax_coherence_inline_constraints` | Sintaxe 1G: constraints inline `<T: Trait>` e trailing `given T is Trait` | `0` |
 | `std_os_basic` | `std.os` tipado (`Platform`, `Arch`, `pid`, `platform`, `arch`, `env`, `current_dir`, `change_dir`) | `0` |
 | `std_os_process_basic` | `std.os.process` com `ExitStatus` tipado (`run`, `exit_code`) e comando explicito (`program` + `args`) | `0` |
 | `std_net_basic` | `std.net` TCP client baseline (`connect`, `read_some`, `write_all`, `close`, `is_closed`) em loopback local via `run-loopback.ps1` | `0` |
@@ -176,6 +180,7 @@ ormalize`, `absolute`, `relative`, `is_absolute`, `is_relative`) via compile-pro
 | `std_test_helpers_bool_fail` | Runtime test diagnostic from `test.is_true(false)` |
 | `std_test_helpers_equal_fail` | Runtime test diagnostic with expected/received values from `test.equal_int(...)` |
 | `std_test_helpers_not_equal_fail` | Runtime test diagnostic from `test.not_equal_text(...)` |
+| `std_test_throws_fail` | Runtime test diagnostic from `test.throws(...)` when the body does not fail |
 | `todo_builtin_fail` | Runtime todo diagnostic from `todo(message)` |
 | `unreachable_builtin_fail` | Runtime unreachable diagnostic from `unreachable(message)` |
 | `where_contract_param_error` | Runtime contract violation on parameter `where` |

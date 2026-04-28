@@ -166,6 +166,7 @@ Resolution:
 
 - `case value name` is superseded by `case some(name)`.
 - C-004 is itself superseded by Decision 094.
+- Implementation note: parser accepts `case some(name):` as canonical and keeps legacy `case value name` as transition syntax.
 
 ### C-011: Interpolation model — `fmt "..."` to `f"..."`
 
@@ -197,6 +198,7 @@ Resolution:
 - All `dyn` references in specs are superseded by `any`.
 - `any` is removed from the "Explicitly Not MVP" list.
 - Unified spec: `language/spec/language-reference.md`.
+- Implementation note: lexer/parser/checker accept `any Trait` and `any<Trait>`; `dyn` remains accepted as legacy syntax during migration.
 
 ### C-013: Generic constraints — `where T is Trait` to `<T: Trait>`
 
@@ -213,6 +215,7 @@ Canonical rule:
 Resolution:
 
 - Generic constraint examples using `where T is Trait` are superseded by `<T: Trait>`.
+- Implementation note: parser supports inline `<T: Trait>` and trailing contextual `given T is Trait`.
 
 ### C-014: Match default case — `case default:` to `case else:`
 
@@ -227,6 +230,7 @@ Canonical rule:
 Resolution:
 
 - All `case default:` examples are superseded by `case else:`.
+- Implementation note: parser accepts `case else:` as canonical and keeps legacy `case default` as transition syntax. `default` is no longer emitted as a lexer keyword.
 
 ### C-015: Mutable closure capture syntax
 
@@ -261,5 +265,4 @@ When an older decision conflicts with canonical specs:
 ## Follow-up
 
 Maintainers should prefer updating historical decision headers with `Superseded in part by ...` notes when touching those files, but that annotation pass is not required to keep the canonical rules valid.
-
 

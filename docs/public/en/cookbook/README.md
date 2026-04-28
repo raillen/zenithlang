@@ -68,6 +68,7 @@ Recommended starter recipes:
 |`callable-delegate.md`| you want to pass a function as a value |
 |`zenith-equivalents-from-other-languages.md`| you know the concept in another language and want the equivalent Zenith |
 |`intentional-failure-builtins.md`| you need to fail clearly with`check`, `todo`or`unreachable` |
+|`stdlib-practical-recipes.md`| you want small stdlib-backed recipes tied to runnable examples |
 
 ## Validation
 
@@ -85,3 +86,4 @@ Examples should compile or be marked as illustrative.
 - 2026-04-25: initial cookbook index.
 - 2026-04-26: added Zenith equivalents recipe for concepts from other languages.
 - 2026-04-26: Added recipe for intentional crashes with`check`, `todo`and`unreachable`.
+- 2026-04-28: added stdlib practical recipes.

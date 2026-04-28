@@ -444,9 +444,9 @@ static void test_match_lowering(void) {    zt_arena test_arena;
         "namespace app\n"
         "func classify(value: int) -> int\n"
         "    match value\n"
-        "        case 10, 20, 30\n"
+        "        case 10, 20, 30:\n"
         "            return 1\n"
-        "        case default\n"
+        "        case else:\n"
         "            return 0\n"
         "    end\n"
         "end";

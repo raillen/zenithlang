@@ -96,28 +96,28 @@ Gate: clean clone + CI green + surface freeze doc exists.
 
 Origin: coherence audit (Decision 094).
 
-- [ ] L.34 — Match case delimiter: change `->` to `:` in parser and formatter.
-- [ ] L.35 — Fix all examples using `/* */` comments to use `--` / `--- ---`.
-- [ ] L.36 — Create beginner `hello-world` example using `print()` and `func main()`.
-- [ ] L.37 — Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`).
-- [ ] L.38 — Allow `func main()` with no return type (implicit exit code 0).
-- [ ] L.39 — Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause.
-- [ ] L.40 — Replace `case value name` with `case some(name)` for optional match.
-- [ ] L.41 — Add `some` keyword to lexer (`ZT_TOKEN_SOME`).
-- [ ] L.42 — Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`).
-- [ ] L.43 — `if-else` as expression: `const x: T = if cond then a else b`.
-- [ ] L.44 — `if-else` multiline expression: `const x: T = if cond ... else ... end`.
-- [ ] L.45 — `capture` keyword (without `mut`) recognized inside closure bodies.
-- [ ] L.46 — Update `decision-conflict-audit.md` with all reconciled changes.
-- [ ] L.47 — Update `surface-syntax.md` to reflect all syntax changes.
-- [ ] L.48 — Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers.
-- [ ] L.49 — Replace `case default:` with `case else:` in match (remove `default` keyword).
-- [ ] L.50 — Make `then` and `given` contextual identifiers (not reserved keywords).
-- [ ] L.51 — Rename `dyn` to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter.
-- [ ] L.52 — Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return).
-- [ ] L.53 — Enum dot shorthand: `.variant` when expected type is known.
-- [ ] L.54 — Closure return type inference: infer from `return` statements when `-> T` omitted.
-- [ ] L.55 — Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`).
+- [x] L.34 — Match case delimiter: change `->` to `:` in parser and formatter.
+- [x] L.35 — Fix all examples using `/* */` comments to use `--` / `--- ---`.
+- [x] L.36 — Create beginner `hello-world` example using `print()` and `func main()`.
+- [x] L.37 — Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`).
+- [x] L.38 — Allow `func main()` with no return type (implicit exit code 0).
+- [x] L.39 — Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause.
+- [x] L.40 — Replace `case value name` with `case some(name)` for optional match.
+- [x] L.41 — Add `some` keyword to lexer (`ZT_TOKEN_SOME`).
+- [x] L.42 — Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`).
+- [x] L.43 — `if-else` as expression: `const x: T = if cond then a else b`.
+- [x] L.44 — `if-else` multiline expression: `const x: T = if cond ... else ... end`.
+- [x] L.45 — `capture` keyword (without `mut`) recognized inside closure bodies.
+- [x] L.46 — Update `decision-conflict-audit.md` with all reconciled changes.
+- [x] L.47 — Update `surface-syntax.md` to reflect all syntax changes.
+- [x] L.48 — Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers.
+- [x] L.49 — Replace `case default:` with `case else:` in match (remove `default` keyword).
+- [x] L.50 — Make `then` and `given` contextual identifiers (not reserved keywords).
+- [x] L.51 — Rename `dyn` to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter.
+- [x] L.52 — Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return).
+- [x] L.53 — Enum dot shorthand: `.variant` when expected type is known.
+- [x] L.54 — Closure return type inference: infer from `return` statements when `-> T` omitted.
+- [x] L.55 — Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`).
 
 Gate: all L.* items green + gate criteria.
 
@@ -209,13 +209,13 @@ Gate: all X.* items green + gate criteria.
 
 - [ ] T.01 — VSCode extension published on Marketplace.
 - [x] T.02 — `zt test --filter <name>`.
-- [ ] T.03 — Test runner: name, duration, stacktrace.
-- [ ] T.04 — `test.throws(func)`.
-- [ ] T.05 — C-Binding Pack (sqlite3 / libcurl).
-- [ ] T.06 — `zt repl` (compile-and-run).
-- [ ] T.07 — ZPM lock file.
-- [ ] T.08 — ZPM semver for dependencies.
-- [ ] T.09 — Neovim/Zed/Helix LSP config snippets.
+- [x] T.03 — Test runner: name, duration, stacktrace.
+- [x] T.04 — `test.throws(func)`.
+- [x] T.05 — C-Binding Pack (sqlite3 / libcurl).
+- [x] T.06 — `zt repl` (compile-and-run).
+- [x] T.07 — ZPM lock file.
+- [x] T.08 — ZPM semver for dependencies.
+- [x] T.09 — Neovim/Zed/Helix LSP config snippets.
 
 Gate: all T.* items green + gate criteria.
 
@@ -223,13 +223,13 @@ Gate: all T.* items green + gate criteria.
 
 ## Phase 5B — Learning and Examples (0.7)
 
-- [ ] E.01 — "Learn Zenith in 30 min" tutorial (English).
-- [ ] E.02 — Example: CLI calculator.
-- [ ] E.03 — Example: file processor.
-- [ ] E.04 — Example: TODO app.
+- [x] E.01 — "Learn Zenith in 30 min" tutorial (English).
+- [x] E.02 — Example: CLI calculator.
+- [x] E.03 — Example: file processor.
+- [x] E.04 — Example: TODO app.
 - [ ] E.05 — Example: simple game (Borealis).
-- [ ] E.06 — Example: data parser.
-- [ ] E.07 — Cookbook: grows with stdlib.
+- [x] E.06 — Example: data parser.
+- [x] E.07 — Cookbook: grows with stdlib.
 
 Gate: tutorial reviewed, examples compile and run.
 
@@ -237,22 +237,35 @@ Gate: tutorial reviewed, examples compile and run.
 
 ## Phase 5C — Benchmarks (0.7, internal)
 
-- [ ] K.01 — `benchmarks/` directory with infrastructure.
-- [ ] K.02 — Micro: fibonacci, sort, string ops, allocation.
-- [ ] K.03 — Compilation time for N-line projects.
-- [ ] K.04 — Runtime: emitted C vs hand-written C.
-- [ ] K.05 — Cross-language: Go, Python, Kotlin.
-- [ ] K.06 — Regression detection only, no publishing.
+- [x] K.01 — `benchmarks/` directory with infrastructure.
+- [x] K.02 — Micro: fibonacci, sort, string ops, allocation.
+- [x] K.03 — Compilation time for N-line projects.
+- [x] K.04 — Runtime: emitted C vs hand-written C.
+- [x] K.05 — Cross-language: Go, Python, Kotlin.
+- [x] K.06 — Regression detection only, no publishing.
 
 Gate: benchmarks run, results recorded.
 
 ---
 
+## Phase 5D — Interactive Console Helpers (0.7)
+
+- [x] N.01 — `std.console` defined as an interactive terminal layer over `std.io`, not a replacement.
+- [x] N.02 — `console.write_line` and `console.error_line`.
+- [x] N.03 — `console.pause`, `console.prompt`, and `console.confirm`.
+- [x] N.04 — Behavior coverage for non-blocking console output helpers.
+- [x] N.05 — ZDoc and surface status document the `std.io` vs `std.console` boundary.
+- [x] N.06 — Future terminal controls: detection, size, clear, colors, styles, and key input.
+
+Gate: console helpers compile, non-blocking helpers run, blocking helpers remain opt-in for interactive apps.
+
+---
+
 ## Phase 6 — Self-hosting Bootstrap (0.8)
 
-- [ ] H.01 — 3 real tools written in Zenith.
-- [ ] H.02 — Language gaps identified and documented.
-- [ ] H.03 — Gaps fixed, stdlib iterated.
+- [x] H.01 — 3 real tools written in Zenith.
+- [x] H.02 — Language gaps identified and documented.
+- [x] H.03 — Gaps fixed, stdlib iterated.
 
 Gate: tools compile, run, and pass their own test suites.
 
@@ -260,12 +273,12 @@ Gate: tools compile, run, and pass their own test suites.
 
 ## Phase 7 — Release Engineering (0.9)
 
-- [ ] R.01 — SemVer policy documented.
-- [ ] R.02 — Deprecation workflow: warning for 1 release.
-- [ ] R.03 — Borealis clean clone dogfood.
-- [ ] R.04 — English docs canonical, others best-effort.
+- [x] R.01 — SemVer policy documented.
+- [x] R.02 — Deprecation workflow: warning for 1 release.
+- [x] R.03 — Borealis clean clone dogfood.
+- [x] R.04 — English docs canonical, others best-effort.
 - [x] R.05 — License audit: all deps compatible with Apache-2.0 OR MIT.
-- [ ] R.06 — Release candidate freeze.
+- [x] R.06 — Release candidate freeze.
 
 Gate: no known P0/P1 bugs, clean install on 3 platforms.
 

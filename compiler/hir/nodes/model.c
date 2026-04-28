@@ -60,6 +60,7 @@ const char *zt_hir_expr_kind_name(zt_hir_expr_kind kind) {
         case ZT_HIR_CALL_INDIRECT_EXPR: return "call_indirect_expr";
         case ZT_HIR_CONSTRUCT_EXPR: return "construct_expr";
         case ZT_HIR_VALUE_BINDING_EXPR: return "value_binding_expr";
+        case ZT_HIR_IF_EXPR: return "if_expr";
         case ZT_HIR_CLOSURE_EXPR: return "closure_expr";
         default: return "unknown";
     }
@@ -342,6 +343,11 @@ void zt_hir_expr_dispose(zt_hir_expr *expr) {
             break;
         case ZT_HIR_VALUE_BINDING_EXPR:
             free(expr->as.value_binding_expr.name);
+            break;
+        case ZT_HIR_IF_EXPR:
+            zt_hir_expr_dispose(expr->as.if_expr.condition);
+            zt_hir_expr_dispose(expr->as.if_expr.then_expr);
+            zt_hir_expr_dispose(expr->as.if_expr.else_expr);
             break;
         case ZT_HIR_CLOSURE_EXPR:
             zt_hir_param_list_dispose(&expr->as.closure_expr.params);

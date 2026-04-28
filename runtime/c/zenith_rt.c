@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
 #include <stdatomic.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -21,13 +22,16 @@
 #include <io.h>
 #include <process.h>
 #include <windows.h>
+#include <conio.h>
 #else
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <netdb.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <termios.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -2505,6 +2509,9 @@ void zt_runtime_report_error(zt_error_kind kind, const char *message, const char
     zt_runtime_store_error(kind, message, code, span);
 }
 
+static jmp_buf zt_test_throws_jump;
+static int zt_test_throws_active = 0;
+
 static int zt_runtime_exit_code_for_kind(zt_error_kind kind) {
     switch (kind) {
         case ZT_ERR_TEST_FAILED:
@@ -2518,6 +2525,9 @@ static int zt_runtime_exit_code_for_kind(zt_error_kind kind) {
 
 ZT_NORETURN void zt_runtime_error_ex(zt_error_kind kind, const char *message, const char *code, zt_runtime_span span) {
     zt_runtime_report_error(kind, message, code, span);
+    if (zt_test_throws_active) {
+        longjmp(zt_test_throws_jump, 1);
+    }
     zt_runtime_print_error(&zt_last_error);
     exit(zt_runtime_exit_code_for_kind(kind));
 }
@@ -2627,6 +2637,26 @@ ZT_NORETURN void zt_test_skip(zt_text *reason) {
     const char *raw = (reason != NULL && reason->data != NULL) ? reason->data : "";
     const char *final_message = raw[0] != '\0' ? raw : "test skipped";
     zt_runtime_error_ex(ZT_ERR_TEST_SKIPPED, final_message, "test.skip", zt_runtime_span_unknown());
+}
+
+zt_bool zt_test_throws_closure(zt_closure *body) {
+    typedef void (*zt_test_void_fn)(void *);
+    zt_test_void_fn fn;
+
+    if (body == NULL || body->fn == NULL) {
+        return false;
+    }
+
+    if (setjmp(zt_test_throws_jump) != 0) {
+        zt_test_throws_active = 0;
+        return true;
+    }
+
+    zt_test_throws_active = 1;
+    fn = (zt_test_void_fn)body->fn;
+    fn(body->ctx);
+    zt_test_throws_active = 0;
+    return false;
 }
 
 ZT_NORETURN void zt_contract_failed(const char *message, zt_runtime_span span) {
@@ -6049,6 +6079,184 @@ static zt_outcome_void_core_error zt_host_default_write_stdout(const zt_text *va
 
 static zt_outcome_void_core_error zt_host_default_write_stderr(const zt_text *value) {
     return zt_host_default_write_stream(stderr, value, "zt_host_write_stderr requires text");
+}
+
+static zt_outcome_void_core_error zt_console_write_ansi(const char *sequence) {
+    zt_text *value = zt_text_from_utf8_literal(sequence);
+    zt_outcome_void_core_error outcome = zt_host_write_stdout(value);
+    zt_release(value);
+    return outcome;
+}
+
+static int zt_console_stream_fd(const zt_text *stream) {
+    if (zt_text_equals_literal(stream, "stdin")) {
+        return 0;
+    }
+    if (zt_text_equals_literal(stream, "stderr")) {
+        return 2;
+    }
+    return 1;
+}
+
+zt_bool zt_host_console_is_terminal(const zt_text *stream) {
+    int fd = zt_console_stream_fd(stream);
+#ifdef _WIN32
+    return (zt_bool)_isatty(fd);
+#else
+    return (zt_bool)isatty(fd);
+#endif
+}
+
+static int zt_console_env_positive(const char *name) {
+    const char *raw = getenv(name);
+    char *end = NULL;
+    long value;
+    if (raw == NULL || raw[0] == '\0') {
+        return 0;
+    }
+    value = strtol(raw, &end, 10);
+    if (end == raw || value <= 0 || value > INT_MAX) {
+        return 0;
+    }
+    return (int)value;
+}
+
+zt_int zt_host_console_columns(void) {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (handle != INVALID_HANDLE_VALUE && GetConsoleScreenBufferInfo(handle, &info)) {
+        return (zt_int)(info.srWindow.Right - info.srWindow.Left + 1);
+    }
+#else
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0) {
+        return (zt_int)ws.ws_col;
+    }
+#endif
+    return (zt_int)zt_console_env_positive("COLUMNS");
+}
+
+zt_int zt_host_console_rows(void) {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (handle != INVALID_HANDLE_VALUE && GetConsoleScreenBufferInfo(handle, &info)) {
+        return (zt_int)(info.srWindow.Bottom - info.srWindow.Top + 1);
+    }
+#else
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
+        return (zt_int)ws.ws_row;
+    }
+#endif
+    return (zt_int)zt_console_env_positive("LINES");
+}
+
+zt_outcome_void_core_error zt_host_console_clear(void) {
+    return zt_console_write_ansi("\x1b[2J\x1b[H");
+}
+
+static const char *zt_console_color_sequence(const zt_text *name) {
+    if (zt_text_equals_literal(name, "black")) return "\x1b[30m";
+    if (zt_text_equals_literal(name, "red")) return "\x1b[31m";
+    if (zt_text_equals_literal(name, "green")) return "\x1b[32m";
+    if (zt_text_equals_literal(name, "yellow")) return "\x1b[33m";
+    if (zt_text_equals_literal(name, "blue")) return "\x1b[34m";
+    if (zt_text_equals_literal(name, "magenta")) return "\x1b[35m";
+    if (zt_text_equals_literal(name, "cyan")) return "\x1b[36m";
+    if (zt_text_equals_literal(name, "white")) return "\x1b[37m";
+    if (zt_text_equals_literal(name, "bright_black")) return "\x1b[90m";
+    if (zt_text_equals_literal(name, "bright_red")) return "\x1b[91m";
+    if (zt_text_equals_literal(name, "bright_green")) return "\x1b[92m";
+    if (zt_text_equals_literal(name, "bright_yellow")) return "\x1b[93m";
+    if (zt_text_equals_literal(name, "bright_blue")) return "\x1b[94m";
+    if (zt_text_equals_literal(name, "bright_magenta")) return "\x1b[95m";
+    if (zt_text_equals_literal(name, "bright_cyan")) return "\x1b[96m";
+    if (zt_text_equals_literal(name, "bright_white")) return "\x1b[97m";
+    return "\x1b[39m";
+}
+
+zt_outcome_void_core_error zt_host_console_set_color(const zt_text *name) {
+    return zt_console_write_ansi(zt_console_color_sequence(name));
+}
+
+static const char *zt_console_style_sequence(const zt_text *name) {
+    if (zt_text_equals_literal(name, "bold")) return "\x1b[1m";
+    if (zt_text_equals_literal(name, "dim")) return "\x1b[2m";
+    if (zt_text_equals_literal(name, "italic")) return "\x1b[3m";
+    if (zt_text_equals_literal(name, "underline")) return "\x1b[4m";
+    if (zt_text_equals_literal(name, "reverse")) return "\x1b[7m";
+    return "\x1b[0m";
+}
+
+zt_outcome_void_core_error zt_host_console_set_style(const zt_text *name) {
+    return zt_console_write_ansi(zt_console_style_sequence(name));
+}
+
+zt_outcome_void_core_error zt_host_console_reset_style(void) {
+    return zt_console_write_ansi("\x1b[0m");
+}
+
+zt_outcome_optional_text_core_error zt_host_console_read_key(void) {
+    unsigned char ch;
+    char buffer[2];
+
+#ifdef _WIN32
+    if (!_isatty(0) || !_kbhit()) {
+        return zt_outcome_optional_text_core_error_success(zt_optional_text_empty());
+    }
+    ch = (unsigned char)_getch();
+    if (ch == 0 || ch == 224) {
+        (void)_getch();
+        return zt_outcome_optional_text_core_error_success(zt_optional_text_empty());
+    }
+#else
+    struct termios old_term;
+    struct termios raw_term;
+    int old_flags;
+    int read_count;
+
+    if (!isatty(STDIN_FILENO)) {
+        return zt_outcome_optional_text_core_error_success(zt_optional_text_empty());
+    }
+    if (tcgetattr(STDIN_FILENO, &old_term) != 0) {
+        return zt_outcome_optional_text_core_error_failure_message(strerror(errno));
+    }
+    raw_term = old_term;
+    raw_term.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+    raw_term.c_cc[VMIN] = 0;
+    raw_term.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_term) != 0) {
+        return zt_outcome_optional_text_core_error_failure_message(strerror(errno));
+    }
+    old_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    if (old_flags >= 0) {
+        (void)fcntl(STDIN_FILENO, F_SETFL, old_flags | O_NONBLOCK);
+    }
+    read_count = (int)read(STDIN_FILENO, &ch, 1);
+    if (old_flags >= 0) {
+        (void)fcntl(STDIN_FILENO, F_SETFL, old_flags);
+    }
+    (void)tcsetattr(STDIN_FILENO, TCSANOW, &old_term);
+    if (read_count <= 0) {
+        return zt_outcome_optional_text_core_error_success(zt_optional_text_empty());
+    }
+#endif
+
+    buffer[0] = (char)ch;
+    buffer[1] = '\0';
+    if (!zt_utf8_validate((const uint8_t *)buffer, 1, NULL, NULL)) {
+        return zt_outcome_optional_text_core_error_failure_message("console key is not valid UTF-8");
+    }
+    {
+        zt_text *key = zt_text_from_utf8_unchecked(buffer, 1);
+        zt_optional_text value = zt_optional_text_present(key);
+        zt_outcome_optional_text_core_error outcome;
+        zt_release(key);
+        outcome = zt_outcome_optional_text_core_error_success(value);
+        return outcome;
+    }
 }
 
 static zt_int zt_host_default_time_now_unix_ms(void) {

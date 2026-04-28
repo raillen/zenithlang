@@ -75,6 +75,8 @@ one`, `success` e `error`.
 - `closure_capture_basic/`: projeto valido. Exercita closure anonima com captura imutavel por valor.
 - `closure_mut_capture_error/`: projeto invalido. Garante que closure v1 nao permite mutar variavel capturada.
 - `lambda_hof_basic/`: projeto valido. Exercita lambda de expressao (`func(...) => expr`) com `map_int`, `filter_int`, `reduce_int` e captura imutavel.
+- `syntax_coherence_core/`: projeto valido. Exercita sintaxe 1G para `case some(name):`, `case else:`, `type` alias, `any<Trait>`, `func main()` sem retorno e closure de expressao unica.
+- `syntax_coherence_inline_constraints/`: projeto valido. Exercita constraints inline `<T: Trait>` e trailing contextual `given T is Trait`.
 - `lambda_return_mismatch_error/`: projeto invalido. Garante que lambda infere retorno pelo tipo `func(...) -> ...` esperado e rejeita retorno incompatível.
 - `lazy_explicit_order_basic/`: projeto valido. Exercita `lazy<int>` explicito, garantindo que o thunk nao roda na criacao e roda no `force_int`.
 - `lazy_reuse_error/`: projeto invalido em runtime. Garante que `lazy<int>` e one-shot e rejeita segundo consumo.
@@ -82,6 +84,7 @@ one`, `success` e `error`.
 - `std_random_state_observability/`: projeto valido. Exercita leitura de estado publico de `std.random` e API `stats()`.
 - `std_random_between_branches/`: projeto valido. Exercita ramos de `std.random.between` (`min == max` e `max < min`) sem consumo indevido de draw.
 - `std_small_helpers/`: projeto valido. Exercita helpers pequenos de `std.validate`, `std.text`, `std.list` e `std.map`.
+- `std_console_basic/`: projeto valido. Exercita `std.console` sem bloquear: linhas, deteccao, tamanho e leitura de tecla opcional.
 - `to_text_builtin_basic/`: projeto valido. Exercita `to_text(value)` como builtin core para valores `TextRepresentable`.
 - `todo_builtin_fail/`: projeto invalido em runtime. Garante que `todo(message)` falha com mensagem clara.
 - `unreachable_builtin_fail/`: projeto invalido em runtime. Garante que `unreachable(message)` falha com mensagem clara.
@@ -115,6 +118,8 @@ amespace` nao corresponde ao caminho do arquivo.
 - `std_test_helpers_bool_fail/`: projeto invalido em runtime. Congela a mensagem de falha de `is_true(false)`.
 - `std_test_helpers_equal_fail/`: projeto invalido em runtime. Congela a mensagem esperado/recebido de `equal_int(actual, expected)`.
 - `std_test_helpers_not_equal_fail/`: projeto invalido em runtime. Congela a mensagem de `not_equal_text` quando os textos sao iguais.
+- `std_test_throws_pass/`: projeto valido. Exercita `test.throws(...)` com funcao nomeada e closure inline que chamam `panic(...)`.
+- `std_test_throws_fail/`: projeto invalido em runtime. Congela a mensagem de `test.throws(...)` quando o corpo nao falha.
 
 - `enum_match/`: fixture de comportamento para enum com payload + match com binding de payload (check semantico OK; build E2E bloqueado pelo stub de lowering HIR->ZIR no source atual).
 - `enum_match_non_exhaustive_error/`: fixture invalida para diagnostico de match nao exaustivo em enum conhecido.

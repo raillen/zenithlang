@@ -201,7 +201,7 @@ static void zt_print_help_overview(FILE *out, const char *program) {
     fprintf(out, "zt <command> [input] [options]\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_main());
-    fprintf(out, "  check | build | run | create | test | fmt | explain | doc check | doc show | summary | resume | perf\n");
+    fprintf(out, "  check | build | run | create | test | fmt | repl | explain | doc check | doc show | summary | resume | perf\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_compat());
     fprintf(out, "  project-info | verify | emit-c | build <file.zir> | doc-check | parse\n");
@@ -246,6 +246,13 @@ static int zt_print_help_topic(FILE *out, const char *program, const char *topic
 
     if (strcmp(topic, "fmt") == 0) {
         fprintf(out, "zt fmt [project|zenith.ztproj] [--check]\n");
+        return 0;
+    }
+
+    if (strcmp(topic, "repl") == 0) {
+        fprintf(out, "zt repl\n");
+        fprintf(out, "zt repl --eval <expr> [--ci]\n");
+        fprintf(out, "each expression is compiled and run as a small temporary program\n");
         return 0;
     }
 
@@ -1010,6 +1017,51 @@ static int zt_test_filter_matches_case(
     return zt_test_filter_matches_text(ctx, qualified);
 }
 
+static long zt_test_elapsed_ms(clock_t start, clock_t finish) {
+    if (finish < start || CLOCKS_PER_SEC <= 0) return 0;
+    return (long)(((finish - start) * 1000) / CLOCKS_PER_SEC);
+}
+
+static void zt_attr_test_case_qualified_name(
+        const zt_attr_test_case *test_case,
+        char *buffer,
+        size_t buffer_size) {
+    if (buffer == NULL || buffer_size == 0) return;
+    if (test_case == NULL) {
+        buffer[0] = '\0';
+        return;
+    }
+    snprintf(
+        buffer,
+        buffer_size,
+        "%s.%s",
+        test_case->module_namespace,
+        test_case->function_name);
+}
+
+static void zt_print_attr_test_result(
+        const zt_attr_test_case *test_case,
+        const char *status,
+        long elapsed_ms,
+        int include_trace) {
+    char name[512];
+    const char *source_name;
+    size_t line;
+    size_t column;
+
+    zt_attr_test_case_qualified_name(test_case, name, sizeof(name));
+    printf("test %s %s duration=%ldms\n", status != NULL ? status : "unknown", name, elapsed_ms);
+
+    if (!include_trace || test_case == NULL) return;
+
+    source_name = test_case->span.source_name != NULL ? test_case->span.source_name : "<unknown>";
+    line = test_case->span.line > 0 ? test_case->span.line : 1;
+    column = test_case->span.column_start > 0 ? test_case->span.column_start : 1;
+
+    printf("stacktrace:\n");
+    printf("  at %s (%s:%zu:%zu)\n", name, source_name, line, column);
+}
+
 static void zt_attr_test_case_list_init(zt_attr_test_case_list *list) {
     if (list == NULL) return;
     memset(list, 0, sizeof(*list));
@@ -1305,6 +1357,9 @@ static int zt_run_attr_tests_for_project(
 
     for (i = 0; i < test_cases.count; i += 1) {
         char runner_source_text[2048];
+        clock_t case_start;
+        clock_t case_finish;
+        long elapsed_ms;
         int status;
 
         if (!zt_generate_attr_test_runner_source(runner_namespace, &test_cases.items[i], runner_source_text, sizeof(runner_source_text)) ||
@@ -1323,13 +1378,20 @@ static int zt_run_attr_tests_for_project(
             printf("test case: %s.%s\\n", test_cases.items[i].module_namespace, test_cases.items[i].function_name);
         }
 
+        case_start = clock();
         status = zt_handle_project_command(ctx, "build", runner_manifest_path, NULL, 1);
+        case_finish = clock();
+        elapsed_ms = zt_test_elapsed_ms(case_start, case_finish);
+
         if (status == ZT_EXIT_CODE_TEST_SKIPPED) {
             skipped += 1;
+            zt_print_attr_test_result(&test_cases.items[i], "skip", elapsed_ms, 1);
         } else if (status == 0) {
             passed += 1;
+            zt_print_attr_test_result(&test_cases.items[i], "pass", elapsed_ms, 0);
         } else {
             failed += 1;
+            zt_print_attr_test_result(&test_cases.items[i], "fail", elapsed_ms, 1);
         }
     }
 
@@ -3293,6 +3355,117 @@ static int zt_handle_create(zt_driver_context *ctx, const char *target_path, int
     return 0;
 }
 
+static char *zt_repl_make_source(const char *expr) {
+    const char *prefix =
+        "namespace app.main\n"
+        "\n"
+        "func main()\n"
+        "    print(to_text(";
+    const char *suffix =
+        "))\n"
+        "end\n";
+    size_t expr_len;
+    size_t total_len;
+    char *source;
+
+    if (expr == NULL) return NULL;
+    expr_len = strlen(expr);
+    total_len = strlen(prefix) + expr_len + strlen(suffix) + 1u;
+    source = (char *)malloc(total_len);
+    if (source == NULL) return NULL;
+    snprintf(source, total_len, "%s%s%s", prefix, expr, suffix);
+    return source;
+}
+
+static char *zt_repl_trim(char *line) {
+    char *start;
+    char *end;
+
+    if (line == NULL) return NULL;
+    start = line;
+    while (*start != '\0' && isspace((unsigned char)*start)) start += 1;
+    end = start + strlen(start);
+    while (end > start && isspace((unsigned char)end[-1])) {
+        end -= 1;
+        *end = '\0';
+    }
+    return start;
+}
+
+static int zt_repl_eval_expression(zt_driver_context *ctx, const char *expr) {
+    const char *source_dir = ".ztc-tmp/repl/src/app";
+    const char *source_path = ".ztc-tmp/repl/src/app/main.zt";
+    char *source;
+    int status;
+
+    if (expr == NULL || expr[0] == '\0') return 0;
+    if (!zt_make_dirs(source_dir)) {
+        zt_print_single_diag(
+            ctx,
+            "repl",
+            ZT_DIAG_PROJECT_PATH_TOO_LONG,
+            zt_source_span_unknown(),
+            "unable to create REPL temporary directory");
+        return 1;
+    }
+
+    source = zt_repl_make_source(expr);
+    if (source == NULL) {
+        zt_print_single_diag(
+            ctx,
+            "repl",
+            ZT_DIAG_PROJECT_ERROR,
+            zt_source_span_unknown(),
+            "out of memory while preparing REPL expression");
+        return 1;
+    }
+
+    if (!zt_write_file(source_path, source)) {
+        free(source);
+        zt_print_single_diag(
+            ctx,
+            "repl",
+            ZT_DIAG_PROJECT_INVALID_INPUT,
+            zt_source_span_unknown(),
+            "unable to write REPL temporary source");
+        return 1;
+    }
+    free(source);
+
+    status = zt_handle_single_file_command(ctx, "build", source_path, NULL, 1);
+    return status < 0 ? 1 : status;
+}
+
+static int zt_handle_repl(zt_driver_context *ctx, const char *eval_expr) {
+    char line[2048];
+    int last_status = 0;
+
+    if (eval_expr != NULL) {
+        return zt_repl_eval_expression(ctx, eval_expr);
+    }
+
+    printf("Zenith REPL\n");
+    printf("type :help for help, :quit to exit\n");
+    for (;;) {
+        char *expr;
+        printf("zt> ");
+        fflush(stdout);
+        if (fgets(line, sizeof(line), stdin) == NULL) {
+            printf("\n");
+            return last_status;
+        }
+        expr = zt_repl_trim(line);
+        if (expr == NULL || expr[0] == '\0') continue;
+        if (strcmp(expr, ":quit") == 0 || strcmp(expr, ":exit") == 0) return last_status;
+        if (strcmp(expr, ":help") == 0) {
+            printf("Enter one expression per line. The REPL compiles and runs it.\n");
+            printf("Example: 1 + 2\n");
+            continue;
+        }
+        last_status = zt_repl_eval_expression(ctx, expr);
+    }
+}
+
 #ifndef ZT_DRIVER_NO_MAIN
 int main(int argc, char *argv[]) {
     zt_cli_init_terminal();
@@ -3306,6 +3479,7 @@ int main(int argc, char *argv[]) {
     int run_output = 0;
     const char *output_path = NULL;
     const char *lang_override = NULL;
+    const char *repl_eval = NULL;
     int fmt_check = 0;
     int ci_mode = 0;
     int show_help = 0;
@@ -3404,6 +3578,39 @@ int main(int argc, char *argv[]) {
  
     if (strcmp(command, "pkg") == 0 || strcmp(command, "zpm") == 0) {
         return zt_handle_zpm(&ctx, argc - parse_start, argv + parse_start);
+    }
+
+    if (strcmp(command, "repl") == 0) {
+        for (i = parse_start; i < argc; i += 1) {
+            if (zt_is_help_flag(argv[i])) {
+                return zt_print_help_topic(stdout, argv[0], "repl");
+            } else if (strcmp(argv[i], "--eval") == 0) {
+                if (i + 1 >= argc) {
+                    return zt_cli_fail(argv[0], "option --eval requires an expression", "use: zt repl --eval \"1 + 2\"", 0);
+                }
+                repl_eval = argv[i + 1];
+                i += 1;
+            } else if (strcmp(argv[i], "--ci") == 0) {
+                ci_mode = 1;
+            } else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) {
+                lang_override = argv[i + 1];
+                i += 1;
+            } else if (argv[i][0] == '-') {
+                char message[256];
+                snprintf(message, sizeof(message), "unknown option for repl: %s", argv[i]);
+                return zt_cli_fail(argv[0], message, "use: zt repl [--eval <expr>] [--ci]", 0);
+            } else {
+                repl_eval = argv[i];
+            }
+        }
+        if (lang_override != NULL) {
+            zt_lang lang = zt_l10n_from_str(lang_override);
+            if (lang != ZT_LANG_UNSPECIFIED) {
+                zt_l10n_set_lang(lang);
+            }
+        }
+        ctx.ci_mode_enabled = ci_mode;
+        return zt_handle_repl(&ctx, repl_eval);
     }
 
     if (strcmp(command, "create") == 0) {
