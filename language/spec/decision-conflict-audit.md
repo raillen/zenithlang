@@ -151,6 +151,99 @@ Canonical rule:
 Resolution:
 
 - `push` examples are non-canonical and superseded by `append/prepend`.
+### C-010: Optional match syntax — `case value name` to `case some(name)`
+
+Conflict source:
+
+- `surface-syntax.md` lines 370-391 define `case value name` as canonical optional match.
+- C-004 above states `some(value)` is not canonical.
+
+Canonical rule:
+
+- Decision 094 makes `case some(name)` the canonical form. Adds `some` as keyword.
+
+Resolution:
+
+- `case value name` is superseded by `case some(name)`.
+- C-004 is itself superseded by Decision 094.
+
+### C-011: Interpolation model — `fmt "..."` to `f"..."`
+
+Conflict source:
+
+- C-007 above references `fmt "..."` as canonical interpolation form.
+
+Canonical rule:
+
+- Decision 093 and Decision 094 make `f"..."` the canonical form. `fmt` is deprecated alias.
+
+Resolution:
+
+- C-007 is superseded by Decision 093.
+
+### C-012: `dyn` keyword renamed to `any`
+
+Conflict source:
+
+- `dyn-dispatch.md` and `surface-syntax.md` use `dyn` throughout.
+- `surface-syntax.md` line 844 lists `any` as "Explicitly Not MVP".
+
+Canonical rule:
+
+- Decision 094 renames `dyn` to `any`. All dynamic dispatch uses `any Trait` / `any<Trait>`.
+
+Resolution:
+
+- All `dyn` references in specs are superseded by `any`.
+- `any` is removed from the "Explicitly Not MVP" list.
+- Unified spec: `language/spec/language-reference.md`.
+
+### C-013: Generic constraints — `where T is Trait` to `<T: Trait>`
+
+Conflict source:
+
+- `surface-syntax.md` lines 604-627 use `where Item is Equatable` as constraint syntax.
+- `dyn-dispatch.md` lines 88-97 suggest `where T is Drawable`.
+
+Canonical rule:
+
+- Decision 094 makes `<T: Trait>` the primary form. `given` as optional trailing clause.
+- `where` is reserved for value-level runtime contracts only.
+
+Resolution:
+
+- Generic constraint examples using `where T is Trait` are superseded by `<T: Trait>`.
+
+### C-014: Match default case — `case default:` to `case else:`
+
+Conflict source:
+
+- `surface-syntax.md` lines 585-593 use `case default:`.
+
+Canonical rule:
+
+- Decision 094 replaces `case default:` with `case else:`. `default` is removed as keyword.
+
+Resolution:
+
+- All `case default:` examples are superseded by `case else:`.
+
+### C-015: Mutable closure capture syntax
+
+Conflict source:
+
+- Decision 093 line 90 specifies mutable capture with `[mut var]` syntax.
+- `closures.md` line 104 says mutable capture is "a future feature".
+
+Canonical rule:
+
+- Decision 094 specifies `capture name: Type = init` (without `mut`).
+
+Resolution:
+
+- Decision 093 `[mut var]` syntax is superseded by `capture` from Decision 094.
+- `closures.md` "future feature" note is superseded.
+
 ## Non-Conflicts (Clarified)
 
 - `-> void` appears in older decisions as non-canonical examples; current spec keeps omission as canonical and may diagnose explicit `-> void`.

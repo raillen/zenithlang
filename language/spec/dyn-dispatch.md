@@ -1,6 +1,9 @@
 # Zenith Dynamic Dispatch Specification
 
-- Status: authoritative spec (cut R3.M4)
+> **SUPERSEDED** — This document is superseded by `language/spec/language-reference.md` (Decision 094, 2026-04-28).
+> `dyn` has been renamed to `any`. Kept for historical reference only.
+
+- Status: superseded
 - Date: 2026-04-23
 - Scope: `dyn<Trait>` syntax, vtable generation, fat pointers, heterogeneous collections, subset limits
 - Upstream: `language/decisions/088-dyn-dispatch-minimum-subset.md`

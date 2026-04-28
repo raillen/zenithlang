@@ -68,6 +68,21 @@ Options accepted by help:
 --ci --profile <level> --all --focus <path> --since <git-ref> --lang <lang>
 ```
 
+## Test
+
+```powershell
+.\zt.exe test zenith.ztproj
+.\zt.exe test zenith.ztproj --filter pass_case
+.\zt.exe test zenith.ztproj --filter app.tests.pass_case
+.\zt.exe test zenith.ztproj --ci --filter parser
+```
+
+`--filter <name>` runs only tests whose function name, module name, qualified
+name, project path, or project name contains the given text.
+
+Use it for a small loop while editing one area. Keep the full test command for
+final validation.
+
 ## Build
 
 ```powershell

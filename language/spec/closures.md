@@ -1,6 +1,9 @@
 # Zenith Closures (v1)
 
-- Status: authoritative spec (cut R3.M6)
+> **SUPERSEDED** — This document is superseded by `language/spec/language-reference.md` (Decision 094, 2026-04-28).
+> Kept for historical reference only.
+
+- Status: superseded
 - Date: 2026-04-24
 - Scope: anonymous function expressions, local named functions, immutable capture, runtime representation
 - Upstream: `language/decisions/090-closures-v1.md`

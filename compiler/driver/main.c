@@ -207,7 +207,7 @@ static void zt_print_help_overview(FILE *out, const char *program) {
     fprintf(out, "  project-info | verify | emit-c | build <file.zir> | doc-check | parse\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_options());
-    fprintf(out, "  --run --check --ci --profile --all --focus --since --lang --native-raw --app --lib --force -o\n");
+    fprintf(out, "  --run --check --ci --profile --all --focus --since --filter --lang --native-raw --app --lib --force -o\n");
     fprintf(out, "\n");
     fprintf(out, "%s:\n", zt_cli_section_tip());
     fprintf(out, "  zt help <command>\n");
@@ -228,6 +228,7 @@ static int zt_print_help_topic(FILE *out, const char *program, const char *topic
 
     if (strcmp(topic, "test") == 0) {
         fprintf(out, "zt test [project|zenith.ztproj] [--ci] [--profile <level>] [--all]\n");
+        fprintf(out, "        [--filter <name>]\n");
         fprintf(out, "        [--focus <path>] [--since <git-ref>] [--lang <lang>]\n");
         return 0;
     }
@@ -969,6 +970,46 @@ typedef struct zt_attr_test_case_list {
     size_t capacity;
 } zt_attr_test_case_list;
 
+static int zt_test_filter_is_active(const zt_driver_context *ctx) {
+    return ctx != NULL && ctx->test_filter != NULL && ctx->test_filter[0] != '\0';
+}
+
+static int zt_test_filter_matches_text(const zt_driver_context *ctx, const char *text) {
+    if (!zt_test_filter_is_active(ctx)) return 1;
+    if (text == NULL || text[0] == '\0') return 0;
+    return strstr(text, ctx->test_filter) != NULL;
+}
+
+static int zt_test_filter_matches_project(
+        const zt_driver_context *ctx,
+        const char *project_path,
+        const char *project_name) {
+    return zt_test_filter_matches_text(ctx, project_path) ||
+        zt_test_filter_matches_text(ctx, project_name);
+}
+
+static int zt_test_filter_matches_case(
+        const zt_driver_context *ctx,
+        const char *module_namespace,
+        const char *function_name) {
+    char qualified[512];
+    int written;
+
+    if (!zt_test_filter_is_active(ctx)) return 1;
+    if (zt_test_filter_matches_text(ctx, module_namespace)) return 1;
+    if (zt_test_filter_matches_text(ctx, function_name)) return 1;
+
+    written = snprintf(
+        qualified,
+        sizeof(qualified),
+        "%s.%s",
+        module_namespace != NULL ? module_namespace : "",
+        function_name != NULL ? function_name : "");
+    if (written <= 0 || (size_t)written >= sizeof(qualified)) return 0;
+
+    return zt_test_filter_matches_text(ctx, qualified);
+}
+
 static void zt_attr_test_case_list_init(zt_attr_test_case_list *list) {
     if (list == NULL) return;
     memset(list, 0, sizeof(*list));
@@ -1013,10 +1054,12 @@ static int zt_attr_test_case_list_push(
 static int zt_collect_attr_tests(
         zt_driver_context *ctx,
         const zt_project_source_file_list *source_files,
-        zt_attr_test_case_list *test_cases) {
+        zt_attr_test_case_list *test_cases,
+        size_t *out_total_attr_tests) {
     size_t file_index;
 
     if (source_files == NULL || test_cases == NULL) return 0;
+    if (out_total_attr_tests != NULL) *out_total_attr_tests = 0;
 
     for (file_index = 0; file_index < source_files->count; file_index += 1) {
         const zt_ast_node *root = source_files->items[file_index].parsed.root;
@@ -1028,6 +1071,7 @@ static int zt_collect_attr_tests(
             const zt_ast_node *decl = root->as.file.declarations.items[decl_index];
             if (decl == NULL || decl->kind != ZT_AST_FUNC_DECL) continue;
             if (!decl->as.func_decl.is_test) continue;
+            if (out_total_attr_tests != NULL) *out_total_attr_tests += 1;
 
             if (decl->as.func_decl.params.count != 0) {
                 zt_print_single_diag(
@@ -1051,6 +1095,10 @@ static int zt_collect_attr_tests(
                     root->as.file.module_name,
                     decl->as.func_decl.name != NULL ? decl->as.func_decl.name : "<unnamed>");
                 return 0;
+            }
+
+            if (!zt_test_filter_matches_case(ctx, root->as.file.module_name, decl->as.func_decl.name)) {
+                continue;
             }
 
             if (decl->as.func_decl.name == NULL ||
@@ -1153,6 +1201,7 @@ static int zt_run_attr_tests_for_project(
     int skipped = 0;
     int failed = 0;
     size_t i;
+    size_t total_attr_tests = 0;
     int ok = 1;
 
     if (out_passed != NULL) *out_passed = 0;
@@ -1173,19 +1222,28 @@ static int zt_run_attr_tests_for_project(
         return 0;
     }
 
-    if (!zt_collect_attr_tests(ctx, &source_files, &test_cases)) {
+    if (!zt_collect_attr_tests(ctx, &source_files, &test_cases, &total_attr_tests)) {
         zt_project_source_file_list_dispose(&source_files);
         zt_attr_test_case_list_dispose(&test_cases);
         return 0;
     }
 
-    if (test_cases.count == 0) {
+    if (total_attr_tests == 0) {
         zt_project_source_file_list_dispose(&source_files);
         zt_attr_test_case_list_dispose(&test_cases);
         return 1;
     }
 
     if (out_has_attr_tests != NULL) *out_has_attr_tests = 1;
+
+    if (test_cases.count == 0) {
+        if (zt_test_filter_is_active(ctx) && (ctx == NULL || !ctx->ci_mode_enabled)) {
+            printf("test filter: no attr tests matched '%s'\n", ctx->test_filter);
+        }
+        zt_project_source_file_list_dispose(&source_files);
+        zt_attr_test_case_list_dispose(&test_cases);
+        return 1;
+    }
 
     if (!zt_join_path(source_root_path, sizeof(source_root_path), project_root, manifest.source_root)) {
         zt_print_single_diag(
@@ -1761,6 +1819,16 @@ static int zt_handle_test(zt_driver_context *ctx, const char *input_path) {
             return failed == 0 ? 0 : 1;
         }
 
+        if (!zt_test_filter_matches_project(ctx, project_root, project.manifest.project_name)) {
+            if (ctx != NULL && ctx->ci_mode_enabled) {
+                printf("test ok (pass=0 skip=0)\n");
+            } else {
+                printf("test filter: no tests matched '%s'\n", ctx != NULL ? ctx->test_filter : "");
+                printf("test summary: pass=0 skip=0 fail=0\n");
+            }
+            return 0;
+        }
+
         {
             int status = zt_handle_project_command(ctx, "build", project_root, NULL, 1);
 
@@ -1820,6 +1888,10 @@ static int zt_handle_test(zt_driver_context *ctx, const char *input_path) {
             passed += attr_passed;
             skipped += attr_skipped;
             failed += attr_failed;
+            continue;
+        }
+
+        if (!zt_test_filter_matches_project(ctx, candidate, NULL)) {
             continue;
         }
 
@@ -3446,6 +3518,12 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--since") == 0 && i + 1 < argc) {
             ctx.since_ref = argv[i + 1];
             i += 1;
+        } else if (strcmp(argv[i], "--filter") == 0) {
+            if (i + 1 >= argc) {
+                return zt_cli_fail(argv[0], "option --filter requires a test name", "use: zt test [project] --filter <name>", 0);
+            }
+            ctx.test_filter = argv[i + 1];
+            i += 1;
         } else if (argv[i][0] == '-') {
             char message[256];
             snprintf(message, sizeof(message), "unknown option: %s", argv[i]);
@@ -3524,6 +3602,10 @@ int main(int argc, char *argv[]) {
 
     if (run_output && strcmp(effective_command, "build") != 0) {
         return zt_cli_fail(argv[0], "option --run is only valid for build/run", "use: zt build [project] --run", 0);
+    }
+
+    if (ctx.test_filter != NULL && strcmp(effective_command, "test") != 0) {
+        return zt_cli_fail(argv[0], "option --filter is only valid for test", "use: zt test [project] --filter <name>", 0);
     }
 
     if (ctx.native_raw_output && strcmp(effective_command, "build") != 0) {

@@ -1,6 +1,9 @@
 # Zenith Callables (Delegates v1)
 
-- Status: authoritative spec (cut R3.M5)
+> **SUPERSEDED** — This document is superseded by `language/spec/language-reference.md` (Decision 094, 2026-04-28).
+> Kept for historical reference only.
+
+- Status: superseded
 - Date: 2026-04-24
 - Scope: callable type, first-class function references, signature
   compatibility, escape rules, FFI integration

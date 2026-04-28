@@ -75,6 +75,7 @@ typedef struct zt_driver_context {
     int show_all_errors;
     const char *focus_path;
     const char *since_ref;
+    const char *test_filter;
     int native_raw_output;
     int telemetry_forced;
     int profile_locked;

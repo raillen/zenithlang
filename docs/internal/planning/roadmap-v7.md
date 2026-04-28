@@ -80,13 +80,13 @@ Priority: **critical**. Nothing else ships until this is green.
 | L.23 | Integrate with `for i in range(...)` | pending |
 | L.24 | Tests: basic, step, negative step, empty range | pending |
 
-### 1E — Closures with mutable capture
+### 1E — Closures with persistent capture (`capture`)
 
 | ID | Item | Status |
 |----|-------|--------|
-| L.25 | Parser: `func(...) [mut var1, mut var2]` capture list syntax | pending |
-| L.26 | Checker: validate mutable captures, prevent aliasing | pending |
-| L.27 | C emitter: emit captured-by-reference with proper ARC | pending |
+| L.25 | Parser: `capture name: Type = init` inside closure body | pending |
+| L.26 | Checker: validate `capture` bindings, scope is local to closure, always mutable | pending |
+| L.27 | C emitter: heap-allocate captured state with ARC | pending |
 | L.28 | Tests: mutable capture, multiple captures, nested closures | pending |
 
 ### 1F — Trait default implementations
@@ -98,6 +98,36 @@ Priority: **critical**. Nothing else ships until this is green.
 | L.31 | Checker: use default when `apply` omits a method | pending |
 | L.32 | C emitter: emit default method as fallback | pending |
 | L.33 | Tests: default used, default overridden, default calling required | pending |
+
+### 1G — Syntax Coherence Refinements
+
+Origin: coherence audit (Decision 094).
+These changes unify the language surface with its philosophy.
+
+| ID | Item | Status |
+|----|-------|--------|
+| L.34 | Match case delimiter: change `->` to `:` in parser and formatter | pending |
+| L.35 | Fix all examples using `/* */` comments to use `--` / `--- ---` | pending |
+| L.36 | Create beginner `hello-world` example using `print()` and `func main()` | pending |
+| L.37 | Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`) | pending |
+| L.38 | Allow `func main()` with no return type (implicit exit code 0) | pending |
+| L.39 | Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause | pending |
+| L.40 | Replace `case value name` with `case some(name)` for optional match | pending |
+| L.41 | Add `some` keyword to lexer (`ZT_TOKEN_SOME`) | pending |
+| L.42 | Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`) | pending |
+| L.43 | `if-else` as expression: `const x: T = if cond then a else b` | pending |
+| L.44 | `if-else` multiline expression: `const x: T = if cond ... else ... end` | pending |
+| L.45 | `capture` keyword (without `mut`) recognized inside closure bodies | pending |
+| L.46 | Update `decision-conflict-audit.md` with all reconciled changes | pending |
+| L.47 | Update `surface-syntax.md` to reflect all syntax changes | pending |
+| L.48 | Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers | pending |
+| L.49 | Replace `case default:` with `case else:` in match (remove `default` keyword) | pending |
+| L.50 | Make `then` and `given` contextual identifiers (not reserved keywords) | pending |
+| L.51 | Rename `dyn` keyword to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter | pending |
+| L.52 | Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return) | pending |
+| L.53 | Enum dot shorthand: `.variant` when expected type is known | pending |
+| L.54 | Closure return type inference: infer from `return` statements when `-> T` omitted | pending |
+| L.55 | Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`) | pending |
 
 ---
 
@@ -200,7 +230,7 @@ Priority: **critical**. Nothing else ships until this is green.
 | ID | Item | Status |
 |----|-------|--------|
 | T.01 | VSCode extension on Marketplace (LSP + syntax highlighting) | pending |
-| T.02 | `zt test --filter <name>` — test filtering | pending |
+| T.02 | `zt test --filter <name>` — test filtering | done |
 | T.03 | Test runner DX: test name, duration, stacktrace in output | pending |
 | T.04 | `test.throws(func)` for expected panics | pending |
 | T.05 | C-Binding Pack: sqlite3 and/or libcurl working example | pending |
@@ -294,6 +324,8 @@ design session before any work begins.
 | ZPM registry web UI | Nice-to-have, not blocking |
 | Self-hosting lexer/parser (SH2-SH6) | After SH1 dogfooding validates gaps |
 | `Disposable` trait for `using` auto-cleanup | After `using` is validated |
+| Full type inference `const x = 42` | Requires inference engine; revisit pre-1.0 |
+| Generic argument inference `foo(42)` vs `foo<int>(42)` | Requires call-site unification; revisit pre-1.0 |
 
 ---
 
@@ -313,3 +345,5 @@ These were explicitly discussed and rejected.
 | `unpack` destructuring on `const` | `pos.x` is already explicit |
 | `try/catch` | Zenith uses `result<T,E>` + `?` |
 | `optional<bool>` specialization | Rare case, not worth effort |
+| Postfix guard `return x if cond` | Creates second canonical form for `if`; violates sugar policy |
+| Ternary `cond ? a : b` | Dense symbol, anti-reading-first |

@@ -77,11 +77,11 @@ Gate: clean clone + CI green + surface freeze doc exists.
 - [x] L.23 — Works with `for i in range(...)`.
 - [x] L.24 — Tests: basic, step, negative step, empty.
 
-### 1E — Closures with mutable capture
+### 1E — Closures with persistent capture (`capture`)
 
-- [x] L.25 — Parser: `[mut var]` capture list.
-- [x] L.26 — Checker: validate mutable captures.
-- [x] L.27 — C emitter: captured-by-reference with ARC.
+- [x] L.25 — Parser: `capture name: Type = init` inside closure body.
+- [x] L.26 — Checker: validate `capture` bindings, scope local to closure, always mutable.
+- [x] L.27 — C emitter: heap-allocate captured state with ARC.
 - [x] L.28 — Tests: mutable, multiple, nested.
 
 ### 1F — Trait default implementations
@@ -91,6 +91,33 @@ Gate: clean clone + CI green + surface freeze doc exists.
 - [x] L.31 — Checker: fallback to default when `apply` omits.
 - [x] L.32 — C emitter: default method fallback.
 - [x] L.33 — Tests: default used, overridden, default calls required.
+
+### 1G — Syntax Coherence Refinements
+
+Origin: coherence audit (Decision 094).
+
+- [ ] L.34 — Match case delimiter: change `->` to `:` in parser and formatter.
+- [ ] L.35 — Fix all examples using `/* */` comments to use `--` / `--- ---`.
+- [ ] L.36 — Create beginner `hello-world` example using `print()` and `func main()`.
+- [ ] L.37 — Implement `type` aliases (e.g. `public type io_result = result<void, core.Error>`).
+- [ ] L.38 — Allow `func main()` with no return type (implicit exit code 0).
+- [ ] L.39 — Inline generic constraints `<T: Trait>` in parser; `given` as optional trailing clause.
+- [ ] L.40 — Replace `case value name` with `case some(name)` for optional match.
+- [ ] L.41 — Add `some` keyword to lexer (`ZT_TOKEN_SOME`).
+- [ ] L.42 — Syntax highlight `success`/`error` as keywords (same group as `none`/`true`/`false`).
+- [ ] L.43 — `if-else` as expression: `const x: T = if cond then a else b`.
+- [ ] L.44 — `if-else` multiline expression: `const x: T = if cond ... else ... end`.
+- [ ] L.45 — `capture` keyword (without `mut`) recognized inside closure bodies.
+- [ ] L.46 — Update `decision-conflict-audit.md` with all reconciled changes.
+- [ ] L.47 — Update `surface-syntax.md` to reflect all syntax changes.
+- [ ] L.48 — Demote `grid2d`, `grid3d`, `pqueue`, `circbuf`, `btreemap`, `btreeset` from keywords to stdlib identifiers.
+- [ ] L.49 — Replace `case default:` with `case else:` in match (remove `default` keyword).
+- [ ] L.50 — Make `then` and `given` contextual identifiers (not reserved keywords).
+- [ ] L.51 — Rename `dyn` to `any` (`any Shape`, `any<Trait>`) in lexer, parser, checker, emitter.
+- [ ] L.52 — Struct literal shorthand: `{ fields }` when expected type is known (decl, param, return).
+- [ ] L.53 — Enum dot shorthand: `.variant` when expected type is known.
+- [ ] L.54 — Closure return type inference: infer from `return` statements when `-> T` omitted.
+- [ ] L.55 — Single-expression closures: `func(x: int) x * 2` (implicit return, no `end`).
 
 Gate: all L.* items green + gate criteria.
 
@@ -181,7 +208,7 @@ Gate: all X.* items green + gate criteria.
 ## Phase 5 — Tooling and Ecosystem (0.7)
 
 - [ ] T.01 — VSCode extension published on Marketplace.
-- [ ] T.02 — `zt test --filter <name>`.
+- [x] T.02 — `zt test --filter <name>`.
 - [ ] T.03 — Test runner: name, duration, stacktrace.
 - [ ] T.04 — `test.throws(func)`.
 - [ ] T.05 — C-Binding Pack (sqlite3 / libcurl).

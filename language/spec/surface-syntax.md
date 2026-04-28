@@ -1,6 +1,9 @@
 # Zenith Surface Syntax Spec
 
-- Status: canonical consolidated spec
+> **SUPERSEDED** — This document is superseded by `language/spec/language-reference.md` (Decision 094, 2026-04-28).
+> Kept for historical reference only.
+
+- Status: superseded
 - Date: 2026-04-22
 - Scope: `.zt` source syntax and user-visible language semantics
 
