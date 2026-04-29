@@ -30,6 +30,9 @@ target/
 *.lib
 *.pdb
 zt-linux
+/zt
+/zpm
+/zt-lsp
 *.deb
 *.rpm
 *.pkg.tar.*
@@ -61,6 +64,7 @@ htmlcov/
 .turbo/
 .vite/
 .ztc-tmp/
+.__codex_*/
 wiki_repo/
 zenith-website/
 reproduce/
@@ -109,6 +113,8 @@ examples/*/.ztc-tmp/
 examples/*/build/
 tests/behavior/*/.ztc-tmp/
 tests/behavior/*/build/
+tests/behavior/**/build/
+tests/tmp/
 tests/perf/*/.ztc-tmp/
 tests/perf/*/build/
 tools/.ztc-tmp/
