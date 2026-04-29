@@ -12,9 +12,9 @@ public struct DatabaseConnection
     path: text
 end
 
-public var next_connection_id: int = 1
-public var open_connections: map<int, bool> = {}
-public var last_sql_by_connection: map<int, text> = {}
+var next_connection_id: int = 1
+var open_connections: map<int, bool> = {}
+var last_sql_by_connection: map<int, text> = {}
 
 public func open(config: database.DatabaseConfig) -> result<database.DatabaseConnection, core.Error>
     const driver_name: text = config.driver
@@ -122,7 +122,7 @@ public func reset() -> void
     last_sql_by_connection = {}
 end
 
-public func require_open(connection: database.DatabaseConnection) -> result<void, core.Error>
+func require_open(connection: database.DatabaseConnection) -> result<void, core.Error>
     if database.is_open(connection) == false
         return error("database: connection is closed")
     end

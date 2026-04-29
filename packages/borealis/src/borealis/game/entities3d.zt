@@ -7,16 +7,16 @@ public struct Entity3DDebugInfo
     model_id: int
 end
 
-public var entity3d_x: map<int, float> = {}
-public var entity3d_y: map<int, float> = {}
-public var entity3d_z: map<int, float> = {}
-public var entity3d_rot_x: map<int, float> = {}
-public var entity3d_rot_y: map<int, float> = {}
-public var entity3d_rot_z: map<int, float> = {}
-public var entity3d_scale_x: map<int, float> = {}
-public var entity3d_scale_y: map<int, float> = {}
-public var entity3d_scale_z: map<int, float> = {}
-public var entity3d_model_id: map<int, int> = {}
+var entity3d_x: map<int, float> = {}
+var entity3d_y: map<int, float> = {}
+var entity3d_z: map<int, float> = {}
+var entity3d_rot_x: map<int, float> = {}
+var entity3d_rot_y: map<int, float> = {}
+var entity3d_rot_z: map<int, float> = {}
+var entity3d_scale_x: map<int, float> = {}
+var entity3d_scale_y: map<int, float> = {}
+var entity3d_scale_z: map<int, float> = {}
+var entity3d_model_id: map<int, int> = {}
 
 public func entity3d_create(name: text) -> result<entities.Entity, core.Error>
     const entity: entities.Entity = entities.entity_create(name)?
@@ -89,7 +89,7 @@ public func entity3d_debug_info(entity: entities.Entity) -> entities3d.Entity3DD
     )
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -99,7 +99,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+func int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -109,13 +109,13 @@ public func int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next

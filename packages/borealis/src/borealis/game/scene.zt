@@ -6,22 +6,22 @@ public struct Scene
     id: int
 end
 
-public var scene_next_id: int = 1
-public var scene_alive: map<int, bool> = {}
-public var scene_name: map<int, text> = {}
-public var scene_enter_count: map<int, int> = {}
-public var scene_exit_count: map<int, int> = {}
-public var scene_update_count: map<int, int> = {}
-public var scene_draw_count: map<int, int> = {}
-public var scene_last_dt: map<int, float> = {}
-public var scene_current_id: int = 0
-public var scene_entity_owner: map<int, int> = {}
-public var scene_phase: map<int, text> = {}
-public var scene_document_id: map<int, text> = {}
-public var scene_stack: map<int, int> = {}
-public var scene_stack_depth: int = 0
+var scene_next_id: int = 1
+var scene_alive: map<int, bool> = {}
+var scene_name: map<int, text> = {}
+var scene_enter_count: map<int, int> = {}
+var scene_exit_count: map<int, int> = {}
+var scene_update_count: map<int, int> = {}
+var scene_draw_count: map<int, int> = {}
+var scene_last_dt: map<int, float> = {}
+var scene_current_id: int = 0
+var scene_entity_owner: map<int, int> = {}
+var scene_phase: map<int, text> = {}
+var scene_document_id: map<int, text> = {}
+var scene_stack: map<int, int> = {}
+var scene_stack_depth: int = 0
 
-public func scene_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func scene_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const value: optional<bool> = values.get(id)
     match value
         case value present ->
@@ -31,7 +31,7 @@ public func scene_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bo
     end
 end
 
-public func scene_text_or(values: map<int, text>, id: int, fallback: text) -> text
+func scene_text_or(values: map<int, text>, id: int, fallback: text) -> text
     const value: optional<text> = values.get(id)
     match value
         case value present ->
@@ -41,7 +41,7 @@ public func scene_text_or(values: map<int, text>, id: int, fallback: text) -> te
     end
 end
 
-public func scene_int_or(values: map<int, int>, id: int, fallback: int) -> int
+func scene_int_or(values: map<int, int>, id: int, fallback: int) -> int
     const value: optional<int> = values.get(id)
     match value
         case value present ->
@@ -51,7 +51,7 @@ public func scene_int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func scene_float_or(values: map<int, float>, id: int, fallback: float) -> float
+func scene_float_or(values: map<int, float>, id: int, fallback: float) -> float
     const value: optional<float> = values.get(id)
     match value
         case value present ->
@@ -61,31 +61,31 @@ public func scene_float_or(values: map<int, float>, id: int, fallback: float) ->
     end
 end
 
-public func scene_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func scene_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next_values: map<int, bool> = values
     next_values[id] = value
     return next_values
 end
 
-public func scene_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
+func scene_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next_values: map<int, text> = values
     next_values[id] = value
     return next_values
 end
 
-public func scene_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
+func scene_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next_values: map<int, int> = values
     next_values[id] = value
     return next_values
 end
 
-public func scene_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
+func scene_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next_values: map<int, float> = values
     next_values[id] = value
     return next_values
 end
 
-public func scene_require_exists(target: scene.Scene) -> result<void, core.Error>
+func scene_require_exists(target: scene.Scene) -> result<void, core.Error>
     if scene.scene_exists(target) == false
         return error("scene: scene not found")
     end

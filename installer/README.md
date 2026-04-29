@@ -16,19 +16,19 @@ Use the orchestrator when possible. It builds `zt`, `zpm`, and `zt-lsp`, then de
 Windows:
 
 ```powershell
-python tools\build_installers.py --target windows --version 0.3.0-alpha.3
+python tools\build_installers.py --target windows --version 0.4.1-alpha.1
 ```
 
 Linux or WSL:
 
 ```bash
-python3 tools/build_installers.py --target linux --version 0.3.0-alpha.3
+python3 tools/build_installers.py --target linux --version 0.4.1-alpha.1
 ```
 
 Automatic current-platform target:
 
 ```bash
-python3 tools/build_installers.py --version 0.3.0-alpha.3
+python3 tools/build_installers.py --version 0.4.1-alpha.1
 ```
 
 ## Windows (Inno Setup)
@@ -51,7 +51,7 @@ The Windows flow uses Inno Setup with admin elevation and environment setup.
 From repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\build_installer.ps1 -Version 0.3.0-alpha.3
+powershell -ExecutionPolicy Bypass -File tools\build_installer.ps1 -Version 0.4.1-alpha.1
 ```
 
 Output:
@@ -90,7 +90,13 @@ Prerequisites:
 Build (from repository root):
 
 ```bash
-python3 tools/build_linux_packages.py --version 0.3.0-alpha.3
+python3 tools/build_linux_packages.py --version 0.4.1-alpha.1
+```
+
+From Windows, use WSL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\build_linux_packages_wsl.ps1 -Version 0.4.1-alpha.1
 ```
 
 Outputs:

@@ -23,6 +23,13 @@ int main(int argc, char *argv[]) {
 
     zt_driver_context_init(&ctx);
 
+    if (argc >= 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "version") == 0)) {
+        zt_print_version(stdout);
+        zt_driver_context_dispose(&ctx);
+        zt_arena_dispose(&global_arena);
+        return 0;
+    }
+
     filtered_argv = (char **)malloc(argc * sizeof(char *));
     if (filtered_argv == NULL) return 1;
 

@@ -32,21 +32,21 @@ public struct SkyLayerConfig
     enabled: bool = true
 end
 
-public var world3d_next_id: int = 1
-public var world3d_active_id: int = 0
-public var world3d_name: map<int, text> = {}
-public var world3d_origin_x: map<int, float> = {}
-public var world3d_origin_y: map<int, float> = {}
-public var world3d_origin_z: map<int, float> = {}
-public var world3d_min_x: map<int, float> = {}
-public var world3d_min_y: map<int, float> = {}
-public var world3d_min_z: map<int, float> = {}
-public var world3d_max_x: map<int, float> = {}
-public var world3d_max_y: map<int, float> = {}
-public var world3d_max_z: map<int, float> = {}
-public var world3d_chunk_size: map<int, int> = {}
-public var world3d_skybox: map<int, int> = {}
-public var world3d_terrain_material: map<int, int> = {}
+var world3d_next_id: int = 1
+var world3d_active_id: int = 0
+var world3d_name: map<int, text> = {}
+var world3d_origin_x: map<int, float> = {}
+var world3d_origin_y: map<int, float> = {}
+var world3d_origin_z: map<int, float> = {}
+var world3d_min_x: map<int, float> = {}
+var world3d_min_y: map<int, float> = {}
+var world3d_min_z: map<int, float> = {}
+var world3d_max_x: map<int, float> = {}
+var world3d_max_y: map<int, float> = {}
+var world3d_max_z: map<int, float> = {}
+var world3d_chunk_size: map<int, int> = {}
+var world3d_skybox: map<int, int> = {}
+var world3d_terrain_material: map<int, int> = {}
 
 public func world3d_create(name: text) -> result<world3d.World3D, core.Error>
     const id: int = world3d_next_id
@@ -146,7 +146,7 @@ public func world3d_debug_info(world: world3d.World3D) -> world3d.World3DDebugSt
     )
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -156,7 +156,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+func text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -166,19 +166,19 @@ public func text_or(values: map<int, text>, id: int, fallback: text) -> text
     end
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next
 end
 
-public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next

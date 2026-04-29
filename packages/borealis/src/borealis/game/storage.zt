@@ -1,7 +1,7 @@
 namespace borealis.game.storage
 
-public var storage_values: map<text, text> = {}
-public var storage_present: map<text, bool> = {}
+var storage_values: map<text, text> = {}
+var storage_present: map<text, bool> = {}
 
 public func write(key: text, value: text) -> result<void, core.Error>
     if key == ""

@@ -39,23 +39,23 @@ public struct EntityComponent
     payload: text
 end
 
-public var entities_next_id: int = 1
-public var entities_alive: map<int, bool> = {}
-public var entities_active: map<int, bool> = {}
-public var entities_visible: map<int, bool> = {}
-public var entities_name: map<int, text> = {}
-public var entities_stable_id: map<int, text> = {}
-public var entities_x: map<int, float> = {}
-public var entities_y: map<int, float> = {}
-public var entities_rotation: map<int, float> = {}
-public var entities_scale_x: map<int, float> = {}
-public var entities_scale_y: map<int, float> = {}
-public var entities_layer: map<int, text> = {}
-public var entities_parent_id: map<int, int> = {}
-public var entities_tags_blob: map<int, text> = {}
-public var entities_dirty: map<int, bool> = {}
+var entities_next_id: int = 1
+var entities_alive: map<int, bool> = {}
+var entities_active: map<int, bool> = {}
+var entities_visible: map<int, bool> = {}
+var entities_name: map<int, text> = {}
+var entities_stable_id: map<int, text> = {}
+var entities_x: map<int, float> = {}
+var entities_y: map<int, float> = {}
+var entities_rotation: map<int, float> = {}
+var entities_scale_x: map<int, float> = {}
+var entities_scale_y: map<int, float> = {}
+var entities_layer: map<int, text> = {}
+var entities_parent_id: map<int, int> = {}
+var entities_tags_blob: map<int, text> = {}
+var entities_dirty: map<int, bool> = {}
 
-public func entities_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func entities_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const value: optional<bool> = values.get(id)
     match value
         case value present ->
@@ -65,7 +65,7 @@ public func entities_bool_or(values: map<int, bool>, id: int, fallback: bool) ->
     end
 end
 
-public func entities_text_or(values: map<int, text>, id: int, fallback: text) -> text
+func entities_text_or(values: map<int, text>, id: int, fallback: text) -> text
     const value: optional<text> = values.get(id)
     match value
         case value present ->
@@ -75,7 +75,7 @@ public func entities_text_or(values: map<int, text>, id: int, fallback: text) ->
     end
 end
 
-public func entities_float_or(values: map<int, float>, id: int, fallback: float) -> float
+func entities_float_or(values: map<int, float>, id: int, fallback: float) -> float
     const value: optional<float> = values.get(id)
     match value
         case value present ->
@@ -85,7 +85,7 @@ public func entities_float_or(values: map<int, float>, id: int, fallback: float)
     end
 end
 
-public func entities_int_or(values: map<int, int>, id: int, fallback: int) -> int
+func entities_int_or(values: map<int, int>, id: int, fallback: int) -> int
     const value: optional<int> = values.get(id)
     match value
         case value present ->
@@ -95,25 +95,25 @@ public func entities_int_or(values: map<int, int>, id: int, fallback: int) -> in
     end
 end
 
-public func entities_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func entities_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next_values: map<int, bool> = values
     next_values[id] = value
     return next_values
 end
 
-public func entities_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
+func entities_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next_values: map<int, text> = values
     next_values[id] = value
     return next_values
 end
 
-public func entities_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
+func entities_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next_values: map<int, float> = values
     next_values[id] = value
     return next_values
 end
 
-public func entities_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
+func entities_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next_values: map<int, int> = values
     next_values[id] = value
     return next_values
@@ -123,7 +123,7 @@ public func entities_tag_token(tag: text) -> text
     return text.join(["|", tag, "|"])
 end
 
-public func entities_require_exists(entity: entities.Entity) -> result<void, core.Error>
+func entities_require_exists(entity: entities.Entity) -> result<void, core.Error>
     if entities.entity_exists(entity) == false
         return error("entities: entity not found")
     end

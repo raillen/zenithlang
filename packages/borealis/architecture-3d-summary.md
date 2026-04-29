@@ -42,6 +42,27 @@ module roles, canonical types, and which modules stay shared.
 | `settings.video` | render/display settings | `VideoSettings`, `AntiAliasingMode` | owns `vsync`, `msaa`, `render_scale` |
 | `debug3d` | gizmos, bounds, paths, chunk overlays | `Debug3dOverlayState` | 3D-specific diagnostics |
 
+## Maturity Table
+
+| Module | Maturity | Viewport / Play mode meaning |
+|---|---|---|
+| `render3d` | runtime-backed | Raylib-backed frame mode, grid, cube, model, billboard |
+| `camera3d` | runtime-backed | camera position, target and FOV affect 3D drawing |
+| `assets3d` | runtime-backed | models and textures can own native Raylib handles |
+| `settings.video` | state-backed | stores render/display choices; full backend application is pending |
+| `postfx` | state-backed | scene/editor contract exists; shader-backed effects are pending |
+| `world3d` | state-backed | skybox/world data exists; full rendering is pending |
+| `world3d.atmosphere` | state-backed | fog/time/wind data exists; viewport fog shader is pending |
+| `world3d.weather` | state-backed | weather zones and presets exist; particles/audio are pending |
+| `audio3d` | state-backed | listener/emitter state exists; spatial backend integration is pending |
+| `physics3d` | stub | gameplay contracts exist; full physics backend is pending |
+| `animation3d` | stub | animator state exists; model animation backend is pending |
+| `controllers3d` | stub | controller state exists; full movement integration is pending |
+| `ai3d` | stub | navigation/perception contracts exist; navmesh/runtime AI is pending |
+| `ui3d` | stub | world-space UI state exists; projection/render integration is pending |
+| `procedural3d` | stub | generation contracts exist; mesh/terrain runtime output is pending |
+| direct `draw_mesh` | design-only | keep using `draw_model` or primitives until native mesh drawing lands |
+
 ## Shared Modules Stay Shared
 
 These are not duplicated for 3D:
@@ -60,3 +81,6 @@ These are not duplicated for 3D:
 - this file is still architectural first, but the first runtime-backed 3D slice now exists.
 - implemented slice: `render3d_begin/end`, `draw_cube`, `draw_grid`, `draw_model`, `draw_billboard`, Raylib model loading and native texture handles.
 - still pending: direct `draw_mesh`, materials, generated meshes, lighting shaders, animation and full 3D scene/editor integration.
+- scene v2 now carries `environment`, `render`, and `audio` settings so Studio,
+  viewport, Play mode and build output share one document shape while runtime
+  support grows by maturity level.

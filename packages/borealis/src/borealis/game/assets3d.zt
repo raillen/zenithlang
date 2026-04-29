@@ -37,13 +37,13 @@ public struct AssetMemoryStats
     memory_budget_mb: int
 end
 
-public var asset3d_next_id: int = 1
-public var asset3d_path: map<int, text> = {}
-public var asset3d_kind: map<int, text> = {}
-public var asset3d_loaded: map<int, bool> = {}
-public var asset3d_model_native: map<int, int> = {}
-public var asset3d_texture_native: map<int, int> = {}
-public var asset3d_memory_budget_mb: int = 256
+var asset3d_next_id: int = 1
+var asset3d_path: map<int, text> = {}
+var asset3d_kind: map<int, text> = {}
+var asset3d_loaded: map<int, bool> = {}
+var asset3d_model_native: map<int, int> = {}
+var asset3d_texture_native: map<int, int> = {}
+var asset3d_memory_budget_mb: int = 256
 
 public func mesh_load(path: text) -> result<assets3d.MeshId, core.Error>
     const id: int = assets3d.register_asset(path, "mesh")?
@@ -170,7 +170,7 @@ public func asset_count() -> int
     return count
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -180,19 +180,19 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next

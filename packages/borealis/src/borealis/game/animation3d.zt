@@ -15,11 +15,11 @@ public struct AnimatorDebugInfo
     current_clip_id: int
 end
 
-public var animator3d_next_id: int = 1
-public var animator3d_model_id: map<int, int> = {}
-public var animator3d_clip_id: map<int, int> = {}
-public var animator3d_playing: map<int, bool> = {}
-public var animator3d_speed: map<int, float> = {}
+var animator3d_next_id: int = 1
+var animator3d_model_id: map<int, int> = {}
+var animator3d_clip_id: map<int, int> = {}
+var animator3d_playing: map<int, bool> = {}
+var animator3d_speed: map<int, float> = {}
 
 public func animator_create(model_id: assets3d.ModelHandle) -> result<animation3d.AnimatorId, core.Error>
     const id: int = animator3d_next_id
@@ -72,7 +72,7 @@ public func animator_debug_info(id: animation3d.AnimatorId) -> animation3d.Anima
     )
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -82,7 +82,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -92,7 +92,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+func int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -102,19 +102,19 @@ public func int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next

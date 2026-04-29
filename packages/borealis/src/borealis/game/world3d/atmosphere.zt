@@ -37,7 +37,7 @@ public struct AmbientProfile
     ambient: game.Color
 end
 
-public var fog_state: atmosphere.FogState = atmosphere.FogState(
+var fog_state: atmosphere.FogState = atmosphere.FogState(
     enabled: false,
     color: game.rgb(120, 120, 120),
     mode: atmosphere.FogMode.Linear,
@@ -46,9 +46,9 @@ public var fog_state: atmosphere.FogState = atmosphere.FogState(
     height: atmosphere.HeightFogState(enabled: false, base: 0.0, falloff: 1.0),
     dither: false
 )
-public var wind_state: atmosphere.WindState = atmosphere.WindState(direction: game.vec3(1.0, 0.0, 0.0), strength: 0.0)
-public var current_hour: float = 12.0
-public var current_profile: atmosphere.AmbientProfile = atmosphere.AmbientProfile(name: "default", ambient: game.rgb(180, 180, 180))
+var wind_state: atmosphere.WindState = atmosphere.WindState(direction: game.vec3(1.0, 0.0, 0.0), strength: 0.0)
+var current_hour: float = 12.0
+var current_profile: atmosphere.AmbientProfile = atmosphere.AmbientProfile(name: "default", ambient: game.rgb(180, 180, 180))
 
 public func fog_set_enabled(enabled: bool) -> result<void, core.Error>
     fog_state = atmosphere.FogState(

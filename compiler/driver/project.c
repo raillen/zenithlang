@@ -301,9 +301,14 @@ int zt_project_discover_zt_files(const char *directory, zt_project_source_file_l
 
 int zt_project_discover_packages(const char *project_root, zt_project_source_file_list *files) {
     char packages_dir[512];
+#ifdef _WIN32
     char *pattern;
     intptr_t handle;
     struct _finddata_t data;
+#else
+    DIR *dir;
+    struct dirent *entry;
+#endif
 
     if (!zt_join_path(packages_dir, sizeof(packages_dir), project_root, ".zenith/packages")) {
         return 1; /* Not an error if dir doesn't exist or is too deep */
@@ -349,7 +354,35 @@ int zt_project_discover_packages(const char *project_root, zt_project_source_fil
     _findclose(handle);
     return 1;
 #else
-    /* Simplified Unix version for now */
+    dir = opendir(packages_dir);
+    if (dir == NULL) return 1;
+
+    while ((entry = readdir(dir)) != NULL) {
+        char pkg_path[512];
+        char manifest_path[512];
+        zt_project_parse_result pkg_project;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        if (!zt_join_path(pkg_path, sizeof(pkg_path), packages_dir, entry->d_name)) continue;
+        if (!zt_path_is_dir(pkg_path)) continue;
+        if (!zt_join_path(manifest_path, sizeof(manifest_path), pkg_path, "zenith.ztproj")) continue;
+
+        if (zt_path_is_file(manifest_path)) {
+            if (zt_project_load_file(manifest_path, &pkg_project)) {
+                char source_root[512];
+                if (zt_join_path(source_root, sizeof(source_root), pkg_path, pkg_project.manifest.source_root)) {
+                    if (zt_path_is_dir(source_root)) {
+                        if (!zt_project_discover_zt_files(source_root, files)) {
+                            closedir(dir);
+                            return 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    closedir(dir);
     return 1;
 #endif
 }

@@ -18,27 +18,27 @@ public struct AudioGroup
     id: int
 end
 
-public var audio_master_volume: float = 1.0
+var audio_master_volume: float = 1.0
 
-public var sound_next_id: int = 1
-public var sound_name: map<int, text> = {}
-public var sound_volume: map<int, float> = {}
-public var sound_pitch: map<int, float> = {}
-public var sound_playing: map<int, bool> = {}
-public var sound_group: map<int, int> = {}
+var sound_next_id: int = 1
+var sound_name: map<int, text> = {}
+var sound_volume: map<int, float> = {}
+var sound_pitch: map<int, float> = {}
+var sound_playing: map<int, bool> = {}
+var sound_group: map<int, int> = {}
 
-public var music_next_id: int = 1
-public var music_name: map<int, text> = {}
-public var music_volume: map<int, float> = {}
-public var music_loop: map<int, bool> = {}
-public var music_playing: map<int, bool> = {}
-public var music_paused: map<int, bool> = {}
-public var music_group: map<int, int> = {}
+var music_next_id: int = 1
+var music_name: map<int, text> = {}
+var music_volume: map<int, float> = {}
+var music_loop: map<int, bool> = {}
+var music_playing: map<int, bool> = {}
+var music_paused: map<int, bool> = {}
+var music_group: map<int, int> = {}
 
-public var audio_group_next_id: int = 1
-public var audio_group_name: map<int, text> = {}
-public var audio_group_volume: map<int, float> = {}
-public var audio_group_paused: map<int, bool> = {}
+var audio_group_next_id: int = 1
+var audio_group_name: map<int, text> = {}
+var audio_group_volume: map<int, float> = {}
+var audio_group_paused: map<int, bool> = {}
 
 public func clamp_volume(value: float) -> float
     if value < 0.0
@@ -239,7 +239,7 @@ public func music_effective_volume(music: audio.Music) -> float
     return local * audio.float_or(audio_group_volume, group_id, 1.0) * audio_master_volume
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -249,7 +249,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -259,7 +259,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+func int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -269,25 +269,25 @@ public func int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next
 end
 
-public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next

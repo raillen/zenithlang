@@ -11,6 +11,8 @@ Versao alvo: `0.1.0`
 - binding `borealis.raylib` ja cobre smoke de shapes, texto, input, `measure_text`, textura/som e helpers matematicos em modo stub-safe
 - backend Raylib real foi validado no workspace Windows x64 com binario vendorizado em `packages/borealis/native/raylib/windows-x64/lib/raylib.dll`
 - exemplo completo de desktop esta disponivel em `packages/borealis/examples/raylib_desktop_app`
+- cenas de fixture ja usam contrato v2 com `environment`, `render`, `audio` e `entities`
+- `python tools/validate_borealis_contracts.py` valida superficie publica e drift entre cenas e `borealis.editor.json`
 
 ## Limites conhecidos do backend C atual
 
@@ -31,6 +33,8 @@ Exemplos de trilha futura:
 Isso significa:
 - a arquitetura publica esta pronta para evolucao
 - o proximo ganho principal passa a ser aprofundar comportamento de package, nao destravar `optional<Struct>` no backend C
+- a maturidade por modulo 3D esta documentada em `packages/borealis/architecture-3d-summary.md`
+- `draw_mesh` segue design-only; use `draw_model`, `draw_cube`, `draw_grid` ou `draw_billboard` no slice runtime-backed atual
 
 ## Limites do backend desktop
 

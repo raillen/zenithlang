@@ -178,6 +178,27 @@ Beneficio direto:
 - codigo da lib fica menor e mais legivel;
 - menos truques de implementacao para representar fila, cache e indice.
 
+## Fechado - acesso qualificado privado dentro do proprio modulo
+
+Impacto no Borealis:
+
+- helpers de mapa/estado como `entities.entities_bool_or(...)` e
+  `render3d.set_float(...)` agora podem ser privados;
+- o package pode manter chamadas qualificadas internas sem abrir esses helpers
+  para usuarios.
+
+O que foi fechado:
+
+- o checker agora considera o prefixo do simbolo em verificacao;
+- chamadas qualificadas pelo proprio prefixo do modulo podem acessar membros
+  privados daquele modulo.
+
+Beneficio direto:
+
+- `packages/borealis/src/borealis` nao precisa publicar mapas, contadores ou
+  helpers apenas para compilar;
+- a API fica mais alinhada com a filosofia reading-first.
+
 ## P2 - Linker e backend declarativos no manifesto
 
 Impacto no Borealis:

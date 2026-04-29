@@ -29,18 +29,18 @@ public struct PointLightState
     enabled: bool
 end
 
-public var render3d_quality: render3d.QualityProfile = render3d.QualityProfile.Medium
-public var ambient_light: render3d.AmbientLightState = render3d.AmbientLightState(color: game.rgb(180, 180, 180), intensity: 1.0)
-public var directional_light: render3d.DirectionalLightState = render3d.DirectionalLightState(direction: game.vec3(0.0, -1.0, 0.0), color: game.rgb(255, 255, 255), intensity: 1.0)
-public var render3d_light_next_id: int = 1
-public var render3d_mode_open: bool = false
-public var render3d_active_camera_id: int = 0
-public var render3d_light_enabled: map<int, bool> = {}
-public var render3d_light_x: map<int, float> = {}
-public var render3d_light_y: map<int, float> = {}
-public var render3d_light_z: map<int, float> = {}
-public var render3d_light_intensity: map<int, float> = {}
-public var render3d_light_range: map<int, float> = {}
+var render3d_quality: render3d.QualityProfile = render3d.QualityProfile.Medium
+var ambient_light: render3d.AmbientLightState = render3d.AmbientLightState(color: game.rgb(180, 180, 180), intensity: 1.0)
+var directional_light: render3d.DirectionalLightState = render3d.DirectionalLightState(direction: game.vec3(0.0, -1.0, 0.0), color: game.rgb(255, 255, 255), intensity: 1.0)
+var render3d_light_next_id: int = 1
+var render3d_mode_open: bool = false
+var render3d_active_camera_id: int = 0
+var render3d_light_enabled: map<int, bool> = {}
+var render3d_light_x: map<int, float> = {}
+var render3d_light_y: map<int, float> = {}
+var render3d_light_z: map<int, float> = {}
+var render3d_light_intensity: map<int, float> = {}
+var render3d_light_range: map<int, float> = {}
 
 public func render3d_begin(camera: camera3d.Camera3D) -> result<void, core.Error>
     if render3d_mode_open
@@ -213,7 +213,7 @@ public func lights_update_effects(_dt: float) -> result<void, core.Error>
     return success()
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -223,7 +223,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -233,19 +233,19 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func require_active_window() -> result<int, core.Error>
+func require_active_window() -> result<int, core.Error>
     if render3d_mode_open == false
         return error("render3d: render3d_begin is required before drawing 3d")
     end
@@ -256,14 +256,14 @@ public func require_active_window() -> result<int, core.Error>
     return success(window_id)
 end
 
-public func require_active_camera() -> camera3d.Camera3D
+func require_active_camera() -> camera3d.Camera3D
     if render3d_active_camera_id <= 0
         panic("render3d: active camera is not available")
     end
     return camera3d.Camera3D(id: render3d_active_camera_id)
 end
 
-public func normalize_scale(value: game.Vector3) -> game.Vector3
+func normalize_scale(value: game.Vector3) -> game.Vector3
     if value.x == 0.0 and value.y == 0.0 and value.z == 0.0
         return game.vec3(1.0, 1.0, 1.0)
     end

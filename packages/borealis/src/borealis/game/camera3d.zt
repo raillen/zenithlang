@@ -47,15 +47,15 @@ public struct FixedConfig
     locked: bool = true
 end
 
-public var camera3d_next_id: int = 1
-public var camera3d_position_x: map<int, float> = {}
-public var camera3d_position_y: map<int, float> = {}
-public var camera3d_position_z: map<int, float> = {}
-public var camera3d_target_x: map<int, float> = {}
-public var camera3d_target_y: map<int, float> = {}
-public var camera3d_target_z: map<int, float> = {}
-public var camera3d_fov: map<int, float> = {}
-public var camera3d_mode: map<int, int> = {}
+var camera3d_next_id: int = 1
+var camera3d_position_x: map<int, float> = {}
+var camera3d_position_y: map<int, float> = {}
+var camera3d_position_z: map<int, float> = {}
+var camera3d_target_x: map<int, float> = {}
+var camera3d_target_y: map<int, float> = {}
+var camera3d_target_z: map<int, float> = {}
+var camera3d_fov: map<int, float> = {}
+var camera3d_mode: map<int, int> = {}
 
 public func camera3d_create(position: game.Vector3, target: game.Vector3, fov: float) -> result<camera3d.Camera3D, core.Error>
     const id: int = camera3d_next_id
@@ -140,7 +140,7 @@ public func camera_debug_info(camera: camera3d.Camera3D) -> camera3d.CameraDebug
     )
 end
 
-public func camera3d_float_or(values: map<int, float>, id: int, fallback: float) -> float
+func camera3d_float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -150,7 +150,7 @@ public func camera3d_float_or(values: map<int, float>, id: int, fallback: float)
     end
 end
 
-public func camera3d_int_or(values: map<int, int>, id: int, fallback: int) -> int
+func camera3d_int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->

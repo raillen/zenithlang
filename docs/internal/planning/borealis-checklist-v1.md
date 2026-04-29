@@ -158,7 +158,7 @@ Evidencia R3.B6 parcial:
 
 - [x] `./zt.exe check packages/borealis/zenith.ztproj --all`
 - [x] `./zt.exe run tests/behavior/borealis_foundations_stub/zenith.ztproj`
-- [x] `packages/borealis/examples/modular_scaffolds_v1.zt`
+- [x] `packages/borealis/fixtures/modular_scaffolds_v1.zt`
 - [x] `packages/borealis/src/borealis/game/contracts.zt`
 - [x] `packages/borealis/src/borealis/game/editor.zt`
 - [x] `packages/borealis/architecture-summary.md` (Dependency Map B6)

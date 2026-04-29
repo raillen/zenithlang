@@ -23,7 +23,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_VERSION = "0.3.0-alpha.3"
+DEFAULT_VERSION = "0.4.1-alpha.1"
 ROOT = Path(__file__).resolve().parents[1]
 
 LSP_SOURCES = [

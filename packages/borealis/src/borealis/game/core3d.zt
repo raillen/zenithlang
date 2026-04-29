@@ -6,8 +6,8 @@ public struct Runtime3D
     active_state: text
 end
 
-public var state_stack: map<int, text> = {}
-public var state_stack_size: int = 0
+var state_stack: map<int, text> = {}
+var state_stack_size: int = 0
 
 public func core3d_start(target_fps: int = 60) -> core3d.Runtime3D
     state_stack = {}

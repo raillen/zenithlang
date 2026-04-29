@@ -4,10 +4,69 @@ const path = require('path');
 const vscode = require('vscode');
 
 const LANGUAGE = 'zenith';
+const LSP_BINARY = process.platform === 'win32' ? 'zt-lsp.exe' : 'zt-lsp';
+const CLI_BINARY = process.platform === 'win32' ? 'zt.exe' : 'zt';
 const semanticTokenLegend = new vscode.SemanticTokensLegend(
   ['namespace', 'type', 'function', 'variable', 'property', 'keyword', 'modifier', 'string', 'number'],
   ['declaration', 'readonly', 'public'],
 );
+
+function pathEntries() {
+  return (process.env.PATH || '')
+    .split(path.delimiter)
+    .filter((entry) => entry && entry.trim().length > 0);
+}
+
+function executableCandidates(name) {
+  if (process.platform !== 'win32' || path.extname(name)) return [name];
+  const extensions = (process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM')
+    .split(';')
+    .filter(Boolean);
+  return [name, ...extensions.map((ext) => `${name}${ext.toLowerCase()}`), ...extensions.map((ext) => `${name}${ext.toUpperCase()}`)];
+}
+
+function findOnPath(name) {
+  for (const dir of pathEntries()) {
+    for (const candidate of executableCandidates(name)) {
+      const filePath = path.join(dir, candidate);
+      if (fs.existsSync(filePath)) return filePath;
+    }
+  }
+  return null;
+}
+
+function looksLikePath(value) {
+  return value.includes('/') || value.includes('\\') || path.isAbsolute(value);
+}
+
+function resolveToolPath(context, settingKey, binaryName) {
+  const configured = vscode.workspace.getConfiguration('zenith').get(settingKey);
+  if (configured && configured.trim().length > 0) {
+    const value = configured.trim();
+    if (looksLikePath(value)) return fs.existsSync(value) ? value : null;
+    return findOnPath(value);
+  }
+
+  const repoRoot = path.resolve(context.extensionPath, '..', '..');
+  const localCandidates = [
+    path.join(context.extensionPath, binaryName),
+    path.join(context.extensionPath, 'bin', binaryName),
+    path.join(repoRoot, binaryName),
+  ];
+  for (const local of localCandidates) {
+    if (fs.existsSync(local)) return local;
+  }
+  return findOnPath(binaryName);
+}
+
+function showMissingToolMessage(tool, settingKey, buildHint) {
+  const message = `Zenith: nao encontrei ${tool}. Configure zenith.${settingKey} ou rode ${buildHint}.`;
+  vscode.window.showErrorMessage(message, 'Abrir configuracoes').then((choice) => {
+    if (choice === 'Abrir configuracoes') {
+      vscode.commands.executeCommand('workbench.action.openSettings', `zenith.${settingKey}`);
+    }
+  });
+}
 
 class CompassClient {
   constructor(context, diagnostics) {
@@ -19,6 +78,7 @@ class CompassClient {
     this.pending = new Map();
     this.started = false;
     this.workspaceIndexed = false;
+    this.documentVersions = new Map();
   }
 
   repoRoot() {
@@ -26,17 +86,14 @@ class CompassClient {
   }
 
   resolveLspPath() {
-    const configured = vscode.workspace.getConfiguration('zenith').get('lsp.path');
-    if (configured && configured.trim().length > 0) return configured;
-    const repoRoot = this.repoRoot();
-    const local = path.join(repoRoot, process.platform === 'win32' ? 'zt-lsp.exe' : 'zt-lsp');
-    if (fs.existsSync(local)) return local;
-    return process.platform === 'win32' ? 'zt-lsp.exe' : 'zt-lsp';
+    return resolveToolPath(this.context, 'lsp.path', LSP_BINARY);
   }
 
   resolveLspCwd(exe) {
     const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
     const candidates = [
+      this.context.extensionPath,
+      path.join(this.context.extensionPath, 'runtime'),
       this.repoRoot(),
       folder ? folder.uri.fsPath : undefined,
       path.dirname(exe),
@@ -51,6 +108,10 @@ class CompassClient {
   async ensureStarted() {
     if (this.started && this.proc && !this.proc.killed) return;
     const exe = this.resolveLspPath();
+    if (!exe) {
+      showMissingToolMessage('zt-lsp', 'lsp.path', 'python tools/build_lsp.py');
+      throw new Error('zt-lsp not found');
+    }
     this.proc = cp.spawn(exe, [], { cwd: this.resolveLspCwd(exe), stdio: ['pipe', 'pipe', 'pipe'] });
     this.started = true;
     this.proc.stdout.on('data', (chunk) => this.onData(chunk));
@@ -58,6 +119,12 @@ class CompassClient {
     this.proc.on('exit', () => {
       this.started = false;
       for (const [, pending] of this.pending) pending.reject(new Error('Compass LSP exited'));
+      this.pending.clear();
+    });
+    this.proc.on('error', (err) => {
+      this.started = false;
+      showMissingToolMessage('zt-lsp', 'lsp.path', 'python tools/build_lsp.py');
+      for (const [, pending] of this.pending) pending.reject(err);
       this.pending.clear();
     });
     const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
@@ -96,7 +163,11 @@ class CompassClient {
       if (this.buffer.length < bodyEnd) return;
       const body = this.buffer.slice(bodyStart, bodyEnd).toString('utf8');
       this.buffer = this.buffer.slice(bodyEnd);
-      this.handleMessage(JSON.parse(body));
+      try {
+        this.handleMessage(JSON.parse(body));
+      } catch (err) {
+        console.error(`[zenith-lsp] invalid JSON-RPC payload: ${err.message || err}`);
+      }
     }
   }
 
@@ -115,6 +186,10 @@ class CompassClient {
 
   applyDiagnostics(params) {
     if (!params || !params.uri) return;
+    const knownVersion = this.documentVersions.get(params.uri);
+    if (typeof params.version === 'number' && typeof knownVersion === 'number' && params.version < knownVersion) {
+      return;
+    }
     const uri = vscode.Uri.parse(params.uri);
     const items = (params.diagnostics || []).map((diag) => {
       const range = new vscode.Range(
@@ -139,17 +214,21 @@ class CompassClient {
   }
 
   send(payload) {
-    if (!this.proc || !this.proc.stdin.writable) return;
+    if (!this.proc || !this.proc.stdin.writable) return false;
     const body = Buffer.from(JSON.stringify(payload), 'utf8');
     const header = Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, 'ascii');
     this.proc.stdin.write(Buffer.concat([header, body]));
+    return true;
   }
 
   request(method, params) {
     const id = this.nextId++;
     const payload = { jsonrpc: '2.0', id, method, params };
-    this.send(payload);
     return new Promise((resolve, reject) => {
+      if (!this.send(payload)) {
+        reject(new Error(`Compass LSP is not running: ${method}`));
+        return;
+      }
       this.pending.set(id, { resolve, reject });
       setTimeout(() => {
         if (!this.pending.has(id)) return;
@@ -166,6 +245,7 @@ class CompassClient {
   async syncDocument(document) {
     if (document.languageId !== LANGUAGE) return;
     await this.ensureStarted();
+    this.documentVersions.set(document.uri.toString(), document.version);
     this.notify('textDocument/didOpen', {
       textDocument: {
         uri: document.uri.toString(),
@@ -195,19 +275,36 @@ class CompassClient {
     }
     this.workspaceIndexed = true;
   }
+
+  closeUri(uri) {
+    const uriText = uri.toString();
+    this.documentVersions.delete(uriText);
+    this.workspaceIndexed = false;
+    this.notify('textDocument/didClose', { textDocument: { uri: uriText } });
+  }
 }
+
+let activeClient = null;
 
 function documentSelector() {
   return [{ language: LANGUAGE, scheme: 'file' }, { language: LANGUAGE, scheme: 'untitled' }];
 }
 
 function resolveCliPath(context) {
-  const configured = vscode.workspace.getConfiguration('zenith').get('cli.path');
-  if (configured && configured.trim().length > 0) return configured;
-  const repoRoot = path.resolve(context.extensionPath, '..', '..');
-  const local = path.join(repoRoot, process.platform === 'win32' ? 'zt.exe' : 'zt');
-  if (fs.existsSync(local)) return local;
-  return process.platform === 'win32' ? 'zt.exe' : 'zt';
+  return resolveToolPath(context, 'cli.path', CLI_BINARY);
+}
+
+function resolveZenithHome(context, cliPath) {
+  const candidates = [
+    context.extensionPath,
+    path.resolve(context.extensionPath, '..', '..'),
+    path.dirname(cliPath),
+    path.resolve(path.dirname(cliPath), '..'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, 'stdlib', 'std', 'io.zt'))) return candidate;
+  }
+  return undefined;
 }
 
 function projectTarget() {
@@ -223,7 +320,14 @@ function projectTarget() {
 
 function runTerminalCommand(context, command) {
   const cli = resolveCliPath(context);
-  const terminal = vscode.window.createTerminal('Zenith');
+  if (!cli) {
+    showMissingToolMessage('zt', 'cli.path', 'python build.py');
+    return;
+  }
+  const env = {};
+  const zenithHome = resolveZenithHome(context, cli);
+  if (zenithHome) env.ZENITH_HOME = zenithHome;
+  const terminal = vscode.window.createTerminal({ name: 'Zenith', env });
   terminal.show(true);
   terminal.sendText(`"${cli}" ${command} "${projectTarget()}"`);
 }
@@ -536,6 +640,7 @@ function toWorkspaceEdit(result) {
 function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection('zenith');
   const client = new CompassClient(context, diagnostics);
+  activeClient = client;
 
   context.subscriptions.push(diagnostics);
   context.subscriptions.push({ dispose: () => client.stop() });
@@ -545,7 +650,7 @@ function activate(context) {
   context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((doc) => {
     if (doc.languageId !== LANGUAGE) return;
     if (doc.uri.scheme !== 'file') {
-      client.notify('textDocument/didClose', { textDocument: { uri: doc.uri.toString() } });
+      client.closeUri(doc.uri);
     }
     diagnostics.delete(doc.uri);
   }));
@@ -553,6 +658,7 @@ function activate(context) {
   const watcher = vscode.workspace.createFileSystemWatcher('**/*.zt');
   context.subscriptions.push(watcher);
   context.subscriptions.push(watcher.onDidCreate((uri) => {
+    client.workspaceIndexed = false;
     if (autoNamespaceOnCreateEnabled()) {
       fillNamespaceIfEmpty(uri, client, false)
         .then((filled) => {
@@ -566,9 +672,12 @@ function activate(context) {
     }
     syncUriBestEffort(client, uri);
   }));
-  context.subscriptions.push(watcher.onDidChange((uri) => client.syncUri(uri)));
+  context.subscriptions.push(watcher.onDidChange((uri) => {
+    client.workspaceIndexed = false;
+    client.syncUri(uri);
+  }));
   context.subscriptions.push(watcher.onDidDelete((uri) => {
-    client.notify('textDocument/didClose', { textDocument: { uri: uri.toString() } });
+    client.closeUri(uri);
     diagnostics.delete(uri);
   }));
 
@@ -723,7 +832,7 @@ function activate(context) {
         return completion;
       });
     },
-  }, '.', ':', '<'));
+  }, '.', ':', '<', ' '));
 
   context.subscriptions.push(vscode.commands.registerCommand('zenith.check', () => runTerminalCommand(context, 'check')));
   context.subscriptions.push(vscode.commands.registerCommand('zenith.build', () => runTerminalCommand(context, 'build')));
@@ -731,6 +840,9 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('zenith.newFile', () => createZenithFile(client)));
 }
 
-function deactivate() {}
+function deactivate() {
+  if (activeClient) activeClient.stop();
+  activeClient = null;
+}
 
 module.exports = { activate, deactivate };

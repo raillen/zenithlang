@@ -12,6 +12,10 @@
 #include "compiler/driver/driver_internal.h"
 #include "compiler/frontend/lexer/lexer.h"
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
 static void zt_runtime_root(char *buffer, size_t capacity);
 static int zt_home_has_stdlib(const char *home_root);
 
@@ -1132,6 +1136,12 @@ static int zt_get_executable_dir(char *buffer, size_t capacity) {
         if (length == 0 || length >= (DWORD)sizeof(exe_path)) return 0;
         exe_path[length] = '\0';
     }
+#elif defined(__APPLE__)
+    {
+        uint32_t length = (uint32_t)sizeof(exe_path);
+        if (_NSGetExecutablePath(exe_path, &length) != 0) return 0;
+        exe_path[sizeof(exe_path) - 1] = '\0';
+    }
 #else
     {
         ssize_t length = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
@@ -1828,7 +1838,8 @@ static int zt_run_native_compile_command(zt_driver_context *ctx, const char *con
     fclose(pipe);
     zt_native_remove_file_if_exists(capture_path);
 
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if ((ctx == NULL || !ctx->ci_mode_enabled) &&
+            (exit_code != 0 || (ctx != NULL && ctx->verbose))) {
         if (filtered_unused_parameter > 0) {
             fprintf(stderr, "warning[native.unused_parameter]\n");
             fprintf(stderr, "ACTION\n  no action needed in Zenith source.\n");
@@ -1981,7 +1992,7 @@ static int zt_compile_runtime_object(zt_driver_context *ctx, const char *runtime
     argv[8] = "-o";
     argv[9] = runtime_obj_path;
 
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if (ctx != NULL && ctx->verbose && !ctx->ci_mode_enabled) {
         char display_cmd[2048];
         const char *display_argv[11];
         memcpy(display_argv, argv, sizeof(argv));
@@ -2149,7 +2160,7 @@ int zt_compile_c_file(
 #endif
     argv[argv_count] = NULL;
 
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if (ctx != NULL && ctx->verbose && !ctx->ci_mode_enabled) {
         char display_cmd[3072];
         if (zt_native_format_command(display_cmd, sizeof(display_cmd), argv)) {
             printf("compiling: %s\n", display_cmd);
@@ -2173,7 +2184,7 @@ int zt_compile_c_file(
         return 0;
     }
 
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if (ctx != NULL && ctx->verbose && !ctx->ci_mode_enabled) {
         printf("built: %s\n", exe_path);
     }
     return 1;
@@ -2194,7 +2205,7 @@ int zt_run_executable(zt_driver_context *ctx, const char *exe_path) {
     int run_result;
 
     zt_normalize_system_path(exe_path, system_path, sizeof(system_path));
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if (ctx != NULL && ctx->verbose && !ctx->ci_mode_enabled) {
         printf("running: %s\n", system_path);
     }
     argv[0] = system_path;
@@ -2211,8 +2222,10 @@ int zt_run_executable(zt_driver_context *ctx, const char *exe_path) {
         return -1;
     }
 
-    if (ctx == NULL || !ctx->ci_mode_enabled) {
+    if (ctx != NULL && ctx->verbose && !ctx->ci_mode_enabled) {
         printf("exit code: %d\n", run_result);
+    } else if ((ctx == NULL || (!ctx->ci_mode_enabled && !ctx->quiet)) && run_result != 0) {
+        fprintf(stderr, "program exited with code %d\n", run_result);
     }
     return run_result;
 }

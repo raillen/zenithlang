@@ -11,7 +11,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-DEFAULT_VERSION = "0.3.0-alpha.3"
+DEFAULT_VERSION = "0.4.1-alpha.1"
 DEFAULT_OUTPUT_DIR = "dist/linux"
 DEFAULT_STAGE_DIR = ".artifacts/linux/stage"
 DEFAULT_MAINTAINER = "Zenith Team <maintainers@zenithlang.dev>"
@@ -153,14 +153,31 @@ def _build_commands(args: argparse.Namespace, rootfs: Path, output_dir: Path) ->
     ]
 
     targets = [
-        ("deb", "amd64", output_dir / f"zenith-{args.version}-linux-amd64.deb"),
-        ("rpm", "x86_64", output_dir / f"zenith-{args.version}-linux-x86_64.rpm"),
-        ("pacman", "x86_64", output_dir / f"zenith-{args.version}-linux-x86_64.pkg.tar.zst"),
+        (
+            "deb",
+            "amd64",
+            output_dir / f"zenith-{args.version}-linux-amd64.deb",
+            ["gcc", "libc6"],
+        ),
+        (
+            "rpm",
+            "x86_64",
+            output_dir / f"zenith-{args.version}-linux-x86_64.rpm",
+            ["gcc", "glibc"],
+        ),
+        (
+            "pacman",
+            "x86_64",
+            output_dir / f"zenith-{args.version}-linux-x86_64.pkg.tar.zst",
+            ["gcc", "glibc"],
+        ),
     ]
 
     commands: list[list[str]] = []
-    for pkg_type, arch, output_path in targets:
+    for pkg_type, arch, output_path, dependencies in targets:
         cmd = list(base)
+        for dependency in dependencies:
+            cmd.extend(["--depends", dependency])
         cmd.extend([
             "-t",
             pkg_type,

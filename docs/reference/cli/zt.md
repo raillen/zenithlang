@@ -124,7 +124,12 @@ Use `--eval` for scripts and tests.
 .\zt.exe build hello.zt
 .\zt.exe build zenith.ztproj -o build\app.exe
 .\zt.exe build zenith.ztproj --native-raw
+.\zt.exe build zenith.ztproj --verbose
 ```
+
+By default, `build` prints one compact success line.
+Use `--verbose` for driver steps such as generated paths.
+Use `--native-raw` only when you need the raw C compiler output.
 
 ## Run
 
@@ -132,7 +137,12 @@ Use `--eval` for scripts and tests.
 .\zt.exe run zenith.ztproj
 .\zt.exe run hello.zt
 .\zt.exe run zenith.ztproj --native-raw
+.\zt.exe run zenith.ztproj --verbose
 ```
+
+By default, `run` prints the program output.
+If the program exits with a non-zero code, `zt` prints that code.
+Native compiler details stay hidden unless `--verbose` or `--native-raw` is used.
 
 ## Create
 

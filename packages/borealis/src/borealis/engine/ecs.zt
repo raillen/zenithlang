@@ -16,19 +16,19 @@ public struct SystemInfo
     last_dt: float
 end
 
-public var ecs_component_values: map<text, text> = {}
-public var ecs_component_types: map<int, text> = {}
-public var ecs_component_counts: map<int, int> = {}
+var ecs_component_values: map<text, text> = {}
+var ecs_component_types: map<int, text> = {}
+var ecs_component_counts: map<int, int> = {}
 
-public var ecs_system_next_id: int = 1
-public var ecs_system_alive: map<int, bool> = {}
-public var ecs_system_name: map<int, text> = {}
-public var ecs_system_phase: map<int, text> = {}
-public var ecs_system_enabled: map<int, bool> = {}
-public var ecs_system_run_count: map<int, int> = {}
-public var ecs_system_last_dt: map<int, float> = {}
+var ecs_system_next_id: int = 1
+var ecs_system_alive: map<int, bool> = {}
+var ecs_system_name: map<int, text> = {}
+var ecs_system_phase: map<int, text> = {}
+var ecs_system_enabled: map<int, bool> = {}
+var ecs_system_run_count: map<int, int> = {}
+var ecs_system_last_dt: map<int, float> = {}
 
-public func ecs_text_or(values: map<int, text>, id: int, fallback: text) -> text
+func ecs_text_or(values: map<int, text>, id: int, fallback: text) -> text
     const value: optional<text> = values.get(id)
     match value
         case value present ->
@@ -38,7 +38,7 @@ public func ecs_text_or(values: map<int, text>, id: int, fallback: text) -> text
     end
 end
 
-public func ecs_int_or(values: map<int, int>, id: int, fallback: int) -> int
+func ecs_int_or(values: map<int, int>, id: int, fallback: int) -> int
     const value: optional<int> = values.get(id)
     match value
         case value present ->
@@ -48,7 +48,7 @@ public func ecs_int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func ecs_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func ecs_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const value: optional<bool> = values.get(id)
     match value
         case value present ->
@@ -58,7 +58,7 @@ public func ecs_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func ecs_float_or(values: map<int, float>, id: int, fallback: float) -> float
+func ecs_float_or(values: map<int, float>, id: int, fallback: float) -> float
     const value: optional<float> = values.get(id)
     match value
         case value present ->
@@ -68,7 +68,7 @@ public func ecs_float_or(values: map<int, float>, id: int, fallback: float) -> f
     end
 end
 
-public func ecs_text_key_or(values: map<text, text>, key: text, fallback: text) -> text
+func ecs_text_key_or(values: map<text, text>, key: text, fallback: text) -> text
     const value: optional<text> = values.get(key)
     match value
         case value present ->
@@ -78,31 +78,31 @@ public func ecs_text_key_or(values: map<text, text>, key: text, fallback: text) 
     end
 end
 
-public func ecs_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
+func ecs_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next_values: map<int, text> = values
     next_values[id] = value
     return next_values
 end
 
-public func ecs_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
+func ecs_int_set(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next_values: map<int, int> = values
     next_values[id] = value
     return next_values
 end
 
-public func ecs_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func ecs_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next_values: map<int, bool> = values
     next_values[id] = value
     return next_values
 end
 
-public func ecs_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
+func ecs_float_set(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next_values: map<int, float> = values
     next_values[id] = value
     return next_values
 end
 
-public func ecs_text_key_set(values: map<text, text>, key: text, value: text) -> map<text, text>
+func ecs_text_key_set(values: map<text, text>, key: text, value: text) -> map<text, text>
     var next_values: map<text, text> = values
     next_values[key] = value
     return next_values
@@ -223,7 +223,7 @@ public func ecs_system_exists(system: ecs.System) -> bool
     return ecs.ecs_bool_or(ecs_system_alive, system.id, false)
 end
 
-public func ecs_system_require_exists(system: ecs.System) -> result<void, core.Error>
+func ecs_system_require_exists(system: ecs.System) -> result<void, core.Error>
     if ecs.ecs_system_exists(system) == false
         return error("ecs: system not found")
     end

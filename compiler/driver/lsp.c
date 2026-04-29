@@ -37,6 +37,7 @@ typedef struct lsp_doc {
     char *uri;
     char *path;
     char *text;
+    int version;
     int is_stdlib;
     zt_arena arena;
     zt_string_pool pool;
@@ -525,7 +526,7 @@ static lsp_doc *find_doc(const char *uri) {
     return NULL;
 }
 
-static lsp_doc *upsert_doc(const char *uri, const char *text) {
+static lsp_doc *upsert_doc(const char *uri, const char *text, int version) {
     lsp_doc *doc = find_doc(uri);
     if (doc == NULL) {
         doc = (lsp_doc *)calloc(1, sizeof(lsp_doc));
@@ -537,6 +538,7 @@ static lsp_doc *upsert_doc(const char *uri, const char *text) {
     }
     free(doc->text);
     doc->text = lsp_strdup(text != NULL ? text : "");
+    doc->version = version;
     doc_reparse(doc);
     return doc;
 }
@@ -643,7 +645,42 @@ static int lsp_col(size_t col) {
     return col > 0 ? (int)col - 1 : 0;
 }
 
-static void append_diag_list_json(lsp_sb *sb, const zt_diag_list *list, int *first) {
+typedef struct {
+    const char *code;
+    const char *message;
+    size_t line;
+    size_t start_col;
+    size_t end_col;
+} lsp_emitted_diag;
+
+static int diag_already_emitted(const lsp_emitted_diag *emitted, size_t count, const zt_diag *diag) {
+    size_t i;
+    const char *code;
+    if (emitted == NULL || diag == NULL) return 0;
+    code = zt_diag_code_stable(diag->code);
+    for (i = 0; i < count; i += 1) {
+        if (emitted[i].line == diag->span.line &&
+            emitted[i].start_col == diag->span.column_start &&
+            emitted[i].end_col == diag->span.column_end &&
+            strcmp(emitted[i].code, code) == 0 &&
+            strcmp(emitted[i].message, diag->message) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void remember_emitted_diag(lsp_emitted_diag *emitted, size_t *count, size_t capacity, const zt_diag *diag) {
+    if (emitted == NULL || count == NULL || diag == NULL || *count >= capacity) return;
+    emitted[*count].code = zt_diag_code_stable(diag->code);
+    emitted[*count].message = diag->message;
+    emitted[*count].line = diag->span.line;
+    emitted[*count].start_col = diag->span.column_start;
+    emitted[*count].end_col = diag->span.column_end;
+    *count += 1;
+}
+
+static void append_diag_list_json(lsp_sb *sb, const zt_diag_list *list, int *first, lsp_emitted_diag *emitted, size_t *emitted_count, size_t emitted_capacity) {
     size_t i;
     if (list == NULL) return;
     for (i = 0; i < list->count; i += 1) {
@@ -658,6 +695,8 @@ static void append_diag_list_json(lsp_sb *sb, const zt_diag_list *list, int *fir
         if (d->severity == ZT_DIAG_SEVERITY_WARNING) severity = 2;
         else if (d->severity == ZT_DIAG_SEVERITY_NOTE) severity = 3;
         else if (d->severity == ZT_DIAG_SEVERITY_HELP) severity = 4;
+        if (diag_already_emitted(emitted, emitted_count != NULL ? *emitted_count : 0, d)) continue;
+        remember_emitted_diag(emitted, emitted_count, emitted_capacity, d);
         if (!*first) sb_append(sb, ",");
         *first = 0;
         sb_append(sb, "{\"range\":{\"start\":{");
@@ -682,14 +721,18 @@ static void append_diag_list_json(lsp_sb *sb, const zt_diag_list *list, int *fir
 static void publish_diagnostics(lsp_doc *doc) {
     lsp_sb sb;
     int first = 1;
+    lsp_emitted_diag emitted[512];
+    size_t emitted_count = 0;
     if (doc == NULL || doc->uri == NULL) return;
     sb_init(&sb);
     sb_append(&sb, "{\"uri\":");
     sb_append_json_string(&sb, doc->uri);
+    sb_append(&sb, ",\"version\":");
+    sb_appendf(&sb, "%d", doc->version);
     sb_append(&sb, ",\"diagnostics\":[");
-    if (doc->has_parse) append_diag_list_json(&sb, &doc->parse.diagnostics, &first);
-    if (doc->has_bind) append_diag_list_json(&sb, &doc->bind.diagnostics, &first);
-    if (doc->has_check) append_diag_list_json(&sb, &doc->check.diagnostics, &first);
+    if (doc->has_parse) append_diag_list_json(&sb, &doc->parse.diagnostics, &first, emitted, &emitted_count, 512);
+    if (doc->has_bind) append_diag_list_json(&sb, &doc->bind.diagnostics, &first, emitted, &emitted_count, 512);
+    if (doc->has_check) append_diag_list_json(&sb, &doc->check.diagnostics, &first, emitted, &emitted_count, 512);
     sb_append(&sb, "]}");
     send_notification_take("textDocument/publishDiagnostics", sb_take(&sb));
 }
@@ -860,8 +903,16 @@ static const char *node_symbol_name(const zt_ast_node *node) {
         case ZT_AST_STRUCT_DECL: return node->as.struct_decl.name;
         case ZT_AST_TRAIT_DECL: return node->as.trait_decl.name;
         case ZT_AST_ENUM_DECL: return node->as.enum_decl.name;
+        case ZT_AST_TYPE_ALIAS_DECL: return node->as.type_alias_decl.name;
+        case ZT_AST_STRUCT_FIELD: return node->as.struct_field.name;
+        case ZT_AST_TRAIT_METHOD: return node->as.trait_method.name;
+        case ZT_AST_ENUM_VARIANT: return node->as.enum_variant.name;
+        case ZT_AST_PARAM: return node->as.param.name;
         case ZT_AST_VAR_DECL: return node->as.var_decl.name;
         case ZT_AST_CONST_DECL: return node->as.const_decl.name;
+        case ZT_AST_USING_STMT: return node->as.using_stmt.name;
+        case ZT_AST_MATCH_BINDING: return node->as.match_binding.param_name;
+        case ZT_AST_VALUE_BINDING: return node->as.value_binding.name;
         default: return NULL;
     }
 }
@@ -873,8 +924,16 @@ static const char *node_symbol_kind(const zt_ast_node *node) {
         case ZT_AST_STRUCT_DECL: return "struct";
         case ZT_AST_TRAIT_DECL: return "trait";
         case ZT_AST_ENUM_DECL: return "enum";
+        case ZT_AST_TYPE_ALIAS_DECL: return "type";
+        case ZT_AST_STRUCT_FIELD: return "field";
+        case ZT_AST_TRAIT_METHOD: return "method";
+        case ZT_AST_ENUM_VARIANT: return "variant";
+        case ZT_AST_PARAM: return "param";
         case ZT_AST_VAR_DECL: return "var";
         case ZT_AST_CONST_DECL: return "const";
+        case ZT_AST_USING_STMT: return "using";
+        case ZT_AST_MATCH_BINDING:
+        case ZT_AST_VALUE_BINDING: return "binding";
         default: return "symbol";
     }
 }
@@ -1094,6 +1153,25 @@ static int docs_same_namespace(lsp_doc *a, lsp_doc *b) {
     return a_ns != NULL && b_ns != NULL && strcmp(a_ns, b_ns) == 0;
 }
 
+static size_t namespace_parent_len(const char *name) {
+    const char *dot;
+    if (name == NULL) return 0;
+    dot = strrchr(name, '.');
+    return dot != NULL ? (size_t)(dot - name) : 0;
+}
+
+static size_t namespace_root_len(const char *name) {
+    const char *dot;
+    if (name == NULL) return 0;
+    dot = strchr(name, '.');
+    return dot != NULL ? (size_t)(dot - name) : strlen(name);
+}
+
+static int namespace_prefix_equals(const char *a, const char *b, size_t len) {
+    if (a == NULL || b == NULL || len == 0) return 0;
+    return strncmp(a, b, len) == 0 && a[len] == b[len];
+}
+
 static const zt_ast_node *find_import_decl_for_alias(lsp_doc *doc, const char *alias) {
     size_t i;
     if (doc == NULL || alias == NULL || !doc->has_parse || doc->parse.root == NULL || doc->parse.root->kind != ZT_AST_FILE) return NULL;
@@ -1158,6 +1236,482 @@ static const zt_ast_node *find_symbol_in_doc(lsp_doc *doc, const char *word) {
         if (symbol_matches(node_symbol_name(decl), word)) return decl;
     }
     return NULL;
+}
+
+static int ast_node_starts_before_position(const zt_ast_node *node, int line, int character);
+
+static void find_local_symbol_in_node(
+        const zt_ast_node *node,
+        const char *word,
+        int line,
+        int character,
+        const zt_ast_node **found);
+
+static void find_local_symbol_in_list(
+        zt_ast_node_list list,
+        const char *word,
+        int line,
+        int character,
+        const zt_ast_node **found) {
+    size_t i;
+    for (i = 0; i < list.count; i += 1) {
+        find_local_symbol_in_node(list.items[i], word, line, character, found);
+    }
+}
+
+static int local_symbol_candidate_matches(const zt_ast_node *node, const char *word, int line, int character) {
+    const char *name = node_symbol_name(node);
+    return name != NULL &&
+        word != NULL &&
+        strcmp(name, word) == 0 &&
+        ast_node_starts_before_position(node, line, character);
+}
+
+static void find_local_symbol_in_node(
+        const zt_ast_node *node,
+        const char *word,
+        int line,
+        int character,
+        const zt_ast_node **found) {
+    size_t i;
+    if (node == NULL || word == NULL || found == NULL) return;
+
+    switch (node->kind) {
+        case ZT_AST_FUNC_DECL:
+            for (i = 0; i < node->as.func_decl.params.count; i += 1) {
+                const zt_ast_node *param = node->as.func_decl.params.items[i];
+                if (local_symbol_candidate_matches(param, word, line, character)) *found = param;
+            }
+            find_local_symbol_in_node(node->as.func_decl.body, word, line, character, found);
+            break;
+        case ZT_AST_BLOCK:
+            find_local_symbol_in_list(node->as.block.statements, word, line, character, found);
+            break;
+        case ZT_AST_VAR_DECL:
+        case ZT_AST_CONST_DECL:
+        case ZT_AST_VALUE_BINDING:
+        case ZT_AST_MATCH_BINDING:
+            if (local_symbol_candidate_matches(node, word, line, character)) *found = node;
+            break;
+        case ZT_AST_FOR_STMT:
+            if (node->as.for_stmt.item_name != NULL &&
+                strcmp(node->as.for_stmt.item_name, word) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                *found = node;
+            }
+            if (node->as.for_stmt.index_name != NULL &&
+                strcmp(node->as.for_stmt.index_name, word) == 0 &&
+                ast_node_starts_before_position(node, line, character)) {
+                *found = node;
+            }
+            find_local_symbol_in_node(node->as.for_stmt.body, word, line, character, found);
+            break;
+        case ZT_AST_USING_STMT:
+            if (local_symbol_candidate_matches(node, word, line, character)) *found = node;
+            find_local_symbol_in_node(node->as.using_stmt.body, word, line, character, found);
+            break;
+        case ZT_AST_CLOSURE_EXPR:
+            for (i = 0; i < node->as.closure_expr.params.count; i += 1) {
+                const zt_ast_node *param = node->as.closure_expr.params.items[i];
+                if (local_symbol_candidate_matches(param, word, line, character)) *found = param;
+            }
+            find_local_symbol_in_node(node->as.closure_expr.body, word, line, character, found);
+            break;
+        case ZT_AST_IF_STMT:
+            find_local_symbol_in_node(node->as.if_stmt.then_block, word, line, character, found);
+            find_local_symbol_in_node(node->as.if_stmt.else_block, word, line, character, found);
+            break;
+        case ZT_AST_WHILE_STMT:
+            find_local_symbol_in_node(node->as.while_stmt.body, word, line, character, found);
+            break;
+        case ZT_AST_REPEAT_STMT:
+            find_local_symbol_in_node(node->as.repeat_stmt.body, word, line, character, found);
+            break;
+        case ZT_AST_MATCH_STMT:
+            find_local_symbol_in_list(node->as.match_stmt.cases, word, line, character, found);
+            break;
+        case ZT_AST_MATCH_CASE:
+            find_local_symbol_in_list(node->as.match_case.patterns, word, line, character, found);
+            find_local_symbol_in_node(node->as.match_case.body, word, line, character, found);
+            break;
+        case ZT_AST_EXPR_STMT:
+            find_local_symbol_in_node(node->as.expr_stmt.expr, word, line, character, found);
+            break;
+        case ZT_AST_RETURN_STMT:
+            find_local_symbol_in_node(node->as.return_stmt.value, word, line, character, found);
+            break;
+        case ZT_AST_ASSIGN_STMT:
+            find_local_symbol_in_node(node->as.assign_stmt.value, word, line, character, found);
+            break;
+        case ZT_AST_INDEX_ASSIGN_STMT:
+            find_local_symbol_in_node(node->as.index_assign_stmt.object, word, line, character, found);
+            find_local_symbol_in_node(node->as.index_assign_stmt.index, word, line, character, found);
+            find_local_symbol_in_node(node->as.index_assign_stmt.value, word, line, character, found);
+            break;
+        case ZT_AST_FIELD_ASSIGN_STMT:
+            find_local_symbol_in_node(node->as.field_assign_stmt.object, word, line, character, found);
+            find_local_symbol_in_node(node->as.field_assign_stmt.value, word, line, character, found);
+            break;
+        case ZT_AST_BINARY_EXPR:
+            find_local_symbol_in_node(node->as.binary_expr.left, word, line, character, found);
+            find_local_symbol_in_node(node->as.binary_expr.right, word, line, character, found);
+            break;
+        case ZT_AST_UNARY_EXPR:
+            find_local_symbol_in_node(node->as.unary_expr.operand, word, line, character, found);
+            break;
+        case ZT_AST_CALL_EXPR:
+            find_local_symbol_in_node(node->as.call_expr.callee, word, line, character, found);
+            find_local_symbol_in_list(node->as.call_expr.positional_args, word, line, character, found);
+            for (i = 0; i < node->as.call_expr.named_args.count; i += 1) {
+                find_local_symbol_in_node(node->as.call_expr.named_args.items[i].value, word, line, character, found);
+            }
+            break;
+        case ZT_AST_FIELD_EXPR:
+            find_local_symbol_in_node(node->as.field_expr.object, word, line, character, found);
+            break;
+        case ZT_AST_INDEX_EXPR:
+            find_local_symbol_in_node(node->as.index_expr.object, word, line, character, found);
+            find_local_symbol_in_node(node->as.index_expr.index, word, line, character, found);
+            break;
+        case ZT_AST_SLICE_EXPR:
+            find_local_symbol_in_node(node->as.slice_expr.object, word, line, character, found);
+            find_local_symbol_in_node(node->as.slice_expr.start, word, line, character, found);
+            find_local_symbol_in_node(node->as.slice_expr.end, word, line, character, found);
+            break;
+        case ZT_AST_SUCCESS_EXPR:
+            find_local_symbol_in_node(node->as.success_expr.value, word, line, character, found);
+            break;
+        case ZT_AST_ERROR_EXPR:
+            find_local_symbol_in_node(node->as.error_expr.value, word, line, character, found);
+            break;
+        case ZT_AST_LIST_EXPR:
+            find_local_symbol_in_list(node->as.list_expr.elements, word, line, character, found);
+            break;
+        case ZT_AST_SET_EXPR:
+            find_local_symbol_in_list(node->as.set_expr.elements, word, line, character, found);
+            break;
+        case ZT_AST_MAP_EXPR:
+            for (i = 0; i < node->as.map_expr.entries.count; i += 1) {
+                find_local_symbol_in_node(node->as.map_expr.entries.items[i].key, word, line, character, found);
+                find_local_symbol_in_node(node->as.map_expr.entries.items[i].value, word, line, character, found);
+            }
+            break;
+        case ZT_AST_STRUCT_LITERAL_EXPR:
+            for (i = 0; i < node->as.struct_literal_expr.fields.count; i += 1) {
+                find_local_symbol_in_node(node->as.struct_literal_expr.fields.items[i].value, word, line, character, found);
+            }
+            break;
+        case ZT_AST_FMT_EXPR:
+            find_local_symbol_in_list(node->as.fmt_expr.parts, word, line, character, found);
+            break;
+        case ZT_AST_GROUPED_EXPR:
+            find_local_symbol_in_node(node->as.grouped_expr.inner, word, line, character, found);
+            break;
+        case ZT_AST_IF_EXPR:
+            find_local_symbol_in_node(node->as.if_expr.condition, word, line, character, found);
+            find_local_symbol_in_node(node->as.if_expr.then_expr, word, line, character, found);
+            find_local_symbol_in_node(node->as.if_expr.else_expr, word, line, character, found);
+            break;
+        default:
+            break;
+    }
+}
+
+static const zt_ast_node *find_local_symbol(lsp_doc *doc, const char *word, int line, int character) {
+    const zt_ast_node *found = NULL;
+    size_t i;
+    if (doc == NULL || word == NULL || !doc->has_parse || doc->parse.root == NULL || doc->parse.root->kind != ZT_AST_FILE) return NULL;
+    for (i = 0; i < doc->parse.root->as.file.declarations.count; i += 1) {
+        const zt_ast_node *decl = doc->parse.root->as.file.declarations.items[i];
+        if (decl == NULL || decl->kind != ZT_AST_FUNC_DECL) continue;
+        if (!ast_node_starts_before_position(decl, line, character)) continue;
+        find_local_symbol_in_node(decl, word, line, character, &found);
+    }
+    return found;
+}
+
+static int declaration_name_range(lsp_doc *doc, const zt_ast_node *node, const char *name, int *line, int *start_col, int *end_col);
+
+typedef struct {
+    int line;
+    int col;
+    int scope_indent;
+} lsp_local_decl_scope;
+
+static int line_indent_of(const char *line_start, const char *line_end) {
+    int indent = 0;
+    const char *p = line_start;
+    while (p < line_end && (*p == ' ' || *p == '\t')) {
+        indent += (*p == '\t') ? 4 : 1;
+        p += 1;
+    }
+    return indent;
+}
+
+static int line_has_prefix_at_indent(const char *line_start, const char *line_end, int indent, const char *prefix) {
+    size_t len;
+    const char *p;
+    if (line_start == NULL || line_end == NULL || prefix == NULL) return 0;
+    len = strlen(prefix);
+    p = line_start + indent;
+    return p + len <= line_end && strncmp(p, prefix, len) == 0;
+}
+
+static void local_scope_push(lsp_local_decl_scope *stack, int *count, int max_count, int line, int col, int scope_indent) {
+    if (stack == NULL || count == NULL || *count >= max_count) return;
+    stack[*count].line = line;
+    stack[*count].col = col;
+    stack[*count].scope_indent = scope_indent;
+    *count += 1;
+}
+
+static void local_scope_prune(lsp_local_decl_scope *stack, int *count, int line, int indent) {
+    int write = 0;
+    int i;
+    if (stack == NULL || count == NULL) return;
+    for (i = 0; i < *count; i += 1) {
+        if (line > stack[i].line && indent < stack[i].scope_indent) continue;
+        stack[write] = stack[i];
+        write += 1;
+    }
+    *count = write;
+}
+
+static void local_scope_scan_name_list(
+        lsp_local_decl_scope *stack,
+        int *count,
+        int max_count,
+        const char *line_start,
+        int line,
+        int scope_indent,
+        const char *name,
+        const char *start,
+        const char *end) {
+    const char *p;
+    if (name == NULL || name[0] == '\0' || start == NULL || end == NULL || start >= end) return;
+    p = start;
+    while (p < end) {
+        while (p < end && !ident_char((unsigned char)*p)) p += 1;
+        if (p >= end) break;
+        {
+            const char *name_start = p;
+            size_t len;
+            while (p < end && ident_char((unsigned char)*p)) p += 1;
+            len = (size_t)(p - name_start);
+            if (strlen(name) == len && strncmp(name_start, name, len) == 0) {
+                local_scope_push(stack, count, max_count, line, (int)(name_start - line_start), scope_indent);
+            }
+        }
+    }
+}
+
+static void local_scope_scan_declaration_line(
+        lsp_local_decl_scope *stack,
+        int *count,
+        int max_count,
+        const char *line_start,
+        const char *line_end,
+        int line,
+        int indent,
+        const char *name) {
+    const char *p = line_start + indent;
+    const char *open_paren;
+    const char *close_paren;
+    if (name == NULL || name[0] == '\0' || p >= line_end) return;
+
+    if (line_has_prefix_at_indent(line_start, line_end, indent, "func ")) {
+        open_paren = memchr(p, '(', (size_t)(line_end - p));
+        close_paren = open_paren != NULL ? memchr(open_paren, ')', (size_t)(line_end - open_paren)) : NULL;
+        if (open_paren != NULL && close_paren != NULL) {
+            local_scope_scan_name_list(stack, count, max_count, line_start, line, indent + 1, name, open_paren + 1, close_paren);
+        }
+        return;
+    }
+
+    if (line_has_prefix_at_indent(line_start, line_end, indent, "var ")) {
+        const char *name_start = p + 4;
+        size_t len = strlen(name);
+        if (name_start + len <= line_end &&
+            strncmp(name_start, name, len) == 0 &&
+            (name_start + len == line_end || !ident_char((unsigned char)name_start[len]))) {
+            local_scope_push(stack, count, max_count, line, indent + 4, indent);
+        }
+        return;
+    }
+
+    if (line_has_prefix_at_indent(line_start, line_end, indent, "const ")) {
+        const char *name_start = p + 6;
+        size_t len = strlen(name);
+        if (name_start + len <= line_end &&
+            strncmp(name_start, name, len) == 0 &&
+            (name_start + len == line_end || !ident_char((unsigned char)name_start[len]))) {
+            local_scope_push(stack, count, max_count, line, indent + 6, indent);
+        }
+        return;
+    }
+
+    if (line_has_prefix_at_indent(line_start, line_end, indent, "using ")) {
+        const char *name_start = p + 6;
+        size_t len = strlen(name);
+        if (name_start + len <= line_end &&
+            strncmp(name_start, name, len) == 0 &&
+            (name_start + len == line_end || !ident_char((unsigned char)name_start[len]))) {
+            local_scope_push(stack, count, max_count, line, indent + 6, indent + 1);
+        }
+        return;
+    }
+
+    if (line_has_prefix_at_indent(line_start, line_end, indent, "case ")) {
+        open_paren = memchr(p, '(', (size_t)(line_end - p));
+        close_paren = open_paren != NULL ? memchr(open_paren, ')', (size_t)(line_end - open_paren)) : NULL;
+        if (open_paren != NULL && close_paren != NULL) {
+            local_scope_scan_name_list(stack, count, max_count, line_start, line, indent + 1, name, open_paren + 1, close_paren);
+        }
+    }
+}
+
+static int local_visible_decl_range(lsp_doc *doc, const char *name, int target_line, int target_col, int *decl_line, int *decl_col) {
+    lsp_local_decl_scope stack[128];
+    int count = 0;
+    int line = 0;
+    const char *cursor;
+    if (doc == NULL || doc->text == NULL || name == NULL || name[0] == '\0') return 0;
+    cursor = doc->text;
+    while (*cursor != '\0' && line <= target_line) {
+        const char *line_start = cursor;
+        const char *line_end = cursor;
+        int indent;
+        while (*line_end != '\0' && *line_end != '\n') line_end += 1;
+        indent = line_indent_of(line_start, line_end);
+        local_scope_prune(stack, &count, line, indent);
+        local_scope_scan_declaration_line(stack, &count, 128, line_start, line_end, line, indent, name);
+        if (line == target_line) {
+            int i;
+            for (i = count - 1; i >= 0; i -= 1) {
+                if (stack[i].line < target_line || (stack[i].line == target_line && stack[i].col <= target_col)) {
+                    if (decl_line != NULL) *decl_line = stack[i].line;
+                    if (decl_col != NULL) *decl_col = stack[i].col;
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        cursor = *line_end == '\n' ? line_end + 1 : line_end;
+        line += 1;
+    }
+    return 0;
+}
+
+static void find_local_symbol_by_decl_range_in_node(
+        lsp_doc *doc,
+        const zt_ast_node *node,
+        const char *name,
+        int decl_line,
+        int decl_col,
+        const zt_ast_node **found);
+
+static void find_local_symbol_by_decl_range_in_list(
+        lsp_doc *doc,
+        zt_ast_node_list list,
+        const char *name,
+        int decl_line,
+        int decl_col,
+        const zt_ast_node **found) {
+    size_t i;
+    for (i = 0; i < list.count; i += 1) {
+        find_local_symbol_by_decl_range_in_node(doc, list.items[i], name, decl_line, decl_col, found);
+    }
+}
+
+static void local_symbol_by_decl_range_check(
+        lsp_doc *doc,
+        const zt_ast_node *node,
+        const char *name,
+        int decl_line,
+        int decl_col,
+        const zt_ast_node **found) {
+    int line = -1;
+    int start = -1;
+    int end = -1;
+    if (node == NULL || found == NULL || *found != NULL) return;
+    if (declaration_name_range(doc, node, name, &line, &start, &end) && line == decl_line && start == decl_col) {
+        *found = node;
+    }
+}
+
+static void find_local_symbol_by_decl_range_in_node(
+        lsp_doc *doc,
+        const zt_ast_node *node,
+        const char *name,
+        int decl_line,
+        int decl_col,
+        const zt_ast_node **found) {
+    size_t i;
+    if (node == NULL || found == NULL || *found != NULL) return;
+    switch (node->kind) {
+        case ZT_AST_FILE:
+            find_local_symbol_by_decl_range_in_list(doc, node->as.file.declarations, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_FUNC_DECL:
+            for (i = 0; i < node->as.func_decl.params.count; i += 1) {
+                local_symbol_by_decl_range_check(doc, node->as.func_decl.params.items[i], name, decl_line, decl_col, found);
+            }
+            find_local_symbol_by_decl_range_in_node(doc, node->as.func_decl.body, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_CLOSURE_EXPR:
+            for (i = 0; i < node->as.closure_expr.params.count; i += 1) {
+                local_symbol_by_decl_range_check(doc, node->as.closure_expr.params.items[i], name, decl_line, decl_col, found);
+            }
+            find_local_symbol_by_decl_range_in_node(doc, node->as.closure_expr.body, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_BLOCK:
+            find_local_symbol_by_decl_range_in_list(doc, node->as.block.statements, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_VAR_DECL:
+        case ZT_AST_CONST_DECL:
+        case ZT_AST_USING_STMT:
+        case ZT_AST_VALUE_BINDING:
+        case ZT_AST_MATCH_BINDING:
+        case ZT_AST_FOR_STMT:
+            local_symbol_by_decl_range_check(doc, node, name, decl_line, decl_col, found);
+            if (node->kind == ZT_AST_USING_STMT) {
+                find_local_symbol_by_decl_range_in_node(doc, node->as.using_stmt.body, name, decl_line, decl_col, found);
+            } else if (node->kind == ZT_AST_FOR_STMT) {
+                find_local_symbol_by_decl_range_in_node(doc, node->as.for_stmt.body, name, decl_line, decl_col, found);
+            }
+            break;
+        case ZT_AST_IF_STMT:
+            find_local_symbol_by_decl_range_in_node(doc, node->as.if_stmt.then_block, name, decl_line, decl_col, found);
+            find_local_symbol_by_decl_range_in_node(doc, node->as.if_stmt.else_block, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_WHILE_STMT:
+            find_local_symbol_by_decl_range_in_node(doc, node->as.while_stmt.body, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_REPEAT_STMT:
+            find_local_symbol_by_decl_range_in_node(doc, node->as.repeat_stmt.body, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_MATCH_STMT:
+            find_local_symbol_by_decl_range_in_list(doc, node->as.match_stmt.cases, name, decl_line, decl_col, found);
+            break;
+        case ZT_AST_MATCH_CASE:
+            find_local_symbol_by_decl_range_in_list(doc, node->as.match_case.patterns, name, decl_line, decl_col, found);
+            find_local_symbol_by_decl_range_in_node(doc, node->as.match_case.body, name, decl_line, decl_col, found);
+            break;
+        default:
+            break;
+    }
+}
+
+static const zt_ast_node *find_local_symbol_scoped(lsp_doc *doc, const char *name, int line, int character) {
+    int decl_line = -1;
+    int decl_col = -1;
+    const zt_ast_node *found = NULL;
+    if (doc == NULL || name == NULL || !doc->has_parse || doc->parse.root == NULL) return NULL;
+    if (!local_visible_decl_range(doc, name, line, character, &decl_line, &decl_col)) {
+        return find_local_symbol(doc, name, line, character);
+    }
+    find_local_symbol_by_decl_range_in_node(doc, doc->parse.root, name, decl_line, decl_col, &found);
+    return found != NULL ? found : find_local_symbol(doc, name, line, character);
 }
 
 static const zt_ast_node *find_symbol(lsp_doc *doc, const char *word) {
@@ -1236,6 +1790,12 @@ static const zt_ast_node *find_symbol_with_doc(lsp_doc *doc, const char *word, l
     return NULL;
 }
 
+static char *type_node_text_for_lsp(lsp_doc *doc, const zt_ast_node *type_node);
+static int semantic_builtin_type(const char *text);
+static int lsp_is_numeric_conversion_name(const char *name);
+static int lsp_is_builtin_function_name(const char *name);
+static char *infer_expr_type_text(lsp_doc *doc, const zt_ast_node *expr, int line, int character);
+
 static void append_formatted_node(lsp_sb *sb, const zt_ast_node *node) {
     char *formatted;
     if (node == NULL) return;
@@ -1246,12 +1806,104 @@ static void append_formatted_node(lsp_sb *sb, const zt_ast_node *node) {
     }
 }
 
-static char *hover_result_json(lsp_doc *doc, const char *word) {
-    const zt_ast_node *node = find_symbol(doc, word);
+static void append_type_node_text(lsp_sb *sb, lsp_doc *doc, const zt_ast_node *type_node) {
+    char *formatted;
+    if (sb == NULL || type_node == NULL) return;
+    formatted = type_node_text_for_lsp(doc, type_node);
+    if (formatted != NULL) {
+        sb_append(sb, formatted);
+        free(formatted);
+    }
+}
+
+static void append_param_text(lsp_sb *sb, lsp_doc *doc, const zt_ast_node *param) {
+    if (sb == NULL || param == NULL || param->kind != ZT_AST_PARAM) return;
+    sb_append(sb, param->as.param.name != NULL ? param->as.param.name : "param");
+    if (param->as.param.type_node != NULL) {
+        sb_append(sb, ": ");
+        append_type_node_text(sb, doc, param->as.param.type_node);
+    }
+}
+
+static const char *builtin_hover_signature(const char *word) {
+    if (word == NULL) return NULL;
+    if (strcmp(word, "fmt") == 0) return "fmt \"texto {valor}\" -> text";
+    if (strcmp(word, "len") == 0) return "len(value) -> int";
+    if (strcmp(word, "to_text") == 0) return "to_text(value) -> text";
+    if (strcmp(word, "print") == 0) return "print(value) -> void";
+    if (strcmp(word, "read") == 0) return "read() -> text";
+    if (strcmp(word, "debug") == 0) return "debug(value) -> void";
+    if (strcmp(word, "type_name") == 0) return "type_name(value) -> text";
+    if (strcmp(word, "check") == 0) return "check(condition, message?) -> void";
+    if (strcmp(word, "todo") == 0) return "todo(message) -> void";
+    if (strcmp(word, "unreachable") == 0) return "unreachable(message) -> void";
+    if (strcmp(word, "panic") == 0) return "panic(message) -> void";
+    if (strcmp(word, "success") == 0) return "success(value) -> result<T, E>";
+    if (strcmp(word, "error") == 0) return "error(value) -> result<T, E>";
+    if (strcmp(word, "true") == 0 || strcmp(word, "false") == 0) return "bool";
+    if (strcmp(word, "none") == 0) return "optional<T>";
+    if (strcmp(word, "some") == 0) return "some(value) -> optional<T>";
+    if (semantic_builtin_type(word)) return word;
+    if (lsp_is_numeric_conversion_name(word)) return "numeric conversion";
+    return NULL;
+}
+
+static char *builtin_hover_result_json(const char *word) {
+    const char *signature = builtin_hover_signature(word);
+    lsp_sb md;
+    lsp_sb json;
+    if (signature == NULL) return NULL;
+    sb_init(&md);
+    sb_append(&md, "```zenith\n");
+    sb_append(&md, signature);
+    sb_append(&md, "\n```\n");
+    sb_append(&md, lsp_doc_text("Origem: builtin.", "Origin: builtin."));
+    sb_init(&json);
+    sb_append(&json, "{\"contents\":{\"kind\":\"markdown\",\"value\":");
+    sb_append_json_string(&json, md.data);
+    sb_append(&json, "}}");
+    free(md.data);
+    return sb_take(&json);
+}
+
+static void append_hover_origin(lsp_sb *md, lsp_doc *request_doc, lsp_doc *owner) {
+    const char *owner_ns = doc_module_name(owner);
+    const char *request_ns = doc_module_name(request_doc);
+    if (md == NULL) return;
+    if (owner != NULL && (owner->is_stdlib || namespace_is_std(owner_ns))) {
+        sb_append(md, lsp_doc_text("Origem: stdlib", "Origin: stdlib"));
+        if (owner_ns != NULL) {
+            sb_append(md, " ");
+            sb_append(md, owner_ns);
+        }
+        sb_append(md, ".");
+    } else if (owner != NULL && request_doc != NULL && owner != request_doc) {
+        const char *alias = owner_ns != NULL ? import_alias_for_path(request_doc, owner_ns) : NULL;
+        if (alias != NULL) {
+            sb_append(md, lsp_doc_text("Origem: importado de ", "Origin: imported from "));
+            sb_append(md, owner_ns != NULL ? owner_ns : alias);
+            sb_append(md, ".");
+        } else {
+            sb_append(md, lsp_doc_text("Origem: outro arquivo do workspace", "Origin: another workspace file"));
+            if (owner_ns != NULL && (request_ns == NULL || strcmp(owner_ns, request_ns) != 0)) {
+                sb_append(md, " ");
+                sb_append(md, owner_ns);
+            }
+            sb_append(md, ".");
+        }
+    } else {
+        sb_append(md, lsp_doc_text("Origem: local.", "Origin: local."));
+    }
+}
+
+static char *hover_result_json(lsp_doc *doc, const char *word, int line, int character) {
+    const zt_ast_node *node = find_local_symbol_scoped(doc, word, line, character);
+    lsp_doc *owner = node != NULL ? doc : NULL;
     lsp_sb md;
     lsp_sb json;
     size_t i;
-    if (node == NULL) return NULL;
+    if (node == NULL) node = find_symbol_with_doc(doc, word, &owner);
+    if (node == NULL) return builtin_hover_result_json(word);
     sb_init(&md);
     sb_append(&md, "```zenith\n");
     if (node->kind == ZT_AST_FUNC_DECL) {
@@ -1260,35 +1912,72 @@ static char *hover_result_json(lsp_doc *doc, const char *word) {
         sb_append(&md, "(");
         for (i = 0; i < node->as.func_decl.params.count; i += 1) {
             if (i > 0) sb_append(&md, ", ");
-            append_formatted_node(&md, node->as.func_decl.params.items[i]);
+            append_param_text(&md, owner, node->as.func_decl.params.items[i]);
         }
         sb_append(&md, ")");
         if (node->as.func_decl.return_type != NULL) {
             sb_append(&md, " -> ");
-            append_formatted_node(&md, node->as.func_decl.return_type);
+            append_type_node_text(&md, owner, node->as.func_decl.return_type);
         }
     } else if (node->kind == ZT_AST_VAR_DECL) {
         sb_append(&md, "var ");
         sb_append(&md, node->as.var_decl.name);
         if (node->as.var_decl.type_node != NULL) {
             sb_append(&md, ": ");
-            append_formatted_node(&md, node->as.var_decl.type_node);
+            append_type_node_text(&md, owner, node->as.var_decl.type_node);
+        } else {
+            char *inferred = infer_expr_type_text(owner, node->as.var_decl.init_value, line, character);
+            if (inferred != NULL) {
+                sb_append(&md, ": ");
+                sb_append(&md, inferred);
+                free(inferred);
+            }
         }
     } else if (node->kind == ZT_AST_CONST_DECL) {
         sb_append(&md, "const ");
         sb_append(&md, node->as.const_decl.name);
         if (node->as.const_decl.type_node != NULL) {
             sb_append(&md, ": ");
-            append_formatted_node(&md, node->as.const_decl.type_node);
+            append_type_node_text(&md, owner, node->as.const_decl.type_node);
+        } else {
+            char *inferred = infer_expr_type_text(owner, node->as.const_decl.init_value, line, character);
+            if (inferred != NULL) {
+                sb_append(&md, ": ");
+                sb_append(&md, inferred);
+                free(inferred);
+            }
         }
+    } else if (node->kind == ZT_AST_PARAM) {
+        append_param_text(&md, owner, node);
+    } else if (node->kind == ZT_AST_USING_STMT) {
+        sb_append(&md, "using ");
+        sb_append(&md, node->as.using_stmt.name);
+        {
+            char *inferred = infer_expr_type_text(owner, node->as.using_stmt.init_value, line, character);
+            if (inferred != NULL) {
+                sb_append(&md, ": ");
+                sb_append(&md, inferred);
+                free(inferred);
+            }
+        }
+    } else if (node->kind == ZT_AST_VALUE_BINDING) {
+        sb_append(&md, node->as.value_binding.name);
+        if (node->as.value_binding.type_node != NULL) {
+            sb_append(&md, ": ");
+            append_type_node_text(&md, owner, node->as.value_binding.type_node);
+        }
+    } else if (node->kind == ZT_AST_MATCH_BINDING) {
+        sb_append(&md, node->as.match_binding.param_name);
+    } else if (node->kind == ZT_AST_FOR_STMT) {
+        sb_append(&md, "for binding ");
+        sb_append(&md, word != NULL ? word : "<binding>");
     } else {
         sb_append(&md, node_symbol_kind(node));
         sb_append(&md, " ");
-        sb_append(&md, node_symbol_name(node));
+        sb_append(&md, node_symbol_name(node) != NULL ? node_symbol_name(node) : "<symbol>");
     }
     sb_append(&md, "\n```\n");
-    sb_append(&md, node_symbol_kind(node));
-    sb_append(&md, " declarado neste arquivo.");
+    append_hover_origin(&md, doc, owner);
 
     sb_init(&json);
     sb_append(&json, "{\"contents\":{\"kind\":\"markdown\",\"value\":");
@@ -1298,14 +1987,16 @@ static char *hover_result_json(lsp_doc *doc, const char *word) {
     return sb_take(&json);
 }
 
-static char *definition_result_json(lsp_doc *doc, const char *word) {
+static char *definition_result_json(lsp_doc *doc, const char *word, int line, int character) {
     lsp_doc *owner = NULL;
-    const zt_ast_node *node = find_symbol_with_doc(doc, word, &owner);
+    const zt_ast_node *node = find_local_symbol_scoped(doc, word, line, character);
     lsp_sb sb;
     int start_line;
     int start_col;
     int end_line;
     int end_col;
+    if (node != NULL) owner = doc;
+    else node = find_symbol_with_doc(doc, word, &owner);
     if (owner == NULL || node == NULL) return NULL;
     start_line = lsp_line(node->span.line);
     start_col = lsp_col(node->span.column_start);
@@ -1418,18 +2109,52 @@ static int ast_node_starts_before_position(const zt_ast_node *node, int line, in
     return node_line < line || (node_line == line && node_col <= character);
 }
 
-static void set_type_candidate(char **candidate, const zt_ast_node *type_node) {
+static int type_contains_unknown(const zt_type *type) {
+    size_t i;
+    if (type == NULL) return 1;
+    if (type->kind == ZT_TYPE_UNKNOWN) return 1;
+    for (i = 0; i < type->args.count; i += 1) {
+        if (type_contains_unknown(type->args.items[i])) return 1;
+    }
+    return 0;
+}
+
+static char *checker_type_node_text(lsp_doc *doc, const zt_ast_node *type_node) {
+    zt_type *type;
+    char buffer[512];
+    if (doc == NULL || !doc->has_parse || doc->parse.root == NULL || type_node == NULL) return NULL;
+    type = zt_checker_resolve_type_node(doc->parse.root, type_node);
+    if (type == NULL || type_contains_unknown(type)) {
+        zt_type_dispose(type);
+        return NULL;
+    }
+    buffer[0] = '\0';
+    zt_type_format(type, buffer, sizeof(buffer));
+    zt_type_dispose(type);
+    if (buffer[0] == '\0') return NULL;
+    return lsp_strdup(buffer);
+}
+
+static char *type_node_text_for_lsp(lsp_doc *doc, const zt_ast_node *type_node) {
+    char *resolved = checker_type_node_text(doc, type_node);
+    if (resolved != NULL) return resolved;
+    return zt_format_node_to_string(type_node);
+}
+
+static void set_type_candidate(lsp_doc *doc, char **candidate, const zt_ast_node *type_node) {
     char *formatted;
     if (candidate == NULL || type_node == NULL) return;
-    formatted = zt_format_node_to_string(type_node);
+    formatted = type_node_text_for_lsp(doc, type_node);
     if (formatted == NULL) return;
     free(*candidate);
     *candidate = formatted;
 }
 
 static int type_starts_with_name(const char *type_name, const char *name);
+static char *infer_expr_type_text(lsp_doc *doc, const zt_ast_node *expr, int line, int character);
 
 static void find_type_for_binding_in_node(
+        lsp_doc *doc,
         const zt_ast_node *node,
         const char *name,
         int line,
@@ -1437,6 +2162,7 @@ static void find_type_for_binding_in_node(
         char **candidate);
 
 static void find_type_for_binding_in_list(
+        lsp_doc *doc,
         zt_ast_node_list list,
         const char *name,
         int line,
@@ -1444,11 +2170,12 @@ static void find_type_for_binding_in_list(
         char **candidate) {
     size_t i;
     for (i = 0; i < list.count; i += 1) {
-        find_type_for_binding_in_node(list.items[i], name, line, character, candidate);
+        find_type_for_binding_in_node(doc, list.items[i], name, line, character, candidate);
     }
 }
 
 static void find_type_for_binding_in_node(
+        lsp_doc *doc,
         const zt_ast_node *node,
         const char *name,
         int line,
@@ -1459,7 +2186,7 @@ static void find_type_for_binding_in_node(
 
     switch (node->kind) {
         case ZT_AST_FILE:
-            find_type_for_binding_in_list(node->as.file.declarations, name, line, character, candidate);
+            find_type_for_binding_in_list(doc, node->as.file.declarations, name, line, character, candidate);
             break;
         case ZT_AST_FUNC_DECL:
             for (i = 0; i < node->as.func_decl.params.count; i += 1) {
@@ -1468,34 +2195,36 @@ static void find_type_for_binding_in_node(
                     param->kind == ZT_AST_PARAM &&
                     param->as.param.name != NULL &&
                     strcmp(param->as.param.name, name) == 0) {
-                    set_type_candidate(candidate, param->as.param.type_node);
+                    set_type_candidate(doc, candidate, param->as.param.type_node);
                 }
             }
-            find_type_for_binding_in_node(node->as.func_decl.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.func_decl.body, name, line, character, candidate);
             break;
         case ZT_AST_BLOCK:
-            find_type_for_binding_in_list(node->as.block.statements, name, line, character, candidate);
+            find_type_for_binding_in_list(doc, node->as.block.statements, name, line, character, candidate);
             break;
         case ZT_AST_VAR_DECL:
             if (node->as.var_decl.name != NULL &&
                 strcmp(node->as.var_decl.name, name) == 0 &&
                 ast_node_starts_before_position(node, line, character)) {
-                set_type_candidate(candidate, node->as.var_decl.type_node);
+                set_type_candidate(doc, candidate, node->as.var_decl.type_node);
+                if (*candidate == NULL) *candidate = infer_expr_type_text(doc, node->as.var_decl.init_value, line, character);
             }
             break;
         case ZT_AST_CONST_DECL:
             if (node->as.const_decl.name != NULL &&
                 strcmp(node->as.const_decl.name, name) == 0 &&
                 ast_node_starts_before_position(node, line, character)) {
-                set_type_candidate(candidate, node->as.const_decl.type_node);
+                set_type_candidate(doc, candidate, node->as.const_decl.type_node);
+                if (*candidate == NULL) *candidate = infer_expr_type_text(doc, node->as.const_decl.init_value, line, character);
             }
             break;
         case ZT_AST_IF_STMT:
-            find_type_for_binding_in_node(node->as.if_stmt.then_block, name, line, character, candidate);
-            find_type_for_binding_in_node(node->as.if_stmt.else_block, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.if_stmt.then_block, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.if_stmt.else_block, name, line, character, candidate);
             break;
         case ZT_AST_WHILE_STMT:
-            find_type_for_binding_in_node(node->as.while_stmt.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.while_stmt.body, name, line, character, candidate);
             break;
         case ZT_AST_FOR_STMT:
             if (node->as.for_stmt.item_name != NULL &&
@@ -1509,15 +2238,16 @@ static void find_type_for_binding_in_node(
                 free(*candidate);
                 *candidate = lsp_strdup("int");
             }
-            find_type_for_binding_in_node(node->as.for_stmt.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.for_stmt.body, name, line, character, candidate);
             break;
         case ZT_AST_USING_STMT:
             if (node->as.using_stmt.name != NULL &&
                 strcmp(node->as.using_stmt.name, name) == 0 &&
                 ast_node_starts_before_position(node, line, character)) {
-                /* The current public checker API does not expose inferred expression types. */
+                free(*candidate);
+                *candidate = infer_expr_type_text(doc, node->as.using_stmt.init_value, line, character);
             }
-            find_type_for_binding_in_node(node->as.using_stmt.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.using_stmt.body, name, line, character, candidate);
             break;
         case ZT_AST_CLOSURE_EXPR:
             for (i = 0; i < node->as.closure_expr.params.count; i += 1) {
@@ -1526,26 +2256,26 @@ static void find_type_for_binding_in_node(
                     param->kind == ZT_AST_PARAM &&
                     param->as.param.name != NULL &&
                     strcmp(param->as.param.name, name) == 0) {
-                    set_type_candidate(candidate, param->as.param.type_node);
+                    set_type_candidate(doc, candidate, param->as.param.type_node);
                 }
             }
-            find_type_for_binding_in_node(node->as.closure_expr.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.closure_expr.body, name, line, character, candidate);
             break;
         case ZT_AST_REPEAT_STMT:
-            find_type_for_binding_in_node(node->as.repeat_stmt.body, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.repeat_stmt.body, name, line, character, candidate);
             break;
         case ZT_AST_MATCH_STMT:
-            find_type_for_binding_in_list(node->as.match_stmt.cases, name, line, character, candidate);
+            find_type_for_binding_in_list(doc, node->as.match_stmt.cases, name, line, character, candidate);
             break;
         case ZT_AST_MATCH_CASE:
-            find_type_for_binding_in_list(node->as.match_case.patterns, name, line, character, candidate);
-            find_type_for_binding_in_node(node->as.match_case.body, name, line, character, candidate);
+            find_type_for_binding_in_list(doc, node->as.match_case.patterns, name, line, character, candidate);
+            find_type_for_binding_in_node(doc, node->as.match_case.body, name, line, character, candidate);
             break;
         case ZT_AST_VALUE_BINDING:
             if (node->as.value_binding.name != NULL &&
                 strcmp(node->as.value_binding.name, name) == 0 &&
                 ast_node_starts_before_position(node, line, character)) {
-                set_type_candidate(candidate, node->as.value_binding.type_node);
+                set_type_candidate(doc, candidate, node->as.value_binding.type_node);
             }
             break;
         default:
@@ -1556,8 +2286,142 @@ static void find_type_for_binding_in_node(
 static char *completion_receiver_type(lsp_doc *doc, const char *receiver, int line, int character) {
     char *candidate = NULL;
     if (doc == NULL || receiver == NULL || !doc->has_parse || doc->parse.root == NULL) return NULL;
-    find_type_for_binding_in_node(doc->parse.root, receiver, line, character, &candidate);
+    find_type_for_binding_in_node(doc, doc->parse.root, receiver, line, character, &candidate);
     return candidate;
+}
+
+static char *generic_type_text(const char *name, const char *first, const char *second) {
+    lsp_sb sb;
+    if (name == NULL || first == NULL) return NULL;
+    sb_init(&sb);
+    sb_append(&sb, name);
+    sb_append(&sb, "<");
+    sb_append(&sb, first);
+    if (second != NULL) {
+        sb_append(&sb, ", ");
+        sb_append(&sb, second);
+    }
+    sb_append(&sb, ">");
+    return sb_take(&sb);
+}
+
+static char *infer_call_callee_name(const zt_ast_node *callee) {
+    lsp_sb sb;
+    if (callee == NULL) return NULL;
+    if (callee->kind == ZT_AST_IDENT_EXPR) return lsp_strdup(callee->as.ident_expr.name);
+    if (callee->kind == ZT_AST_FIELD_EXPR &&
+        callee->as.field_expr.object != NULL &&
+        callee->as.field_expr.object->kind == ZT_AST_IDENT_EXPR &&
+        callee->as.field_expr.field_name != NULL) {
+        sb_init(&sb);
+        sb_append(&sb, callee->as.field_expr.object->as.ident_expr.name);
+        sb_append(&sb, ".");
+        sb_append(&sb, callee->as.field_expr.field_name);
+        return sb_take(&sb);
+    }
+    return NULL;
+}
+
+static char *infer_type_from_decl(lsp_doc *doc, const zt_ast_node *decl) {
+    if (decl == NULL) return NULL;
+    if (decl->kind == ZT_AST_FUNC_DECL && decl->as.func_decl.return_type != NULL) {
+        return type_node_text_for_lsp(doc, decl->as.func_decl.return_type);
+    }
+    if (decl->kind == ZT_AST_STRUCT_DECL && decl->as.struct_decl.name != NULL) {
+        return lsp_strdup(decl->as.struct_decl.name);
+    }
+    if (decl->kind == ZT_AST_ENUM_DECL && decl->as.enum_decl.name != NULL) {
+        return lsp_strdup(decl->as.enum_decl.name);
+    }
+    if (decl->kind == ZT_AST_TYPE_ALIAS_DECL && decl->as.type_alias_decl.target_type != NULL) {
+        return type_node_text_for_lsp(doc, decl->as.type_alias_decl.target_type);
+    }
+    if (decl->kind == ZT_AST_CONST_DECL && decl->as.const_decl.type_node != NULL) {
+        return type_node_text_for_lsp(doc, decl->as.const_decl.type_node);
+    }
+    if (decl->kind == ZT_AST_VAR_DECL && decl->as.var_decl.type_node != NULL) {
+        return type_node_text_for_lsp(doc, decl->as.var_decl.type_node);
+    }
+    return NULL;
+}
+
+static char *infer_expr_type_text(lsp_doc *doc, const zt_ast_node *expr, int line, int character) {
+    char *left;
+    char *right;
+    char *callee_name;
+    const zt_ast_node *decl;
+    (void)character;
+    if (expr == NULL) return NULL;
+    switch (expr->kind) {
+        case ZT_AST_INT_EXPR:
+            return lsp_strdup("int");
+        case ZT_AST_FLOAT_EXPR:
+            return lsp_strdup("float");
+        case ZT_AST_STRING_EXPR:
+            return lsp_strdup("text");
+        case ZT_AST_BYTES_EXPR:
+            return lsp_strdup("bytes");
+        case ZT_AST_BOOL_EXPR:
+            return lsp_strdup("bool");
+        case ZT_AST_NONE_EXPR:
+            return lsp_strdup("optional<unknown>");
+        case ZT_AST_IDENT_EXPR:
+            return NULL;
+        case ZT_AST_GROUPED_EXPR:
+            return infer_expr_type_text(doc, expr->as.grouped_expr.inner, line, character);
+        case ZT_AST_LIST_EXPR:
+            if (expr->as.list_expr.elements.count == 0) return lsp_strdup("list<unknown>");
+            left = infer_expr_type_text(doc, expr->as.list_expr.elements.items[0], line, character);
+            if (left == NULL) left = lsp_strdup("unknown");
+            right = generic_type_text("list", left, NULL);
+            free(left);
+            return right;
+        case ZT_AST_SET_EXPR:
+            if (expr->as.set_expr.elements.count == 0) return lsp_strdup("set<unknown>");
+            left = infer_expr_type_text(doc, expr->as.set_expr.elements.items[0], line, character);
+            if (left == NULL) left = lsp_strdup("unknown");
+            right = generic_type_text("set", left, NULL);
+            free(left);
+            return right;
+        case ZT_AST_MAP_EXPR:
+            if (expr->as.map_expr.entries.count == 0) return lsp_strdup("map<unknown, unknown>");
+            left = infer_expr_type_text(doc, expr->as.map_expr.entries.items[0].key, line, character);
+            right = infer_expr_type_text(doc, expr->as.map_expr.entries.items[0].value, line, character);
+            if (left == NULL) left = lsp_strdup("unknown");
+            if (right == NULL) right = lsp_strdup("unknown");
+            {
+                char *map_type = generic_type_text("map", left, right);
+                free(left);
+                free(right);
+                return map_type;
+            }
+        case ZT_AST_SUCCESS_EXPR:
+            left = infer_expr_type_text(doc, expr->as.success_expr.value, line, character);
+            if (left == NULL) left = lsp_strdup("unknown");
+            right = generic_type_text("result", left, "core.Error");
+            free(left);
+            return right;
+        case ZT_AST_ERROR_EXPR:
+            return lsp_strdup("result<unknown, core.Error>");
+        case ZT_AST_IF_EXPR:
+            left = infer_expr_type_text(doc, expr->as.if_expr.then_expr, line, character);
+            right = infer_expr_type_text(doc, expr->as.if_expr.else_expr, line, character);
+            if (left != NULL && right != NULL && strcmp(left, right) == 0) {
+                free(right);
+                return left;
+            }
+            free(left);
+            free(right);
+            return NULL;
+        case ZT_AST_CALL_EXPR:
+            callee_name = infer_call_callee_name(expr->as.call_expr.callee);
+            if (callee_name == NULL) return NULL;
+            decl = find_symbol(doc, callee_name);
+            free(callee_name);
+            return infer_type_from_decl(doc, decl);
+        default:
+            return NULL;
+    }
 }
 
 static const char *skip_type_space(const char *type_name) {
@@ -1682,7 +2546,186 @@ static const zt_ast_node *find_struct_decl(lsp_doc *doc, const char *type_name) 
     return NULL;
 }
 
-static void append_struct_field_completions(lsp_sb *sb, int *first, const zt_ast_node *struct_decl) {
+static const zt_ast_node *find_trait_decl_named_in_doc(lsp_doc *doc, const char *type_name, int public_only) {
+    const zt_ast_node *result = NULL;
+    const char *doc_ns;
+    size_t i;
+    if (doc == NULL || type_name == NULL || !doc->has_parse || doc->parse.root == NULL) return NULL;
+    if (doc->parse.root->kind != ZT_AST_FILE) return NULL;
+    doc_ns = doc_module_name(doc);
+    for (i = 0; i < doc->parse.root->as.file.declarations.count; i += 1) {
+        const zt_ast_node *decl = doc->parse.root->as.file.declarations.items[i];
+        if (decl != NULL &&
+            decl->kind == ZT_AST_TRAIT_DECL &&
+            decl->as.trait_decl.name != NULL &&
+            strcmp(decl->as.trait_decl.name, type_name) == 0 &&
+            (!public_only || node_is_public(decl) || namespace_is_std(doc_ns))) {
+            result = decl;
+            break;
+        }
+    }
+    return result;
+}
+
+static const zt_ast_node *find_trait_decl(lsp_doc *doc, const char *type_name) {
+    const zt_ast_node *found;
+    lsp_doc *other;
+    char *qualifier = NULL;
+    char *short_name = NULL;
+    if (split_qualified_type_base(type_name, &qualifier, &short_name)) {
+        lsp_doc *owner = find_doc_for_type_qualifier(doc, qualifier);
+        found = find_trait_decl_named_in_doc(owner, short_name, 1);
+        free(qualifier);
+        free(short_name);
+        return found;
+    }
+    found = find_trait_decl_named_in_doc(doc, type_name, 0);
+    if (found != NULL) return found;
+    for (other = g_docs; other != NULL; other = other->next) {
+        if (other == doc) continue;
+        found = find_trait_decl_named_in_doc(other, type_name, 0);
+        if (found != NULL) return found;
+    }
+    return NULL;
+}
+
+static const zt_ast_node *find_enum_decl_named_in_doc(lsp_doc *doc, const char *type_name, int public_only) {
+    const zt_ast_node *result = NULL;
+    const char *doc_ns;
+    size_t i;
+    if (doc == NULL || type_name == NULL || !doc->has_parse || doc->parse.root == NULL) return NULL;
+    if (doc->parse.root->kind != ZT_AST_FILE) return NULL;
+    doc_ns = doc_module_name(doc);
+    for (i = 0; i < doc->parse.root->as.file.declarations.count; i += 1) {
+        const zt_ast_node *decl = doc->parse.root->as.file.declarations.items[i];
+        if (decl != NULL &&
+            decl->kind == ZT_AST_ENUM_DECL &&
+            decl->as.enum_decl.name != NULL &&
+            strcmp(decl->as.enum_decl.name, type_name) == 0 &&
+            (!public_only || node_is_public(decl) || namespace_is_std(doc_ns))) {
+            result = decl;
+            break;
+        }
+    }
+    return result;
+}
+
+static const zt_ast_node *find_enum_decl(lsp_doc *doc, const char *type_name) {
+    const zt_ast_node *found;
+    lsp_doc *other;
+    char *qualifier = NULL;
+    char *short_name = NULL;
+    if (split_qualified_type_base(type_name, &qualifier, &short_name)) {
+        lsp_doc *owner = find_doc_for_type_qualifier(doc, qualifier);
+        found = find_enum_decl_named_in_doc(owner, short_name, 1);
+        free(qualifier);
+        free(short_name);
+        return found;
+    }
+    found = find_enum_decl_named_in_doc(doc, type_name, 0);
+    if (found != NULL) return found;
+    for (other = g_docs; other != NULL; other = other->next) {
+        if (other == doc) continue;
+        found = find_enum_decl_named_in_doc(other, type_name, 0);
+        if (found != NULL) return found;
+    }
+    return NULL;
+}
+
+static void append_enum_variant_completions(lsp_sb *sb, int *first, const zt_ast_node *enum_decl, int include_enum_name) {
+    size_t i;
+    if (enum_decl == NULL || enum_decl->kind != ZT_AST_ENUM_DECL) return;
+    for (i = 0; i < enum_decl->as.enum_decl.variants.count; i += 1) {
+        const zt_ast_node *variant = enum_decl->as.enum_decl.variants.items[i];
+        lsp_sb label;
+        lsp_sb detail;
+        lsp_sb insert_text;
+        size_t f;
+        if (variant == NULL || variant->kind != ZT_AST_ENUM_VARIANT || variant->as.enum_variant.name == NULL) continue;
+        sb_init(&label);
+        sb_init(&detail);
+        sb_init(&insert_text);
+        if (include_enum_name && enum_decl->as.enum_decl.name != NULL) {
+            sb_append(&label, enum_decl->as.enum_decl.name);
+            sb_append(&label, ".");
+        }
+        sb_append(&label, variant->as.enum_variant.name);
+        sb_append(&detail, enum_decl->as.enum_decl.name != NULL ? enum_decl->as.enum_decl.name : "enum");
+        sb_append(&detail, ".");
+        sb_append(&detail, variant->as.enum_variant.name);
+        if (variant->as.enum_variant.fields.count > 0) {
+            sb_append(&insert_text, label.data);
+            sb_append(&insert_text, "(");
+            for (f = 0; f < variant->as.enum_variant.fields.count; f += 1) {
+                const zt_ast_node *field = variant->as.enum_variant.fields.items[f];
+                if (f > 0) sb_append(&insert_text, ", ");
+                sb_appendf(&insert_text, "${%zu:%s}", f + 1, field != NULL && field->kind == ZT_AST_PARAM && field->as.param.name != NULL ? field->as.param.name : "value");
+            }
+            sb_append(&insert_text, ")");
+            append_completion_item_full(sb, first, label.data, 22, detail.data, NULL, insert_text.data, 2);
+        } else {
+            append_completion_item(sb, first, label.data, 22, detail.data, NULL, 0);
+        }
+        free(insert_text.data);
+        free(detail.data);
+        free(label.data);
+    }
+}
+
+static char *generic_arg_text_at(const char *type_name, size_t index) {
+    const char *lt;
+    const char *p;
+    const char *start;
+    size_t current = 0;
+    int depth = 0;
+    if (type_name == NULL) return NULL;
+    lt = strchr(type_name, '<');
+    if (lt == NULL) return NULL;
+    p = lt + 1;
+    start = p;
+    while (*p != '\0') {
+        if (*p == '<') depth += 1;
+        else if (*p == '>') {
+            if (depth == 0) {
+                const char *end = p;
+                while (start < end && isspace((unsigned char)*start)) start += 1;
+                while (end > start && isspace((unsigned char)*(end - 1))) end -= 1;
+                if (current == index && end > start) return lsp_strndup(start, (size_t)(end - start));
+                return NULL;
+            }
+            depth -= 1;
+        } else if (*p == ',' && depth == 0) {
+            const char *end = p;
+            while (start < end && isspace((unsigned char)*start)) start += 1;
+            while (end > start && isspace((unsigned char)*(end - 1))) end -= 1;
+            if (current == index && end > start) return lsp_strndup(start, (size_t)(end - start));
+            current += 1;
+            start = p + 1;
+        }
+        p += 1;
+    }
+    return NULL;
+}
+
+static char *generic_field_type_text(const zt_ast_node *struct_decl, const zt_ast_node *field_type, const char *receiver_type) {
+    size_t i;
+    if (struct_decl == NULL || field_type == NULL || receiver_type == NULL) return NULL;
+    if (field_type->kind != ZT_AST_TYPE_SIMPLE || field_type->as.type_simple.name == NULL) return NULL;
+    for (i = 0; i < struct_decl->as.struct_decl.type_params.count; i += 1) {
+        const zt_ast_node *param = struct_decl->as.struct_decl.type_params.items[i];
+        const char *param_name = NULL;
+        if (param == NULL) continue;
+        if (param->kind == ZT_AST_TYPE_SIMPLE) param_name = param->as.type_simple.name;
+        else if (param->kind == ZT_AST_PARAM) param_name = param->as.param.name;
+        else if (param->kind == ZT_AST_GENERIC_CONSTRAINT) param_name = param->as.generic_constraint.type_param_name;
+        if (param_name != NULL && strcmp(param_name, field_type->as.type_simple.name) == 0) {
+            return generic_arg_text_at(receiver_type, i);
+        }
+    }
+    return NULL;
+}
+
+static void append_struct_field_completions(lsp_sb *sb, int *first, const zt_ast_node *struct_decl, const char *receiver_type) {
     size_t i;
     if (struct_decl == NULL || struct_decl->kind != ZT_AST_STRUCT_DECL) return;
     for (i = 0; i < struct_decl->as.struct_decl.fields.count; i += 1) {
@@ -1694,12 +2737,62 @@ static void append_struct_field_completions(lsp_sb *sb, int *first, const zt_ast
         sb_append(&detail, ".");
         sb_append(&detail, field->as.struct_field.name);
         if (field->as.struct_field.type_node != NULL) {
+            char *generic_text = generic_field_type_text(struct_decl, field->as.struct_field.type_node, receiver_type);
             sb_append(&detail, ": ");
-            append_formatted_node(&detail, field->as.struct_field.type_node);
+            if (generic_text != NULL) {
+                sb_append(&detail, generic_text);
+                free(generic_text);
+            } else {
+                append_formatted_node(&detail, field->as.struct_field.type_node);
+            }
         }
         append_completion_item(sb, first, field->as.struct_field.name, 5, detail.data, NULL, 0);
         free(detail.data);
     }
+}
+
+static char *dynamic_trait_name_from_type(const char *type_name) {
+    const char *start;
+    const char *end;
+    const char *base = skip_type_space(type_name);
+    if (base == NULL) return NULL;
+    if (strncmp(base, "any", 3) == 0) start = base + 3;
+    else if (strncmp(base, "dyn", 3) == 0) start = base + 3;
+    else return NULL;
+    while (isspace((unsigned char)*start)) start += 1;
+    if (*start != '<') return NULL;
+    start += 1;
+    while (isspace((unsigned char)*start)) start += 1;
+    end = start;
+    while (*end != '\0' && *end != '>') end += 1;
+    while (end > start && isspace((unsigned char)*(end - 1))) end -= 1;
+    if (end <= start) return NULL;
+    return lsp_strndup(start, (size_t)(end - start));
+}
+
+static void append_trait_method_completions(lsp_sb *sb, int *first, lsp_doc *doc, const char *receiver_type) {
+    char *trait_name = dynamic_trait_name_from_type(receiver_type);
+    const zt_ast_node *trait_decl = trait_name != NULL ? find_trait_decl(doc, trait_name) : NULL;
+    size_t i;
+    if (trait_decl != NULL && trait_decl->kind == ZT_AST_TRAIT_DECL) {
+        for (i = 0; i < trait_decl->as.trait_decl.methods.count; i += 1) {
+            const zt_ast_node *method = trait_decl->as.trait_decl.methods.items[i];
+            lsp_sb detail;
+            lsp_sb insert_text;
+            if (method == NULL || method->kind != ZT_AST_TRAIT_METHOD || method->as.trait_method.name == NULL) continue;
+            sb_init(&detail);
+            sb_append(&detail, trait_decl->as.trait_decl.name != NULL ? trait_decl->as.trait_decl.name : "trait");
+            sb_append(&detail, ".");
+            sb_append(&detail, method->as.trait_method.name);
+            sb_init(&insert_text);
+            sb_append(&insert_text, method->as.trait_method.name);
+            sb_append(&insert_text, "(${0})");
+            append_completion_item_full(sb, first, method->as.trait_method.name, 2, detail.data, NULL, insert_text.data, 2);
+            free(insert_text.data);
+            free(detail.data);
+        }
+    }
+    free(trait_name);
 }
 
 static void append_function_signature_text(lsp_sb *sb, const char *qualifier, const zt_ast_node *func_decl);
@@ -2089,6 +3182,7 @@ static void append_builtin_completions(lsp_sb *sb, int *first) {
     append_completion_item(sb, first, "import", 14, "importa outro namespace", "import ${1:modulo} as ${2:alias}", 2);
     append_completion_item(sb, first, "as", 14, "define alias de import", NULL, 0);
     append_completion_item(sb, first, "func", 14, "declara funcao", "func ${1:nome}(${2}) -> ${3:void}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "func main", 14, "declara ponto de entrada", "func main()\n    ${0}\nend", 2);
     append_completion_item(sb, first, "return", 14, "retorna de uma funcao", NULL, 0);
     append_completion_item(sb, first, "var", 14, "binding mutavel local", "var ${1:nome}: ${2:tipo} = ${0:valor}", 2);
     append_completion_item(sb, first, "const", 14, "binding imutavel", "const ${1:nome}: ${2:tipo} = ${0:valor}", 2);
@@ -2096,7 +3190,9 @@ static void append_builtin_completions(lsp_sb *sb, int *first) {
     append_completion_item(sb, first, "mut", 14, "marca metodo mutating ou receiver mutavel", NULL, 0);
     append_completion_item(sb, first, "struct", 14, "declara struct", "struct ${1:Nome}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "trait", 14, "declara trait", "trait ${1:Nome}\n    ${0}\nend", 2);
-    append_completion_item(sb, first, "apply", 14, "implementa trait para tipo", "apply ${1:Trait} to ${2:Tipo}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "apply", 14, "adiciona comportamento a um tipo", "apply ${1:Tipo}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "apply Type", 14, "declara metodos inerentes", "apply ${1:Tipo}\n    ${0}\nend", 2);
+    append_completion_item(sb, first, "apply Trait to Type", 14, "implementa trait para tipo", "apply ${1:Trait} to ${2:Tipo}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "to", 14, "liga apply ao tipo alvo", NULL, 0);
     append_completion_item(sb, first, "enum", 14, "declara enum", "enum ${1:Nome}\n    ${0}\nend", 2);
     append_completion_item(sb, first, "if", 14, "controle condicional", "if ${1:condicao}\n    ${0}\nend", 2);
@@ -2154,6 +3250,46 @@ static void append_builtin_completions(lsp_sb *sb, int *first) {
             "Converts to text when the type implements TextRepresentable<T>. Use it for display, logs, and messages."),
         "to_text(value)",
         "to_text(${1:value})");
+    append_builtin_function_completion(
+        sb,
+        first,
+        "print()",
+        "print(value) -> void",
+        lsp_doc_text(
+            "Escreve um valor em text na saida padrao. Use para exemplos, logs simples e programas pequenos.",
+            "Writes a text value to standard output. Use it for examples, simple logs, and small programs."),
+        "print(\"Hello from Zenith\")",
+        "print(${1:value})");
+    append_builtin_function_completion(
+        sb,
+        first,
+        "read()",
+        "read() -> text",
+        lsp_doc_text(
+            "Le texto da entrada padrao e retorna como text.",
+            "Reads text from standard input and returns it as text."),
+        "read()",
+        "read()");
+    append_builtin_function_completion(
+        sb,
+        first,
+        "debug()",
+        "debug(value) -> void",
+        lsp_doc_text(
+            "Escreve uma representacao de debug de um valor. Use durante investigacao local.",
+            "Writes a debug representation of a value. Use it during local investigation."),
+        "debug(value)",
+        "debug(${1:value})");
+    append_builtin_function_completion(
+        sb,
+        first,
+        "type_name()",
+        "type_name(value) -> text",
+        lsp_doc_text(
+            "Retorna o nome do tipo inferido para um valor.",
+            "Returns the inferred type name for a value."),
+        "type_name(value)",
+        "type_name(${1:value})");
     append_builtin_function_completion(
         sb,
         first,
@@ -2557,6 +3693,9 @@ static void append_reference_text_matches(lsp_sb *sb, int *first, lsp_doc *doc, 
     }
 }
 
+static int offset_is_in_string_or_comment(const char *text, int offset);
+static int declaration_name_range(lsp_doc *doc, const zt_ast_node *node, const char *name, int *line, int *start_col, int *end_col);
+
 static char *qualified_reference_name(const char *alias, const char *name) {
     lsp_sb sb;
     if (alias == NULL || alias[0] == '\0' || name == NULL || name[0] == '\0') return NULL;
@@ -2567,16 +3706,93 @@ static char *qualified_reference_name(const char *alias, const char *name) {
     return sb_take(&sb);
 }
 
-static char *references_result_json(lsp_doc *doc, const char *word, int include_declaration) {
+static void append_local_reference_text_matches(
+        lsp_sb *sb,
+        int *first,
+        lsp_doc *doc,
+        const zt_ast_node *target,
+        const char *name,
+        int include_declaration,
+        int decl_line,
+        int decl_col) {
+    const char *cursor;
+    size_t name_len;
+    if (sb == NULL || first == NULL || doc == NULL || doc->uri == NULL || doc->text == NULL || target == NULL || name == NULL || name[0] == '\0') return;
+    name_len = strlen(name);
+    cursor = doc->text;
+    while ((cursor = strstr(cursor, name)) != NULL) {
+        int offset = (int)(cursor - doc->text);
+        int line = 0;
+        int character = 0;
+        const zt_ast_node *resolved;
+        position_from_offset(doc->text, offset, &line, &character);
+        if (reference_match_has_boundaries(doc->text, offset, (int)name_len) &&
+            !offset_is_in_string_or_comment(doc->text, offset)) {
+            if (!include_declaration && line == decl_line && character == decl_col) {
+                cursor += name_len;
+                continue;
+            }
+            resolved = find_local_symbol_scoped(doc, name, line, character);
+            if (resolved == target) {
+                append_reference_location(
+                    sb,
+                    first,
+                    doc->uri,
+                    line,
+                    character,
+                    line,
+                    character + (int)name_len
+                );
+            }
+        }
+        cursor += name_len;
+    }
+}
+
+static char *local_references_result_json(lsp_doc *doc, const zt_ast_node *node, const char *name, int include_declaration) {
+    lsp_sb sb;
+    int first = 1;
+    int decl_line = -1;
+    int decl_start = -1;
+    int decl_end = -1;
+    sb_init(&sb);
+    sb_append(&sb, "[");
+    if (doc != NULL && node != NULL && name != NULL && name[0] != '\0') {
+        declaration_name_range(doc, node, name, &decl_line, &decl_start, &decl_end);
+        append_local_reference_text_matches(&sb, &first, doc, node, name, include_declaration, decl_line, decl_start);
+    }
+    sb_append(&sb, "]");
+    return sb_take(&sb);
+}
+
+static char *references_result_json(lsp_doc *doc, const char *word, int line, int character, int include_declaration) {
     lsp_doc *owner = NULL;
-    const zt_ast_node *node = find_symbol_with_doc(doc, word, &owner);
+    char *segment = doc != NULL ? ident_segment_at_position(doc->text, line, character, NULL, NULL, NULL) : NULL;
+    const zt_ast_node *local_node = find_local_symbol_scoped(doc, segment != NULL ? segment : word, line, character);
+    const zt_ast_node *node = NULL;
     const char *name = node_symbol_name(node);
-    const char *owner_ns = doc_module_name(owner);
-    int public_visible = node_is_public(node) || namespace_is_std(owner_ns);
-    int declaration_line = node != NULL ? lsp_line(node->span.line) : -1;
+    const char *owner_ns;
+    int public_visible;
+    int declaration_line;
     lsp_doc *candidate;
     lsp_sb sb;
     int first = 1;
+
+    if (local_node != NULL) {
+        const char *local_name = node_symbol_name(local_node);
+        char *result;
+        if (local_name == NULL || local_name[0] == '\0') local_name = segment != NULL ? segment : word;
+        result = local_references_result_json(doc, local_node, local_name, include_declaration);
+        free(segment);
+        return result;
+    }
+    free(segment);
+
+    node = find_symbol_with_doc(doc, word, &owner);
+    name = node_symbol_name(node);
+    owner_ns = doc_module_name(owner);
+    public_visible = node_is_public(node) || namespace_is_std(owner_ns);
+    declaration_line = node != NULL ? lsp_line(node->span.line) : -1;
 
     sb_init(&sb);
     sb_append(&sb, "[");
@@ -2609,7 +3825,12 @@ static char *references_result_json(lsp_doc *doc, const char *word, int include_
     return sb_take(&sb);
 }
 
-static char *call_target_at_position(const char *text, int line, int character, int *active_parameter) {
+static char *call_target_at_position(
+        const char *text,
+        int line,
+        int character,
+        int *active_parameter,
+        char **active_argument_name) {
     int offset = offset_from_position(text, line, character);
     int depth = 0;
     int open_offset = -1;
@@ -2617,7 +3838,9 @@ static char *call_target_at_position(const char *text, int line, int character, 
     int start;
     int end;
     int param = 0;
+    int arg_start;
     if (active_parameter != NULL) *active_parameter = 0;
+    if (active_argument_name != NULL) *active_argument_name = NULL;
     if (text == NULL || offset <= 0) return NULL;
 
     for (i = offset - 1; i >= 0; i -= 1) {
@@ -2634,6 +3857,7 @@ static char *call_target_at_position(const char *text, int line, int character, 
     if (open_offset <= 0) return NULL;
 
     depth = 0;
+    arg_start = open_offset + 1;
     for (i = open_offset + 1; i < offset; i += 1) {
         if (text[i] == '(' || text[i] == '[' || text[i] == '{') {
             depth += 1;
@@ -2641,9 +3865,23 @@ static char *call_target_at_position(const char *text, int line, int character, 
             depth -= 1;
         } else if (text[i] == ',' && depth == 0) {
             param += 1;
+            arg_start = i + 1;
         }
     }
     if (active_parameter != NULL) *active_parameter = param;
+    if (active_argument_name != NULL) {
+        int name_start = arg_start;
+        int name_end;
+        int scan;
+        while (name_start < offset && isspace((unsigned char)text[name_start])) name_start += 1;
+        name_end = name_start;
+        while (name_end < offset && ident_char((unsigned char)text[name_end])) name_end += 1;
+        scan = name_end;
+        while (scan < offset && isspace((unsigned char)text[scan])) scan += 1;
+        if (name_end > name_start && scan < offset && text[scan] == ':') {
+            *active_argument_name = lsp_strndup(text + name_start, (size_t)(name_end - name_start));
+        }
+    }
 
     end = open_offset;
     while (end > 0 && isspace((unsigned char)text[end - 1]) && text[end - 1] != '\n') end -= 1;
@@ -2669,7 +3907,26 @@ static int lsp_is_numeric_conversion_name(const char *name) {
     return 0;
 }
 
-static char *builtin_signature_help_result_json(const char *target, int active_parameter) {
+static int lsp_is_builtin_function_name(const char *name) {
+    if (name == NULL) return 0;
+    if (strcmp(name, "fmt") == 0) return 1;
+    if (strcmp(name, "len") == 0) return 1;
+    if (strcmp(name, "to_text") == 0) return 1;
+    if (strcmp(name, "print") == 0) return 1;
+    if (strcmp(name, "read") == 0) return 1;
+    if (strcmp(name, "debug") == 0) return 1;
+    if (strcmp(name, "type_name") == 0) return 1;
+    if (strcmp(name, "check") == 0) return 1;
+    if (strcmp(name, "todo") == 0) return 1;
+    if (strcmp(name, "unreachable") == 0) return 1;
+    if (strcmp(name, "panic") == 0) return 1;
+    if (strcmp(name, "success") == 0) return 1;
+    if (strcmp(name, "error") == 0) return 1;
+    if (strcmp(name, "some") == 0) return 1;
+    return lsp_is_numeric_conversion_name(name);
+}
+
+static char *builtin_signature_help_result_json(const char *target, int active_parameter, const char *active_argument_name) {
     const char *label = NULL;
     const char *param = "value";
     const char *summary = NULL;
@@ -2720,6 +3977,31 @@ static char *builtin_signature_help_result_json(const char *target, int active_p
             "Converte para text quando o tipo implementa TextRepresentable<T>. Use para exibicao, logs e mensagens.",
             "Converts to text when the type implements TextRepresentable<T>. Use it for display, logs, and messages.");
         usage = "to_text(value)";
+    } else if (strcmp(target, "print") == 0) {
+        label = "print(value) -> void";
+        summary = lsp_doc_text(
+            "Escreve um valor em text na saida padrao. Use para exemplos, logs simples e programas pequenos.",
+            "Writes a text value to standard output. Use it for examples, simple logs, and small programs.");
+        usage = "print(value)";
+    } else if (strcmp(target, "read") == 0) {
+        label = "read() -> text";
+        param = NULL;
+        summary = lsp_doc_text(
+            "Le texto da entrada padrao e retorna como text.",
+            "Reads text from standard input and returns it as text.");
+        usage = "read()";
+    } else if (strcmp(target, "debug") == 0) {
+        label = "debug(value) -> void";
+        summary = lsp_doc_text(
+            "Escreve uma representacao de debug de um valor. Use durante investigacao local.",
+            "Writes a debug representation of a value. Use it during local investigation.");
+        usage = "debug(value)";
+    } else if (strcmp(target, "type_name") == 0) {
+        label = "type_name(value) -> text";
+        summary = lsp_doc_text(
+            "Retorna o nome do tipo inferido para um valor.",
+            "Returns the inferred type name for a value.");
+        usage = "type_name(value)";
     } else if (strcmp(target, "check") == 0) {
         label = "check(condition, message?) -> void";
         param = "condition";
@@ -2762,6 +4044,10 @@ static char *builtin_signature_help_result_json(const char *target, int active_p
         usage = "error(value)";
     }
     if (label == NULL) return NULL;
+    if (active_argument_name != NULL && param != NULL) {
+        if (strcmp(active_argument_name, param) == 0) active = 0;
+        else if (strcmp(target, "check") == 0 && strcmp(active_argument_name, "message") == 0) active = 1;
+    }
     {
         char *documentation = builtin_documentation_markdown(label, summary, usage);
     sb_init(&json);
@@ -2769,9 +4055,13 @@ static char *builtin_signature_help_result_json(const char *target, int active_p
     sb_append_json_string(&json, label);
     sb_append(&json, ",\"documentation\":");
     sb_append_json_string(&json, documentation);
-    sb_append(&json, ",\"parameters\":[{\"label\":");
-    sb_append_json_string(&json, param);
-    sb_append(&json, "}]}],\"activeSignature\":0,\"activeParameter\":");
+    if (param != NULL) {
+        sb_append(&json, ",\"parameters\":[{\"label\":");
+        sb_append_json_string(&json, param);
+        sb_append(&json, "}]}],\"activeSignature\":0,\"activeParameter\":");
+    } else {
+        sb_append(&json, ",\"parameters\":[]}],\"activeSignature\":0,\"activeParameter\":");
+    }
     sb_appendf(&json, "%d", active);
     sb_append(&json, "}");
         free(documentation);
@@ -2779,7 +4069,13 @@ static char *builtin_signature_help_result_json(const char *target, int active_p
     return sb_take(&json);
 }
 
-static char *signature_help_result_json(lsp_doc *doc, const char *target, int line, int character, int active_parameter) {
+static char *signature_help_result_json(
+        lsp_doc *doc,
+        const char *target,
+        int line,
+        int character,
+        int active_parameter,
+        const char *active_argument_name) {
     lsp_doc *owner = NULL;
     const zt_ast_node *node = NULL;
     lsp_sb label;
@@ -2791,7 +4087,7 @@ static char *signature_help_result_json(lsp_doc *doc, const char *target, int li
     int active;
     char *usage_qualifier = NULL;
     char *documentation = NULL;
-    char *builtin = builtin_signature_help_result_json(target, active_parameter);
+    char *builtin = builtin_signature_help_result_json(target, active_parameter, active_argument_name);
     if (builtin != NULL) return builtin;
     if (target != NULL) {
         const char *dot = strrchr(target, '.');
@@ -2826,8 +4122,11 @@ static char *signature_help_result_json(lsp_doc *doc, const char *target, int li
     sb_append(&label, "(");
     sb_append(&params, "[");
     for (i = 0; i < node->as.func_decl.params.count; i += 1) {
-        char *formatted = zt_format_node_to_string(node->as.func_decl.params.items[i]);
-        const char *param_label = formatted != NULL ? formatted : "param";
+        lsp_sb param_text;
+        const char *param_label;
+        sb_init(&param_text);
+        append_param_text(&param_text, owner, node->as.func_decl.params.items[i]);
+        param_label = param_text.data != NULL && param_text.data[0] != '\0' ? param_text.data : "param";
         if (i > 0) sb_append(&label, ", ");
         sb_append(&label, param_label);
         if (!params_first) sb_append(&params, ",");
@@ -2835,12 +4134,12 @@ static char *signature_help_result_json(lsp_doc *doc, const char *target, int li
         sb_append(&params, "{\"label\":");
         sb_append_json_string(&params, param_label);
         sb_append(&params, "}");
-        free(formatted);
+        free(param_text.data);
     }
     sb_append(&params, "]");
     sb_append(&label, ")");
     if (node->as.func_decl.return_type != NULL) {
-        char *ret = zt_format_node_to_string(node->as.func_decl.return_type);
+        char *ret = type_node_text_for_lsp(owner, node->as.func_decl.return_type);
         if (ret != NULL) {
             sb_append(&label, " -> ");
             sb_append(&label, ret);
@@ -2850,6 +4149,18 @@ static char *signature_help_result_json(lsp_doc *doc, const char *target, int li
 
     param_count = (int)node->as.func_decl.params.count;
     active = active_parameter;
+    if (active_argument_name != NULL) {
+        for (i = 0; i < node->as.func_decl.params.count; i += 1) {
+            const zt_ast_node *param_node = node->as.func_decl.params.items[i];
+            if (param_node != NULL &&
+                    param_node->kind == ZT_AST_PARAM &&
+                    param_node->as.param.name != NULL &&
+                    strcmp(param_node->as.param.name, active_argument_name) == 0) {
+                active = (int)i;
+                break;
+            }
+        }
+    }
     if (active < 0) active = 0;
     if (param_count > 0 && active >= param_count) active = param_count - 1;
     if (param_count == 0) active = 0;
@@ -3054,14 +4365,84 @@ static char *rename_edits_for_doc(lsp_doc *candidate, lsp_doc *owner, const zt_a
     return sb_take(&edits);
 }
 
-static char *rename_result_json(lsp_doc *doc, const char *word, const char *new_name) {
+static char *local_rename_edits_json(lsp_doc *doc, const zt_ast_node *node, const char *name, const char *new_name) {
+    const char *cursor;
+    size_t name_len;
+    lsp_sb edits;
+    int first = 1;
+    int count = 0;
+    if (doc == NULL || doc->text == NULL || node == NULL || name == NULL || name[0] == '\0' || new_name == NULL) return NULL;
+    name_len = strlen(name);
+    cursor = doc->text;
+    sb_init(&edits);
+    while ((cursor = strstr(cursor, name)) != NULL) {
+        int offset = (int)(cursor - doc->text);
+        int line = 0;
+        int character = 0;
+        const zt_ast_node *resolved;
+        position_from_offset(doc->text, offset, &line, &character);
+        if (reference_match_has_boundaries(doc->text, offset, (int)name_len) &&
+            !offset_is_in_string_or_comment(doc->text, offset)) {
+            resolved = find_local_symbol_scoped(doc, name, line, character);
+            if (resolved == node) {
+                append_rename_text_edit(
+                    &edits,
+                    &first,
+                    &count,
+                    line,
+                    character,
+                    line,
+                    character + (int)name_len,
+                    new_name
+                );
+            }
+        }
+        cursor += name_len;
+    }
+    if (count == 0) {
+        free(edits.data);
+        return NULL;
+    }
+    return sb_take(&edits);
+}
+
+static char *local_rename_result_json(lsp_doc *doc, const zt_ast_node *node, const char *name, const char *new_name) {
+    char *edits;
+    lsp_sb json;
+    if (doc == NULL || doc->uri == NULL || node == NULL || name == NULL || name[0] == '\0') return NULL;
+    edits = local_rename_edits_json(doc, node, name, new_name);
+    if (edits == NULL) return NULL;
+    sb_init(&json);
+    sb_append(&json, "{\"changes\":{");
+    sb_append_json_string(&json, doc->uri);
+    sb_append(&json, ":[");
+    sb_append(&json, edits);
+    sb_append(&json, "]}}");
+    free(edits);
+    return sb_take(&json);
+}
+
+static char *rename_result_json(lsp_doc *doc, const char *word, int line, int character, const char *new_name) {
     lsp_doc *owner = NULL;
-    const zt_ast_node *node = find_symbol_with_doc(doc, word, &owner);
-    const char *name = node_symbol_name(node);
+    char *segment = doc != NULL ? ident_segment_at_position(doc->text, line, character, NULL, NULL, NULL) : NULL;
+    const zt_ast_node *local_node = find_local_symbol_scoped(doc, segment != NULL ? segment : word, line, character);
+    const zt_ast_node *node;
+    const char *name;
     lsp_doc *candidate;
     lsp_sb json;
     int first_doc = 1;
     if (!rename_name_is_valid(new_name)) return NULL;
+    if (local_node != NULL) {
+        const char *local_name = node_symbol_name(local_node);
+        char *result;
+        if (local_name == NULL || local_name[0] == '\0') local_name = segment != NULL ? segment : word;
+        result = local_rename_result_json(doc, local_node, local_name, new_name);
+        free(segment);
+        return result;
+    }
+    free(segment);
+    node = find_symbol_with_doc(doc, word, &owner);
+    name = node_symbol_name(node);
     if (node == NULL || owner == NULL || owner->uri == NULL || name == NULL || name[0] == '\0') return NULL;
     sb_init(&json);
     sb_append(&json, "{\"changes\":{");
@@ -3082,10 +4463,15 @@ static char *rename_result_json(lsp_doc *doc, const char *word, const char *new_
 
 static char *prepare_rename_result_json(lsp_doc *doc, const char *word, const char *segment, int start_line, int start_col, int end_col) {
     lsp_doc *owner = NULL;
-    const zt_ast_node *node = find_symbol_with_doc(doc, word, &owner);
+    const zt_ast_node *node = find_local_symbol_scoped(doc, segment, start_line, start_col);
     const char *name = node_symbol_name(node);
     lsp_sb json;
-    if (node == NULL || owner == NULL || name == NULL || segment == NULL) return NULL;
+    if (name == NULL || name[0] == '\0') name = segment;
+    if (node == NULL) {
+        node = find_symbol_with_doc(doc, word, &owner);
+        name = node_symbol_name(node);
+    }
+    if (node == NULL || name == NULL || segment == NULL) return NULL;
     if (strcmp(name, segment) != 0) return NULL;
     sb_init(&json);
     sb_append(&json, "{\"range\":{\"start\":{");
@@ -3190,6 +4576,7 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
     int public_next = 0;
     int namespace_path = 0;
     int previous_line = -1;
+    int after_dot = 0;
     zt_lexer *lexer;
     if (doc == NULL || doc->text == NULL) return lsp_strdup("{\"data\":[]}");
     lexer = zt_lexer_make(doc->path != NULL ? doc->path : doc->uri, doc->text, strlen(doc->text));
@@ -3212,6 +4599,7 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
             expect_decl = 0;
             public_next = 0;
             namespace_path = 0;
+            after_dot = 0;
         }
         previous_line = line;
 
@@ -3226,6 +4614,14 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
             token_type = SEM_TOKEN_TYPE;
         } else if (zt_token_kind_is_keyword(token.kind)) {
             token_type = semantic_token_kind_is_modifier(token.kind) ? SEM_TOKEN_MODIFIER : SEM_TOKEN_KEYWORD;
+            if (token.kind == ZT_TOKEN_TRUE ||
+                token.kind == ZT_TOKEN_FALSE ||
+                token.kind == ZT_TOKEN_NONE ||
+                token.kind == ZT_TOKEN_SOME ||
+                token.kind == ZT_TOKEN_SUCCESS ||
+                token.kind == ZT_TOKEN_KW_ERROR) {
+                modifiers |= SEM_MOD_READONLY;
+            }
             if (token.kind == ZT_TOKEN_NAMESPACE || token.kind == ZT_TOKEN_IMPORT) namespace_path = 1;
             else if (token.kind == ZT_TOKEN_AS) namespace_path = 0;
             else if (token.kind == ZT_TOKEN_PUBLIC) public_next = 1;
@@ -3251,10 +4647,13 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
                 public_next = 0;
             } else if (namespace_path) {
                 token_type = SEM_TOKEN_NAMESPACE;
+            } else if (after_dot) {
+                token_type = SEM_TOKEN_PROPERTY;
             } else {
                 token_type = SEM_TOKEN_VARIABLE;
             }
         } else if (token.kind == ZT_TOKEN_DOT) {
+            after_dot = 1;
             continue;
         } else {
             namespace_path = 0;
@@ -3273,6 +4672,7 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
         if (token_type >= 0) {
             append_semantic_token(&data, &first, &last_line, &last_start, line, col, length, token_type, modifiers);
         }
+        if (token.kind != ZT_TOKEN_DOT) after_dot = 0;
     }
     zt_lexer_dispose(lexer);
     sb_init(&json);
@@ -3283,13 +4683,99 @@ static char *semantic_tokens_result_json(lsp_doc *doc) {
     return sb_take(&json);
 }
 
+typedef struct lsp_import_candidate {
+    const char *name;
+    const char *detail;
+    int score;
+} lsp_import_candidate;
+
+static int import_candidate_score(const char *current_ns, const char *module_name) {
+    size_t current_parent;
+    size_t module_parent;
+    size_t current_root;
+    size_t module_root;
+    if (module_name == NULL) return 0;
+    if (current_ns != NULL) {
+        current_parent = namespace_parent_len(current_ns);
+        module_parent = namespace_parent_len(module_name);
+        if (current_parent > 0 &&
+                current_parent == module_parent &&
+                namespace_prefix_equals(current_ns, module_name, current_parent)) {
+            return 300;
+        }
+        current_root = namespace_root_len(current_ns);
+        module_root = namespace_root_len(module_name);
+        if (current_root > 0 &&
+                current_root == module_root &&
+                namespace_prefix_equals(current_ns, module_name, current_root)) {
+            return 250;
+        }
+    }
+    return namespace_is_std(module_name) ? 100 : 180;
+}
+
+static int compare_import_candidates(const void *left, const void *right) {
+    const lsp_import_candidate *a = (const lsp_import_candidate *)left;
+    const lsp_import_candidate *b = (const lsp_import_candidate *)right;
+    int by_name;
+    if (a->score != b->score) return b->score - a->score;
+    by_name = strcmp(a->name, b->name);
+    if (by_name != 0) return by_name;
+    return strcmp(a->detail, b->detail);
+}
+
+static int import_candidate_exists(lsp_import_candidate *items, size_t count, const char *name) {
+    size_t i;
+    if (name == NULL) return 1;
+    for (i = 0; i < count; i += 1) {
+        if (strcmp(items[i].name, name) == 0) return 1;
+    }
+    return 0;
+}
+
+static int add_import_candidate(
+        lsp_import_candidate **items,
+        size_t *count,
+        size_t *cap,
+        const char *name,
+        const char *detail,
+        int score) {
+    lsp_import_candidate *grown;
+    if (name == NULL || detail == NULL) return 1;
+    if (import_candidate_exists(*items, *count, name)) return 1;
+    if (*count >= *cap) {
+        size_t next_cap = *cap == 0 ? 16 : (*cap * 2);
+        grown = (lsp_import_candidate *)realloc(*items, next_cap * sizeof(lsp_import_candidate));
+        if (grown == NULL) return 0;
+        *items = grown;
+        *cap = next_cap;
+    }
+    (*items)[*count].name = name;
+    (*items)[*count].detail = detail;
+    (*items)[*count].score = score;
+    *count += 1;
+    return 1;
+}
+
 static void append_import_path_completions(lsp_sb *sb, int *first, lsp_doc *doc) {
     size_t i;
     lsp_doc *other;
     const char *current_ns = doc_module_name(doc);
+    lsp_import_candidate *items = NULL;
+    size_t count = 0;
+    size_t cap = 0;
 
     for (i = 0; g_stdlib_modules[i].name != NULL; i += 1) {
-        append_completion_item(sb, first, g_stdlib_modules[i].name, 9, "stdlib", NULL, 0);
+        if (!add_import_candidate(
+                    &items,
+                    &count,
+                    &cap,
+                    g_stdlib_modules[i].name,
+                    "stdlib",
+                    import_candidate_score(current_ns, g_stdlib_modules[i].name))) {
+            free(items);
+            return;
+        }
     }
 
     for (other = g_docs; other != NULL; other = other->next) {
@@ -3297,8 +4783,23 @@ static void append_import_path_completions(lsp_sb *sb, int *first, lsp_doc *doc)
         if (module_name == NULL) continue;
         if (current_ns != NULL && strcmp(current_ns, module_name) == 0) continue;
         if (namespace_is_std(module_name)) continue;
-        append_completion_item(sb, first, module_name, 9, "modulo do projeto", NULL, 0);
+        if (!add_import_candidate(
+                    &items,
+                    &count,
+                    &cap,
+                    module_name,
+                    "modulo do projeto",
+                    import_candidate_score(current_ns, module_name))) {
+            free(items);
+            return;
+        }
     }
+
+    qsort(items, count, sizeof(lsp_import_candidate), compare_import_candidates);
+    for (i = 0; i < count; i += 1) {
+        append_completion_item(sb, first, items[i].name, 9, items[i].detail, NULL, 0);
+    }
+    free(items);
 }
 
 static void append_import_alias_completions(lsp_sb *sb, int *first, lsp_doc *doc) {
@@ -3650,6 +5151,7 @@ static void append_imported_module_shortcut_completions(lsp_sb *sb, int *first, 
             lsp_sb insert_text;
             char *documentation = NULL;
             if (name == NULL || !node_is_public(decl)) continue;
+            if (decl->kind == ZT_AST_FUNC_DECL && lsp_is_builtin_function_name(name)) continue;
             sb_init(&label);
             sb_init(&detail);
             sb_init(&insert_text);
@@ -3685,9 +5187,86 @@ static void append_imported_module_shortcut_completions(lsp_sb *sb, int *first, 
     }
 }
 
+static int line_text_before_position(const char *text, int line, int character, char *buffer, size_t buffer_size) {
+    int offset;
+    int start;
+    int len;
+    if (text == NULL || buffer == NULL || buffer_size == 0) return 0;
+    offset = offset_from_position(text, line, character);
+    start = line_start_offset(text, line);
+    if (offset < start) return 0;
+    len = offset - start;
+    if ((size_t)len >= buffer_size) len = (int)buffer_size - 1;
+    memcpy(buffer, text + start, (size_t)len);
+    buffer[len] = '\0';
+    return 1;
+}
+
+static int line_starts_with_case_prefix(const char *line) {
+    const char *p = line;
+    if (p == NULL) return 0;
+    while (*p == ' ' || *p == '\t') p += 1;
+    return strncmp(p, "case", 4) == 0 && (p[4] == '\0' || isspace((unsigned char)p[4]));
+}
+
+static char *nearest_match_subject_before(lsp_doc *doc, int line) {
+    int cur;
+    if (doc == NULL || doc->text == NULL) return NULL;
+    for (cur = line - 1; cur >= 0; cur -= 1) {
+        int start = line_start_offset(doc->text, cur);
+        int end = start;
+        const char *p;
+        while (doc->text[end] != '\0' && doc->text[end] != '\n') end += 1;
+        p = doc->text + start;
+        while (p < doc->text + end && isspace((unsigned char)*p)) p += 1;
+        if (p + 5 <= doc->text + end && strncmp(p, "match", 5) == 0 && (p[5] == '\0' || isspace((unsigned char)p[5]))) {
+            const char *subject = p + 5;
+            const char *subject_end = doc->text + end;
+            while (subject < subject_end && isspace((unsigned char)*subject)) subject += 1;
+            while (subject_end > subject && isspace((unsigned char)*(subject_end - 1))) subject_end -= 1;
+            if (subject_end > subject) return lsp_strndup(subject, (size_t)(subject_end - subject));
+            return NULL;
+        }
+    }
+    return NULL;
+}
+
+static int append_match_case_completions(lsp_sb *sb, int *first, lsp_doc *doc, int line, int character) {
+    char before[256];
+    char *subject;
+    char *subject_type = NULL;
+    int handled = 0;
+    if (!line_text_before_position(doc != NULL ? doc->text : NULL, line, character, before, sizeof(before))) return 0;
+    if (!line_starts_with_case_prefix(before)) return 0;
+    subject = nearest_match_subject_before(doc, line);
+    if (subject != NULL) {
+        subject_type = completion_receiver_type(doc, subject, line, character);
+    }
+    if (type_starts_with_name(subject_type, "optional")) {
+        append_completion_item(sb, first, "some", 22, "optional.some(value)", "some(${1:value}):", 2);
+        append_completion_item(sb, first, "none", 22, "optional.none", "none:", 2);
+        handled = 1;
+    } else if (type_starts_with_name(subject_type, "result")) {
+        append_completion_item(sb, first, "success", 22, "result.success(value)", "success(${1:value}):", 2);
+        append_completion_item(sb, first, "error", 22, "result.error(err)", "error(${1:err}):", 2);
+        handled = 1;
+    } else if (subject_type != NULL) {
+        const zt_ast_node *enum_decl = find_enum_decl(doc, subject_type);
+        if (enum_decl != NULL) {
+            append_enum_variant_completions(sb, first, enum_decl, 1);
+            handled = 1;
+        }
+    }
+    free(subject_type);
+    free(subject);
+    return handled;
+}
+
 static void append_member_completions(lsp_sb *sb, int *first, lsp_doc *doc, const char *receiver, const char *receiver_type) {
     if (receiver_type == NULL && import_path_for_alias(doc, receiver) != NULL) {
         append_module_member_completions(sb, first, doc, receiver);
+    } else if (receiver_type == NULL) {
+        append_enum_variant_completions(sb, first, find_enum_decl(doc, receiver), 0);
     } else if (type_starts_with_name(receiver_type, "list")) {
         append_completion_item(
             sb,
@@ -3710,8 +5289,10 @@ static void append_member_completions(lsp_sb *sb, int *first, lsp_doc *doc, cons
         append_completion_item(sb, first, "code", 5, "core.Error.code: text", NULL, 0);
         append_completion_item(sb, first, "message", 5, "core.Error.message: text", NULL, 0);
         append_completion_item(sb, first, "context", 5, "core.Error.context: optional<text>", NULL, 0);
+    } else if (type_starts_with_name(receiver_type, "any") || type_starts_with_name(receiver_type, "dyn")) {
+        append_trait_method_completions(sb, first, doc, receiver_type);
     } else if (receiver_type != NULL) {
-        append_struct_field_completions(sb, first, find_struct_decl(doc, receiver_type));
+        append_struct_field_completions(sb, first, find_struct_decl(doc, receiver_type), receiver_type);
         append_apply_method_completions(sb, first, doc, receiver_type);
     }
 }
@@ -3738,6 +5319,11 @@ static char *completion_result_json(
 
     if (member_access) {
         append_member_completions(&sb, &first, doc, receiver, receiver_type);
+        sb_append(&sb, "]");
+        return sb_take(&sb);
+    }
+
+    if (append_match_case_completions(&sb, &first, doc, line, character)) {
         sb_append(&sb, "]");
         return sb_take(&sb);
     }
@@ -3798,8 +5384,8 @@ static void handle_hover_or_definition(const char *id_raw, const char *msg, int 
     lsp_doc *doc = find_doc(uri);
     char *word = doc != NULL ? word_at_position(doc->text, line, character) : NULL;
     char *result = NULL;
-    if (definition) result = definition_result_json(doc, word);
-    else result = hover_result_json(doc, word);
+    if (definition) result = definition_result_json(doc, word, line, character);
+    else result = hover_result_json(doc, word, line, character);
     send_response_take(id_raw, result != NULL ? result : lsp_strdup("null"));
     free(uri);
     free(word);
@@ -3812,7 +5398,7 @@ static void handle_references(const char *id_raw, const char *msg) {
     int include_declaration = json_get_bool_key(msg, "includeDeclaration", 0);
     lsp_doc *doc = find_doc(uri);
     char *word = doc != NULL ? word_at_position(doc->text, line, character) : NULL;
-    char *result = references_result_json(doc, word, include_declaration);
+    char *result = references_result_json(doc, word, line, character, include_declaration);
     send_response_take(id_raw, result);
     free(uri);
     free(word);
@@ -3824,11 +5410,13 @@ static void handle_signature_help(const char *id_raw, const char *msg) {
     int character = json_get_number_key(msg, "character", 0);
     int active_parameter = 0;
     lsp_doc *doc = find_doc(uri);
-    char *target = doc != NULL ? call_target_at_position(doc->text, line, character, &active_parameter) : NULL;
-    char *result = signature_help_result_json(doc, target, line, character, active_parameter);
+    char *active_argument_name = NULL;
+    char *target = doc != NULL ? call_target_at_position(doc->text, line, character, &active_parameter, &active_argument_name) : NULL;
+    char *result = signature_help_result_json(doc, target, line, character, active_parameter, active_argument_name);
     send_response_take(id_raw, result != NULL ? result : lsp_strdup("null"));
     free(uri);
     free(target);
+    free(active_argument_name);
 }
 
 static void handle_rename(const char *id_raw, const char *msg) {
@@ -3838,7 +5426,7 @@ static void handle_rename(const char *id_raw, const char *msg) {
     int character = json_get_number_key(msg, "character", 0);
     lsp_doc *doc = find_doc(uri);
     char *word = doc != NULL ? word_at_position(doc->text, line, character) : NULL;
-    char *result = rename_result_json(doc, word, new_name);
+    char *result = rename_result_json(doc, word, line, character, new_name);
     send_response_take(id_raw, result != NULL ? result : lsp_strdup("null"));
     free(uri);
     free(new_name);
@@ -3944,8 +5532,9 @@ int main(void) {
             } else if (strcmp(method, "textDocument/didOpen") == 0 || strcmp(method, "textDocument/didChange") == 0) {
                 char *uri = json_get_string_key(msg, "uri");
                 char *text = json_get_string_key(msg, "text");
+                int version = json_get_number_key(msg, "version", 0);
                 lsp_doc *doc = NULL;
-                if (uri != NULL && text != NULL) doc = upsert_doc(uri, text);
+                if (uri != NULL && text != NULL) doc = upsert_doc(uri, text, version);
                 if (doc != NULL) publish_diagnostics(doc);
                 free(uri);
                 free(text);

@@ -14,7 +14,7 @@ public struct GenerationPipeline
     steps_blob: text = "|"
 end
 
-public var seed_value: int = 1
+var seed_value: int = 1
 
 public func set_seed(value: int) -> void
     if value == 0

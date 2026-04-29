@@ -9,11 +9,11 @@ public struct EntityMeta
     hidden: bool = false
 end
 
-public var meta_label: map<text, text> = {}
-public var meta_note: map<text, text> = {}
-public var meta_group: map<text, text> = {}
-public var meta_locked: map<text, bool> = {}
-public var meta_hidden: map<text, bool> = {}
+var meta_label: map<text, text> = {}
+var meta_note: map<text, text> = {}
+var meta_group: map<text, text> = {}
+var meta_locked: map<text, bool> = {}
+var meta_hidden: map<text, bool> = {}
 
 public func set_label(stable_id: text, value: text) -> result<void, core.Error>
     if stable_id == ""
@@ -154,13 +154,13 @@ public func reset() -> void
     meta_hidden = {}
 end
 
-public func text_set(values: map<text, text>, stable_id: text, value: text) -> map<text, text>
+func text_set(values: map<text, text>, stable_id: text, value: text) -> map<text, text>
     var next: map<text, text> = values
     next[stable_id] = value
     return next
 end
 
-public func bool_set(values: map<text, bool>, stable_id: text, value: bool) -> map<text, bool>
+func bool_set(values: map<text, bool>, stable_id: text, value: bool) -> map<text, bool>
     var next: map<text, bool> = values
     next[stable_id] = value
     return next

@@ -20,13 +20,13 @@ public struct HudWidget
     value: int
 end
 
-public var hud_exists: map<text, bool> = {}
-public var hud_visible: map<text, bool> = {}
-public var hud_text: map<text, text> = {}
-public var hud_value: map<text, int> = {}
-public var hud_x: map<text, float> = {}
-public var hud_y: map<text, float> = {}
-public var hud_widget_count_value: int = 0
+var hud_exists: map<text, bool> = {}
+var hud_visible: map<text, bool> = {}
+var hud_text: map<text, text> = {}
+var hud_value: map<text, int> = {}
+var hud_x: map<text, float> = {}
+var hud_y: map<text, float> = {}
+var hud_widget_count_value: int = 0
 
 public func defaults() -> hud.HudValues
     return hud.HudValues()
@@ -44,7 +44,7 @@ public func add_score(current: hud.HudValues, value: int) -> hud.HudValues
     return next
 end
 
-public func bool_or(values: map<text, bool>, id: text, fallback: bool) -> bool
+func bool_or(values: map<text, bool>, id: text, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -54,7 +54,7 @@ public func bool_or(values: map<text, bool>, id: text, fallback: bool) -> bool
     end
 end
 
-public func text_or(values: map<text, text>, id: text, fallback: text) -> text
+func text_or(values: map<text, text>, id: text, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -64,7 +64,7 @@ public func text_or(values: map<text, text>, id: text, fallback: text) -> text
     end
 end
 
-public func int_or(values: map<text, int>, id: text, fallback: int) -> int
+func int_or(values: map<text, int>, id: text, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -74,7 +74,7 @@ public func int_or(values: map<text, int>, id: text, fallback: int) -> int
     end
 end
 
-public func float_or(values: map<text, float>, id: text, fallback: float) -> float
+func float_or(values: map<text, float>, id: text, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -84,25 +84,25 @@ public func float_or(values: map<text, float>, id: text, fallback: float) -> flo
     end
 end
 
-public func bool_set(values: map<text, bool>, id: text, value: bool) -> map<text, bool>
+func bool_set(values: map<text, bool>, id: text, value: bool) -> map<text, bool>
     var next: map<text, bool> = values
     next[id] = value
     return next
 end
 
-public func text_set(values: map<text, text>, id: text, value: text) -> map<text, text>
+func text_set(values: map<text, text>, id: text, value: text) -> map<text, text>
     var next: map<text, text> = values
     next[id] = value
     return next
 end
 
-public func int_set(values: map<text, int>, id: text, value: int) -> map<text, int>
+func int_set(values: map<text, int>, id: text, value: int) -> map<text, int>
     var next: map<text, int> = values
     next[id] = value
     return next
 end
 
-public func float_set(values: map<text, float>, id: text, value: float) -> map<text, float>
+func float_set(values: map<text, float>, id: text, value: float) -> map<text, float>
     var next: map<text, float> = values
     next[id] = value
     return next

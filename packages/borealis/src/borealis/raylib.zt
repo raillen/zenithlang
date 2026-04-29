@@ -98,7 +98,7 @@ public struct Model
     id: int
 end
 
-public func require_available() -> result<void, core.Error>
+func require_available() -> result<void, core.Error>
     if raylib.available() == false
         return error("Raylib native library not found")
     end

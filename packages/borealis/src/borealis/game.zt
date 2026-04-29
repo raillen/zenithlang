@@ -97,7 +97,7 @@ public struct GameContext
     config: game.WindowConfig
 end
 
-public var active_frame_window_id: int = 0
+var active_frame_window_id: int = 0
 
 public struct Color
     r: int = 0

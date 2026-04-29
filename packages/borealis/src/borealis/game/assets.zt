@@ -18,17 +18,17 @@ public struct AssetInfo
     reload_count: int
 end
 
-public var asset_next_id: int = 1
-public var asset_next_stamp: int = 1
-public var asset_path: map<int, text> = {}
-public var asset_kind: map<int, text> = {}
-public var asset_source: map<int, text> = {}
-public var asset_loaded: map<int, bool> = {}
-public var asset_created_stamp: map<int, int> = {}
-public var asset_loaded_stamp: map<int, int> = {}
-public var asset_reload_count: map<int, int> = {}
-public var asset_lookup_by_key: map<text, int> = {}
-public var asset_lookup_by_cache_key: map<text, int> = {}
+var asset_next_id: int = 1
+var asset_next_stamp: int = 1
+var asset_path: map<int, text> = {}
+var asset_kind: map<int, text> = {}
+var asset_source: map<int, text> = {}
+var asset_loaded: map<int, bool> = {}
+var asset_created_stamp: map<int, int> = {}
+var asset_loaded_stamp: map<int, int> = {}
+var asset_reload_count: map<int, int> = {}
+var asset_lookup_by_key: map<text, int> = {}
+var asset_lookup_by_cache_key: map<text, int> = {}
 
 public func asset_load_image(path: text) -> result<assets.AssetHandle, core.Error>
     return assets.asset_load(path, "image")
@@ -474,7 +474,7 @@ public func asset_known_id(id: int) -> bool
     return assets.asset_text_or(asset_path, id, "") != ""
 end
 
-public func asset_normalize_source(source: text) -> text
+func asset_normalize_source(source: text) -> text
     if source == ""
         return "runtime"
     end
@@ -487,7 +487,7 @@ public func asset_take_stamp() -> int
     return stamp
 end
 
-public func asset_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func asset_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -497,7 +497,7 @@ public func asset_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bo
     end
 end
 
-public func asset_text_or(values: map<int, text>, id: int, fallback: text) -> text
+func asset_text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -507,7 +507,7 @@ public func asset_text_or(values: map<int, text>, id: int, fallback: text) -> te
     end
 end
 
-public func asset_int_or(values: map<text, int>, key: text, fallback: int) -> int
+func asset_int_or(values: map<text, int>, key: text, fallback: int) -> int
     const maybe: optional<int> = values.get(key)
     match maybe
         case value present ->
@@ -517,7 +517,7 @@ public func asset_int_or(values: map<text, int>, key: text, fallback: int) -> in
     end
 end
 
-public func asset_int_id_or(values: map<int, int>, id: int, fallback: int) -> int
+func asset_int_id_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -527,25 +527,25 @@ public func asset_int_id_or(values: map<int, int>, id: int, fallback: int) -> in
     end
 end
 
-public func asset_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func asset_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func asset_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
+func asset_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next
 end
 
-public func asset_int_set(values: map<text, int>, key: text, value: int) -> map<text, int>
+func asset_int_set(values: map<text, int>, key: text, value: int) -> map<text, int>
     var next: map<text, int> = values
     next[key] = value
     return next
 end
 
-public func asset_int_id_set(values: map<int, int>, id: int, value: int) -> map<int, int>
+func asset_int_id_set(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next

@@ -33,7 +33,7 @@ SUCCESS
 namespace app.main
 
 func main()
-    print("Hello, Zenith!")
+    print("Hello from Zenith")
 end
 ```
 

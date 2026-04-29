@@ -13,7 +13,13 @@ end
 extern c
     func zt_regex_validate_core(pattern: text) -> result<void, core.Error>
     func zt_regex_is_match_core(pattern: text, input: text) -> bool
+    func zt_regex_full_match_core(pattern: text, input: text) -> bool
+    func zt_regex_first_core(pattern: text, input: text) -> optional<text>
+    func zt_regex_count_core(pattern: text, input: text) -> int
     func zt_regex_find_all_core(pattern: text, input: text) -> list<text>
+    func zt_regex_split_core(pattern: text, input: text) -> list<text>
+    func zt_regex_replace_all_core(pattern: text, input: text, replacement: text) -> text
+    func zt_regex_escape_core(input: text) -> text
 end
 
 func map_core_error(err: core.Error) -> regex.Error
@@ -33,10 +39,61 @@ public func compile(pattern: text) -> result<regex.Regex, regex.Error>
     end
 end
 
+public func is_valid(pattern: text) -> bool
+    match regex.zt_regex_validate_core(pattern)
+        case success() ->
+            return true
+        case error(_err) ->
+            return false
+    end
+end
+
 public func is_match(pattern: text, input: text) -> bool
     return regex.zt_regex_is_match_core(pattern, input)
 end
 
+public func contains(pattern: text, input: text) -> bool
+    return regex.is_match(pattern, input)
+end
+
+public func matches(pattern: text, input: text) -> result<bool, regex.Error>
+    match regex.zt_regex_validate_core(pattern)
+        case success() ->
+            return success(regex.zt_regex_is_match_core(pattern, input))
+        case error(err) ->
+            return error(regex.map_core_error(err))
+    end
+end
+
+public func full_match(pattern: text, input: text) -> result<bool, regex.Error>
+    match regex.zt_regex_validate_core(pattern)
+        case success() ->
+            return success(regex.zt_regex_full_match_core(pattern, input))
+        case error(err) ->
+            return error(regex.map_core_error(err))
+    end
+end
+
+public func first(pattern: text, input: text) -> optional<text>
+    return regex.zt_regex_first_core(pattern, input)
+end
+
+public func count(pattern: text, input: text) -> int
+    return regex.zt_regex_count_core(pattern, input)
+end
+
 public func find_all(pattern: text, input: text) -> list<text>
     return regex.zt_regex_find_all_core(pattern, input)
+end
+
+public func split(pattern: text, input: text) -> list<text>
+    return regex.zt_regex_split_core(pattern, input)
+end
+
+public func replace_all(pattern: text, input: text, replacement: text) -> text
+    return regex.zt_regex_replace_all_core(pattern, input, replacement)
+end
+
+public func escape(input: text) -> text
+    return regex.zt_regex_escape_core(input)
 end

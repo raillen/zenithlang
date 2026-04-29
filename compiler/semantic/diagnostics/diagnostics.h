@@ -149,6 +149,7 @@ void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag 
 void zt_diag_render_action_first_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics, size_t max_errors);
 void zt_diag_render_ci(FILE *stream, const char *stage, const zt_diag *diag);
 void zt_diag_render_ci_list(FILE *stream, const char *stage, const zt_diag_list *diagnostics);
+void zt_diag_set_rich_output(int enabled);
 
 zt_cog_profile zt_cog_profile_from_text(const char *text);
 zt_diag_effort zt_diag_code_effort(zt_diag_code code);

@@ -2,6 +2,7 @@
   "comments": {
     "lineComment": "--"
   },
+  "wordPattern": "[A-Za-z_][A-Za-z0-9_]*",
   "brackets": [
     ["(", ")"],
     ["[", "]"],
@@ -18,5 +19,15 @@
     ["[", "]"],
     ["{", "}"],
     ["\"", "\""]
-  ]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(func|struct|trait|apply|enum|if|else|while|for|repeat|match|case|default|using)\\b.*$",
+    "decreaseIndentPattern": "^\\s*(end|else|case|default)\\b.*$"
+  },
+  "folding": {
+    "markers": {
+      "start": "^\\s*--\\s*#region\\b",
+      "end": "^\\s*--\\s*#endregion\\b"
+    }
+  }
 }

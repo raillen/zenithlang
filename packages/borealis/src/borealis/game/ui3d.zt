@@ -15,13 +15,13 @@ public struct Ui3dDebugInfo
     visible: bool
 end
 
-public var ui3d_next_id: int = 1
-public var ui3d_text: map<int, text> = {}
-public var ui3d_x: map<int, float> = {}
-public var ui3d_y: map<int, float> = {}
-public var ui3d_z: map<int, float> = {}
-public var ui3d_visible: map<int, bool> = {}
-public var ui3d_entity_id: map<int, int> = {}
+var ui3d_next_id: int = 1
+var ui3d_text: map<int, text> = {}
+var ui3d_x: map<int, float> = {}
+var ui3d_y: map<int, float> = {}
+var ui3d_z: map<int, float> = {}
+var ui3d_visible: map<int, bool> = {}
+var ui3d_entity_id: map<int, int> = {}
 
 public func ui3d_create_label(label: text, position: game.Vector3) -> result<ui3d.Ui3dId, core.Error>
     return ui3d.ui3d_make(label, position)
@@ -84,7 +84,7 @@ public func ui3d_make(label: text, position: game.Vector3) -> result<ui3d.Ui3dId
     return success(ui3d.Ui3dId(id: id))
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -94,7 +94,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -104,7 +104,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+func text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -114,25 +114,25 @@ public func text_or(values: map<int, text>, id: int, fallback: text) -> text
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
+func set_float(values: map<int, float>, id: int, value: float) -> map<int, float>
     var next: map<int, float> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next
 end
 
-public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next

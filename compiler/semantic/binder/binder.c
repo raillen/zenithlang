@@ -155,11 +155,78 @@ static int zt_bind_edit_distance_at_most_one(const char *left, const char *right
     return edits <= 1;
 }
 
+static int zt_bind_suffix_group(char suffix) {
+    switch (suffix) {
+        case 'x':
+        case 'y':
+        case 'z':
+        case 'w':
+            return 1;
+        case 'r':
+        case 'g':
+        case 'b':
+        case 'a':
+            return 2;
+        case 'h':
+        case 'v':
+            return 3;
+        default:
+            return 0;
+    }
+}
+
+static int zt_bind_has_conventional_axis_suffix(const char *name, size_t *base_len, int *group) {
+    size_t len;
+    char suffix;
+
+    if (base_len != NULL) *base_len = 0;
+    if (group != NULL) *group = 0;
+    if (name == NULL) return 0;
+
+    len = strlen(name);
+    if (len == 0) return 0;
+
+    suffix = name[len - 1];
+    if (len == 1) {
+        int suffix_group = zt_bind_suffix_group(suffix);
+        if (suffix_group == 0) return 0;
+        if (group != NULL) *group = suffix_group;
+        return 1;
+    }
+
+    if (name[len - 2] != '_') return 0;
+    if (len <= 2) return 0;
+
+    {
+        int suffix_group = zt_bind_suffix_group(suffix);
+        if (suffix_group == 0) return 0;
+        if (base_len != NULL) *base_len = len - 2;
+        if (group != NULL) *group = suffix_group;
+        return 1;
+    }
+}
+
+static int zt_bind_is_conventional_axis_pair(const char *left, const char *right) {
+    size_t left_base_len;
+    size_t right_base_len;
+    int left_group;
+    int right_group;
+
+    if (!zt_bind_has_conventional_axis_suffix(left, &left_base_len, &left_group)) return 0;
+    if (!zt_bind_has_conventional_axis_suffix(right, &right_base_len, &right_group)) return 0;
+    if (left_group != right_group) return 0;
+    if (left_base_len != right_base_len) return 0;
+    if (left_base_len == 0) return 1;
+    return strncmp(left, right, left_base_len) == 0;
+}
+
 static int zt_bind_names_are_too_similar(const char *left, const char *right) {
     char left_norm[128];
     char right_norm[128];
     size_t left_len;
     size_t right_len;
+
+    if (zt_bind_is_conventional_axis_pair(left, right)) return 0;
 
     left_len = zt_bind_normalize_name(left, left_norm, sizeof(left_norm));
     right_len = zt_bind_normalize_name(right, right_norm, sizeof(right_norm));
@@ -169,7 +236,34 @@ static int zt_bind_names_are_too_similar(const char *left, const char *right) {
     return zt_bind_edit_distance_at_most_one(left_norm, right_norm);
 }
 
-static void zt_bind_warn_similar_name(zt_binder *binder, zt_scope *scope, const char *name, zt_source_span span, int is_implicit) {
+static int zt_bind_symbol_is_type_like(zt_symbol_kind kind) {
+    return kind == ZT_SYMBOL_STRUCT ||
+           kind == ZT_SYMBOL_TRAIT ||
+           kind == ZT_SYMBOL_ENUM ||
+           kind == ZT_SYMBOL_TYPE_ALIAS ||
+           kind == ZT_SYMBOL_TYPE_PARAM ||
+           kind == ZT_SYMBOL_CORE_TRAIT;
+}
+
+static int zt_bind_is_import_type_case_pair(zt_symbol_kind left_kind, const char *left, zt_symbol_kind right_kind, const char *right) {
+    char left_norm[128];
+    char right_norm[128];
+
+    if (left == NULL || right == NULL) return 0;
+    if (left_kind == ZT_SYMBOL_IMPORT && zt_bind_symbol_is_type_like(right_kind)) {
+        zt_bind_normalize_name(left, left_norm, sizeof(left_norm));
+        zt_bind_normalize_name(right, right_norm, sizeof(right_norm));
+        return strcmp(left_norm, right_norm) == 0;
+    }
+    if (right_kind == ZT_SYMBOL_IMPORT && zt_bind_symbol_is_type_like(left_kind)) {
+        zt_bind_normalize_name(left, left_norm, sizeof(left_norm));
+        zt_bind_normalize_name(right, right_norm, sizeof(right_norm));
+        return strcmp(left_norm, right_norm) == 0;
+    }
+    return 0;
+}
+
+static void zt_bind_warn_similar_name(zt_binder *binder, zt_scope *scope, zt_symbol_kind kind, const char *name, zt_source_span span, int is_implicit) {
     size_t i;
 
     if (binder == NULL || binder->result == NULL || scope == NULL || name == NULL || is_implicit) return;
@@ -179,6 +273,7 @@ static void zt_bind_warn_similar_name(zt_binder *binder, zt_scope *scope, const 
         const zt_symbol *existing = &scope->symbols[i];
         if (existing->is_implicit || existing->name == NULL) continue;
         if (strchr(existing->name, '.') != NULL) continue;
+        if (zt_bind_is_import_type_case_pair(existing->kind, existing->name, kind, name)) continue;
         if (!zt_bind_names_are_too_similar(existing->name, name)) continue;
 
         zt_diag_list_add_severity(
@@ -261,7 +356,7 @@ static void zt_bind_declare_name(zt_binder *binder, zt_scope *scope, zt_symbol_k
         return;
     }
 
-    zt_bind_warn_similar_name(binder, scope, name, span, is_implicit);
+    zt_bind_warn_similar_name(binder, scope, kind, name, span, is_implicit);
 
     if (zt_scope_lookup_parent_chain(scope, name) != NULL) {
         zt_diag_list_add(&binder->result->diagnostics, ZT_DIAG_SHADOWING, span, "name '%s' shadows an outer declaration", name);

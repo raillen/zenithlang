@@ -29,6 +29,19 @@ def expect(condition, message, output=""):
     sys.exit(1)
 
 
+def expect_clean_repl_output(output):
+    noisy_fragments = [
+        "compiling runtime cache:",
+        "compiling:",
+        "warning[native.",
+        "built:",
+        "running:",
+        "exit code:",
+    ]
+    for fragment in noisy_fragments:
+        expect(fragment not in output, f"REPL output should not include '{fragment}'", output)
+
+
 def main():
     expect(ZT_EXE.exists(), "zt.exe must exist before running driver tests")
 
@@ -39,14 +52,22 @@ def main():
     rc, out = run_zt("repl", "--eval", "1 + 2", "--ci")
     expect(rc == 0, "zt repl --eval should run arithmetic expressions", out)
     expect("3" in out.splitlines(), "arithmetic eval should print 3", out)
+    expect_clean_repl_output(out)
 
     rc, out = run_zt("repl", "--eval", '"ok"', "--ci")
     expect(rc == 0, "zt repl --eval should run text literal expressions", out)
     expect("ok" in out.splitlines(), "text eval should print ok", out)
+    expect_clean_repl_output(out)
+
+    rc, out = run_zt("repl", "--eval", "1 + 1")
+    expect(rc == 0, "zt repl --eval should be quiet by default", out)
+    expect("2" in out.splitlines(), "default eval should print only the expression result", out)
+    expect_clean_repl_output(out)
 
     rc, out = run_zt("repl", "--ci", input_text="1 + 4\n:quit\n")
     expect(rc == 0, "interactive zt repl should accept stdin lines", out)
     expect("zt> 5" in out or "5" in out.splitlines(), "interactive eval should print 5", out)
+    expect_clean_repl_output(out)
 
     rc, out = run_zt("repl", "--eval", "missing_name", "--ci")
     expect(rc != 0, "zt repl --eval should fail invalid expressions", out)

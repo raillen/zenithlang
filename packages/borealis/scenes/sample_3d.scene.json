@@ -1,28 +1,109 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "sample_3d",
   "document_id": "scene:sample_3d",
+  "environment": {
+    "skybox": {
+      "mode": "solid",
+      "color": "#121820",
+      "asset": null
+    },
+    "ambient": {
+      "color": "#ffffff",
+      "intensity": 0.35
+    },
+    "fog": {
+      "enabled": false,
+      "color": "#9ca3af",
+      "density": 0.01
+    },
+    "weather": {
+      "preset": "clear"
+    }
+  },
+  "render": {
+    "quality": "medium",
+    "postfx": {
+      "fxaa": false,
+      "bloom": 0.0,
+      "vignette": 0.0
+    }
+  },
+  "audio": {
+    "master": 1.0,
+    "music": 0.8,
+    "sfx": 0.9,
+    "spatial": true
+  },
   "entities": [
     {
       "stable_id": "camera-3d",
       "name": "Camera 3D",
       "layer": "world3d",
-      "tags": ["camera", "3d"],
+      "parent": null,
+      "tags": [
+        "camera",
+        "3d"
+      ],
       "transform": {
-        "x": 120,
-        "y": -120,
-        "z": 120,
-        "rotation_x": -35,
-        "rotation_y": 35,
-        "rotation": 0,
-        "scale_x": 1,
-        "scale_y": 1,
-        "scale_z": 1
+        "x": 120.0,
+        "y": -120.0,
+        "z": 120.0,
+        "rotation": 0.0,
+        "rotation_x": -35.0,
+        "rotation_y": 35.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0
       },
       "components": [
         {
           "kind": "camera3d",
-          "projection": "perspective"
+          "asset": null,
+          "script": null,
+          "profile": null,
+          "properties": {
+            "projection": "perspective",
+            "fov": 60,
+            "near": 0.1,
+            "far": 1000
+          }
+        }
+      ]
+    },
+    {
+      "stable_id": "sun",
+      "name": "Sun",
+      "layer": "world3d",
+      "parent": null,
+      "tags": [
+        "light",
+        "3d"
+      ],
+      "transform": {
+        "x": -3.0,
+        "y": 6.0,
+        "z": 4.0,
+        "rotation": 0.0,
+        "rotation_x": -45.0,
+        "rotation_y": -30.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0
+      },
+      "components": [
+        {
+          "kind": "directional_light",
+          "asset": null,
+          "script": null,
+          "profile": null,
+          "properties": {
+            "color": "#fff3d4",
+            "intensity": 2.0,
+            "shadow": false
+          }
         }
       ]
     },
@@ -30,22 +111,33 @@
       "stable_id": "cube-01",
       "name": "Cube 01",
       "layer": "world3d",
-      "tags": ["3d"],
+      "parent": null,
+      "tags": [
+        "3d",
+        "mesh"
+      ],
       "transform": {
-        "x": 0,
-        "y": 0,
-        "z": 24,
-        "rotation_x": 0,
-        "rotation_y": 0,
-        "rotation": 0,
-        "scale_x": 1,
-        "scale_y": 1,
-        "scale_z": 1
+        "x": 0.0,
+        "y": 0.0,
+        "z": 24.0,
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0
       },
       "components": [
         {
           "kind": "cube3d",
-          "size": 48
+          "asset": null,
+          "script": null,
+          "profile": null,
+          "properties": {
+            "size": 48,
+            "color": "#f5a524"
+          }
         }
       ]
     },
@@ -53,22 +145,30 @@
       "stable_id": "triangle-model",
       "name": "Triangle Model",
       "layer": "world3d",
-      "tags": ["3d", "asset"],
+      "parent": null,
+      "tags": [
+        "3d",
+        "asset"
+      ],
       "transform": {
-        "x": 96,
-        "y": 64,
-        "z": 0,
-        "rotation_x": 0,
-        "rotation_y": 0,
-        "rotation": 0,
-        "scale_x": 1,
-        "scale_y": 1,
-        "scale_z": 1
+        "x": 96.0,
+        "y": 64.0,
+        "z": 0.0,
+        "rotation": 0.0,
+        "rotation_x": 0.0,
+        "rotation_y": 0.0,
+        "rotation_z": 0.0,
+        "scale_x": 1.0,
+        "scale_y": 1.0,
+        "scale_z": 1.0
       },
       "components": [
         {
           "kind": "model3d",
-          "asset": "assets/triangle.obj"
+          "asset": "assets/triangle.obj",
+          "script": null,
+          "profile": null,
+          "properties": {}
         }
       ]
     }

@@ -1620,8 +1620,38 @@ static zir_expr *zir_lower_call_expr(
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_full_match_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_full_match_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_first_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_first_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_count_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_count_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
     if (zir_call_is_module_func(callee_name, "regex", "zt_regex_find_all_core")) {
         call = zir_expr_make_call_extern("c.zt_regex_find_all_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_split_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_split_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_replace_all_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_replace_all_core");
+        zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
+        return call;
+    }
+    if (zir_call_is_module_func(callee_name, "regex", "zt_regex_escape_core")) {
+        call = zir_expr_make_call_extern("c.zt_regex_escape_core");
         zir_call_add_lowered_args(call, env, &expr->as.call_expr.args, replace_ident_from, replace_ident_to, replace_it_to);
         return call;
     }

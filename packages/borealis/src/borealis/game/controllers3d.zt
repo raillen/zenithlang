@@ -22,11 +22,11 @@ public struct Platformer3dConfig
     jump_force: float = 8.0
 end
 
-public var controller3d_next_id: int = 1
-public var controller3d_kind: map<int, text> = {}
-public var controller3d_enabled: map<int, bool> = {}
-public var controller3d_entity_id: map<int, int> = {}
-public var controller3d_camera_id: map<int, int> = {}
+var controller3d_next_id: int = 1
+var controller3d_kind: map<int, text> = {}
+var controller3d_enabled: map<int, bool> = {}
+var controller3d_entity_id: map<int, int> = {}
+var controller3d_camera_id: map<int, int> = {}
 
 public func controller3d_create_fps(entity: entities.Entity, camera: camera3d.Camera3D, _config: controllers3d.FpsConfig) -> result<controllers3d.Controller3DHandle, core.Error>
     return controllers3d.controller3d_make("fps", entity, camera)
@@ -91,7 +91,7 @@ public func controller3d_make(kind: text, entity: entities.Entity, camera: camer
     return success(controllers3d.Controller3DHandle(id: id))
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -101,7 +101,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+func int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -111,7 +111,7 @@ public func int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+func text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -121,19 +121,19 @@ public func text_or(values: map<int, text>, id: int, fallback: text) -> text
     end
 end
 
-public func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func set_bool(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next
 end
 
-public func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next

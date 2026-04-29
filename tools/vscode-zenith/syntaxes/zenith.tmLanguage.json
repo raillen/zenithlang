@@ -41,7 +41,7 @@
     },
     "types": {
       "patterns": [
-        { "name": "support.type.zenith", "match": "\\b(int|int8|int16|int32|int64|u8|u16|u32|u64|uint8|uint16|uint32|uint64|float|float32|float64|bool|text|bytes|void|optional|result|list|map|set|lazy|grid2d|pqueue|circbuf|btreemap|btreeset|grid3d|core\\.Error)\\b" }
+        { "name": "support.type.zenith", "match": "\\b(int|int8|int16|int32|int64|u8|u16|u32|u64|uint8|uint16|uint32|uint64|float|float32|float64|bool|text|bytes|void|optional|result|list|map|set|grid2d|pqueue|circbuf|btreemap|btreeset|grid3d|core\\.Error)\\b" }
       ]
     }
   }

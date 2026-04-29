@@ -28,6 +28,8 @@ Projeto atual: `Borealis` (nome fechado).
 ## Arquivos de referencia
 
 - arquitetura: `packages/borealis/architecture-summary.md`
+- politica de API publica: `packages/borealis/api-public-policy-v1.md`
+- contrato de cena v2: `packages/borealis/scene-contract-v2.md`
 - decisions: `packages/borealis/decisions/*`
 - baseline da API: `packages/borealis/api-baseline-v1.md`
 - linker profile desktop: `packages/borealis/backend-desktop-linker-profile-v1.md`
@@ -58,19 +60,29 @@ Outros exemplos:
 - `packages/borealis/examples/render2d_base.zt` (line/rect/circle/text + HUD simples)
 - `packages/borealis/examples/scene_entities_v1.zt` (scene + entities + tags/hierarquia)
 - `packages/borealis/examples/ecs_hybrid_v1.zt` (components + systems via `engine.ecs` e facade em `game.entities`)
-- `packages/borealis/examples/modular_scaffolds_v1.zt` (uso basico dos novos modulos scaffold)
 - `packages/borealis/examples/raylib_desktop_loop.zt` (camada `borealis.game` com `Backend.Raylib`)
 - `packages/borealis/examples/raylib_desktop_app/` (projeto completo com `zenith.ztproj`, usando ABI runtime direta para rodar agora)
 
+Fixture de integracao:
+
+- `packages/borealis/fixtures/modular_scaffolds_v1.zt` (validacao ampla dos modulos scaffold; nao e exemplo de onboarding)
+
 ## Scene document inicial
 
-O primeiro contrato JSON de cena esta em `packages/borealis/scenes/sample.scene.json`.
+O contrato JSON de cena v2 esta em:
 
-Ele e pequeno de proposito: `name`, `document_id` e uma lista de `entities` com
-`stable_id`, `name`, `layer`, `parent`, `tags`, `transform` e `components`.
-Esse arquivo serve como fixture compartilhada entre Borealis e `tools/borealis-studio`.
-O preview runner do editor ja usa esse contrato em `open_scene` e emite
-diagnostico com a contagem de entidades carregadas.
+- `packages/borealis/scenes/sample.scene.json`
+- `packages/borealis/scenes/sample_3d.scene.json`
+
+A cena v2 tem `environment`, `render`, `audio` e `entities`. Esse formato serve
+como fixture compartilhada entre Borealis, SDK, Studio, viewport, Play mode e
+build output.
+
+Valide o contrato com:
+
+```text
+python tools/validate_borealis_contracts.py
+```
 
 ## Nota sobre backend
 

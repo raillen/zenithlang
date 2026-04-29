@@ -182,7 +182,7 @@ Status parcial da execucao:
 - scaffolds base criados para `movement`, `controllers`, `vehicles`, `animation`, `audio`, `ai`, `camera`, `input`;
 - scaffolds base criados para `world`, `procedural`, `ui`, `ui.hud`, `assets`, `save`, `storage`, `database`, `services`, `settings`, `events`, `debug`;
 - fixture `borealis_foundations_stub` validando assets, events tipados, save, storage, services, database e settings persistente;
-- exemplo de integracao inicial publicado em `packages/borealis/examples/modular_scaffolds_v1.zt`.
+- fixture de integracao inicial publicada em `packages/borealis/fixtures/modular_scaffolds_v1.zt`.
 
 Status da fase: concluida.
 

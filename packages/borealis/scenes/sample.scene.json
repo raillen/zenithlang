@@ -1,91 +1,140 @@
 {
+  "version": 2,
+  "name": "sample",
   "document_id": "scene:sample",
+  "environment": {
+    "skybox": {
+      "mode": "solid",
+      "color": "#111827",
+      "asset": null
+    },
+    "ambient": {
+      "color": "#ffffff",
+      "intensity": 0.35
+    },
+    "fog": {
+      "enabled": false,
+      "color": "#9ca3af",
+      "density": 0.0
+    },
+    "weather": {
+      "preset": "clear"
+    }
+  },
+  "render": {
+    "quality": "medium",
+    "postfx": {
+      "fxaa": false,
+      "bloom": 0.0,
+      "vignette": 0.0
+    }
+  },
+  "audio": {
+    "master": 1.0,
+    "music": 0.8,
+    "sfx": 0.9,
+    "spatial": false
+  },
   "entities": [
     {
-      "components": [
-        {
-          "asset": "assets/player.png",
-          "kind": "sprite"
-        },
-        {
-          "kind": "controller",
-          "profile": "platformer"
-        }
-      ],
-      "layer": "actors",
-      "name": "Player",
       "stable_id": "player",
+      "name": "Player",
+      "layer": "actors",
+      "parent": null,
       "tags": [
         "player",
         "controllable"
       ],
       "transform": {
+        "x": 105.45,
+        "y": 67.27,
+        "z": 0.0,
         "rotation": 0.0,
         "rotation_x": 0.0,
         "rotation_y": 0.0,
         "rotation_z": 0.0,
         "scale_x": 1.0,
         "scale_y": 1.0,
-        "scale_z": 1.0,
-        "x": 105.45455169677734,
-        "y": 67.2727279663086,
-        "z": 0.0
-      }
-    },
-    {
+        "scale_z": 1.0
+      },
       "components": [
         {
-          "kind": "ai",
-          "profile": "patrol"
+          "kind": "sprite",
+          "asset": "assets/player.png",
+          "script": null,
+          "profile": null,
+          "properties": {}
+        },
+        {
+          "kind": "script",
+          "asset": null,
+          "script": "scripts/player.zt",
+          "profile": "platformer",
+          "properties": {}
         }
-      ],
-      "layer": "actors",
-      "name": "Enemy 01",
-      "parent": "player",
+      ]
+    },
+    {
       "stable_id": "enemy-01",
+      "name": "Enemy 01",
+      "layer": "actors",
+      "parent": "player",
       "tags": [
         "enemy"
       ],
       "transform": {
+        "x": 220.0,
+        "y": 96.0,
+        "z": 0.0,
         "rotation": 0.0,
         "rotation_x": 0.0,
         "rotation_y": 0.0,
         "rotation_z": 0.0,
         "scale_x": 1.0,
         "scale_y": 1.0,
-        "scale_z": 1.0,
-        "x": 220.0,
-        "y": 96.0,
-        "z": 0.0
-      }
-    },
-    {
+        "scale_z": 1.0
+      },
       "components": [
         {
-          "kind": "camera2d",
-          "zoom": 1
+          "kind": "script",
+          "asset": null,
+          "script": "scripts/enemy_patrol.zt",
+          "profile": "patrol",
+          "properties": {}
         }
-      ],
-      "layer": "world",
-      "name": "Main Camera",
+      ]
+    },
+    {
       "stable_id": "camera-main",
+      "name": "Main Camera",
+      "layer": "world",
+      "parent": null,
       "tags": [
         "camera"
       ],
       "transform": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
         "rotation": 0.0,
         "rotation_x": 0.0,
         "rotation_y": 0.0,
         "rotation_z": 0.0,
         "scale_x": 1.0,
         "scale_y": 1.0,
-        "scale_z": 1.0,
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-      }
+        "scale_z": 1.0
+      },
+      "components": [
+        {
+          "kind": "camera2d",
+          "asset": null,
+          "script": null,
+          "profile": null,
+          "properties": {
+            "zoom": 1
+          }
+        }
+      ]
     }
-  ],
-  "name": "sample",
-  "version": 1.0
+  ]
 }

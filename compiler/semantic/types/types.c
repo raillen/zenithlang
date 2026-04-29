@@ -190,6 +190,14 @@ static void zt_type_format_inner(const zt_type *type, char *buffer, size_t buffe
         case ZT_TYPE_USER:
         case ZT_TYPE_TYPE_PARAM:
             zt_type_append(buffer, buffer_size, cursor, type->name != NULL ? type->name : "<anon>");
+            if (type->args.count > 0) {
+                zt_type_append(buffer, buffer_size, cursor, "<");
+                for (i = 0; i < type->args.count; i++) {
+                    if (i != 0) zt_type_append(buffer, buffer_size, cursor, ", ");
+                    zt_type_format_inner(type->args.items[i], buffer, buffer_size, cursor);
+                }
+                zt_type_append(buffer, buffer_size, cursor, ">");
+            }
             break;
         case ZT_TYPE_OPTIONAL:
         case ZT_TYPE_RESULT:

@@ -15,6 +15,15 @@ int zt_resolve_project_paths(
         size_t manifest_path_capacity);
 void zt_apply_manifest_lang(const zt_project_manifest *manifest);
 
+static int doc_rich_output(void) {
+    const char *value = getenv("ZT_CLI_UTF8");
+    if (value == NULL || value[0] == '\0') return 0;
+    if (value[0] == '0') return 0;
+    if (strcmp(value, "false") == 0 || strcmp(value, "FALSE") == 0) return 0;
+    if (strcmp(value, "off") == 0 || strcmp(value, "OFF") == 0) return 0;
+    return 1;
+}
+
 static char *doc_read_file(const char *path) {
     FILE *file = fopen(path, "rb");
     long file_size;
@@ -342,18 +351,20 @@ static int doc_find_zdoc_path(
 }
 
 static void print_doc_header(const char *symbol, const char *kind, const char *locale_name) {
-    zt_lang lang = zt_l10n_current_lang();
-    (void)lang;
+    int rich = doc_rich_output();
 
     printf("\n");
-    printf("\xF0\x9F\x93\x96 %s", symbol);
+    printf("%s", rich ? "\xF0\x9F\x93\x96 " : "");
+    printf("%s", symbol);
     if (kind != NULL) {
         printf("  (%s)", kind);
     }
     printf("\n");
-    printf("\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\n");
+    printf("%s\n", rich
+        ? "\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+        : "---------------------------------------------------");
     if (locale_name != NULL && locale_name[0] != '\0') {
-        printf("\xF0\x9F\x8C\x90 %s\n\n", locale_name);
+        printf("%s%s\n\n", rich ? "\xF0\x9F\x8C\x90 " : "locale: ", locale_name);
     } else {
         printf("\n");
     }
@@ -389,7 +400,9 @@ static void print_doc_block(const char *content, size_t content_len) {
 }
 
 static void print_doc_footer(void) {
-    printf("\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\n");
+    printf("%s\n", doc_rich_output()
+        ? "\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80\xE2\x94\x80"
+        : "-----------------------------------------------------");
 }
 
 static int find_target_block(const char *target, const char *file_text,
@@ -478,7 +491,7 @@ int zt_handle_doc_show(const char *symbol, const char *lang_override) {
 
     last_dot = strrchr(symbol, '.');
     if (!last_dot) {
-        fprintf(stderr, "\xE2\x9D\x8C error: invalid symbol. Expected format: std.math.clamp\n");
+        fprintf(stderr, "error: invalid symbol. Expected format: std.math.clamp\n");
         return 1;
     }
 
@@ -491,13 +504,13 @@ int zt_handle_doc_show(const char *symbol, const char *lang_override) {
     target_name[sizeof(target_name) - 1] = '\0';
 
     if (!zt_resolve_project_paths("", project_root, sizeof(project_root), manifest_path, sizeof(manifest_path))) {
-        fprintf(stderr, "\xE2\x9A\xA0 warning: no zenith.ztproj found. Using defaults...\n");
+        fprintf(stderr, "warning: no zenith.ztproj found. Using defaults...\n");
         strcpy(project_root, ".");
         strcpy(zdoc_root_full, "zdoc");
         strcpy(zt_root_full, "src");
     } else {
         if (!zt_project_load_file(manifest_path, &project)) {
-            fprintf(stderr, "\xE2\x9D\x8C error: unable to read manifest.\n");
+            fprintf(stderr, "error: unable to read manifest.\n");
             return 1;
         }
         zt_apply_manifest_lang(&project.manifest);
@@ -508,13 +521,13 @@ int zt_handle_doc_show(const char *symbol, const char *lang_override) {
     doc_ns_to_path(namespace_buf, ns_path, sizeof(ns_path));
 
     if (!doc_find_zdoc_path(zdoc_root_full, ns_path, lang_override, zdoc_path, sizeof(zdoc_path))) {
-        fprintf(stderr, "\xE2\x9D\x8C error: zdoc file not found for namespace '%s'\n", namespace_buf);
+        fprintf(stderr, "error: zdoc file not found for namespace '%s'\n", namespace_buf);
         return 1;
     }
 
     file_text = doc_read_file(zdoc_path);
     if (!file_text) {
-        fprintf(stderr, "\xE2\x9D\x8C error: unable to read zdoc file: %s\n", zdoc_path);
+        fprintf(stderr, "error: unable to read zdoc file: %s\n", zdoc_path);
         return 1;
     }
 
@@ -534,11 +547,11 @@ int zt_handle_doc_show(const char *symbol, const char *lang_override) {
     symbol_found = doc_symbol_exists(&symbols, target_name);
 
     if (!symbol_found && zt_text != NULL) {
-        fprintf(stderr, "\xE2\x9A\xA0 warning: symbol '%s' not found in source '%s'\n", target_name, zt_path);
+        fprintf(stderr, "warning: symbol '%s' not found in source '%s'\n", target_name, zt_path);
     }
 
     if (!find_target_block(target_name, file_text, &block_start, &block_len)) {
-        fprintf(stderr, "\xE2\x9D\x8C error: target '%s' not found in zdoc module.\n", target_name);
+        fprintf(stderr, "error: target '%s' not found in zdoc module.\n", target_name);
         free(file_text);
         free(zt_text);
         doc_symbol_list_dispose(&symbols);

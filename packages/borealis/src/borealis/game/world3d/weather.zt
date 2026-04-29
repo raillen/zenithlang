@@ -14,7 +14,7 @@ public struct WeatherState
     intensity: float
 end
 
-public var weather_state: weather.WeatherState = weather.WeatherState(enabled: false, kind: weather.WeatherKind.Clear, intensity: 0.0)
+var weather_state: weather.WeatherState = weather.WeatherState(enabled: false, kind: weather.WeatherKind.Clear, intensity: 0.0)
 
 public func weather_set_enabled(enabled: bool) -> result<void, core.Error>
     weather_state = weather.WeatherState(enabled: enabled, kind: weather_state.kind, intensity: weather_state.intensity)

@@ -25,27 +25,27 @@ public struct PathResult
     length: int = 0
 end
 
-public var world_tile_solid: map<int, bool> = {}
-public var world_tile_walkable: map<int, bool> = {}
+var world_tile_solid: map<int, bool> = {}
+var world_tile_walkable: map<int, bool> = {}
 
-public var world_tileset_next_id: int = 1
-public var world_tileset_path: map<int, text> = {}
-public var world_tileset_tile_width: map<int, int> = {}
-public var world_tileset_tile_height: map<int, int> = {}
-public var world_tileset_tile_count: map<int, int> = {}
+var world_tileset_next_id: int = 1
+var world_tileset_path: map<int, text> = {}
+var world_tileset_tile_width: map<int, int> = {}
+var world_tileset_tile_height: map<int, int> = {}
+var world_tileset_tile_count: map<int, int> = {}
 
-public var world_map_next_id: int = 1
-public var world_map_width: map<int, int> = {}
-public var world_map_height: map<int, int> = {}
-public var world_map_tile_size: map<int, float> = {}
-public var world_map_spawn_x: map<int, float> = {}
-public var world_map_spawn_y: map<int, float> = {}
-public var world_map_default_index: map<int, int> = {}
-public var world_map_default_solid: map<int, bool> = {}
-public var world_map_default_walkable: map<int, bool> = {}
-public var world_map_tile_index: map<text, int> = {}
-public var world_map_tile_solid: map<text, bool> = {}
-public var world_map_tile_walkable: map<text, bool> = {}
+var world_map_next_id: int = 1
+var world_map_width: map<int, int> = {}
+var world_map_height: map<int, int> = {}
+var world_map_tile_size: map<int, float> = {}
+var world_map_spawn_x: map<int, float> = {}
+var world_map_spawn_y: map<int, float> = {}
+var world_map_default_index: map<int, int> = {}
+var world_map_default_solid: map<int, bool> = {}
+var world_map_default_walkable: map<int, bool> = {}
+var world_map_tile_index: map<text, int> = {}
+var world_map_tile_solid: map<text, bool> = {}
+var world_map_tile_walkable: map<text, bool> = {}
 
 public func tile(index: int = 0, solid: bool = false, walkable: bool = true) -> world.Tile
     return world.Tile(index: index, solid: solid, walkable: walkable)
@@ -493,7 +493,7 @@ public func map_in_bounds(target: world.TileMap, x: int, y: int) -> bool
            y < world.map_height(target)
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -503,7 +503,7 @@ public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     end
 end
 
-public func float_or(values: map<int, float>, id: int, fallback: float) -> float
+func float_or(values: map<int, float>, id: int, fallback: float) -> float
     const maybe: optional<float> = values.get(id)
     match maybe
         case value present ->
@@ -513,7 +513,7 @@ public func float_or(values: map<int, float>, id: int, fallback: float) -> float
     end
 end
 
-public func int_or(values: map<int, int>, id: int, fallback: int) -> int
+func int_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -523,7 +523,7 @@ public func int_or(values: map<int, int>, id: int, fallback: int) -> int
     end
 end
 
-public func bool_text_or(values: map<text, bool>, key: text, fallback: bool) -> bool
+func bool_text_or(values: map<text, bool>, key: text, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(key)
     match maybe
         case value present ->
@@ -533,7 +533,7 @@ public func bool_text_or(values: map<text, bool>, key: text, fallback: bool) -> 
     end
 end
 
-public func int_text_or(values: map<text, int>, key: text, fallback: int) -> int
+func int_text_or(values: map<text, int>, key: text, fallback: int) -> int
     const maybe: optional<int> = values.get(key)
     match maybe
         case value present ->

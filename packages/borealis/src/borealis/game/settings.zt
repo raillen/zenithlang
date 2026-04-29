@@ -14,7 +14,7 @@ public struct Settings
     ui_scale: float = 1.0
 end
 
-public var current: settings.Settings = settings.Settings()
+var current: settings.Settings = settings.Settings()
 
 public func defaults() -> settings.Settings
     return settings.Settings()
@@ -570,15 +570,15 @@ public func profile_marker_key(profile: text) -> text
     return f"settings::{profile}::__profile"
 end
 
-public func profile_value_key(profile: text, name: text) -> text
+func profile_value_key(profile: text, name: text) -> text
     return f"settings::{profile}::{name}"
 end
 
-public func normalize_profile_name(profile: text) -> text
+func normalize_profile_name(profile: text) -> text
     return profile
 end
 
-public func require_profile_name(profile: text) -> result<text, core.Error>
+func require_profile_name(profile: text) -> result<text, core.Error>
     const profile_name: text = settings.normalize_profile_name(profile)
     if profile_name == ""
         const message: text = "settings: profile cannot be empty"

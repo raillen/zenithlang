@@ -29,29 +29,29 @@ public struct InputFrame
     gamepad: contracts.GamepadState
 end
 
-public var input_binding_source: map<text, text> = {}
-public var input_binding_context: map<text, text> = {}
-public var input_axis_negative: map<text, text> = {}
-public var input_axis_positive: map<text, text> = {}
-public var input_contexts_enabled: map<text, bool> = {}
-public var input_context_stack: map<int, text> = {}
-public var input_context_depth: int = 0
-public var input_recording_next_id: int = 1
-public var input_recording_last_id: int = 0
-public var input_recording_last_frame: input.InputFrame = input.InputFrame(
+var input_binding_source: map<text, text> = {}
+var input_binding_context: map<text, text> = {}
+var input_axis_negative: map<text, text> = {}
+var input_axis_positive: map<text, text> = {}
+var input_contexts_enabled: map<text, bool> = {}
+var input_context_stack: map<int, text> = {}
+var input_context_depth: int = 0
+var input_recording_next_id: int = 1
+var input_recording_last_id: int = 0
+var input_recording_last_frame: input.InputFrame = input.InputFrame(
     down: contracts.ActionInput(),
     pressed: contracts.ActionInput(),
     released: contracts.ActionInput(),
     mouse: contracts.MouseState(),
     gamepad: contracts.GamepadState()
 )
-public var input_locked: bool = false
-public var input_deadzone: float = 0.2
-public var input_repeat_delay: float = 0.25
-public var input_repeat_rate: float = 0.05
-public var input_mouse_locked: bool = false
-public var input_cursor_visible: bool = true
-public var input_text_value: text = ""
+var input_locked: bool = false
+var input_deadzone: float = 0.2
+var input_repeat_delay: float = 0.25
+var input_repeat_rate: float = 0.05
+var input_mouse_locked: bool = false
+var input_cursor_visible: bool = true
+var input_text_value: text = ""
 
 public func action_state(
     pressed: bool = false,
@@ -522,7 +522,7 @@ public func binding_state(
     return input.ActionState()
 end
 
-public func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
+func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(key)
     match maybe
         case value present ->
@@ -532,7 +532,7 @@ public func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
     end
 end
 
-public func text_or(values: map<int, text>, key: int, fallback: text) -> text
+func text_or(values: map<int, text>, key: int, fallback: text) -> text
     const maybe: optional<text> = values.get(key)
     match maybe
         case value present ->
@@ -542,19 +542,19 @@ public func text_or(values: map<int, text>, key: int, fallback: text) -> text
     end
 end
 
-public func set_bool(values: map<text, bool>, key: text, value: bool) -> map<text, bool>
+func set_bool(values: map<text, bool>, key: text, value: bool) -> map<text, bool>
     var next: map<text, bool> = values
     next[key] = value
     return next
 end
 
-public func set_text(values: map<int, text>, key: int, value: text) -> map<int, text>
+func set_text(values: map<int, text>, key: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[key] = value
     return next
 end
 
-public func text_key_or(values: map<text, text>, key: text, fallback: text) -> text
+func text_key_or(values: map<text, text>, key: text, fallback: text) -> text
     const maybe: optional<text> = values.get(key)
     match maybe
         case value present ->
@@ -564,7 +564,7 @@ public func text_key_or(values: map<text, text>, key: text, fallback: text) -> t
     end
 end
 
-public func set_text_key(values: map<text, text>, key: text, value: text) -> map<text, text>
+func set_text_key(values: map<text, text>, key: text, value: text) -> map<text, text>
     var next: map<text, text> = values
     next[key] = value
     return next

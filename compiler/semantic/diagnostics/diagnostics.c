@@ -626,9 +626,9 @@ zt_diag_effort zt_diag_code_effort(zt_diag_code code) {
 
 const char *zt_diag_effort_label(zt_diag_effort effort) {
     switch (effort) {
-        case ZT_DIAG_EFFORT_QUICK_FIX: return "\xe2\x9a\xa1 quick fix";
-        case ZT_DIAG_EFFORT_MODERATE: return "\xf0\x9f\x94\xa7 moderate";
-        case ZT_DIAG_EFFORT_REQUIRES_THINKING: return "\xf0\x9f\xa7\xa9 requires thinking";
+        case ZT_DIAG_EFFORT_QUICK_FIX: return "quick fix";
+        case ZT_DIAG_EFFORT_MODERATE: return "moderate";
+        case ZT_DIAG_EFFORT_REQUIRES_THINKING: return "requires thinking";
         default: return "moderate";
     }
 }
@@ -823,10 +823,16 @@ void zt_diag_telemetry_log(
 #define ANSI_CYAN    "\x1b[1;36m"
 #define ANSI_RESET   "\x1b[0m"
 
+static int zt_diag_rich_output = 0;
+
+void zt_diag_set_rich_output(int enabled) {
+    zt_diag_rich_output = enabled ? 1 : 0;
+}
+
 void zt_diag_render_detailed(FILE *stream, const char *stage, const zt_diag *diag) {
     const char *help;
     char source_line[1024];
-    int use_color = 1; /* For simple MVP, enable colors. In production we'd check isatty. */
+    int use_color = zt_diag_rich_output;
 
     if (stream == NULL || diag == NULL) return;
 
@@ -887,7 +893,7 @@ void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag 
     const char *next_step;
     const char *effort_label;
     char source_line[1024];
-    int use_color = 1;
+    int use_color = zt_diag_rich_output;
 
     if (stream == NULL || diag == NULL) return;
 
@@ -896,25 +902,24 @@ void zt_diag_render_action_first(FILE *stream, const char *stage, const zt_diag 
     effort_label = zt_diag_effort_label(diag->effort);
 
     fprintf(stream, "\n");
-    if (use_color) fprintf(stream, "\xf0\x9f\x93\x8c ");
-    if (use_color) fprintf(stream, ANSI_GREEN "ACTION:" ANSI_RESET " ");
+    if (use_color) fprintf(stream, "\xf0\x9f\x93\x8c " ANSI_GREEN "ACTION:" ANSI_RESET " ");
+    else fprintf(stream, "ACTION: ");
     if (action) {
         fprintf(stream, "%s\n", action);
     } else {
         fprintf(stream, "%s\n", diag->message);
     }
 
-    if (use_color) fprintf(stream, "\xe2\x84\xb9\xef\xb8\x8f ");
-    if (use_color) fprintf(stream, ANSI_BLUE "WHY:" ANSI_RESET " %s\n", diag->message);
+    if (use_color) fprintf(stream, "\xe2\x84\xb9\xef\xb8\x8f " ANSI_BLUE "WHY:" ANSI_RESET " %s\n", diag->message);
+    else fprintf(stream, "WHY: %s\n", diag->message);
 
     if (diag->suggestion[0] != '\0') {
-        if (use_color) fprintf(stream, "\xf0\x9f\x92\xa1 ");
-        if (use_color) fprintf(stream, ANSI_CYAN "SUGGESTION:" ANSI_RESET " Did you mean `%s`?\n", diag->suggestion);
+        if (use_color) fprintf(stream, "\xf0\x9f\x92\xa1 " ANSI_CYAN "SUGGESTION:" ANSI_RESET " Did you mean `%s`?\n", diag->suggestion);
+        else fprintf(stream, "SUGGESTION: Did you mean `%s`?\n", diag->suggestion);
     }
 
     if (next_step != NULL && next_step[0] != '\0') {
-        if (use_color) fprintf(stream, "\xe2\x9e\xa1\xef\xb8\x8f ");
-        if (use_color) fprintf(stream, ANSI_CYAN "NEXT:" ANSI_RESET " %s\n", next_step);
+        if (use_color) fprintf(stream, "\xe2\x9e\xa1\xef\xb8\x8f " ANSI_CYAN "NEXT:" ANSI_RESET " %s\n", next_step);
         else fprintf(stream, "NEXT: %s\n", next_step);
     }
 

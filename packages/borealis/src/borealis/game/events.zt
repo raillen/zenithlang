@@ -6,28 +6,28 @@ public struct EventMessage
     payload: text
 end
 
-public var last_event_name: text = ""
-public var last_event_payload: text = ""
-public var emit_count: int = 0
-public var event_next_id: int = 1
-public var event_cursor: int = 1
-public var event_names: map<int, text> = {}
-public var event_payloads: map<int, text> = {}
-public var event_pending: map<int, bool> = {}
-public var event_name_count: map<text, int> = {}
+var last_event_name: text = ""
+var last_event_payload: text = ""
+var emit_count: int = 0
+var event_next_id: int = 1
+var event_cursor: int = 1
+var event_names: map<int, text> = {}
+var event_payloads: map<int, text> = {}
+var event_pending: map<int, bool> = {}
+var event_name_count: map<text, int> = {}
 
-public var subscription_next_id: int = 1
-public var subscription_names: map<int, text> = {}
-public var subscription_listeners: map<int, text> = {}
-public var subscription_once_flags: map<int, bool> = {}
-public var subscription_active: map<int, bool> = {}
+var subscription_next_id: int = 1
+var subscription_names: map<int, text> = {}
+var subscription_listeners: map<int, text> = {}
+var subscription_once_flags: map<int, bool> = {}
+var subscription_active: map<int, bool> = {}
 
-public var delivery_next_id: int = 1
-public var delivery_event_ids: map<int, int> = {}
-public var delivery_names: map<int, text> = {}
-public var delivery_payloads: map<int, text> = {}
-public var delivery_listeners: map<int, text> = {}
-public var delivery_pending: map<int, bool> = {}
+var delivery_next_id: int = 1
+var delivery_event_ids: map<int, int> = {}
+var delivery_names: map<int, text> = {}
+var delivery_payloads: map<int, text> = {}
+var delivery_listeners: map<int, text> = {}
+var delivery_pending: map<int, bool> = {}
 
 public func emit(name: text, payload: text = "") -> result<void, core.Error>
     events.emit_internal(name, payload)?
@@ -301,7 +301,7 @@ public func first_listener_delivery_id(listener: text) -> int
     return 0
 end
 
-public func normalize_cursor() -> void
+func normalize_cursor() -> void
     const next_id: int = events.first_pending_id()
     if next_id > 0
         event_cursor = next_id
@@ -334,7 +334,7 @@ public func event_payload(id: int) -> text
     return events.event_text_or(event_payloads, id, "")
 end
 
-public func emit_internal(name: text, payload: text) -> result<int, core.Error>
+func emit_internal(name: text, payload: text) -> result<int, core.Error>
     if name == ""
         return error("events: name cannot be empty")
     end
@@ -479,7 +479,7 @@ public func find_active_subscription_id(name: text, listener: text) -> int
     return 0
 end
 
-public func event_text_or(values: map<int, text>, id: int, fallback: text) -> text
+func event_text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -489,7 +489,7 @@ public func event_text_or(values: map<int, text>, id: int, fallback: text) -> te
     end
 end
 
-public func event_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func event_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->
@@ -499,7 +499,7 @@ public func event_bool_or(values: map<int, bool>, id: int, fallback: bool) -> bo
     end
 end
 
-public func event_int_by_id_or(values: map<int, int>, id: int, fallback: int) -> int
+func event_int_by_id_or(values: map<int, int>, id: int, fallback: int) -> int
     const maybe: optional<int> = values.get(id)
     match maybe
         case value present ->
@@ -509,7 +509,7 @@ public func event_int_by_id_or(values: map<int, int>, id: int, fallback: int) ->
     end
 end
 
-public func event_int_or(values: map<text, int>, key: text, fallback: int) -> int
+func event_int_or(values: map<text, int>, key: text, fallback: int) -> int
     const maybe: optional<int> = values.get(key)
     match maybe
         case value present ->
@@ -519,19 +519,19 @@ public func event_int_or(values: map<text, int>, key: text, fallback: int) -> in
     end
 end
 
-public func event_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
+func event_text_set(values: map<int, text>, id: int, value: text) -> map<int, text>
     var next: map<int, text> = values
     next[id] = value
     return next
 end
 
-public func event_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
+func event_bool_set(values: map<int, bool>, id: int, value: bool) -> map<int, bool>
     var next: map<int, bool> = values
     next[id] = value
     return next
 end
 
-public func event_int_set(values: map<text, int>, key: text, value: int) -> map<text, int>
+func event_int_set(values: map<text, int>, key: text, value: int) -> map<text, int>
     var next: map<text, int> = values
     next[key] = value
     return next

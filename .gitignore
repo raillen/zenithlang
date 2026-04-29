@@ -2,6 +2,8 @@
 .agents/
 .claude/
 .codex/
+.codex-vscode-extensions/
+.codex-vscode-user/
 .continue/
 .cursor/
 .gemini/
@@ -110,6 +112,10 @@ tests/behavior/*/build/
 tests/perf/*/.ztc-tmp/
 tests/perf/*/build/
 tools/.ztc-tmp/
+tools/vscode-zenith/bin/
+tools/vscode-zenith/runtime/
+tools/vscode-zenith/stdlib/
+tools/vscode-zenith/LICENSE*
 tools/borealis-studio/.ztc-tmp/
 tools/borealis-studio/dist/
 tools/borealis-studio/node_modules/

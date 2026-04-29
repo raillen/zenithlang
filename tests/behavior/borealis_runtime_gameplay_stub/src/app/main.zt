@@ -184,6 +184,23 @@ func verify_input_audio_ai_camera_world_and_procedural() -> result<void, core.Er
     end
     input.input_unlock()
 
+    verify_audio_ai_camera()?
+    verify_world_and_procedural()?
+
+    const maybe_context: optional<text> = input.input_context_pop()
+    match maybe_context
+        case value current ->
+            if current != "gameplay"
+                return error("input context_pop should return the active context name")
+            end
+        case none ->
+            return error("input context_pop should return the pushed context")
+    end
+
+    return success()
+end
+
+func verify_audio_ai_camera() -> result<void, core.Error>
     const group: audio.AudioGroup = audio.audio_group_create("sfx")?
     const sound: audio.Sound = audio.sound_load("jump.wav")?
     const music: audio.Music = audio.music_load("theme.ogg")?
@@ -268,6 +285,10 @@ func verify_input_audio_ai_camera_world_and_procedural() -> result<void, core.Er
         return error("camera framing should return a positive zoom")
     end
 
+    return success()
+end
+
+func verify_world_and_procedural() -> result<void, core.Error>
     const tileset: world.Tileset = world.tileset_load("terrain.png", tile_width: 16, tile_height: 16, tile_count: 8)?
     if world.tileset_tile_count(tileset) != 8
         return error("world tileset should keep the declared tile count")
@@ -319,16 +340,6 @@ func verify_input_audio_ai_camera_world_and_procedural() -> result<void, core.Er
     const cellular: world.TileMap = procedural.cellular_automata_generate(6, 6, 1)?
     if world.map_width(cellular) != 6 or world.map_height(cellular) != 6
         return error("procedural cellular automata should preserve the requested map size")
-    end
-
-    const maybe_context: optional<text> = input.input_context_pop()
-    match maybe_context
-        case value current ->
-            if current != "gameplay"
-                return error("input context_pop should return the active context name")
-            end
-        case none ->
-            return error("input context_pop should return the pushed context")
     end
 
     return success()

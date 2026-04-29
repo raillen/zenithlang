@@ -11,7 +11,7 @@ public struct PostFxState
     fxaa: bool
 end
 
-public var state: postfx.PostFxState = postfx.PostFxState(
+var state: postfx.PostFxState = postfx.PostFxState(
     enabled: false,
     vignette: 0.0,
     grain: 0.0,

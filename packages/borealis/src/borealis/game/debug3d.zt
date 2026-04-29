@@ -6,13 +6,13 @@ public struct Debug3dOverlayState
     watch_count: int
 end
 
-public var debug3d_enabled: bool = false
-public var debug3d_colliders: bool = false
-public var debug3d_watch_entity_ids: map<int, int> = {}
-public var debug3d_watch_body_ids: map<int, int> = {}
-public var debug3d_watch_ai_ids: map<int, int> = {}
-public var debug3d_watch_camera_ids: map<int, int> = {}
-public var debug3d_watch_count: int = 0
+var debug3d_enabled: bool = false
+var debug3d_colliders: bool = false
+var debug3d_watch_entity_ids: map<int, int> = {}
+var debug3d_watch_body_ids: map<int, int> = {}
+var debug3d_watch_ai_ids: map<int, int> = {}
+var debug3d_watch_camera_ids: map<int, int> = {}
+var debug3d_watch_count: int = 0
 
 public func debug3d_set_enabled(enabled: bool) -> result<void, core.Error>
     debug3d_enabled = enabled
@@ -126,7 +126,7 @@ public func debug3d_get_overlay_state() -> debug3d.Debug3dOverlayState
     )
 end
 
-public func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
+func set_int(values: map<int, int>, id: int, value: int) -> map<int, int>
     var next: map<int, int> = values
     next[id] = value
     return next

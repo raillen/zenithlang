@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.3.0-alpha.3",
+    [string]$Version = "0.4.1-alpha.1",
     [string]$IsccPath = "iscc",
     [string]$OutputDir = "dist\\installer",
     [string]$StageDir = ".artifacts\\installer\\stage",
@@ -24,6 +24,19 @@ function Copy-IfExists([string]$Source, [string]$DestinationDir) {
     if (Test-Path -LiteralPath $Source) {
         Copy-Item -LiteralPath $Source -Destination $DestinationDir -Force
     }
+}
+
+function Convert-ToInnoNumericVersion([string]$VersionValue) {
+    $match = [regex]::Match($VersionValue, '^(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z]+\.?(\d+))?$')
+    if (-not $match.Success) {
+        throw "Version '$VersionValue' cannot be converted to numeric Inno version. Expected X.Y.Z or X.Y.Z-alpha.N."
+    }
+
+    $major = $match.Groups[1].Value
+    $minor = $match.Groups[2].Value
+    $patch = $match.Groups[3].Value
+    $build = if ($match.Groups[4].Success) { $match.Groups[4].Value } else { "0" }
+    return "$major.$minor.$patch.$build"
 }
 
 if (-not $SkipStaging) {
@@ -76,12 +89,14 @@ if ($null -eq $isccCommand) {
 }
 
 $outputBase = "zenith-$Version-windows-amd64-setup"
+$numericVersion = Convert-ToInnoNumericVersion $Version
 $stageForInno = (Resolve-Path $stageAbs).Path
 $outputForInno = (Resolve-Path $outputAbs).Path
 
 $isccArgs = @(
     $issPath,
     "/DMyAppVersion=$Version",
+    "/DMyAppNumericVersion=$numericVersion",
     "/DSourceDir=$stageForInno",
     "/DOutputDir=$outputForInno",
     "/DOutputBase=$outputBase"

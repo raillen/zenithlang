@@ -1736,12 +1736,27 @@ static const char *c_extern_call_return_type(const char *callee) {
         return "result<void,core.Error>";
     }
 
-    if (strcmp(callee, "c.zt_regex_is_match_core") == 0) {
+    if ((strcmp(callee, "c.zt_regex_is_match_core") == 0 ||
+            strcmp(callee, "c.zt_regex_full_match_core") == 0)) {
         return "bool";
     }
 
-    if (strcmp(callee, "c.zt_regex_find_all_core") == 0) {
+    if (strcmp(callee, "c.zt_regex_first_core") == 0) {
+        return "optional<text>";
+    }
+
+    if (strcmp(callee, "c.zt_regex_count_core") == 0) {
+        return "int";
+    }
+
+    if ((strcmp(callee, "c.zt_regex_find_all_core") == 0 ||
+            strcmp(callee, "c.zt_regex_split_core") == 0)) {
         return "list<text>";
+    }
+
+    if ((strcmp(callee, "c.zt_regex_replace_all_core") == 0 ||
+            strcmp(callee, "c.zt_regex_escape_core") == 0)) {
+        return "text";
     }
 
     return NULL;
@@ -5239,8 +5254,21 @@ static const char *c_extern_call_expected_arg_type(const char *callee, size_t in
     }
 
     if ((strcmp(callee, "c.zt_regex_is_match_core") == 0 ||
-            strcmp(callee, "c.zt_regex_find_all_core") == 0) &&
+            strcmp(callee, "c.zt_regex_full_match_core") == 0 ||
+            strcmp(callee, "c.zt_regex_first_core") == 0 ||
+            strcmp(callee, "c.zt_regex_count_core") == 0 ||
+            strcmp(callee, "c.zt_regex_find_all_core") == 0 ||
+            strcmp(callee, "c.zt_regex_split_core") == 0 ||
+            strcmp(callee, "c.zt_regex_replace_all_core") == 0) &&
             (index == 0 || index == 1)) {
+        return "text";
+    }
+
+    if (strcmp(callee, "c.zt_regex_replace_all_core") == 0 && index == 2) {
+        return "text";
+    }
+
+    if (strcmp(callee, "c.zt_regex_escape_core") == 0 && index == 0) {
         return "text";
     }
 

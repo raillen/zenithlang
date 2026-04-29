@@ -102,9 +102,9 @@ Rules:
 
 ### std.regex
 - Types: `regex.Regex`, `regex.Error`
-- Core helpers: `compile`, `is_match`, `find_all`
+- Core helpers: `compile`, `is_valid`, `is_match`, `contains`, `matches`, `full_match`, `first`, `count`, `find_all`, `split`, `replace_all`, `escape`
 - Current engine covers simple ASCII-oriented patterns: literals, `.`, `^`, `$`, `*`, `+`, `?`, character classes/ranges and `\d`, `\w`, `\s`
-- Groups, captures, flags and replace are deferred
+- Groups, captures, flags and full Unicode regex are deferred
 
 ### std.format
 - `format.BytesStyle`

@@ -16,11 +16,11 @@ public struct CloudState
     provider: text
 end
 
-public var request_count_total: int = 0
-public var last_request_url: text = ""
-public var cloud_values: map<text, text> = {}
-public var cloud_present: map<text, bool> = {}
-public var cloud_provider_counts: map<text, int> = {}
+var request_count_total: int = 0
+var last_request_url: text = ""
+var cloud_values: map<text, text> = {}
+var cloud_present: map<text, bool> = {}
+var cloud_provider_counts: map<text, int> = {}
 
 public func http_send(request: services.HttpRequest) -> result<services.HttpResponse, core.Error>
     if request.url == ""
@@ -180,7 +180,7 @@ public func reset() -> void
     cloud_provider_counts = {}
 end
 
-public func require_cloud_connection(state: services.CloudState) -> result<void, core.Error>
+func require_cloud_connection(state: services.CloudState) -> result<void, core.Error>
     const connected: bool = state.connected
     const provider_name: text = state.provider
     if connected == false
@@ -192,14 +192,14 @@ public func require_cloud_connection(state: services.CloudState) -> result<void,
     return success()
 end
 
-public func normalize_method(method: text) -> text
+func normalize_method(method: text) -> text
     if method == ""
         return "GET"
     end
     return method
 end
 
-public func normalize_body(body: text) -> text
+func normalize_body(body: text) -> text
     return body
 end
 
@@ -207,7 +207,7 @@ public func cloud_key(provider: text, name: text) -> text
     return f"{provider}::{name}"
 end
 
-public func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
+func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(key)
     match maybe
         case value present ->
@@ -217,7 +217,7 @@ public func bool_or(values: map<text, bool>, key: text, fallback: bool) -> bool
     end
 end
 
-public func int_or(values: map<text, int>, key: text, fallback: int) -> int
+func int_or(values: map<text, int>, key: text, fallback: int) -> int
     const maybe: optional<int> = values.get(key)
     match maybe
         case value present ->

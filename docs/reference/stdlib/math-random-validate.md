@@ -62,11 +62,20 @@ Functions:
 | API | Description |
 | --- | --- |
 | `regex.compile(pattern: text) -> result<regex.Regex, regex.Error>` | Validates a pattern. |
+| `regex.is_valid(pattern: text) -> bool` | Checks whether a pattern is valid. |
 | `regex.is_match(pattern: text, input: text) -> bool` | Checks whether the pattern matches at least once. |
+| `regex.contains(pattern: text, input: text) -> bool` | Alias for `is_match`. |
+| `regex.matches(pattern: text, input: text) -> result<bool, regex.Error>` | Match helper with explicit invalid-pattern errors. |
+| `regex.full_match(pattern: text, input: text) -> result<bool, regex.Error>` | Checks whether the pattern covers the whole input. |
+| `regex.first(pattern: text, input: text) -> optional<text>` | Returns the first match. |
+| `regex.count(pattern: text, input: text) -> int` | Counts non-empty matches. |
 | `regex.find_all(pattern: text, input: text) -> list<text>` | Returns all non-empty matches. |
+| `regex.split(pattern: text, input: text) -> list<text>` | Splits input by non-empty matches. |
+| `regex.replace_all(pattern: text, input: text, replacement: text) -> text` | Replaces all non-empty matches. |
+| `regex.escape(input: text) -> text` | Escapes basic regex metacharacters. |
 
 Current pattern support is intentionally small: literals, `.`, `^`, `$`, `*`, `+`, `?`, classes/ranges and `\d`, `\w`, `\s`.
-Groups, captures, flags and replace are deferred.
+Groups, captures, flags and full Unicode regex are deferred.
 
 ## `std.random`
 

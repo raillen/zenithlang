@@ -40,11 +40,8 @@ Crie um arquivo `hello.zt`:
 ```zt
 namespace script
 
-import std.io as io
-
-func main() -> result<void, core.Error>
-    io.write("Hello from Zenith\n")?
-    return success()
+func main()
+    print("Hello from Zenith")
 end
 ```
 

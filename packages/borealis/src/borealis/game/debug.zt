@@ -1,18 +1,18 @@
 namespace borealis.game.debug
 
-public var enabled: bool = false
-public var log_total: int = 0
-public var last_log_message: text = ""
+var enabled: bool = false
+var log_total: int = 0
+var last_log_message: text = ""
 
-public var flag_next_id: int = 1
-public var flag_names: map<int, text> = {}
-public var flag_values: map<int, bool> = {}
-public var flag_present: map<int, bool> = {}
+var flag_next_id: int = 1
+var flag_names: map<int, text> = {}
+var flag_values: map<int, bool> = {}
+var flag_present: map<int, bool> = {}
 
-public var watch_next_id: int = 1
-public var watch_names: map<int, text> = {}
-public var watch_values: map<int, text> = {}
-public var watch_present: map<int, bool> = {}
+var watch_next_id: int = 1
+var watch_names: map<int, text> = {}
+var watch_values: map<int, text> = {}
+var watch_present: map<int, bool> = {}
 
 public func set_enabled(value: bool) -> void
     enabled = value
@@ -280,7 +280,7 @@ public func find_watch_id(name: text) -> int
     return 0
 end
 
-public func text_or(values: map<int, text>, id: int, fallback: text) -> text
+func text_or(values: map<int, text>, id: int, fallback: text) -> text
     const maybe: optional<text> = values.get(id)
     match maybe
         case value present ->
@@ -290,7 +290,7 @@ public func text_or(values: map<int, text>, id: int, fallback: text) -> text
     end
 end
 
-public func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
+func bool_or(values: map<int, bool>, id: int, fallback: bool) -> bool
     const maybe: optional<bool> = values.get(id)
     match maybe
         case value present ->

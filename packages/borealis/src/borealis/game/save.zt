@@ -1,12 +1,12 @@
 namespace borealis.game.save
 
-public var save_slots: map<int, text> = {}
-public var save_present: map<int, bool> = {}
-public var save_slot_fields: map<text, text> = {}
-public var save_slot_field_present: map<text, bool> = {}
-public var save_slot_field_counts: map<int, int> = {}
-public var save_slot_field_epoch: map<int, int> = {}
-public var save_slot_field_epoch_by_key: map<text, int> = {}
+var save_slots: map<int, text> = {}
+var save_present: map<int, bool> = {}
+var save_slot_fields: map<text, text> = {}
+var save_slot_field_present: map<text, bool> = {}
+var save_slot_field_counts: map<int, int> = {}
+var save_slot_field_epoch: map<int, int> = {}
+var save_slot_field_epoch_by_key: map<text, int> = {}
 
 public func slot_write(slot: int, snapshot: text) -> result<void, core.Error>
     if slot < 0

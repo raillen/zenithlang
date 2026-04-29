@@ -46,7 +46,7 @@
 | Advanced filesystem APIs (watch, permissions, symlinks) | Deferred | `std.fs` covers the Phase 4A sync API surface |
 | Networking and pipes | Deferred | `std.net` is next wave |
 | Calendar/date formatting APIs | Deferred | `std.time` currently covers instant, duration, Unix timestamps, elapsed time and sleep |
-| Advanced regex APIs (groups, captures, flags, replace, Unicode classes) | Deferred | `std.regex` currently covers `compile`, `is_match` and `find_all` for simple patterns |
+| Advanced regex APIs (groups, captures, flags, Unicode classes) | Deferred | `std.regex` currently covers validation, match, full match, first/count/find all, split, replace all and escape for simple patterns |
 | Public generic stream abstraction | Deferred | |
 | Async IO | Deferred | |
 | TLS | Deferred | |

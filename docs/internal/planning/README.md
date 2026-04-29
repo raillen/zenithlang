@@ -8,6 +8,7 @@ Este diretorio guarda planos de execucao.
 | --- | --- |
 | Roadmap unificado | `roadmap-v7.md` |
 | Checklist unificado | `checklist-v7.md` |
+| Roadmap LSP 1.0 | `lsp-1.0-roadmap.md` |
 
 Estes dois arquivos substituem todos os roadmaps e checklists anteriores
 (v1-v6, manual-memory, production-readiness, self-hosting,

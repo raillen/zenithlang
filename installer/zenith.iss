@@ -1,13 +1,17 @@
 ; Zenith installer (Inno Setup)
 ; Build with:
-;   iscc installer\zenith.iss /DMyAppVersion=0.3.0-alpha.3 /DSourceDir=C:\path\to\stage /DOutputDir=C:\path\to\dist\installer
+;   iscc installer\zenith.iss /DMyAppVersion=0.4.1-alpha.1 /DMyAppNumericVersion=0.4.1.1 /DSourceDir=C:\path\to\stage /DOutputDir=C:\path\to\dist\installer
 
 #ifndef MyAppName
   #define MyAppName "Zenith Language"
 #endif
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.3.0-alpha.3"
+  #define MyAppVersion "0.4.1-alpha.1"
+#endif
+
+#ifndef MyAppNumericVersion
+  #define MyAppNumericVersion "0.4.1.1"
 #endif
 
 #ifndef MyAppPublisher
@@ -61,6 +65,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\Zenith
 DefaultGroupName=Zenith
 DisableProgramGroupPage=yes
+AllowNoIcons=yes
 LicenseFile={#SourceDir}\LICENSE
 OutputDir={#OutputDir}
 OutputBaseFilename={#OutputBase}
@@ -73,12 +78,21 @@ PrivilegesRequired=admin
 ChangesEnvironment=yes
 SetupIconFile={#InstallerIconPath}
 UninstallDisplayIcon={app}\logo-only.ico
+AppVerName={#MyAppName} {#MyAppVersion}
+VersionInfoVersion={#MyAppNumericVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyAppName} installer
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppNumericVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "addtopath"; Description: "Add Zenith to system PATH"; Flags: checkedonce
+
+[Dirs]
+Name: "{app}"; Permissions: users-readexec
 
 [Files]
 Source: "{#SourceDir}\zt.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -92,6 +106,11 @@ Source: "{#SourceDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\Zenith README"; Filename: "{app}\README.md"
+Name: "{group}\Zenith changelog"; Filename: "{app}\CHANGELOG.md"
+Name: "{group}\Uninstall Zenith"; Filename: "{uninstallexe}"
 
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: string; ValueName: "ZENITH_HOME"; ValueData: "{app}"; Flags: uninsdeletevalue

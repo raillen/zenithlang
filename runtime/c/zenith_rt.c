@@ -3400,6 +3400,71 @@ static zt_bool zt_regex_search_from(
     return false;
 }
 
+static void zt_regex_append_bytes(
+        char **buffer,
+        size_t *length,
+        size_t *capacity,
+        const char *data,
+        size_t data_len) {
+    size_t required;
+
+    if (data_len == 0) {
+        return;
+    }
+
+    if (*length > SIZE_MAX - data_len) {
+        zt_runtime_error(ZT_ERR_PLATFORM, "regex output is too large");
+    }
+    required = *length + data_len;
+    if (required > *capacity) {
+        size_t next_capacity = *capacity == 0 ? 32 : *capacity;
+        char *next_buffer;
+
+        while (next_capacity < required) {
+            if (next_capacity > SIZE_MAX / 2) {
+                next_capacity = required;
+                break;
+            }
+            next_capacity *= 2;
+        }
+
+        next_buffer = (char *)realloc(*buffer, next_capacity);
+        if (next_buffer == NULL) {
+            zt_runtime_error(ZT_ERR_PLATFORM, "failed to allocate regex output");
+        }
+        *buffer = next_buffer;
+        *capacity = next_capacity;
+    }
+
+    memcpy(*buffer + *length, data, data_len);
+    *length = required;
+}
+
+static void zt_regex_append_char(
+        char **buffer,
+        size_t *length,
+        size_t *capacity,
+        char ch) {
+    zt_regex_append_bytes(buffer, length, capacity, &ch, 1);
+}
+
+static zt_bool zt_regex_escape_requires_backslash(char ch) {
+    switch (ch) {
+        case '.':
+        case '^':
+        case '$':
+        case '*':
+        case '+':
+        case '?':
+        case '[':
+        case ']':
+        case '\\':
+            return true;
+        default:
+            return false;
+    }
+}
+
 zt_outcome_void_core_error zt_regex_validate_core(const zt_text *pattern) {
     const char *message = NULL;
 
@@ -3422,6 +3487,70 @@ zt_bool zt_regex_is_match_core(const zt_text *pattern, const zt_text *input) {
         return false;
     }
     return zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, 0, &match_start, &match_end);
+}
+
+zt_bool zt_regex_full_match_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    size_t match_end = 0;
+
+    zt_runtime_require_text(pattern, "zt_regex_full_match_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_full_match_core requires input text");
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return false;
+    }
+    return (zt_bool)(zt_regex_match_from(pattern->data, pattern->len, input->data, input->len, 0, &match_end) &&
+        match_end == input->len);
+}
+
+zt_optional_text zt_regex_first_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    size_t match_start = 0;
+    size_t match_end = 0;
+    zt_text *match_text;
+    zt_optional_text result;
+
+    zt_runtime_require_text(pattern, "zt_regex_first_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_first_core requires input text");
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return zt_optional_text_empty();
+    }
+    if (!zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, 0, &match_start, &match_end)) {
+        return zt_optional_text_empty();
+    }
+
+    match_text = zt_text_from_utf8(input->data + match_start, match_end - match_start);
+    result = zt_optional_text_present(match_text);
+    zt_release(match_text);
+    return result;
+}
+
+zt_int zt_regex_count_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    size_t cursor = 0;
+    zt_int count = 0;
+
+    zt_runtime_require_text(pattern, "zt_regex_count_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_count_core requires input text");
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return 0;
+    }
+
+    while (cursor <= input->len) {
+        size_t match_start = 0;
+        size_t match_end = 0;
+
+        if (!zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, cursor, &match_start, &match_end)) {
+            break;
+        }
+        if (match_end <= match_start) {
+            cursor = match_start + 1;
+            continue;
+        }
+        count += 1;
+        cursor = match_end;
+    }
+
+    return count;
 }
 
 zt_list_text *zt_regex_find_all_core(const zt_text *pattern, const zt_text *input) {
@@ -3456,6 +3585,121 @@ zt_list_text *zt_regex_find_all_core(const zt_text *pattern, const zt_text *inpu
     }
 
     return matches;
+}
+
+zt_list_text *zt_regex_split_core(const zt_text *pattern, const zt_text *input) {
+    const char *message = NULL;
+    zt_list_text *parts;
+    size_t cursor = 0;
+    size_t segment_start = 0;
+
+    zt_runtime_require_text(pattern, "zt_regex_split_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_split_core requires input text");
+
+    parts = zt_list_text_new();
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        zt_text *whole = zt_text_from_utf8(input->data, input->len);
+        zt_list_text_push(parts, whole);
+        zt_release(whole);
+        return parts;
+    }
+
+    while (cursor <= input->len) {
+        size_t match_start = 0;
+        size_t match_end = 0;
+        zt_text *part;
+
+        if (!zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, cursor, &match_start, &match_end)) {
+            break;
+        }
+        if (match_end <= match_start) {
+            cursor = match_start + 1;
+            continue;
+        }
+
+        part = zt_text_from_utf8(input->data + segment_start, match_start - segment_start);
+        zt_list_text_push(parts, part);
+        zt_release(part);
+
+        cursor = match_end;
+        segment_start = match_end;
+    }
+
+    {
+        zt_text *tail = zt_text_from_utf8(input->data + segment_start, input->len - segment_start);
+        zt_list_text_push(parts, tail);
+        zt_release(tail);
+    }
+
+    return parts;
+}
+
+zt_text *zt_regex_replace_all_core(const zt_text *pattern, const zt_text *input, const zt_text *replacement) {
+    const char *message = NULL;
+    char *buffer = NULL;
+    size_t length = 0;
+    size_t capacity = 0;
+    size_t cursor = 0;
+    size_t segment_start = 0;
+    zt_text *result;
+
+    zt_runtime_require_text(pattern, "zt_regex_replace_all_core requires pattern text");
+    zt_runtime_require_text(input, "zt_regex_replace_all_core requires input text");
+    zt_runtime_require_text(replacement, "zt_regex_replace_all_core requires replacement text");
+    if (!zt_regex_validate_pattern_data(pattern->data, pattern->len, &message)) {
+        return zt_text_from_utf8(input->data, input->len);
+    }
+
+    while (cursor <= input->len) {
+        size_t match_start = 0;
+        size_t match_end = 0;
+
+        if (!zt_regex_search_from(pattern->data, pattern->len, input->data, input->len, cursor, &match_start, &match_end)) {
+            break;
+        }
+        if (match_end <= match_start) {
+            if (cursor < input->len) {
+                zt_regex_append_bytes(&buffer, &length, &capacity, input->data + cursor, 1);
+                cursor += 1;
+                segment_start = cursor;
+                continue;
+            }
+            break;
+        }
+
+        zt_regex_append_bytes(&buffer, &length, &capacity, input->data + segment_start, match_start - segment_start);
+        zt_regex_append_bytes(&buffer, &length, &capacity, replacement->data, replacement->len);
+
+        cursor = match_end;
+        segment_start = match_end;
+    }
+
+    zt_regex_append_bytes(&buffer, &length, &capacity, input->data + segment_start, input->len - segment_start);
+    result = zt_text_from_utf8(buffer, length);
+    free(buffer);
+    return result;
+}
+
+zt_text *zt_regex_escape_core(const zt_text *input) {
+    char *buffer = NULL;
+    size_t length = 0;
+    size_t capacity = 0;
+    size_t index;
+    zt_text *result;
+
+    zt_runtime_require_text(input, "zt_regex_escape_core requires input text");
+
+    for (index = 0; index < input->len; index += 1) {
+        char ch = input->data[index];
+        if (zt_regex_escape_requires_backslash(ch)) {
+            zt_regex_append_char(&buffer, &length, &capacity, '\\');
+        }
+        zt_regex_append_char(&buffer, &length, &capacity, ch);
+    }
+
+    result = zt_text_from_utf8(buffer, length);
+    free(buffer);
+    return result;
 }
 
 zt_bytes *zt_bytes_empty(void) {

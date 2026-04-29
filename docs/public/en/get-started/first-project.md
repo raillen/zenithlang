@@ -38,8 +38,8 @@ examples/hello/
 ```zt
 namespace app.main
 
-public func main() -> int
-    return 0
+func main()
+    print("Hello from Zenith")
 end
 ```
 
